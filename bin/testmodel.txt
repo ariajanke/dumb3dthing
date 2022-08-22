@@ -1,0 +1,24 @@
+# should just be a wall... all knowns
+units # verticies, texture
+	8 3
+end
+verticies
+	0, 8, 4 | 0, 2
+	8, 8, 4 | 1, 2
+	8, 0, 4 | 1, 3
+	0, 0, 4 | 0, 3
+
+	4, 8, 2
+	4, 0, 2
+end
+elements
+	0 1 2
+	0 2 3
+end
+texture
+	ground.png
+end
+yrotation
+	0
+end
+	
