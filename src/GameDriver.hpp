@@ -42,7 +42,7 @@ enum class KeyControl {
     restart
 };
 
-class GameDriver {
+class GameDriver { // <- need to remove this
 public:
     static UniquePtr<GameDriver> make_model_viewer(const char * filename);
 
@@ -60,7 +60,7 @@ public:
 
 // each driver type may have their own builtin systems
 // there's another difficult part in this... things like the p and p driver
-class DriverN {
+class DriverN { // <- following previous... rename this
 public:
     static UniquePtr<DriverN> make_instance();
 

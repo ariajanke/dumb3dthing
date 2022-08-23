@@ -29,9 +29,6 @@
 
 #include <variant>
 
-// Entities seem like a good solution for rendering, it solves the "forest of
-// trees" problem very easily
-
 using cul::ConstSubGrid;
 
 struct AppearanceId {
@@ -79,32 +76,19 @@ using Cell = Variant<VoidSpace, Pit, Slopes, Flat>;
 
 using CellSubGrid = ConstSubGrid<Cell>;
 
-
-// In terms of maintenance?
-// I can imagine many things not even returning triangles for physics, some
-// cases where there are many per tile
-//
-// But always a grid form... so I can least be sure about neighboring/limiting
-// attachment search(?)
-
 class TileGraphicGenerator {
 public:
     using WallDips = std::array<float, 4>;
     using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
     using EntityVec = std::vector<Entity>;
-    // ...
-    virtual ~TileGraphicGenerator() {}
 
-    virtual void create_slope
-        (EntityVec &, TriangleVec &, Vector2I, const Slopes &) = 0;
-    // each flat is accompanied by each wall dips down from that flat
-    // so with that in mind, I need to know which sides dip down (if any)
-    virtual void create_flat
-        (EntityVec &, TriangleVec &, Vector2I, const Flat &, const WallDips &) = 0;
+    TileGraphicGenerator(EntityVec &, TriangleVec &, Platform::ForLoaders &);
 
-    static UniquePtr<TileGraphicGenerator> make_builtin(Platform::ForLoaders &);
+    void setup();
 
-    static UniquePtr<TileGraphicGenerator> make_no_graphics();
+    void create_slope(Vector2I, const Slopes &);
+
+    void create_flat(Vector2I, const Flat &, const WallDips &);
 
     // Can't think of a method fast than O(n^2), though n is always 4 in this
     // case
@@ -112,6 +96,45 @@ public:
     static Real rotation_between(const Slopes & rhs, const Slopes & lhs);
 
     static Slopes sub_minimum_value(const Slopes &);
+
+    std::size_t triangle_count() const noexcept
+        { return m_triangles_out.size(); }
+
+    cul::View<TriangleVec::iterator> triangles_view()
+        { return cul::View{ m_triangles_out.begin(), m_triangles_out.end() }; }
+
+    std::vector<Entity> give_entities()
+        { return std::move(m_entities_out); }
+
+private:
+    struct SlopesHasher final {
+        std::size_t operator () (const Slopes & slopes) const noexcept {
+            std::hash<float> hf{};
+            return hf(slopes.ne) ^ hf(slopes.nw) ^ hf(slopes.se) ^ hf(slopes.sw) ^ std::hash<int>{}(slopes.id);
+        }
+    };
+
+    struct SlopesEquality final {
+        bool operator () (const Slopes & rhs, const Slopes & lhs) const {
+            return cul::is_real(TileGraphicGenerator::rotation_between(rhs, lhs));
+        }
+    };
+
+    SharedPtr<Texture> & ensure_texture(SharedPtr<Texture> &, const char * filename);
+
+    Tuple<Slopes, SharedPtr<RenderModel>,
+          SharedPtr<TriangleSegment>, SharedPtr<TriangleSegment>>
+        get_slope_model_(const Slopes & slopes, const Vector & translation);
+
+    EntityVec & m_entities_out;
+    TriangleVec & m_triangles_out;
+    Platform::ForLoaders & m_platform;
+
+    SharedPtr<Texture> m_ground_texture, m_tileset4;
+
+    // these things are unable to destruct themselves before the library closes!
+    SharedPtr<RenderModel> m_flat_model, m_wall_model;
+    std::unordered_map<Slopes, SharedPtr<RenderModel>, SlopesHasher, SlopesEquality> m_slopes_map;
 };
 
 class CharToCell {

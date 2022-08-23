@@ -37,12 +37,6 @@ struct RenderModelData {
 
 class RenderModel {
 public:
-#   if 0
-    [[deprecated]] static std::shared_ptr<RenderModel> make_opengl_instance();
-
-    // used in testing
-    [[deprecated]] static std::shared_ptr<RenderModel> make_null_instance();
-#   endif
     virtual ~RenderModel() {}
 
     void load(const RenderModelData &);

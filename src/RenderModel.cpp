@@ -16,19 +16,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-*******************************************************************************
-
-    This is a derivative work of Joey de Vries' OpenGL tutorials.
-
-    By https://learnopengl.com/#!About, the original works is copyrighted
-    by Joey de Vries and is released unde the CC-BY-4.0 international license.
-
-    A human readable version is available here:
-    https://creativecommons.org/licenses/by/4.0/
-
-    Full license text is available here:
-    https://creativecommons.org/licenses/by/4.0/legalcode
-
 *****************************************************************************/
 
 #include "RenderModel.hpp"

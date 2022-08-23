@@ -149,55 +149,7 @@ struct DragCamera final {
 
 inline bool is_visible(ecs::Optional<VisibilityChain> & vis)
     { return vis ? vis->visible : true; }
-#if 0
-void run_default_rendering_systems(const Scene & scene, ShaderProgram & shader) {
-    shader.set_float("tex_alpha", 1.f);
-    shader.set_vec2("tex_offset", glm::vec2{0.f, 0.f});
 
-    // model matrix... maybe this also should be a component, though that
-    // introduces a nasty dependancy
-    ecs::make_singles_system<Entity>([] (glm::mat4 & model, Translation & trans_) {
-        model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(trans_.value));
-    }, [] (glm::mat4 & model, YRotation & rot_) {
-        // was called "z" rotation...
-        model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_up));
-    },
-#   if 0
-    [](point_and_plane::State & state, glm::mat4 & model) {
-        auto on_surface = std::get_if<point_and_plane::OnSurface>(&state);
-        if (!on_surface) return;
-        auto norm = on_surface->segment->normal();
-        if (are_very_close(norm - k_up, Vector{})) {
-            // directly oppose each other, axis not servicable
-            // I need a vector orthogonal to up
-            Vector axis;
-            for (auto v : {Vector{1, 1, 1}, Vector{-1, 1, 1}, Vector{-1, -1, 1}}) {
-                axis = normalize(cul::project_onto_plane(v, k_up));
-                if (are_very_close(cul::dot(axis, k_up), 0)) break;
-            }
-            assert(are_very_close(cul::dot(axis, k_up), 0));
-            model = glm::rotate(model, float(k_pi), convert_to<glm::vec3>(axis));
-            return;
-        }
-
-        auto angle = angle_between(norm, k_up);
-        auto crp = cross(norm, k_up);
-        if (are_very_close(crp, Vector{})) return;
-        model = glm::rotate(model, float(angle), convert_to<glm::vec3>(normalize(crp)));
-    },
-#   endif
-    [] (Opt<VisibilityChain> vis, std::shared_ptr<Texture> & texture) {
-        if (!is_visible(vis)) return;
-        texture->bind_texture();
-    }, [&shader] (Opt<TextureTranslation> translation) {
-        shader.set_vec2("tex_offset", convert_to<glm::vec2>(translation ? translation->value : Vector2{}));
-    }, [&shader] (Opt<VisibilityChain> vis, glm::mat4 & model, RenderModelPtr mod_) {
-        if (!is_visible(vis)) return;
-        shader.set_mat4("model", model);
-        mod_->render();
-    })(scene);
-}
-#endif
 } // end of <anonymous> namespace
 
 /* static */ std::unique_ptr<GameDriver> GameDriver::make_model_viewer(const char * filename)
@@ -812,8 +764,12 @@ void GameDriverCompleteN::release_key(KeyControl ky) {
 Loader::LoaderTuple GameDriverCompleteN::initial_load
     (Platform::ForLoaders & callbacks)
 {
-    auto tgg_ptr = TileGraphicGenerator::make_builtin(callbacks);
-    auto [tlinks, ents] = load_map_graphics(*tgg_ptr, load_map_cell(k_layout4, CharToCell::default_instance())); {}
+    std::vector<Entity> entities;
+    std::vector<SharedPtr<TriangleSegment>> triangles;
+
+    auto tgg_ptr = TileGraphicGenerator{entities, triangles, callbacks};
+    tgg_ptr.setup();
+    auto [tlinks, ents] = load_map_graphics(tgg_ptr, load_map_cell(k_layout4, CharToCell::default_instance())); {}
     auto [renderable, physical] = make_sample_player(callbacks); {}
     callbacks.set_camera_entity(EntityRef{physical});
 
