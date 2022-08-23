@@ -35,14 +35,46 @@
 
 *****************************************************************************/
 
-#include "Texture.hpp"
+#pragma once
 
-#include <common/Util.hpp>
+#include "../../Texture.hpp"
 
-void Texture::load_from_file(const char * filename) {
-    using namespace cul::exceptions_abbr;
-    if (!load_from_file_no_throw(filename)) {
-        throw RtError{  std::string{"Texture::load_from_file: Failed to load texture \""}
-                      + filename + "\""};
-    }
-}
+class OpenGlTexture final : public Texture {
+public:
+    OpenGlTexture();
+
+    OpenGlTexture(const OpenGlTexture &);
+
+    OpenGlTexture(OpenGlTexture &&);
+
+    ~OpenGlTexture() final;
+
+    OpenGlTexture & operator = (const OpenGlTexture &);
+
+    OpenGlTexture & operator = (OpenGlTexture &&);
+
+    bool load_from_file_no_throw(const char *) noexcept final;
+
+    void load_from_memory(int width_, int height_, const void * rgba_pixels) final;
+
+    int width () const final { return m_width ; }
+
+    int height() const final { return m_height; }
+
+    void bind_texture(/* there is a rendering context in WebGL */) const final;
+
+    void swap(OpenGlTexture &);
+
+private:
+    unsigned size_in_bytes() const;
+
+    void generate_texture_and_bind_image_data();
+
+    static unsigned char * copy_pixels(const OpenGlTexture &);
+
+    unsigned char * m_pixel_data;
+    int m_width, m_height;
+    int m_channel_count;
+    unsigned m_texture_id;
+    bool m_has_texture_id;
+};

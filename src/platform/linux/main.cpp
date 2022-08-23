@@ -18,38 +18,24 @@
 
 *****************************************************************************/
 
-#include "Defs.hpp"
-#include "RenderModel.hpp"
-#include "Texture.hpp"
+#include "../../Defs.hpp"
+#include "../../GameDriver.hpp"
+#include "../../PointAndPlaneDriver.hpp"
+#include "../../map-loader.hpp"
+
+#include "RenderModelImpl.hpp"
+#include "TextureImpl.hpp"
 #include "ShaderProgram.hpp"
-#include "GameDriver.hpp"
 #include "GlmVectorTraits.hpp"
+#include "GlmDefs.hpp"
 
-#include "PointAndPlaneDriver.hpp"
-#include "map-loader.hpp"
-
-#include <ariajanke/ecs3/AvlTreeEntity.hpp>
-#include <ariajanke/ecs3/SingleSystem.hpp>
-
-#include <common/Vector2.hpp>
-#include <common/SubGrid.hpp>
-#include <common/Grid.hpp>
-
-#include <variant>
-#include <tuple>
-#include <memory>
 #include <iostream>
-#include <map>
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/gtc/matrix_transform.hpp>
 
+#include <GLFW/glfw3.h>
 
 #include <cassert>
-
-template <typename ... Types>
-using Tuple = std::tuple<Types...>;
 
 // Mapping, by tiles: slopes, flats, pits, voids
 // slopes: different values for elavation, however no walls
@@ -216,17 +202,14 @@ public:
         return e;
     }
 
-    SharedPtr<Texture> make_texture() const final {
-        return Texture::make_opengl_instance();
-    }
+    SharedPtr<Texture> make_texture() const final
+        { return std::make_shared<OpenGlTexture>(); }
 
-    SharedPtr<RenderModel> make_render_model() const final {
-        return RenderModel::make_opengl_instance();
-    }
+    SharedPtr<RenderModel> make_render_model() const final
+        { return std::make_shared<OpenGlRenderModel>(); }
 
-    void set_camera_entity(EntityRef eref) final {
-        m_camera_ent = eref;
-    }
+    void set_camera_entity(EntityRef eref) final
+        { m_camera_ent = eref; }
 
     glm::mat4 get_view() const {
         if (Entity e{m_camera_ent}) {
@@ -341,128 +324,7 @@ int main() {
 
     return 0;
 }
-#if 0
-int main() {
-    point_and_plane::TriangleLinks::run_tests();
-    run_map_loader_tests();
-    TriangleSegment::run_tests();
 
-    // glfw: initialize and configure
-    // ------------------------------
-    GlfwLibraryRAII glfw_raii; (void)glfw_raii;
-    auto gamedriver = GameDriver::make_instance();// ::make_model_viewer("testmodel.txt");
-    EventProcessor events{*gamedriver};
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-#   ifdef __APPLE__
-    // uncomment this statement to fix compilation on OS X
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#   endif
-
-    // glfw window creation
-    // --------------------
-    GlfwWindowPtr window {
-        glfwCreateWindow(k_window_width, k_window_height,
-                         k_window_title, nullptr, nullptr)
-    };
-
-    if (!window) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
-        return -1;
-    }
-    glfwMakeContextCurrent(&*window);
-    glfwSetFramebufferSizeCallback(&*window, framebuffer_size_callback);
-
-    glfwSetWindowUserPointer(&*window, &events);
-
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
-    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        return -1;
-    }
-
-    ShaderProgram shader = load_default_shader();
-    gamedriver->setup();
-
-    {
-    GLenum err;
-    while((err = glGetError()) != GL_NO_ERROR) {
-        std::cout << "GL error: " << err << std::endl;
-    }
-    }
-
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthFunc(GL_LESS);
-
-    glfwSetTime(0.);
-    while (!glfwWindowShouldClose(&*window)) {
-        process_input(&*window);
-        {
-        double x = 0, y = 0;
-        glfwGetCursorPos(&*window, &x, &y);
-#       if 0
-        std::cout << x << ", " << y << std::endl;
-#       endif
-        }
-#       if 0
-        {
-            Event e;
-            e.player_direction   = player_control.direction();
-            e.rotation_direction = player_control.rotation ();
-            gs.process_event(e);
-        }
-#       endif
-        gamedriver->update(1. / 60.);// glfwGetTime());
-        glfwSetTime(0.);
-
-        // render
-        // ------
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glad_glGetError();
-
-        int window_width, window_height;
-        glfwGetWindowSize(&*window, &window_width, &window_height);
-
-        // my attempt to draw my own object
-        // create transformations
-        glm::mat4 model = identity_matrix<glm::mat4>();
-        glm::mat4 view = identity_matrix<glm::mat4>();
-#       if 0
-        view  = glm::translate(view, glm::vec3(0.0f, 0.0f, -1.0f));
-#       endif
-        glm::mat4 projection = glm::perspective(
-            glm::radians(45.0f), float(window_width) / float(window_height),
-            0.001f, 100.0f);
-
-        auto cam = gamedriver->camera();
-        view = glm::lookAt(convert_to<glm::vec3>(cam.position),
-                           convert_to<glm::vec3>(cam.target),
-                           convert_to<glm::vec3>(cam.up));
-
-        shader.use();
-        // retrieve the matrix uniform locations
-        shader.set_mat4("model", model);
-        shader.set_mat4("view" , view );
-        shader.set_mat4("projection", projection);
-        gamedriver->render(shader);
-        // there's a lot of shader specific things that happens
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
-
-        glfwSwapBuffers(&*window);
-        glfwPollEvents();
-    }
-
-    return 0;
-}
-#endif
 namespace {
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly

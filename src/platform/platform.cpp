@@ -23,6 +23,42 @@
 #include "../Texture.hpp"
 #include "../RenderModel.hpp"
 
+namespace {
+
+using std::make_shared;
+
+class NullRenderModel final : public RenderModel {
+public:
+    void render() const final {}
+
+    bool is_loaded() const noexcept final { return m_loaded; }
+
+private:
+    void load_(const Vertex *, const Vertex *,
+               const unsigned *, const unsigned *) final
+    { m_loaded = true; }
+
+    bool m_loaded = false;
+};
+
+class NullTexture final : public Texture {
+public:
+    ~NullTexture() final {}
+
+private:
+    bool load_from_file_no_throw(const char *) noexcept { return true; }
+
+    void load_from_memory(int, int, const void *) final {}
+
+    int width() const final { return 0; }
+
+    int height() const final { return 0; }
+
+    void bind_texture(/* there is a rendering context in WebGL */) const final {}
+};
+
+} // end of <anonymous> namespace
+
 Platform::Callbacks & Platform::null_callbacks() {
     class Impl final : public Callbacks {
         void render_scene(const Scene &) final {}
@@ -31,10 +67,10 @@ Platform::Callbacks & Platform::null_callbacks() {
             { return Entity::make_sceneless_entity(); }
 
         SharedPtr<Texture> make_texture() const final
-            { return Texture::make_null_instance(); }
+            { return make_shared<NullTexture>(); }
 
         SharedPtr<RenderModel> make_render_model() const final
-            { return RenderModel::make_null_instance(); }
+            { return make_shared<NullRenderModel>(); }
 
         void set_camera_entity(EntityRef) {}
     };

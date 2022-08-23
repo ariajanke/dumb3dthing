@@ -33,54 +33,37 @@
 
 #pragma once
 
-#include <glm/matrix.hpp>
+#include "../../RenderModel.hpp"
 
-class ShaderProgram {
+class OpenGlRenderModel final : public RenderModel {
 public:
-    static constexpr const unsigned k_no_program = 0;
+    OpenGlRenderModel() {}
 
-    ShaderProgram() {}
+    OpenGlRenderModel(const OpenGlRenderModel &) = delete;
 
-    ShaderProgram(const ShaderProgram &) = delete;
+    OpenGlRenderModel(OpenGlRenderModel &&);
 
-    ShaderProgram(ShaderProgram &&);
+    OpenGlRenderModel & operator = (const OpenGlRenderModel &) = delete;
 
-    ~ShaderProgram();
+    OpenGlRenderModel & operator = (OpenGlRenderModel &&);
 
-    ShaderProgram & operator = (const ShaderProgram &) = delete;
+    ~OpenGlRenderModel();
 
-    ShaderProgram & operator = (ShaderProgram &&);
+    // no transformations -> needs to be done seperately
+    void render() const final;
 
-    void load_from_source(const char * vertex_shader_source,
-                          const char * fragment_shader_source);
+    void swap(OpenGlRenderModel &&);
 
-    void load_from_files(const char * vertex_shader_file,
-                         const char * fragment_shader_file);
-
-    void set_bool   (const char * name, bool ) const;
-
-    void set_integer(const char * name, int  ) const;
-
-    void set_float  (const char * name, float) const;
-
-    void set_mat4   (const char * name, const glm::mat4 &) const;
-
-    void set_vec2   (const char * name, const glm::vec2 &) const;
-
-    void swap(ShaderProgram &&);
-
-    void use();
+    explicit operator bool () const noexcept
+        { return m_values_initialized; }
 
 private:
-    unsigned m_program_handle = k_no_program;
+    void load_(const Vertex   * vertex_beg  , const Vertex   * vertex_end,
+               const unsigned * elements_beg, const unsigned * elements_end) final;
+
+    bool is_loaded() const noexcept final
+        { return m_values_initialized; }
+
+    unsigned m_vbo, m_vao, m_ebo, m_index_count;
+    bool m_values_initialized = false;
 };
-
-namespace default_shader_positions {
-
-constexpr const unsigned k_pos_attribute     = 0;
-constexpr const unsigned k_color_attribute   = 1;
-constexpr const unsigned k_texture_attribute = 2;
-
-} // end of default_shader_positions namespace
-
-ShaderProgram load_default_shader();

@@ -22,8 +22,6 @@
 #include "RenderModel.hpp"
 #include "map-loader.hpp"
 #include "Texture.hpp"
-#include "ShaderProgram.hpp"
-#include "GlmVectorTraits.hpp"
 
 #include <common/TestSuite.hpp>
 #include <common/StringUtil.hpp>
@@ -317,8 +315,8 @@ Velocity get_new_velocity
      const Vector & willed_dir, Real seconds)
 {
     constexpr const Real k_max_willed_speed = 5;
-    constexpr const Real k_max_acc = 5; // u/s^2
-    constexpr const Real k_min_acc = 1;
+    constexpr const Real k_max_acc = 10; // u/s^2
+    constexpr const Real k_min_acc = 2;
     constexpr const Real k_unwilled_acc = 3;
     assert(   are_very_close(magnitude(willed_dir), 1)
            || are_very_close(magnitude(willed_dir), 0));
@@ -371,7 +369,8 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 //  :eyes:
     make_bezier_strip_model
     (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     std::shared_ptr<Texture> texture, int resolution,
+     Platform::Callbacks & callbacks,
+     SharedPtr<Texture> texture, int resolution,
      Vector2 texture_offset, Real texture_scale)
 {
     std::vector<Vertex> verticies;
@@ -388,16 +387,14 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
         elements.emplace_back(el++);
         elements.emplace_back(el++);
     }
-    auto mod = RenderModel::make_opengl_instance();
+    auto mod = callbacks.make_render_model();
     mod->load<int>(verticies, elements);
 
-    auto ent = Entity::make_sceneless_entity();
+    auto ent = callbacks.make_renderable_entity();
     ent.add<
-        SharedCPtr<RenderModel>, SharedPtr<Texture>,
-        glm::mat4, VisibilityChain
+        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain
     >() = std::make_tuple(
-        std::move(mod), texture,
-        identity_matrix<glm::mat4>(), VisibilityChain{}
+        std::move(mod), texture, VisibilityChain{}
     );
     return ent;
 }
@@ -405,7 +402,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 template <typename T>
 Entity make_bezier_yring_model();
 
-Entity make_sample_bezier_model(std::shared_ptr<Texture> texture, int resolution) {
+Entity make_sample_bezier_model(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
     static constexpr const auto k_hump_side = std::make_tuple(
         Vector{ -.5, 0,  1},
         Vector{ -.5, 0,  1} + Vector{-0.5, 1, 0.5},
@@ -422,12 +419,13 @@ Entity make_sample_bezier_model(std::shared_ptr<Texture> texture, int resolution
     constexpr const Vector2 k_offset{5./16, 1./16};
     constexpr const Real k_scale = 1. / 16;
 
-    Entity rv = make_bezier_strip_model(k_hump_side, k_low_side, texture, resolution, k_offset, k_scale);
+    // very airy
+    Entity rv = make_bezier_strip_model(k_hump_side, k_low_side, callbacks, texture, resolution, k_offset, k_scale);
     rv.add<Translation>() = Vector{ 4, 0, -3 };
     return rv;
 }
 
-Entity make_sample_loop(std::shared_ptr<Texture> texture, int resolution) {
+Entity make_sample_loop(Platform::Callbacks & callbacks, std::shared_ptr<Texture> texture, int resolution) {
 
     static constexpr const Real k_y = 10;
 
@@ -444,7 +442,7 @@ Entity make_sample_loop(std::shared_ptr<Texture> texture, int resolution) {
         Vector{1, 0, 0});
     constexpr const Vector2 k_offset{5./16, 1./16};
     constexpr const Real k_scale = 1. / 16;
-    auto rv = make_bezier_strip_model(k_neg_side, k_pos_side, texture, resolution, k_offset, k_scale);
+    auto rv = make_bezier_strip_model(k_neg_side, k_pos_side, callbacks, texture, resolution, k_offset, k_scale);
     rv.add<Translation, YRotation>() = std::make_tuple(Vector{4, 0, 0}, k_pi*0.5);
     return rv;
 }
@@ -503,14 +501,14 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
         4, 6, 7, /**/ 4, 5, 6  // bottom faces
     };
 
-    auto model = RenderModel::make_opengl_instance();
+    auto model = callbacks.make_render_model();
     model->load(&verticies.front(), &verticies.front() + verticies.size(),
                 &elements .front(), &elements .front() + elements.size());
 
     auto physics_ent = Entity::make_sceneless_entity();
     auto model_ent   = callbacks.make_renderable_entity();
 #   if 1
-    auto tx = Texture::make_opengl_instance();
+    auto tx = callbacks.make_texture();
     tx->load_from_file("ground.png");
     model_ent.add<
         SharedCPtr<Texture>, SharedCPtr<RenderModel>, Translation,
@@ -576,7 +574,7 @@ void ModelViewer::setup() {
     update_model();
 }
 
-void ModelViewer::render(ShaderProgram & shader) const {
+void ModelViewer::render(ShaderProgram &) const {
 #   if 0
     run_default_rendering_systems(m_scene, shader);
 #   endif
@@ -606,7 +604,7 @@ Camera ModelViewer::camera() const {
     m_filecontents = newcontents;
     try {
         auto e = load_model_from_string(newcontents);
-        e.add<glm::mat4>();
+        // e.add<glm::mat4>();
         m_scene.clear();
         m_scene.add_entity(e);
         m_scene.update_entities();
@@ -718,10 +716,11 @@ Camera ModelViewer::camera() const {
                 { return k_modeselection; }
             // filename, that's it!
             // maybe we can use a map for textures too? :3?
+#           if 0
             auto tx = Texture::make_opengl_instance();
             tx->load_from_file(std::string{beg, end}.c_str());
             e.add<SharedCPtr<Texture>>() = tx;
-
+#           endif
             return std::string{};
         }),
         make_pair("yrotation", [](Entity & e, StrItr beg, StrItr end) {
@@ -787,10 +786,11 @@ Camera ModelViewer::camera() const {
     // do texture position deduction,
     e.get<Verticies>().values = deduce_texture_positions(e.get<Verticies>().values, e.get<Elements>().values);
     // then load a render model
+#   if 0
     auto model_ptr = RenderModel::make_opengl_instance();
     model_ptr->load<int>(e.get<Verticies>().values, e.get<Elements>().values);
     e.add<SharedCPtr<RenderModel>>() = model_ptr;
-
+#   endif
     return e;
 }
 
@@ -986,14 +986,7 @@ void GameDriverCompleteN::update_(Real seconds) {
     m_time_controller.frame_update();
 
 }
-#if 0
-/* private */ BuiltinMapLoader::PlayerEntities
-    GameDriverCompleteN::InitLoader::make_player() const
-{
-    auto [ren, phys] = make_sample_player();
-    return PlayerEntities{phys, ren};
-}
-#endif
+
 // ----------------------------------------------------------------------------
 
 // I need elements to figure out how verticies are linked...

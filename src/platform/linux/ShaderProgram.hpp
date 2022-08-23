@@ -29,20 +29,58 @@
     Full license text is available here:
     https://creativecommons.org/licenses/by/4.0/legalcode
 
-    Since mutliple tutorials were used in the creation of this source file:
-    Getting started -> Textures
-    https://learnopengl.com/#!Getting-started/Textures
-
 *****************************************************************************/
 
-#include "Texture.hpp"
+#pragma once
 
-#include <common/Util.hpp>
+#include <glm/matrix.hpp>
 
-void Texture::load_from_file(const char * filename) {
-    using namespace cul::exceptions_abbr;
-    if (!load_from_file_no_throw(filename)) {
-        throw RtError{  std::string{"Texture::load_from_file: Failed to load texture \""}
-                      + filename + "\""};
-    }
-}
+class ShaderProgram {
+public:
+    static constexpr const unsigned k_no_program = 0;
+
+    ShaderProgram() {}
+
+    ShaderProgram(const ShaderProgram &) = delete;
+
+    ShaderProgram(ShaderProgram &&);
+
+    ~ShaderProgram();
+
+    ShaderProgram & operator = (const ShaderProgram &) = delete;
+
+    ShaderProgram & operator = (ShaderProgram &&);
+
+    void load_from_source(const char * vertex_shader_source,
+                          const char * fragment_shader_source);
+
+    void load_from_files(const char * vertex_shader_file,
+                         const char * fragment_shader_file);
+
+    void set_bool(const char * name, bool ) const;
+
+    void set_integer(const char * name, int  ) const;
+
+    void set_float(const char * name, float) const;
+
+    void set_mat4(const char * name, const glm::mat4 &) const;
+
+    void set_vec2(const char * name, const glm::vec2 &) const;
+
+    void swap(ShaderProgram &&);
+
+    void use();
+
+private:
+    unsigned m_program_handle = k_no_program;
+};
+
+namespace default_shader_positions {
+
+constexpr const unsigned k_pos_attribute     = 0;
+constexpr const unsigned k_color_attribute   = 1;
+constexpr const unsigned k_texture_attribute = 2;
+
+} // end of default_shader_positions namespace
+
+ShaderProgram load_default_shader();

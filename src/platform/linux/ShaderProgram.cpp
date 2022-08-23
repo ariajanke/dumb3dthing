@@ -108,7 +108,7 @@ void ShaderProgram::load_from_source
     if (!success) {
         InfoLog info_log;
         glGetProgramInfoLog(shader_program, info_log.size(), nullptr, info_log.data());
-        throw RtError(std::string("Failed to link shader program:\n") + info_log.data());
+        throw RtError{std::string{"Failed to link shader program:\n"} + info_log.data()};
     }
 
     m_program_handle = shader_program;
@@ -189,14 +189,13 @@ void ScopedShader::compile_fragment(const char * source_code) {
     glShaderSource(m_shad_handle, 1, &source_code, nullptr);
     glCompileShader(m_shad_handle);
 
-    using Error = std::runtime_error;
     int success;
     glGetShaderiv(m_shad_handle, GL_COMPILE_STATUS, &success);
     if (!success) {
         InfoLog info_log;
         glGetShaderInfoLog(m_shad_handle, info_log.size(), nullptr, info_log.data());
-        throw Error("Failed to compile " + std::string(shader_type)
-                    + " shader:\n" + info_log.data());
+        throw RtError{  "Failed to compile " + std::string{shader_type}
+                      + " shader:\n" + info_log.data()};
     }
 }
 

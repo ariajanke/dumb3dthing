@@ -42,6 +42,7 @@
 #include <SFML/System/Vector3.hpp>
 
 // wipe glm stuff...
+#if 0
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtx/rotate_vector.hpp>
@@ -51,6 +52,7 @@
 #include <glm/geometric.hpp>
 
 #include <glm/gtx/projection.hpp>
+#endif
 
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
 #include <ariajanke/ecs3/Scene.hpp>
@@ -72,11 +74,12 @@ using Real      = double;
 using Vector    = cul::Vector3<double>;
 using Vector2   = cul::Vector2<double>;
 using Vector2I  = cul::Vector2<int>;
+#if 0
 using Matrix4x4 = glm::mat<4, 4, Real, glm::highp>;
 
 template <typename T>
 T identity_matrix();
-
+#endif
 using cul::normalize;
 using cul::magnitude;
 using cul::angle_between;
@@ -101,7 +104,7 @@ using UniquePtr = std::unique_ptr<T, Del>;
 
 template <typename ... Types>
 using Variant = std::variant<Types...>;
-
+#if 0
 // do I really want matricies here?
 template <>
 inline Matrix4x4 identity_matrix() {
@@ -116,11 +119,13 @@ inline Matrix4x4 identity_matrix() {
 template <>
 inline glm::mat4 identity_matrix()
     { return glm::mat4(identity_matrix<Matrix4x4>()); }
-
+#endif
+#if 0
 inline void * pointer_offset(unsigned x) {
     unsigned char * origin = nullptr;
     return origin + x;
 }
+#endif
 
 class TriangleSegment;
 
