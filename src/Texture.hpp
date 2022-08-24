@@ -20,8 +20,6 @@
 
 #pragma once
 
-#include <memory>
-
 class Texture {
 public:
     virtual ~Texture() {}

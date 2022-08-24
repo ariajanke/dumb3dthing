@@ -20,7 +20,6 @@
 
 #include "../../Defs.hpp"
 #include "../../GameDriver.hpp"
-#include "../../PointAndPlaneDriver.hpp"
 #include "../../map-loader.hpp"
 
 #include "RenderModelImpl.hpp"
@@ -30,6 +29,7 @@
 #include "GlmDefs.hpp"
 
 #include <iostream>
+#include <map>
 
 #include <glad/glad.h>
 
@@ -80,7 +80,7 @@ void print_out_type_info() {
 // "cleans up" events before sending them to the driver
 class EventProcessor final {
 public:
-    EventProcessor(DriverN & driver): m_driver(driver) {}
+    EventProcessor(Driver & driver): m_driver(driver) {}
 
     void process_input(GLFWwindow * window);
 
@@ -96,7 +96,7 @@ private:
     };
 
     std::map<KeyControl, KeyState, KeyLessThan> m_key_state;
-    DriverN & m_driver;
+    Driver & m_driver;
 };
 
 void EventProcessor::process_input(GLFWwindow * window) {
@@ -239,7 +239,7 @@ int main() {
     // glfw: initialize and configure
     // ------------------------------
     GlfwLibraryRAII glfw_raii; (void)glfw_raii;
-    auto gamedriver = DriverN::make_instance();
+    auto gamedriver = Driver::make_instance();
     EventProcessor events{*gamedriver};
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);

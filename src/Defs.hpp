@@ -20,18 +20,8 @@
 
 #pragma once
 
-// facing north, using classic ltr x-y plane
-// therefore:
-// y+ is up
-// y- is down
-// x+ is east
-// x- is west
-// z- is south
-// z+ is north
-
 #include <common/Grid.hpp>
 #include <common/VectorUtils.hpp>
-#include <common/Vector2.hpp>
 #include <common/Vector3.hpp>
 
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
@@ -39,7 +29,6 @@
 
 #include <variant>
 #include <memory>
-#include <vector>
 #include <iosfwd>
 
 // ----------------------------- Type Definitions -----------------------------
@@ -197,6 +186,11 @@ Vector2 next_in_direction(Vector2 r, Vector2 dir);
 
 constexpr const Real k_pi  = cul::k_pi_for_type<Real>;
 constexpr const Real k_inf = std::numeric_limits<Real>::infinity();
+
+// facing north, using classic ltr x-y plane
+// y+ is up   , y- is down
+// x+ is east , x- is west
+// z- is south, z+ is north
 
 constexpr const Vector k_east {1, 0, 0};
 constexpr const Vector k_up   {0, 1, 0};

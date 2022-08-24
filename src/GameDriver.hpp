@@ -23,8 +23,6 @@
 #include "Defs.hpp"
 #include "platform/platform.hpp"
 
-#include <memory>
-
 struct Camera {
     Vector position, target, up = k_up;
 };
@@ -42,27 +40,9 @@ enum class KeyControl {
     restart
 };
 
-class GameDriver { // <- need to remove this
+class Driver {
 public:
-    static UniquePtr<GameDriver> make_model_viewer(const char * filename);
-
-    virtual ~GameDriver() {}
-
-    virtual void setup() = 0;
-
-    virtual void update(Real seconds) = 0;
-    virtual void press_key(KeyControl) = 0;
-    virtual void release_key(KeyControl) = 0;
-
-    virtual void render(ShaderProgram &) const = 0;
-    virtual Camera camera() const = 0;
-};
-
-// each driver type may have their own builtin systems
-// there's another difficult part in this... things like the p and p driver
-class DriverN { // <- following previous... rename this
-public:
-    static UniquePtr<DriverN> make_instance();
+    static UniquePtr<Driver> make_instance();
 
     using LoaderVec = std::vector<UniquePtr<Loader>>;
 
@@ -74,35 +54,7 @@ public:
     void setup(Platform::ForLoaders & forloaders)
         { handle_loader_tuple(initial_load(forloaders)); }
 
-    void update(Real seconds, Platform::Callbacks & callbacks) {
-        update_(seconds);
-        for (auto & single : m_singles) {
-            (*single)(m_scene);
-        }
-
-        UniquePtr<Loader> loader;
-        for (auto & trigger : m_triggers) {
-            auto uptr = (*trigger)(m_scene);
-            if (!uptr) continue;
-            if (loader) {
-                // emit warning
-            } else {
-                loader = std::move(uptr);
-            }
-        }
-        if (loader) {
-            if (loader->reset_dynamic_systems()) {
-                m_singles.clear();
-                m_triggers.clear();
-            }
-
-            // wipe entities requesting deletion from triggers before loads
-            m_scene.update_entities();
-            handle_loader_tuple((*loader)(m_player_entities, callbacks));
-        }
-        m_scene.update_entities();
-        callbacks.render_scene(m_scene);
-    }
+    void update(Real seconds, Platform::Callbacks &);
 
 protected:
     using PlayerEntities = Loader::PlayerEntities;
@@ -119,29 +71,7 @@ protected:
     virtual void update_(Real seconds) = 0;
 
 private:
-    void handle_loader_tuple(Loader::LoaderTuple && tup) {
-        auto player_ents = std::get<PlayerEntities>(tup);
-        auto & ents = std::get<EntityVec>(tup);
-        auto & singles = std::get<SingleSysVec>(tup);
-        auto & triggers = std::get<TriggerSysVec>(tup);
-        auto optionally_replace = [this](Entity & e, Entity new_) {
-            if (!new_) return;
-            if (e) e.request_deletion();
-            e = new_;
-
-            m_scene.add_entity(e);
-        };
-        optionally_replace(m_player_entities.physical, player_ents.physical);
-        optionally_replace(m_player_entities.renderable, player_ents.renderable);
-
-        m_scene.add_entities(ents);
-        for (auto & single : singles) {
-            m_singles.emplace_back(std::move(single));
-        }
-        for (auto & trigger : triggers) {
-            m_triggers.emplace_back(std::move(trigger));
-        }
-    }
+    void handle_loader_tuple(Loader::LoaderTuple &&);
 
     Scene m_scene;
     PlayerEntities m_player_entities;

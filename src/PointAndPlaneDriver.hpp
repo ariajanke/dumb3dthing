@@ -23,8 +23,6 @@
 #include "Defs.hpp"
 #include "TriangleSegment.hpp"
 
-#include <variant>
-
 namespace point_and_plane {
 
 using Triangle = TriangleSegment;

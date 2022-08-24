@@ -22,8 +22,6 @@
 
 #include <common/TestSuite.hpp>
 
-#include <iostream>
-
 namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)

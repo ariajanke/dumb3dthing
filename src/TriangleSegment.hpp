@@ -22,8 +22,6 @@
 
 #include "Defs.hpp"
 
-#include <common/VectorUtils.hpp>
-
 /** Describes a triangle, with various utilities for use with "point and
  *  plane" physics.
  *

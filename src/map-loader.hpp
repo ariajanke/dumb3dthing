@@ -27,8 +27,6 @@
 
 #include <common/SubGrid.hpp>
 
-#include <variant>
-
 using cul::ConstSubGrid;
 
 struct AppearanceId {

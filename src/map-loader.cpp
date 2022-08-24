@@ -19,19 +19,10 @@
 *****************************************************************************/
 
 #include "map-loader.hpp"
-
-#include "Defs.hpp"
 #include "RenderModel.hpp"
 #include "Texture.hpp"
-#include "PointAndPlaneDriver.hpp"
-#include <common/SubGrid.hpp>
-#include <common/Vector2.hpp>
-#include <common/Grid.hpp>
+
 #include <common/TestSuite.hpp>
-#include <memory>
-#include <utility>
-#include <iostream>
-#include <variant>
 
 namespace {
 
