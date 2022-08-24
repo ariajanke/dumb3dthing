@@ -32,55 +32,26 @@ inline Real round_close_to_zero(Real x)
 
 } // end of <anonymous> namespace
 
+BadBranchException::BadBranchException(int line, const char * file):
+    std::runtime_error(  "Bad \"impossible\" branch hit at: "
+                       + std::string{file} + " line "
+                       + std::to_string(line))
+{}
+
 Vector rotate_around_up(Vector r, Real t) {
-    return Vector(r.x*std::cos(t) - r.y*std::sin(t),
-                  r.x*std::sin(t) + r.y*std::cos(t), r.z);
-}
-
-Vector next_after(Vector r, Vector dir) {
-    return Vector(std::nextafter(r.x, dir.x),
-                  std::nextafter(r.y, dir.y),
-                  std::nextafter(r.z, dir.z));
-}
-
-Vector2 next_after(Vector2 r, Vector2 dir) {
-    return Vector2(std::nextafter(r.x, dir.x),
-                   std::nextafter(r.y, dir.y));
+    return Vector{r.x*std::cos(t) - r.y*std::sin(t),
+                  r.x*std::sin(t) + r.y*std::cos(t), r.z};
 }
 
 Vector next_in_direction(Vector r, Vector dir) {
-    return Vector(std::nextafter(r.x, r.x + dir.x),
+    return Vector{std::nextafter(r.x, r.x + dir.x),
                   std::nextafter(r.y, r.y + dir.y),
-                  std::nextafter(r.z, r.z + dir.z));
+                  std::nextafter(r.z, r.z + dir.z)};
 }
 
 Vector2 next_in_direction(Vector2 r, Vector2 dir) {
-    return Vector2(std::nextafter(r.x, r.x + dir.x),
-                   std::nextafter(r.y, r.y + dir.y));
-}
-
-Vector2 find_closest_point_to_line(Vector2 a, Vector2 b, Vector2 external_point) {
-    const auto & c = external_point;
-    if (a == b) return a;
-    if (a - c == Vector2()) return a;
-    if (b - c == Vector2()) return b;
-    // obtuse angles -> snap to extreme points
-    auto angle_at_a = angle_between(a - b, a - c);
-    if (angle_at_a > k_pi*0.5) return a;
-
-    auto angle_at_b = angle_between(b - a, b - c);
-    if (angle_at_b > k_pi*0.5) return b;
-
-    // right and acute -> use perpendicular
-    // https://www.eecs.umich.edu/courses/eecs380/HANDOUTS/PROJ2/LinePoint.html
-    double mag;
-    {
-    auto num = (c.x - a.x)*(b.x - a.x) + (c.y - a.y)*(b.y - a.y);
-    auto denom = magnitude(b -  a);
-    denom *= denom;
-    mag = num / denom;
-    }
-    return a + mag*(b - a);
+    return Vector2{std::nextafter(r.x, r.x + dir.x),
+                   std::nextafter(r.y, r.y + dir.y)};
 }
 
 bool are_very_close(Vector a, Vector b)
@@ -110,8 +81,6 @@ std::ostream & operator << (std::ostream & out, const Vector2 & r) {
     out.precision(old_prec);
     return out;
 }
-
-/* virtual */ Renderable::~Renderable() {}
 
 void print_links(std::ostream & out, const point_and_plane::TriangleLinks & link) {
     using std::endl;

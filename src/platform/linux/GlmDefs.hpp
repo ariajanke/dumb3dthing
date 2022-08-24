@@ -18,19 +18,26 @@
 
 *****************************************************************************/
 
-#include "RenderModel.hpp"
+#pragma once
 
-void RenderModel::load(const RenderModelData & model_data)
-    { load(model_data.vertices, model_data.elements); }
+#include <glm/gtx/rotate_vector.hpp>
 
-void RenderModel::load
-    (const std::vector<Vertex> & vertices, const std::vector<unsigned> & elements)
-{
-    load(&vertices.front(), &vertices.front() + vertices.size(),
-         &elements.front(), &elements.front() + elements.size());
+#include <glm/mat4x4.hpp>
+
+template <typename T>
+T identity_matrix();
+
+template <>
+inline glm::mat4 identity_matrix() {
+    glm::mat4 rv;
+    rv[0][0] = 1; rv[0][1] = 0; rv[0][2] = 0; rv[0][3] = 0;
+    rv[1][0] = 0; rv[1][1] = 1; rv[1][2] = 0; rv[1][3] = 0;
+    rv[2][0] = 0; rv[2][1] = 0; rv[2][2] = 1; rv[2][3] = 0;
+    rv[3][0] = 0; rv[3][1] = 0; rv[3][2] = 0; rv[3][3] = 1;
+    return rv;
 }
 
-void RenderModel::load
-    (const Vertex   * vertex_beg  , const Vertex   * vertex_end,
-     const unsigned * elements_beg, const unsigned * elements_end)
-{ load_(vertex_beg, vertex_end, elements_beg, elements_end); }
+inline void * pointer_offset(unsigned x) {
+    unsigned char * origin = nullptr;
+    return origin + x;
+}

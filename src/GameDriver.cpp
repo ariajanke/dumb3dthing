@@ -22,40 +22,14 @@
 #include "RenderModel.hpp"
 #include "map-loader.hpp"
 #include "Texture.hpp"
-#include "ShaderProgram.hpp"
-#include "GlmVectorTraits.hpp"
 
-#include <common/TestSuite.hpp>
-#include <common/StringUtil.hpp>
 #include <common/BezierCurves.hpp>
 
-#include <common/VectorUtils.hpp>
-#include <common/sf/VectorTraits.hpp>
-
 #include <iostream>
-#include <fstream>
-#include <set>
-#include <map>
-
-#include <ariajanke/ecs3/SingleSystem.hpp>
 
 namespace {
 
-using point_and_plane::location_of;
-
-class TimeWatchingDriver : public GameDriver {
-public:
-    void update(Real seconds) override
-        { m_passed_time += seconds; }
-
-protected:
-
-    Real time_since() const noexcept
-        { return m_passed_time; }
-
-private:
-    Real m_passed_time = 0;
-};
+using std::get_if, std::make_tuple;
 
 class TimeControl final {
 public:
@@ -89,7 +63,7 @@ private:
     bool m_paused = false, m_advance_frame = false;
 };
 
-class GameDriverCompleteN final : public DriverN {
+class GameDriverComplete final : public Driver {
 public:
     void press_key(KeyControl) final;
 
@@ -104,34 +78,6 @@ private:
     UniquePtr<point_and_plane::Driver> m_ppdriver = point_and_plane::Driver::make_driver();
     Entity m_player;
     TimeControl m_time_controller;
-};
-
-class ModelViewer final : public TimeWatchingDriver {
-public:
-    ModelViewer(const char * filename);
-
-    void setup() final;
-    void render(ShaderProgram &) const final;
-    void update(Real) final;
-    Camera camera() const final;
-
-    void press_key(KeyControl) final {}
-    void release_key(KeyControl) final {}
-
-private:
-    void update_model();
-
-    // empty if anything is wrong
-    static Entity load_model_from_string(const std::string &);
-
-    Vector m_camera_target = Vector{ 0.5, 0.5, 0.5 };
-    Scene m_scene;
-    std::function<std::string()> m_reload_model;
-    std::string m_filecontents;
-    static constexpr const Real k_time_to_reload = 0.5;
-    Real m_time_since_reload = 0;
-
-    Entity m_model_entity;
 };
 
 struct VisibilityChain final {
@@ -149,64 +95,65 @@ struct DragCamera final {
     Real max_distance = 6;
 };
 
-inline bool is_visible(ecs::Optional<VisibilityChain> & vis)
-    { return vis ? vis->visible : true; }
-#if 0
-void run_default_rendering_systems(const Scene & scene, ShaderProgram & shader) {
-    shader.set_float("tex_alpha", 1.f);
-    shader.set_vec2("tex_offset", glm::vec2{0.f, 0.f});
-
-    // model matrix... maybe this also should be a component, though that
-    // introduces a nasty dependancy
-    ecs::make_singles_system<Entity>([] (glm::mat4 & model, Translation & trans_) {
-        model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(trans_.value));
-    }, [] (glm::mat4 & model, YRotation & rot_) {
-        // was called "z" rotation...
-        model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_up));
-    },
-#   if 0
-    [](point_and_plane::State & state, glm::mat4 & model) {
-        auto on_surface = std::get_if<point_and_plane::OnSurface>(&state);
-        if (!on_surface) return;
-        auto norm = on_surface->segment->normal();
-        if (are_very_close(norm - k_up, Vector{})) {
-            // directly oppose each other, axis not servicable
-            // I need a vector orthogonal to up
-            Vector axis;
-            for (auto v : {Vector{1, 1, 1}, Vector{-1, 1, 1}, Vector{-1, -1, 1}}) {
-                axis = normalize(cul::project_onto_plane(v, k_up));
-                if (are_very_close(cul::dot(axis, k_up), 0)) break;
-            }
-            assert(are_very_close(cul::dot(axis, k_up), 0));
-            model = glm::rotate(model, float(k_pi), convert_to<glm::vec3>(axis));
-            return;
-        }
-
-        auto angle = angle_between(norm, k_up);
-        auto crp = cross(norm, k_up);
-        if (are_very_close(crp, Vector{})) return;
-        model = glm::rotate(model, float(angle), convert_to<glm::vec3>(normalize(crp)));
-    },
-#   endif
-    [] (Opt<VisibilityChain> vis, std::shared_ptr<Texture> & texture) {
-        if (!is_visible(vis)) return;
-        texture->bind_texture();
-    }, [&shader] (Opt<TextureTranslation> translation) {
-        shader.set_vec2("tex_offset", convert_to<glm::vec2>(translation ? translation->value : Vector2{}));
-    }, [&shader] (Opt<VisibilityChain> vis, glm::mat4 & model, RenderModelPtr mod_) {
-        if (!is_visible(vis)) return;
-        shader.set_mat4("model", model);
-        mod_->render();
-    })(scene);
-}
-#endif
 } // end of <anonymous> namespace
 
-/* static */ std::unique_ptr<GameDriver> GameDriver::make_model_viewer(const char * filename)
-    { return std::make_unique<ModelViewer>(filename); }
+/* static */ UniquePtr<Driver> Driver::make_instance()
+    { return std::make_unique<GameDriverComplete>(); }
 
-/* static */ UniquePtr<DriverN> DriverN::make_instance()
-    { return std::make_unique< GameDriverCompleteN >(); }
+void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
+    update_(seconds);
+    for (auto & single : m_singles) {
+        (*single)(m_scene);
+    }
+
+    UniquePtr<Loader> loader;
+    for (auto & trigger : m_triggers) {
+        auto uptr = (*trigger)(m_scene);
+        if (!uptr) continue;
+        if (loader) {
+            // emit warning
+        } else {
+            loader = std::move(uptr);
+        }
+    }
+    if (loader) {
+        if (loader->reset_dynamic_systems()) {
+            m_singles.clear();
+            m_triggers.clear();
+        }
+
+        // wipe entities requesting deletion from triggers before loads
+        m_scene.update_entities();
+        handle_loader_tuple((*loader)(m_player_entities, callbacks));
+    }
+    m_scene.update_entities();
+    callbacks.render_scene(m_scene);
+}
+
+/* private */ void Driver::handle_loader_tuple(Loader::LoaderTuple && tup) {
+    using std::get;
+    auto player_ents = get<PlayerEntities>(tup);
+    auto & ents = get<EntityVec>(tup);
+    auto & singles = get<SingleSysVec>(tup);
+    auto & triggers = get<TriggerSysVec>(tup);
+    auto optionally_replace = [this](Entity & e, Entity new_) {
+        if (!new_) return;
+        if (e) e.request_deletion();
+        e = new_;
+
+        m_scene.add_entity(e);
+    };
+    optionally_replace(m_player_entities.physical, player_ents.physical);
+    optionally_replace(m_player_entities.renderable, player_ents.renderable);
+
+    m_scene.add_entities(ents);
+    for (auto & single : singles) {
+        m_singles.emplace_back(std::move(single));
+    }
+    for (auto & trigger : triggers) {
+        m_triggers.emplace_back(std::move(trigger));
+    }
+}
 
 namespace {
 
@@ -317,8 +264,8 @@ Velocity get_new_velocity
      const Vector & willed_dir, Real seconds)
 {
     constexpr const Real k_max_willed_speed = 5;
-    constexpr const Real k_max_acc = 5; // u/s^2
-    constexpr const Real k_min_acc = 1;
+    constexpr const Real k_max_acc = 10; // u/s^2
+    constexpr const Real k_min_acc = 2;
     constexpr const Real k_unwilled_acc = 3;
     assert(   are_very_close(magnitude(willed_dir), 1)
            || are_very_close(magnitude(willed_dir), 0));
@@ -349,29 +296,13 @@ Velocity get_new_velocity
     return Velocity{new_vel};
 }
 
-// time, and camera?
-
-
-// more helpers... more to come likely
-
-inline bool is_nl(char c) { return c == '\n'; }
-inline bool is_ws(char c) { return c == ' ' || c == '\t'; }
-inline bool is_sc(char c) { return c == ';'; }
-inline bool is_cm(char c) { return c == ','; }
-inline bool is_pe(char c) { return c == '|'; }
-
-std::vector<Vertex> deduce_texture_positions(std::vector<Vertex> &, const std::vector<int> & elements);
-
-// no go, method was poor design anyway
-void test_slope_rotations();
-void test_neighbor_map();
-
 template <typename Vec, typename ... Types>
 std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 //  :eyes:
     make_bezier_strip_model
     (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     std::shared_ptr<Texture> texture, int resolution,
+     Platform::Callbacks & callbacks,
+     SharedPtr<Texture> texture, int resolution,
      Vector2 texture_offset, Real texture_scale)
 {
     std::vector<Vertex> verticies;
@@ -388,16 +319,14 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
         elements.emplace_back(el++);
         elements.emplace_back(el++);
     }
-    auto mod = RenderModel::make_opengl_instance();
+    auto mod = callbacks.make_render_model();
     mod->load<int>(verticies, elements);
 
-    auto ent = Entity::make_sceneless_entity();
+    auto ent = callbacks.make_renderable_entity();
     ent.add<
-        SharedCPtr<RenderModel>, SharedPtr<Texture>,
-        glm::mat4, VisibilityChain
-    >() = std::make_tuple(
-        std::move(mod), texture,
-        identity_matrix<glm::mat4>(), VisibilityChain{}
+        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain
+    >() = make_tuple(
+        std::move(mod), texture, VisibilityChain{}
     );
     return ent;
 }
@@ -405,14 +334,14 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 template <typename T>
 Entity make_bezier_yring_model();
 
-Entity make_sample_bezier_model(std::shared_ptr<Texture> texture, int resolution) {
-    static constexpr const auto k_hump_side = std::make_tuple(
+Entity make_sample_bezier_model(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
+    static constexpr const auto k_hump_side = make_tuple(
         Vector{ -.5, 0,  1},
         Vector{ -.5, 0,  1} + Vector{-0.5, 1, 0.5},
                 //Vector{0, -1, 0},
         Vector{-1, 1, -1} + Vector{   0, 3,   0},
         Vector{-1, 1, -1} + Vector{0, 0, 0.2});
-    static constexpr const auto k_low_side = std::make_tuple(
+    static constexpr const auto k_low_side = make_tuple(
         Vector{0.5, 0,  1},
         Vector{0.5, 0,  1} + Vector{0.5, 1, -0.5},
                 //Vector{0, -2, 0},
@@ -422,30 +351,31 @@ Entity make_sample_bezier_model(std::shared_ptr<Texture> texture, int resolution
     constexpr const Vector2 k_offset{5./16, 1./16};
     constexpr const Real k_scale = 1. / 16;
 
-    Entity rv = make_bezier_strip_model(k_hump_side, k_low_side, texture, resolution, k_offset, k_scale);
+    // very airy
+    Entity rv = make_bezier_strip_model(k_hump_side, k_low_side, callbacks, texture, resolution, k_offset, k_scale);
     rv.add<Translation>() = Vector{ 4, 0, -3 };
     return rv;
 }
 
-Entity make_sample_loop(std::shared_ptr<Texture> texture, int resolution) {
+Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
 
     static constexpr const Real k_y = 10;
 
     static constexpr const Real k_s = 5;
-    static constexpr const auto k_neg_side = std::make_tuple(
+    static constexpr const auto k_neg_side = make_tuple(
 /*    */Vector{-1, 0,  0},
         Vector{-.5, 0, k_s}, Vector{-.5, k_y, k_s},
         Vector{-.5, k_y, -k_s}, Vector{-.5, 0, -k_s},
         Vector{0, 0, 0});
-    static constexpr const auto k_pos_side = std::make_tuple(
+    static constexpr const auto k_pos_side = make_tuple(
 /*    */Vector{0, 0,  0},
         Vector{.5, 0, k_s}, Vector{.5, k_y, k_s},
         Vector{.5, k_y, -k_s}, Vector{.5, 0, -k_s},
         Vector{1, 0, 0});
     constexpr const Vector2 k_offset{5./16, 1./16};
     constexpr const Real k_scale = 1. / 16;
-    auto rv = make_bezier_strip_model(k_neg_side, k_pos_side, texture, resolution, k_offset, k_scale);
-    rv.add<Translation, YRotation>() = std::make_tuple(Vector{4, 0, 0}, k_pi*0.5);
+    auto rv = make_bezier_strip_model(k_neg_side, k_pos_side, callbacks, texture, resolution, k_offset, k_scale);
+    rv.add<Translation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
     return rv;
 }
 
@@ -503,19 +433,19 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
         4, 6, 7, /**/ 4, 5, 6  // bottom faces
     };
 
-    auto model = RenderModel::make_opengl_instance();
+    auto model = callbacks.make_render_model();
     model->load(&verticies.front(), &verticies.front() + verticies.size(),
                 &elements .front(), &elements .front() + elements.size());
 
     auto physics_ent = Entity::make_sceneless_entity();
     auto model_ent   = callbacks.make_renderable_entity();
 #   if 1
-    auto tx = Texture::make_opengl_instance();
+    auto tx = callbacks.make_texture();
     tx->load_from_file("ground.png");
     model_ent.add<
         SharedCPtr<Texture>, SharedCPtr<RenderModel>, Translation,
         TranslationFromParent
-    >() = std::make_tuple(
+    >() = make_tuple(
         tx, model, Translation{},
         TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}
     );
@@ -523,7 +453,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<Velocity, JumpVelocity, DragCamera, Camera, PlayerControl>();
 #   endif
-    return std::make_tuple(model_ent, physics_ent);
+    return make_tuple(model_ent, physics_ent);
 }
 
 static constexpr auto k_layout =
@@ -559,244 +489,9 @@ static constexpr auto k_layout4 =
     "xx1111111111111111111111111111111111111111111111111111111111xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
     "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx111111111111111111111111111111111111111111111111111111111111111111111xx\n";
 
-ModelViewer::ModelViewer(const char * filename):
-    m_reload_model([filename]() -> std::string {
-        std::ifstream fin{filename};
-        std::string temp_line;
-        std::string rv;
-        while (std::getline(fin, temp_line)) {
-            rv += temp_line + '\n';
-        }
-        return rv;
-    })
-{}
-
-void ModelViewer::setup() {
-    test_neighbor_map();
-    update_model();
-}
-
-void ModelViewer::render(ShaderProgram & shader) const {
-#   if 0
-    run_default_rendering_systems(m_scene, shader);
-#   endif
-}
-
-void ModelViewer::update(Real et) {
-    m_time_since_reload += et;
-    if (m_time_since_reload > k_time_to_reload) {
-        m_time_since_reload = 0;
-        update_model();
-    }
-    TimeWatchingDriver::update(et);
-}
-
-Camera ModelViewer::camera() const {
-    Camera rv;
-    rv.up = k_up;
-    rv.position = m_camera_target + Vector{0, 1, 0}
-            + 3.*Vector{std::cos(time_since()), 0, std::sin(time_since())};
-    rv.target = m_camera_target;
-    return rv;
-}
-
-/* private */ void ModelViewer::update_model() {
-    auto newcontents = m_reload_model();
-    if (newcontents == m_filecontents) return;
-    m_filecontents = newcontents;
-    try {
-        auto e = load_model_from_string(newcontents);
-        e.add<glm::mat4>();
-        m_scene.clear();
-        m_scene.add_entity(e);
-        m_scene.update_entities();
-    } catch (std::runtime_error & err) {
-        std::cout << err.what() << std::endl;
-    }
-}
-
-/* private static */ Entity ModelViewer::load_model_from_string
-    (const std::string & filecontents)
-{
-    static const std::string k_modeselection = "modeselection";
-    using StrItr = std::string::const_iterator;
-    using ProcLineFunc = std::string(*)(Entity & e, StrItr beg, StrItr end);
-    using std::make_pair;
-    static const auto is_end = [](StrItr beg, StrItr end) {
-        return std::equal(beg, end, "end");
-    };
-    using namespace cul::exceptions_abbr;
-    static const std::unordered_map<std::string, ProcLineFunc> line_fmap {
-        make_pair("units", [](Entity & e, StrItr beg, StrItr end) {
-            if (is_end(beg, end))
-                { return k_modeselection; }
-
-            Units uns;
-            auto fields = { &uns.verticies, &uns.texture };
-            auto fitr = fields.begin();
-            cul::for_split<is_ws>(beg, end, [&fitr, fields] (StrItr beg, StrItr end) {
-                if (fitr == fields.end()) {
-                    throw RtError{"Only two units"};
-                }
-                if (!cul::string_to_number(beg, end, **fitr)) {
-                    throw RtError{"All units must be numeric"};
-                }
-                ++fitr;
-                return cul::fc_signal::k_continue;
-            });
-            e.add<Units>() = uns;
-            return std::string{};
-        }),
-        make_pair("elements", [](Entity & e, StrItr beg, StrItr end) {
-            if (is_end(beg, end))
-                { return k_modeselection; }
-
-            std::vector<int> elements;
-            if (auto * els = e.ptr<Elements>()) {
-                elements = std::move(els->values);
-            }
-            cul::for_split<is_ws>(beg, end, [&elements](StrItr beg, StrItr end) {
-                int elval = 0;
-                if (!cul::string_to_number(beg, end, elval)) {
-                    throw RtError{"All elements must be numeric"};
-                }
-                elements.push_back(elval);
-                return cul::fc_signal::k_continue;
-            });
-            e.ensure<Elements>().values = std::move(elements);
-            return std::string{};
-        }),
-        make_pair("verticies", [](Entity & e, StrItr beg, StrItr end) {
-            if (is_end(beg, end))
-                { return k_modeselection; }
-            std::vector<Vertex> verticies;
-            if (auto * verts = e.ptr<Verticies>())
-                { verticies = std::move(verts->values); }
-            // this is going to be mega complicated...
-            // I want texture positions to be deducible!
-            // constants? fractions?
-            // other constraints?
-            // do we want comments?
-            // 0, 0.1, 0.3 | 0.1, 0.4 ; <next vertex>
-            cul::for_split<is_sc>(beg, end, [&verticies](StrItr beg, StrItr end) {
-                using namespace cul::fc_signal;
-                Vertex new_vertex{ Vector{}, Vector2{k_inf, k_inf} };
-                int pipe_mode = 0;
-                cul::for_split<is_pe>(beg, end, [&](StrItr beg, StrItr end) {
-                    if (pipe_mode == 2) {
-                        throw RtError{"Only vertex and texture position."};
-                    }
-                    std::array pos = { &new_vertex.position.x, &new_vertex.position.y, &new_vertex.position.z };
-                    std::array tx  = { &new_vertex.texture_position.x, &new_vertex.texture_position.y };
-                    Real ** ritr = pipe_mode == 0 ? &pos[0] : &tx[0];
-                    Real ** rend = ritr + (pipe_mode == 0 ? pos.size() : tx.size());
-                    cul::for_split<is_cm>(beg, end, [&](StrItr beg, StrItr end) {
-                        cul::trim<is_ws>(beg, end);
-                        if (ritr == rend) {
-                            throw RtError{"too many arguments"};
-                        }
-                        if (!cul::string_to_number(beg, end, **ritr)) {
-                            throw RtError{"not numeric"};
-                        }
-                        ++ritr;
-                        return k_continue;
-                    });
-                    if (pipe_mode == 0 && ritr != rend) {
-                        throw RtError{"must specify all three positions"};
-                    }
-                    ++pipe_mode;
-                    return k_continue;
-                });
-                verticies.push_back(new_vertex);
-                return k_continue;
-            });
-            e.ensure<Verticies>().values = std::move(verticies);
-            return std::string{};
-        }),
-        make_pair("texture", [](Entity & e, StrItr beg, StrItr end) {
-            if (is_end(beg, end))
-                { return k_modeselection; }
-            // filename, that's it!
-            // maybe we can use a map for textures too? :3?
-            auto tx = Texture::make_opengl_instance();
-            tx->load_from_file(std::string{beg, end}.c_str());
-            e.add<SharedCPtr<Texture>>() = tx;
-
-            return std::string{};
-        }),
-        make_pair("yrotation", [](Entity & e, StrItr beg, StrItr end) {
-            if (is_end(beg, end))
-                { return k_modeselection; }
-            // one radian, that's it!
-            Real rotation = 0.;
-            if (!cul::string_to_number(beg, end, rotation)) {
-                throw RtError{"rotation must be numeric"};
-            }
-            e.add<YRotation>() = rotation;
-            return std::string{};
-        }),
-        make_pair(k_modeselection, [](Entity&, StrItr beg, StrItr end)
-            { return std::string{beg, end}; })
-    };
-    auto e = Entity::make_sceneless_entity();
-    assert(line_fmap.find(k_modeselection) != line_fmap.end());
-    ProcLineFunc func = line_fmap.find(k_modeselection)->second;
-    cul::for_split<is_nl>(filecontents, [&e, &func](StrItr beg, StrItr end) {
-        end = std::find(beg, end, '#');
-        cul::trim<is_ws>(beg, end);
-        if (beg == end) return cul::fc_signal::k_continue;
-
-        auto nextmode = func(e, beg, end);
-
-        if (nextmode.empty()) return cul::fc_signal::k_continue;
-        auto nitr = line_fmap.find(nextmode);
-        if (nitr == line_fmap.end()) {
-            throw RtError{"Cannot find next mode by string \"" + nextmode + "\"."};
-        }
-        func = nitr->second;
-        return cul::fc_signal::k_continue;
-    });
-    // must verify elements and verticies,
-    if (!e.has_all<Elements, Verticies>()) {
-        throw RtError{"Must have at least elements and verticies"};
-    }
-    if (e.get<Elements>().values.size() % 3 != 0) {
-        throw RtError{"Number of elements must be divisible by three"};
-    }
-    {
-    const auto & evals = e.get<Elements>().values;
-    int vert_count = e.get<Verticies>().values.size();
-    bool elements_are_ok = std::all_of(evals.begin(), evals.end(), [vert_count](int idx) { return idx < vert_count && idx > -1; });
-    if (!elements_are_ok) {
-        throw RtError{"Each element must correspond to a vertex"};
-    }
-    }
-    if (auto * uns = e.ptr<Units>()) {
-        auto & verts = e.get<Verticies>().values;
-        for (auto & vtx : verts) {
-            vtx.position.x /= Real(uns->verticies);
-            vtx.position.y /= Real(uns->verticies);
-            vtx.position.z /= Real(uns->verticies);
-
-            vtx.position -= Vector{0.5, 0.5, 0.5};
-
-            vtx.texture_position.x /= Real(uns->texture);
-            vtx.texture_position.y /= Real(uns->texture);
-        }
-    }
-    // do texture position deduction,
-    e.get<Verticies>().values = deduce_texture_positions(e.get<Verticies>().values, e.get<Elements>().values);
-    // then load a render model
-    auto model_ptr = RenderModel::make_opengl_instance();
-    model_ptr->load<int>(e.get<Verticies>().values, e.get<Elements>().values);
-    e.add<SharedCPtr<RenderModel>>() = model_ptr;
-
-    return e;
-}
-
 // ----------------------------------------------------------------------------
 
-void GameDriverCompleteN::press_key(KeyControl ky) {
+void GameDriverComplete::press_key(KeyControl ky) {
     m_player.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
@@ -804,16 +499,20 @@ void GameDriverCompleteN::press_key(KeyControl ky) {
     }
 }
 
-void GameDriverCompleteN::release_key(KeyControl ky) {
+void GameDriverComplete::release_key(KeyControl ky) {
     m_player.get<PlayerControl>().release(ky);
     m_time_controller.release(ky);
 }
 
-Loader::LoaderTuple GameDriverCompleteN::initial_load
+Loader::LoaderTuple GameDriverComplete::initial_load
     (Platform::ForLoaders & callbacks)
 {
-    auto tgg_ptr = TileGraphicGenerator::make_builtin(callbacks);
-    auto [tlinks, ents] = load_map_graphics(*tgg_ptr, load_map_cell(k_layout4, CharToCell::default_instance())); {}
+    std::vector<Entity> entities;
+    std::vector<SharedPtr<TriangleSegment>> triangles;
+
+    auto tgg_ptr = TileGraphicGenerator{entities, triangles, callbacks};
+    tgg_ptr.setup();
+    auto [tlinks, ents] = load_map_graphics(tgg_ptr, load_map_cell(k_layout4, CharToCell::default_instance())); {}
     auto [renderable, physical] = make_sample_player(callbacks); {}
     callbacks.set_camera_entity(EntityRef{physical});
 
@@ -822,19 +521,17 @@ Loader::LoaderTuple GameDriverCompleteN::initial_load
     m_ppdriver->clear_all_triangles();
     m_ppdriver->add_triangles(tlinks);
 
-    return std::make_tuple(PlayerEntities{physical, renderable}, ents, SingleSysVec{}, TriggerSysVec{});
+    return make_tuple(PlayerEntities{physical, renderable}, ents, SingleSysVec{}, TriggerSysVec{});
 }
 
-void GameDriverCompleteN::update_(Real seconds) {
+void GameDriverComplete::update_(Real seconds) {
     if (!m_time_controller.runs_this_frame()) {
         m_time_controller.frame_update();
         return;
     }
 
-    //TimeWatchingDriver::update(seconds);
     m_ppdriver->update();
-    using std::get_if;
-#   if 1
+
     ecs::make_singles_system<Entity>([seconds](VisibilityChain & vis) {
         if (!vis.visible || !vis.next) return;
         if ((vis.time_spent += seconds) > VisibilityChain::k_to_next) {
@@ -843,18 +540,16 @@ void GameDriverCompleteN::update_(Real seconds) {
             Entity{vis.next}.get<VisibilityChain>().visible = true;
         }
     },
-#   if 1
     [](TranslationFromParent & trans_from_parent, Translation & trans) {
         auto pent = Entity{trans_from_parent.parent};
         Real s = 1;
         auto & state = pent.get<PpState>();
-        if (auto * on_surf = std::get_if<PpOnSurface>(&state)) {
+        if (auto * on_surf = get_if<PpOnSurface>(&state)) {
             s *= on_surf->invert_normal ? -1 : 1;
             s *= (angle_between(on_surf->segment->normal(), k_up) > k_pi*0.5) ? -1 : 1;
         }
         trans = location_of(state) + s*trans_from_parent.translation;
     },
-#   endif
     [seconds] (PpState & state, Velocity & velocity, PlayerControl & control,
                Camera & camera)
     {
@@ -870,18 +565,15 @@ void GameDriverCompleteN::update_(Real seconds) {
         Vector forward = normalize(cul::project_onto_plane(player_loc - camera.position, k_up));
         Vector left    = normalize(cross(k_up, forward));
         // +y is forward, +x is right
-        //constexpr Real k_speed = 1;
         auto willed_dir = normalize(control.heading().y*forward - control.heading().x*left);
-
-        velocity = get_new_velocity(velocity, willed_dir, seconds); //velocity.value + willed_dir*k_speed*seconds;
-
+        velocity = get_new_velocity(velocity, willed_dir, seconds);
     }, [seconds](PpState & state, Velocity & velocity, Opt<JumpVelocity> jumpvel) {
-        if (auto * in_air = std::get_if<point_and_plane::InAir>(&state)) {
+        if (auto * in_air = get_if<PpInAir>(&state)) {
             velocity = velocity.value + k_gravity*seconds;
             if (jumpvel) {
                 *jumpvel = jumpvel->value + k_gravity*seconds;
             }
-        } else if(auto * on_segment = std::get_if<point_and_plane::OnSurface>(&state)) {
+        } else if(auto * on_segment = get_if<PpOnSurface>(&state)) {
 #           if 0
             auto & triangle = *on_segment->segment;
             velocity = velocity.value + cul::project_onto_plane(k_gravity*seconds, triangle.normal());
@@ -889,9 +581,9 @@ void GameDriverCompleteN::update_(Real seconds) {
         }
     }, [seconds](PpState & state, Velocity & velocity, Opt<JumpVelocity> jumpvel) {
         auto displacement = velocity.value*seconds + (1. / 2)*k_gravity*seconds*seconds;
-        if (auto * in_air = std::get_if<point_and_plane::InAir>(&state)) {
+        if (auto * in_air = get_if<PpInAir>(&state)) {
             in_air->displacement = displacement + (jumpvel ? jumpvel->value*seconds : Vector{});
-        } else if(auto * on_segment = std::get_if<point_and_plane::OnSurface>(&state)) {
+        } else if(auto * on_segment = get_if<PpOnSurface>(&state)) {
             auto & triangle = *on_segment->segment;
             displacement = cul::project_onto_plane(displacement, triangle.normal());
             auto pt_v3 = triangle.point_at(on_segment->location);
@@ -899,12 +591,12 @@ void GameDriverCompleteN::update_(Real seconds) {
             on_segment->displacement = new_pos - on_segment->location;
         }
     }, [this](PpState & state, Opt<Velocity> vel) {
-        using Triangle = point_and_plane::Triangle;
+
         class Impl final : public point_and_plane::EventHandler {
         public:
             Impl(Opt<Velocity> & vel): m_vel(vel) {}
             Variant<Vector2, Vector> displacement_after_triangle_hit
-                (const Triangle & triangle, const Vector & /*location*/,
+                (const TriangleSegment & triangle, const Vector & /*location*/,
                  const Vector & new_, const Vector & intersection) const final
             {
                 // for starters:
@@ -921,19 +613,18 @@ void GameDriverCompleteN::update_(Real seconds) {
             }
 
             Variant<SegmentTransfer, Vector> pass_triangle_side
-                (const Triangle &, const Triangle * to,
+                (const TriangleSegment &, const TriangleSegment * to,
                  const Vector &, const Vector &) const final
             {
                 // always transfer to the other surface
                 if (!to) {
-                    return std::make_tuple(false, Vector2{});
-                    return Vector{};
+                    return make_tuple(false, Vector2{});
                 }
                 // may I know the previous inversion value?
-                return std::make_tuple(false, Vector2{});
+                return make_tuple(false, Vector2{});
             }
 
-            bool cling_to_edge(const Triangle & triangle, TriangleSide side) const final {
+            bool cling_to_edge(const TriangleSegment & triangle, TriangleSide side) const final {
                 if (!m_vel) return true;
                 auto [sa, sb] = triangle.side_points(side); {}
                 *m_vel = project_onto(m_vel->value, sa - sb);
@@ -942,33 +633,39 @@ void GameDriverCompleteN::update_(Real seconds) {
 
             Opt<Velocity> & m_vel;
         };
+        // on catching flip-flop bug: I want to watch displacements in 3 space between flops
+        Vector dis;
+        if (auto * onsurf = get_if<PpOnSurface>(&state)) {
+            dis = onsurf->segment->point_at(onsurf->displacement);
+        }
+
         Impl impl{vel};
         state = (*m_ppdriver)(state, impl);
-    }, [](point_and_plane::State & state, PlayerControl & control, JumpVelocity & vel) {
+    }, [](PpState & state, PlayerControl & control, JumpVelocity & vel) {
         constexpr auto k_jump_vel = k_up*10;
         {
-        auto * on_segment = std::get_if<point_and_plane::OnSurface>(&state);
+        auto * on_segment = get_if<PpOnSurface>(&state);
         if (on_segment && control.is_starting_jump()) {
             auto & triangle = *on_segment->segment;
             auto dir = (on_segment->invert_normal ? -1 : 1)*triangle.normal()*0.1;
             vel = k_jump_vel;
-            state = point_and_plane::InAir{triangle.point_at(on_segment->location) + dir, Vector{}};
+            state = PpInAir{triangle.point_at(on_segment->location) + dir, Vector{}};
         }
         }
         {
-        auto * in_air = std::get_if<point_and_plane::InAir>(&state);
+        auto * in_air = get_if<PpInAir>(&state);
         if (in_air && control.is_ending_jump() && !are_very_close(vel.value, Vector{})) {
             vel = normalize(vel.value)*std::sqrt(magnitude(vel.value));
         }
         }
     })(scene());
-#   if 1
+
     for (auto e : scene()) {
         auto * on_surf = get_if<PpOnSurface>(e.ptr<PpState>());
         if (!on_surf) continue;
 
     }
-#   endif
+
     // this code here is a good candidate for a "Trigger" system
     m_player.get<PlayerControl>().frame_update();
 
@@ -980,438 +677,8 @@ void GameDriverCompleteN::update_(Real seconds) {
     }
     m_player.get<Camera>().target = location_of(m_player.get<PpState>());
     m_player.get<Camera>().position = cam.position;
-    //m_camera_target = cam.position;
 
-#   endif
     m_time_controller.frame_update();
-
-}
-#if 0
-/* private */ BuiltinMapLoader::PlayerEntities
-    GameDriverCompleteN::InitLoader::make_player() const
-{
-    auto [ren, phys] = make_sample_player();
-    return PlayerEntities{phys, ren};
-}
-#endif
-// ----------------------------------------------------------------------------
-
-// I need elements to figure out how verticies are linked...
-// these should probably be tested
-// what if known verticies always froms a rectangle on the texture itself?
-// (even if not so for the model?)
-// project model verticies onto the texture?
-//
-// I need a map between an element and it's immediate neighbors
-class NeighborMap final {
-public:
-    using Itr = std::vector<int>::const_iterator;
-    using IdxView = cul::View<Itr>;
-
-    NeighborMap() {}
-
-    explicit NeighborMap(const std::vector<int> & elements)
-        { setup(elements); }
-
-    void setup(const std::vector<int> & elements) {
-        setup_new(elements);
-    }
-
-    void setup_new(const std::vector<int> & elements) {
-        assert(elements.size() % 3 == 0);
-        int max_idx = *std::max_element(elements.begin(), elements.end());
-        // verify...
-        // all elements must be 0...n, with any number of gaps
-
-        using IntPair = std::pair<int, int>;
-        std::vector<IntPair> neighbor_pairs;
-        for (auto itr = elements.begin(); itr != elements.end(); itr += 3) {
-            // should I add every possible pair? rather than just two?
-            // whatever makes this easier to write
-            auto add = [&neighbor_pairs] (int a, int b)
-                { neighbor_pairs.emplace_back(a, b); };
-            add( itr[0], itr[1] );
-            add( itr[0], itr[2] );
-            add( itr[1], itr[0] );
-            add( itr[1], itr[2] );
-            add( itr[2], itr[0] );
-            add( itr[2], itr[1] );
-        }
-        // is this strict weak ordering?
-        std::sort(neighbor_pairs.begin(), neighbor_pairs.end(),
-                  [](const IntPair & lhs, const IntPair & rhs)
-        {
-            if (lhs.first == rhs.first) return lhs.second < rhs.second;
-            return lhs.first < rhs.first;
-        });
-        // must remove (now) sequential dupelicates
-        neighbor_pairs.erase(
-            std::unique(neighbor_pairs.begin(), neighbor_pairs.end()),
-            neighbor_pairs.end());
-
-        m_indicies.reserve(neighbor_pairs.size());
-        for (auto & pair : neighbor_pairs) {
-            m_indicies.push_back(pair.second);
-        }
-        assert(m_indicies.size() == neighbor_pairs.size());
-
-        m_index_map.reserve(max_idx);
-        auto push_empty_range = [this] () {
-            const auto end = m_indicies.end();
-            m_index_map.emplace_back( end, end );
-        };
-        int idx = 0;
-        for (auto prs_itr = neighbor_pairs.begin(); prs_itr != neighbor_pairs.end(); ) {
-            for (; idx < prs_itr->first; ++idx) {
-                push_empty_range();
-            }
-            auto next = std::find_if(prs_itr, neighbor_pairs.end(),
-                [prs_itr](const IntPair & pair)
-                { return pair.first > prs_itr->first; });
-            m_index_map.emplace_back(
-                m_indicies.begin() + (prs_itr - neighbor_pairs.begin()),
-                m_indicies.begin() + (next    - neighbor_pairs.begin()));
-            ++idx;
-            prs_itr = next;
-        }
-        for (; idx != max_idx + 1; ++idx) {
-            push_empty_range();
-        }
-    }
-
-    void setup_old(const std::vector<int> & elements) {
-        assert(elements.size() % 3 == 0);
-        // maybe I'll just do pairs and sort :/
-
-        // in each set of three, each other element is a neighbor
-        std::vector<std::size_t> idx_sizes;
-        int max_idx = *std::max_element(elements.begin(), elements.end());
-        idx_sizes.reserve(max_idx);
-        // on "remove as you go" too complicated for a first implementation
-        for (int idx = 0; idx != max_idx; ++idx) {
-            for (auto itr = elements.begin(); itr != elements.end(); itr += 3) {
-                // skip if none are possible neighbors of idx
-                if (!std::any_of(itr, itr + 3, [idx](int n) { return n == idx; }))
-                { continue; }
-
-                for (auto jtr = itr; jtr != itr + 3; ++jtr) {
-                    if (*jtr == idx) continue;
-                    // add if not idx and a possible neighbor
-                    m_indicies.push_back(*jtr);
-                }
-            }
-            // finished with idx
-            idx_sizes.push_back(m_indicies.size() - 1);
-        }
-
-
-        //auto itr = m_indicies.begin();
-        std::size_t last_size = 0;
-        for (auto size : idx_sizes) {
-            assert(size < m_indicies.size());
-            m_index_map.emplace_back( m_indicies.begin() + last_size, m_indicies.begin() + size );
-            last_size = size;
-            // make sure itr does not overrun m_indicies
-            //assert((itr - m_indicies.begin()) + size < m_indicies.size());
-            //itr += size;
-        }
-    }
-
-    IdxView operator () (int idx) const
-        { return m_index_map.at(idx); }
-
-private:
-    std::vector<int> m_indicies;
-    std::vector<IdxView> m_index_map;
-};
-
-class UnknownTxNodes final {
-public:
-    UnknownTxNodes() {}
-
-    explicit UnknownTxNodes(const std::vector<Vertex> & verticies)
-        { setup(verticies); }
-
-    void setup(const std::vector<Vertex> & verticies) {
-        for (const auto & vertx : verticies) {
-            if (!cul::is_real(vertx.texture_position)) continue;
-            m_knowns.insert(std::make_pair(
-                &vertx - &verticies.front(),
-                Known{ int(m_knowns.size()), vertx.texture_position }
-            ));
-        }
-        m_distances_for_unknowns.resize(
-            (verticies.size() - m_knowns.size())*m_knowns.size());
-        {
-        auto dend = m_distances_for_unknowns.end();
-        m_unknown_to_distances.resize(
-            verticies.size(), InfoView{ dend, dend });
-        }
-        auto itr = m_distances_for_unknowns.begin();
-        for (const auto & vertx : verticies) {
-            if (cul::is_real(vertx.texture_position)) continue;
-            m_unknown_to_distances[&vertx - &verticies.front()] =
-                InfoView{itr, itr + m_knowns.size()};
-            assert(  std::size_t(itr - m_distances_for_unknowns.begin())
-                   < m_knowns.size() + m_distances_for_unknowns.size());
-            itr += m_knowns.size();
-        }
-    }
-
-    // for each unknown:
-    // d_avg*v_known + ...
-    void set_distance(int node, int known, Real dist)
-        { get_ref_(node, known).distance = dist; }
-
-    Real distance(int node, int known) const
-        { return get_ref_(node, known).distance; }
-
-    void set_count(int node, int known, int count)
-        { get_ref_(node, known).count = count; }
-
-    int count(int node, int known) const
-        { return get_ref_(node, known).count; }
-
-    // compute unknowns, computationally heavy
-    // linearly interpolate texture positions for all unknowns, values for all
-    // knowns retained
-    void compute_all_unknowns(std::vector<Vertex> & verticies) const {
-        using namespace cul::exceptions_abbr;
-        if (m_unknown_to_distances.size() != verticies.size()) {
-            throw InvArg("UnknownTxNodes::operator(): number of verticies do "
-                         "not match between call and setup (are they the same "
-                         "verticies?).");
-        }
-        for (auto & vtx : verticies) {
-            if (cul::is_real(vtx.texture_position)) continue;
-            auto distances = m_unknown_to_distances[&vtx - &verticies.front()];
-            Real total_distance = 0;
-            Vector2 tx;
-            for (auto itr = m_knowns.begin(); itr != m_knowns.end(); ++itr) {
-                auto dist = ( distances.begin() + itr->second.idx_in_group )->distance;
-                tx += itr->second.value*dist;
-                total_distance += dist;
-            }
-            vtx.texture_position = tx / total_distance;
-        }
-    }
-
-    struct Known final {
-        Known() {}
-        Known(int idx_, Vector2 r_): idx_in_group(idx_), value(r_) {}
-        int idx_in_group = 0;
-        Vector2 value;
-    };
-
-    class KnownsItr final {
-    public:
-        explicit KnownsItr(std::map<int, Known>::const_iterator itr):
-            m_back_itr(itr) {}
-
-        int operator * () const { return m_back_itr->first; }
-
-        KnownsItr & operator ++ (int) {
-            ++m_back_itr;
-            return *this;
-        }
-
-        KnownsItr operator ++ () {
-            KnownsItr rv{m_back_itr};
-            ++m_back_itr;
-            return rv;
-        }
-
-        bool operator == (const KnownsItr & rhs) const noexcept
-            { return rhs.m_back_itr == m_back_itr; }
-
-        bool operator != (const KnownsItr & rhs) const noexcept
-            { return rhs.m_back_itr != m_back_itr; }
-
-    private:
-        std::map<int, Known>::const_iterator m_back_itr;
-    };
-
-    auto knowns() const noexcept
-        { return cul::View<KnownsItr>{ KnownsItr{m_knowns.begin()}, KnownsItr{m_knowns.end()} }; }
-
-    bool is_known(int n) const noexcept
-        { return m_knowns.find(n) != m_knowns.end(); }
-
-private:
-    struct UnknownKnownInfo final {
-        Real distance = 0;
-        int count = 0;
-    };
-
-    UnknownKnownInfo & get_ref_(int node, int known) const {
-        using namespace cul::exceptions_abbr;
-        auto itr = m_knowns.find(known);
-        auto view = m_unknown_to_distances.at(node);
-        if (itr == m_knowns.end()) {
-            throw InvArg("UnknownTxNodes::add_distance: element "
-                         + std::to_string(known) + " is not a known node.");
-        }
-        if (view.end() == view.begin()) {
-            throw InvArg("UnknownTxNodes::add_distance: element "
-                         + std::to_string(node) + " is not an unknown node.");
-        }
-        auto & known_info = itr->second;
-        assert(view.end() - view.begin() == int(m_knowns.size()));
-        assert(known_info.idx_in_group < int(m_knowns.size()));
-        // averaging?!
-        return *(view.begin() + known_info.idx_in_group);
-    }
-
-    std::map<int, Known> m_knowns;
-    // #unknowns*#knowns
-    std::vector<UnknownKnownInfo> m_distances_for_unknowns;
-    using InfoView = cul::View<std::vector<UnknownKnownInfo>::iterator>;
-    std::vector<InfoView> m_unknown_to_distances;
-};
-
-// build three things, frontier, interior unknowns, exterior unknowns
-//
-// turn frontier into knowns, then use that frontier as knowns in a recursive
-// call, no exterior nodes as a base case
-//
-// this function should probably be tested as well...
-std::vector<Vertex> deduce_texture_positions
-    (std::vector<Vertex> & verticies, const std::vector<int> & elements)
-{
-    bool all_known = std::all_of(
-        verticies.begin(), verticies.end(),
-        [](const Vertex & vtx) { return cul::is_real(vtx.texture_position); });
-    if (all_known) return std::move(verticies);
-
-    // set of known and unknown texture positions
-    // there must be at least three!
-    // for the unknown compute distances to the three other verticies
-    NeighborMap nmap{elements};
-    UnknownTxNodes unknowns{verticies};
-    auto knowns = unknowns.knowns();
-    std::vector<int> exploring;
-    for (int n : knowns) {
-        for (int neighbor : nmap(n)) {
-            if (unknowns.is_known(n)) continue;
-            exploring.push_back(neighbor);
-        }
-    }
-    auto distance_between = [&verticies] (int a, int b)
-        { return magnitude( verticies[a].position - verticies[b].position ); };
-
-    std::vector<int> next_exploring;
-    do {
-        // distance averages?
-        for (int n : exploring) {
-            // for each neighbor
-            for (int known : knowns) {
-                int count = 0;
-                Real distance = 0;
-                // for each known in each neighbor
-                // is there a way to build an iterator to simplify this?
-                for (int neighbor : nmap(n)) {
-                    // if neighbor is *that* known
-                    auto distance_for_neighbor = distance_between(n, neighbor);
-                    if (neighbor == known) {
-                        ++count;
-                        distance += distance_for_neighbor;
-                        continue;
-                    }
-
-                    // if count is 0, then it's "unprocessed"
-                    if (unknowns.count(neighbor, known) == 0) {
-                        next_exploring.push_back(neighbor);
-                        continue;
-                    }
-                    distance += distance_for_neighbor + unknowns.distance(neighbor, known);
-                    ++count;
-                }
-                assert(count);
-                unknowns.set_count(n, known, count);
-                unknowns.set_distance(n, known, distance / count);
-            }
-        }
-        exploring.swap(next_exploring);
-        next_exploring.clear();
-    } while (!exploring.empty());
-    // following, no "unknowns" should remain (though not "complete") how ought
-    // I verify this?
-    assert(([&verticies, &unknowns] {
-        auto knowns = unknowns.knowns();
-        for (int i = 0; i != int(verticies.size()); ++i) {
-            if (unknowns.is_known(i)) continue;
-            for (int n : knowns) {
-                if (unknowns.count(i, n) == 0)
-                    { return false; }
-            }
-        }
-        return true;
-    } ()));
-    unknowns.compute_all_unknowns(verticies);
-    return std::move(verticies);
-}
-
-void test_slope_rotations() {
-#   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
-    using namespace cul::ts;
-    using cul::is_real;
-    using Tgg = TileGraphicGenerator;
-    TestSuite suite;
-    suite.start_series("slope rotation detection");
-    mark(suite).test([] {
-        return test(is_real(Tgg::rotation_between(
-            Slopes{0, 0, 0, 1, 1},
-            Slopes{0, 0, 1, 1, 0}
-        )));
-    });
-    mark(suite).test([] {
-        return test(is_real(Tgg::rotation_between(
-            Slopes{0, 1, 0, 0, 1},
-            Slopes{0, 0, 1, 1, 0}
-        )));
-    });
-}
-
-void test_neighbor_map() {
-    using namespace cul::ts;
-    TestSuite suite;
-    suite.start_series("Neighbor Map");
-    mark(suite).test([] {
-        NeighborMap nmap({
-            0, 1, 2,
-            0, 2, 3
-        });
-        std::array zero_neighbors = { 1, 2, 3 };
-        return test(std::equal(
-            zero_neighbors.begin(), zero_neighbors.end(),
-            nmap(0).begin(), nmap(0).end()));
-    });
-    // test something who doesn't have all others as neighbors
-    mark(suite).test([] {
-        NeighborMap nmap({
-            0, 1, 2,
-            0, 2, 3,
-            2, 3, 4
-        });
-        std::array four_neighbors = { 2, 3 };
-        auto gn = nmap(4);
-        return test(std::equal(
-            four_neighbors.begin(), four_neighbors.end(),
-            gn.begin(), gn.end()));
-    });
-
-    mark(suite).test([] {
-        NeighborMap nmap({
-            0, 1, 2,
-            0, 2, 3,
-            2, 3, 4
-        });
-
-        auto gn = nmap(4);
-        return test(std::none_of(
-            gn.begin(), gn.end(), [](int n) { return n == 0; }));
-    });
-#   undef mark
 }
 
 } // end of <anonymous> namespace

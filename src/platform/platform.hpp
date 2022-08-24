@@ -24,15 +24,11 @@
 
 #include <ariajanke/ecs3/SingleSystem.hpp>
 
-#include <map>
-
-// TriggerSystem... creates an event for the driver
-// this event may trigger the loading of new entities, removal of old entities,
-// or eventual modification of entities
-
 class Texture;
 
 class RenderModel;
+
+class Loader;
 
 /** Represents the platform on which the application runs. This class is a way
  *  for the driver/loaders/certain systems to obtain platform specific
@@ -84,58 +80,11 @@ public:
          */
         virtual void set_camera_entity(EntityRef) = 0;
     };
-#   if 0
-    class CachingForLoaders {
-    public:
-        explicit CachingForLoaders(const ForLoaders &);
 
-        /** @copydoc Platform::ForLoaders::make_renderable_entity() */
-        Entity make_renderable_entity() const;
-
-        /** @copydoc Platform::ForLoaders::make_texture() */
-        SharedPtr<Texture> make_texture() const;
-
-        /** @copydoc Platform::ForLoaders::make_render_model() */
-        SharedPtr<RenderModel> make_render_model() const ;
-
-        SharedPtr<Texture> load_texture(const char * filename);
-#       if 0
-    {
-            return load_resource(m_cached_textures, filename,
-                [](Texture & texture, const char * filename)
-            {
-                texture.
-            });
-        }
-#       endif
-        SharedPtr<RenderModel> load_render_model(const char * filename);
-
-    private:
-        template <typename T, typename Key, typename Func>
-        static SharedPtr<T> load_resource
-            (std::map<std::string, WeakPtr<T>> & map, const Key & key, Func load_res)
-        {
-            auto & res = map[key];
-            if (res) return res.lock();
-
-            auto new_res = std::make_shared<T>();
-            T & obj = *new_res;
-            load_res(obj, key);
-            res = new_res;
-            return new_res;
-        }
-
-        std::map<std::string, WeakPtr<Texture>> m_cached_textures;
-
-        std::map<std::string, WeakPtr<RenderModel>> m_cached_models;
-    };
-#   endif
     class Callbacks : public ForDriver, public ForLoaders {};
 
     static Callbacks & null_callbacks();
 };
-
-class Loader;
 
 /** Intended as a "synchronous" system more than anything
  *

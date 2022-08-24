@@ -22,8 +22,6 @@
 
 #include <common/TestSuite.hpp>
 
-#include <iostream>
-
 namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
@@ -119,7 +117,8 @@ SideCrossing TriangleSegment::check_for_side_crossing
         auto far_out = contains_old ? new_ : old ;
         auto [li, fo] = move_to_last_in_and_first_out(
             far_in, far_out,
-            next_after(inx, far_in - far_out), next_after(inx, far_out - far_in)); {}
+            next_in_direction(inx, far_in  - far_out),
+            next_in_direction(inx, far_out - far_in)); {}
         return SideCrossing{r, li, fo};
     };
 

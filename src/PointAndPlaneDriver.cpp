@@ -448,10 +448,10 @@ State DriverComplete::operator ()
         return InAir{triangle.point_at( gv.outside ), Vector{}};
     }
 
-    auto inx_pt = triangle.point_at( gv.outside );
+    auto outside_pt = triangle.point_at(gv.outside);
     auto rem_displc_var = env.pass_triangle_side(
-        triangle, transfer.target.get(), inx_pt,
-        inx_pt - triangle.point_at(tracker.location));
+        triangle, transfer.target.get(), outside_pt,
+        outside_pt - triangle.point_at(tracker.location));
     if (auto * to_tri = get_if<SegmentTransfer>(&rem_displc_var)) {
         static int i = 0;
         std::cout << "intersegment (" << (i++) << ") transfer occured..."
@@ -462,14 +462,14 @@ State DriverComplete::operator ()
             to_tri->displacement, tracker.displacement,
             "DriverComplete::handle_tracker");
         return OnSurface{transfer.target, bool(transfer.inverts ^ to_tri->invert),
-            transfer.target->closest_contained_point(inx_pt), to_tri->displacement};
+            transfer.target->closest_contained_point(outside_pt), to_tri->displacement};
     } else if (auto * disv3 = get_if<Vector>(&rem_displc_var)) {
         // you mean to "slip off"
         std::cout << "Slip off w/ attached" << std::endl;
         verify_decreasing_displacement<Vector, Vector2>(
             *disv3, tracker.displacement,
             "DriverComplete::handle_tracker");
-        return InAir{inx_pt, *disv3};
+        return InAir{outside_pt, *disv3};
     }
 
     throw MACRO_MAKE_BAD_BRANCH_EXCEPTION();
@@ -494,8 +494,6 @@ void verify_decreasing_displacement
      EnableIf<cul::VectorTraits<Vec2>::k_is_vector_type, const Vec2 &> old_displacement,
      const char * caller)
 {
-    constexpr const auto k_min_dec =
-        cul::ScalarTypeOf<Vec1>(0.05)*cul::ScalarTypeOf<Vec2>(0.05);
     if (!is_real(displc)) {
         throw InvArg{std::string{caller} + ": new displacement must be a real vector."};
     }
