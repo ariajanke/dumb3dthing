@@ -36,6 +36,8 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <common/Util.hpp>
+
 #include <array>
 #include <sstream>
 #include <fstream>
@@ -44,7 +46,7 @@ namespace {
 
 constexpr const int k_info_log_size = 512;
 using InfoLog = std::array<char, k_info_log_size>;
-using RtError = std::runtime_error;
+using namespace cul::exceptions_abbr;
 
 std::string file_to_string(const char * filename);
 

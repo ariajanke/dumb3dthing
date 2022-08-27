@@ -23,28 +23,11 @@
 #include "Defs.hpp"
 #include "platform/platform.hpp"
 
-struct Camera {
-    Vector position, target, up = k_up;
-};
-
-enum class KeyControl {
-    forward,
-    backward,
-    left,
-    right,
-    jump,
-
-    pause,
-    advance,
-    print_info,
-    restart
-};
-
 class Driver {
 public:
-    static UniquePtr<Driver> make_instance();
-
     using LoaderVec = std::vector<UniquePtr<Loader>>;
+
+    static UniquePtr<Driver> make_instance();
 
     // events may trigger loaders
     virtual void press_key(KeyControl) = 0;

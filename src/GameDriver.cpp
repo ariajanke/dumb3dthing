@@ -19,17 +19,18 @@
 *****************************************************************************/
 
 #include "GameDriver.hpp"
+#include "Components.hpp"
 #include "RenderModel.hpp"
 #include "map-loader.hpp"
 #include "Texture.hpp"
+#include "Systems.hpp"
 
 #include <common/BezierCurves.hpp>
+#include <common/TestSuite.hpp>
 
 #include <iostream>
 
 namespace {
-
-using std::get_if, std::make_tuple;
 
 class TimeControl final {
 public:
@@ -40,23 +41,12 @@ public:
         default: return;
         }
     }
-    void release(KeyControl ) {
-#       if 0
-        switch (ky) {
-        case Kc::advance: break;
-        case Kc::pause: m_paused = false; break;
-        default: return;
-        }
-#       endif
-    }
 
-    void frame_update() {
-        m_advance_frame = false;
-    }
+    void frame_update()
+        { m_advance_frame = false; }
 
-    bool runs_this_frame() const {
-        return m_paused ? m_advance_frame : true;
-    }
+    bool runs_this_frame() const
+        { return m_paused ? m_advance_frame : true; }
 
 private:
     using Kc = KeyControl;
@@ -80,25 +70,10 @@ private:
     TimeControl m_time_controller;
 };
 
-struct VisibilityChain final {
-    static constexpr const Real k_to_next = 1.2;
-    ecs::EntityRef next;
-    Real time_spent = 0;
-    bool visible = true;
-};
-
-template <typename T>
-using Opt = ecs::Optional<T>;
-
-struct DragCamera final {
-    Vector position = Vector{100, 100, 100};
-    Real max_distance = 6;
-};
-
 } // end of <anonymous> namespace
 
 /* static */ UniquePtr<Driver> Driver::make_instance()
-    { return std::make_unique<GameDriverComplete>(); }
+    { return make_unique<GameDriverComplete>(); }
 
 void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
     update_(seconds);
@@ -157,144 +132,7 @@ void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
 
 namespace {
 
-// more component types
-struct ModelTarget final : VectorLike<ModelTarget> {
-    using LikeBase::LikeBase;
-};
-
-struct Elements final {
-    std::vector<int> values;
-};
-
-struct Verticies final {
-    std::vector<Vertex> values;
-};
-
-struct Units final {
-    int texture = 1;
-    int verticies = 1;
-};
-
-struct Velocity final : public VectorLike<Velocity> {
-    using LikeBase::LikeBase;
-    using LikeBase::operator=;
-};
-
-struct JumpVelocity final : public VectorLike<JumpVelocity> {
-    using LikeBase::LikeBase;
-    using LikeBase::operator=;
-};
-
-class PlayerControl final {
-public:
-    void press(KeyControl ky) {
-        using Kc = KeyControl;
-        switch (ky) {
-        case Kc::forward: case Kc::backward: case Kc::left: case Kc::right:
-            m_dir[to_index(ky)] = true;
-            break;
-        case Kc::jump:
-            m_jump_this_frame = true;
-            break;
-        default: return;
-        }
-    }
-
-    void release(KeyControl ky) {
-        using Kc = KeyControl;
-        switch (ky) {
-        case Kc::forward: case Kc::backward: case Kc::left: case Kc::right:
-            m_dir[to_index(ky)] = false;
-            break;
-        case Kc::jump:
-            m_jump_this_frame = false;
-            break;
-        default: return;
-        }
-    }
-
-    void frame_update() {
-        m_jump_pressed_before = m_jump_this_frame;
-    }
-
-    Vector2 heading() const {
-        using Kc = KeyControl;
-        auto left  = m_dir[to_index(Kc::left    )];
-        auto right = m_dir[to_index(Kc::right   )];
-        auto back  = m_dir[to_index(Kc::backward)];
-        auto fore  = m_dir[to_index(Kc::forward )];
-        return Vector2{
-            (left ^ right)*(-left + right)*1.,
-            (back ^ fore )*(-back + fore )*1.};
-    }
-
-    bool is_starting_jump() const
-        { return !m_jump_pressed_before && m_jump_this_frame; }
-
-    bool is_ending_jump() const
-        { return m_jump_pressed_before && !m_jump_this_frame; }
-
-private:
-
-    static int to_index(KeyControl ky) {
-        using Kc = KeyControl;
-        switch (ky) {
-        case Kc::forward : return 0; case Kc::backward: return 1;
-        case Kc::left    : return 2; case Kc::right   : return 3;
-        default: break;
-        }
-        throw std::runtime_error{""};
-    }
-    std::array<bool, 4> m_dir = std::array<bool, 4>{};
-    bool m_jump_pressed_before = false;
-    bool m_jump_this_frame = false;
-};
-
-/**
- * @brief get_new_velocity
- * @param velocity
- * @param player_control
- * @param pstate
- * @param willed_dir assumed to have gravity subtracted, and a normal vector
- * @param seconds
- * @return
- */
-Velocity get_new_velocity
-    (const Velocity & velocity,
-     const Vector & willed_dir, Real seconds)
-{
-    constexpr const Real k_max_willed_speed = 5;
-    constexpr const Real k_max_acc = 10; // u/s^2
-    constexpr const Real k_min_acc = 2;
-    constexpr const Real k_unwilled_acc = 3;
-    assert(   are_very_close(magnitude(willed_dir), 1)
-           || are_very_close(magnitude(willed_dir), 0));
-    // unwilled deceleration
-    if (are_very_close(magnitude(willed_dir), 0)) {
-        auto new_speed = magnitude(velocity.value) - k_unwilled_acc*seconds;
-        if (new_speed <= 0) return Velocity{};
-        return Velocity{ new_speed*normalize(velocity.value) };
-    }
-
-    auto dir_boost = are_very_close(velocity.value, Vector{}) ? 0 : (angle_between(velocity.value, willed_dir) / k_pi);
-    auto low_speed_boost = 1 - std::min(magnitude(velocity.value) / k_max_willed_speed, Real(0));
-    auto t = dir_boost*low_speed_boost;
-    auto acc = (1 - t)*k_min_acc + t*k_max_acc;
-    if (t > 0.5) {
-        int i = 0;
-        ++i;
-    }
-
-    auto new_vel = velocity.value + willed_dir*seconds*acc;
-    if (   magnitude(velocity.value) > k_max_willed_speed
-        && magnitude(new_vel) >= magnitude(velocity.value))
-    { return velocity; }
-
-    if (magnitude(new_vel) > k_max_willed_speed)
-        { return Velocity{normalize(new_vel)*(k_max_willed_speed*0.9995)}; }
-
-    return Velocity{new_vel};
-}
+// ------------------------------ <Messy Space> -------------------------------
 
 template <typename Vec, typename ... Types>
 std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
@@ -379,16 +217,8 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
     return rv;
 }
 
-struct TranslationFromParent final {
-    TranslationFromParent() {}
-    TranslationFromParent(EntityRef par_, Vector trans_):
-        parent(par_), translation(trans_) {}
-    EntityRef parent;
-    Vector translation;
-};
+static constexpr const Vector k_player_start{3.1, 0.1, -2.1};
 
-static constexpr const Vector k_player_start{3.1, 2.1, -2.1};
-static constexpr const Vector k_gravity = -k_up*10;
 // model entity, physical entity
 Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
     static const auto get_vt = [](int i) {
@@ -486,7 +316,7 @@ static constexpr auto k_layout4 =
     "1<                                                                                                                              >1\n"
     "1<                                                          >1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxvvxx\n"
     "xxvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
-    "xx1111111111111111111111111111111111111111111111111111111111xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
+    "xx1111111111111111111111111111111111111111111111111111111111xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1xxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
     "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx111111111111111111111111111111111111111111111111111111111111111111111xx\n";
 
 // ----------------------------------------------------------------------------
@@ -499,10 +329,8 @@ void GameDriverComplete::press_key(KeyControl ky) {
     }
 }
 
-void GameDriverComplete::release_key(KeyControl ky) {
-    m_player.get<PlayerControl>().release(ky);
-    m_time_controller.release(ky);
-}
+void GameDriverComplete::release_key(KeyControl ky)
+    { m_player.get<PlayerControl>().release(ky); }
 
 Loader::LoaderTuple GameDriverComplete::initial_load
     (Platform::ForLoaders & callbacks)
@@ -550,121 +378,11 @@ void GameDriverComplete::update_(Real seconds) {
         }
         trans = location_of(state) + s*trans_from_parent.translation;
     },
-    [seconds] (PpState & state, Velocity & velocity, PlayerControl & control,
-               Camera & camera)
-    {
-        if (are_very_close(control.heading(), Vector2{})) return;
-        Vector player_loc = [state] {
-            if (auto * on_surf = get_if<PpOnSurface>(&state)) {
-                return on_surf->segment->point_at(on_surf->location);
-            }
-            auto * in_air = get_if<PpInAir>(&state);
-            assert(in_air);
-            return in_air->location;
-        } ();
-        Vector forward = normalize(cul::project_onto_plane(player_loc - camera.position, k_up));
-        Vector left    = normalize(cross(k_up, forward));
-        // +y is forward, +x is right
-        auto willed_dir = normalize(control.heading().y*forward - control.heading().x*left);
-        velocity = get_new_velocity(velocity, willed_dir, seconds);
-    }, [seconds](PpState & state, Velocity & velocity, Opt<JumpVelocity> jumpvel) {
-        if (auto * in_air = get_if<PpInAir>(&state)) {
-            velocity = velocity.value + k_gravity*seconds;
-            if (jumpvel) {
-                *jumpvel = jumpvel->value + k_gravity*seconds;
-            }
-        } else if(auto * on_segment = get_if<PpOnSurface>(&state)) {
-#           if 0
-            auto & triangle = *on_segment->segment;
-            velocity = velocity.value + cul::project_onto_plane(k_gravity*seconds, triangle.normal());
-#           endif
-        }
-    }, [seconds](PpState & state, Velocity & velocity, Opt<JumpVelocity> jumpvel) {
-        auto displacement = velocity.value*seconds + (1. / 2)*k_gravity*seconds*seconds;
-        if (auto * in_air = get_if<PpInAir>(&state)) {
-            in_air->displacement = displacement + (jumpvel ? jumpvel->value*seconds : Vector{});
-        } else if(auto * on_segment = get_if<PpOnSurface>(&state)) {
-            auto & triangle = *on_segment->segment;
-            displacement = cul::project_onto_plane(displacement, triangle.normal());
-            auto pt_v3 = triangle.point_at(on_segment->location);
-            auto new_pos = triangle.closest_point(pt_v3 + displacement);
-            on_segment->displacement = new_pos - on_segment->location;
-        }
-    }, [this](PpState & state, Opt<Velocity> vel) {
-
-        class Impl final : public point_and_plane::EventHandler {
-        public:
-            Impl(Opt<Velocity> & vel): m_vel(vel) {}
-            Variant<Vector2, Vector> displacement_after_triangle_hit
-                (const TriangleSegment & triangle, const Vector & /*location*/,
-                 const Vector & new_, const Vector & intersection) const final
-            {
-                // for starters:
-                // always attach, entirely consume displacement
-                if (m_vel) {
-                    *m_vel = project_onto_plane(m_vel->value, triangle.normal());
-                }
-                auto diff = new_ - intersection;
-                auto rem_displc = project_onto_plane(diff, triangle.normal());
-
-                auto rv =  triangle.closest_point(rem_displc + intersection)
-                         - triangle.closest_point(intersection);
-                return rv;
-            }
-
-            Variant<SegmentTransfer, Vector> pass_triangle_side
-                (const TriangleSegment &, const TriangleSegment * to,
-                 const Vector &, const Vector &) const final
-            {
-                // always transfer to the other surface
-                if (!to) {
-                    return make_tuple(false, Vector2{});
-                }
-                // may I know the previous inversion value?
-                return make_tuple(false, Vector2{});
-            }
-
-            bool cling_to_edge(const TriangleSegment & triangle, TriangleSide side) const final {
-                if (!m_vel) return true;
-                auto [sa, sb] = triangle.side_points(side); {}
-                *m_vel = project_onto(m_vel->value, sa - sb);
-                return true;
-            }
-
-            Opt<Velocity> & m_vel;
-        };
-        // on catching flip-flop bug: I want to watch displacements in 3 space between flops
-        Vector dis;
-        if (auto * onsurf = get_if<PpOnSurface>(&state)) {
-            dis = onsurf->segment->point_at(onsurf->displacement);
-        }
-
-        Impl impl{vel};
-        state = (*m_ppdriver)(state, impl);
-    }, [](PpState & state, PlayerControl & control, JumpVelocity & vel) {
-        constexpr auto k_jump_vel = k_up*10;
-        {
-        auto * on_segment = get_if<PpOnSurface>(&state);
-        if (on_segment && control.is_starting_jump()) {
-            auto & triangle = *on_segment->segment;
-            auto dir = (on_segment->invert_normal ? -1 : 1)*triangle.normal()*0.1;
-            vel = k_jump_vel;
-            state = PpInAir{triangle.point_at(on_segment->location) + dir, Vector{}};
-        }
-        }
-        {
-        auto * in_air = get_if<PpInAir>(&state);
-        if (in_air && control.is_ending_jump() && !are_very_close(vel.value, Vector{})) {
-            vel = normalize(vel.value)*std::sqrt(magnitude(vel.value));
-        }
-        }
-    })(scene());
-
-    for (auto e : scene()) {
-        auto * on_surf = get_if<PpOnSurface>(e.ptr<PpState>());
-        if (!on_surf) continue;
-
-    }
+    PlayerControlToVelocity{seconds},
+    AccelerateVelocities{seconds},
+    VelocitiesToDisplacement{seconds},
+    UpdatePpState{*m_ppdriver},
+    CheckJump{})(scene());
 
     // this code here is a good candidate for a "Trigger" system
     m_player.get<PlayerControl>().frame_update();

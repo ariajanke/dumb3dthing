@@ -33,7 +33,7 @@ using SideCrossing = TriangleSegment::SideCrossing;
 
 using cul::find_smallest_diff, cul::make_nonsolution_sentinel,
       cul::make_zero_vector;
-using std::min_element, std::make_tuple;
+using std::min_element;
 
 template <typename T>
 using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;

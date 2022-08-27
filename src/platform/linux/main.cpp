@@ -21,6 +21,7 @@
 #include "../../Defs.hpp"
 #include "../../GameDriver.hpp"
 #include "../../map-loader.hpp"
+#include "../../Systems.hpp"
 
 #include "RenderModelImpl.hpp"
 #include "TextureImpl.hpp"
@@ -67,7 +68,7 @@ struct GLFWwindowDeleter {
         { glfwDestroyWindow(wptr); }
 };
 
-using GlfwWindowPtr = std::unique_ptr<GLFWwindow, GLFWwindowDeleter>;
+using GlfwWindowPtr = UniquePtr<GLFWwindow, GLFWwindowDeleter>;
 
 void framebuffer_size_callback(GLFWwindow * window, int width, int height);
 void process_input(GLFWwindow * window);
@@ -235,6 +236,7 @@ int main() {
     point_and_plane::TriangleLinks::run_tests();
     run_map_loader_tests();
     TriangleSegment::run_tests();
+    run_system_tests();
 
     // glfw: initialize and configure
     // ------------------------------

@@ -25,8 +25,6 @@
 
 namespace {
 
-using std::make_shared;
-
 class NullRenderModel final : public RenderModel {
 public:
     void render() const final {}

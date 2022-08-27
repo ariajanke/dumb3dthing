@@ -21,6 +21,7 @@
 #include "map-loader.hpp"
 #include "RenderModel.hpp"
 #include "Texture.hpp"
+#include "Components.hpp"
 
 #include <common/TestSuite.hpp>
 
@@ -28,6 +29,7 @@ namespace {
 
 using MaybeCell = CharToCell::MaybeCell;
 using Triangle = TriangleSegment;
+using namespace cul::exceptions_abbr;
 
 static const constexpr std::array k_flat_points = {
     Vector{-.5, 0, 0.5}, // nw
@@ -43,28 +45,6 @@ Tuple<SharedPtr<Triangle>, SharedPtr<Triangle>>
     make_flat_segments(Vector2I loc, Real elevation);
 
 TileGraphicGenerator::WallDips get_dips(CellSubGrid, Vector2I);
-
-class TestSubEnv final : public point_and_plane::EventHandler {
-    Variant<Vector2, Vector> displacement_after_triangle_hit
-        (const Triangle &, const Vector &,
-         const Vector &, const Vector &) const final
-    {
-        // always land
-        return Vector2{};
-    }
-
-    Variant<SegmentTransfer, Vector> pass_triangle_side
-        (const Triangle &, const Triangle * to,
-         const Vector &, const Vector &) const final
-    {
-        // always fall off
-        if (!to) return Vector{};
-        return std::make_tuple(false, Vector2{});
-    }
-
-    bool cling_to_edge(const Triangle &, TriangleSide) const final
-        { return false; }
-};
 
 } // end of <anonymous> namespace
 
@@ -126,7 +106,7 @@ void TileGraphicGenerator::create_slope(Vector2I loc, const Slopes & slopes) {
         SharedCPtr<RenderModel>, Translation,
         YRotation, SharedCPtr<Texture>,
         TextureTranslation>()
-    = std::make_tuple(
+    = make_tuple(
         model, translation,
         YRotation{rot_}, ensure_texture(m_tileset4, "tileset4.png"),
         TextureTranslation{txr});
@@ -138,7 +118,7 @@ void TileGraphicGenerator::create_flat
     (Vector2I loc, const Flat & flat, const WallDips & dips)
 {
     if (m_flat_model) {
-        using std::get, std::make_tuple, std::tuple_cat;
+        using std::get, std::tuple_cat;
         assert(m_wall_model);
         auto e = m_platform.make_renderable_entity();
         m_entities_out.push_back(e);
@@ -243,15 +223,6 @@ void TileGraphicGenerator::create_flat
             return -(ritr - right.begin())*k_pi*0.5;
         }
     }
-#   if 0
-    auto print_out = [](const Slopes & slps) {
-        std::cout << "ne " << slps.ne << " nw " << slps.nw << " sw " << slps.sw << " se " << slps.se << std::endl;
-    };
-    std::cout << "lhs ";
-    print_out(lhs);
-    std::cout << "rhs ";
-    print_out(rhs);
-#   endif
     return k_inf;
 }
 
@@ -288,12 +259,12 @@ void TileGraphicGenerator::create_flat
 
     auto itr = m_slopes_map.find(slopes);
     if (itr != m_slopes_map.end()) {
-        auto triangle_segments = std::make_tuple(
-            std::make_shared<TriangleSegment>(
+        auto triangle_segments = make_tuple(
+            make_shared<TriangleSegment>(
                 k_points[0] + translation,
                 k_points[1] + translation,
                 k_points[2] + translation),
-            std::make_shared<TriangleSegment>(
+            make_shared<TriangleSegment>(
                 k_points[0] + translation,
                 k_points[2] + translation,
                 k_points[3] + translation));
@@ -328,21 +299,19 @@ MaybeCell CharToCell::operator () (char c) const {
 }
 
 /* static */ Cell CharToCell::to_cell(const MaybeCell & mcell) {
-    using std::get_if;
     if (auto * p = get_if<Flat>(&mcell)) return Cell{*p};
     if (auto * p = get_if<Slopes>(&mcell)) return Cell{*p};
     if (auto * p = get_if<Pit>(&mcell)) return Cell{*p};
     if (auto * p = get_if<VoidSpace>(&mcell)) return Cell{*p};
-    throw std::invalid_argument("");
+    throw InvArg{""};
 }
 
 /* static */ MaybeCell CharToCell::to_maybe_cell(const Cell & mcell) {
-    using std::get_if;
     if (auto * p = get_if<Flat>(&mcell)) return MaybeCell{*p};
     if (auto * p = get_if<Slopes>(&mcell)) return MaybeCell{*p};
     if (auto * p = get_if<Pit>(&mcell)) return MaybeCell{*p};
     if (auto * p = get_if<VoidSpace>(&mcell)) return MaybeCell{*p};
-    throw std::invalid_argument("");
+    throw InvArg{""};
 }
 
 
@@ -363,7 +332,7 @@ MaybeCell CharToCell::operator () (char c) const {
             case 'd': return Slopes{0, 0.f, 1.f, 0.f, 0.f};
             case ' ': return Flat{0, 0.f};
             case '1': return Flat{0, 1.f};
-            default: throw std::invalid_argument("no");
+            default: throw InvArg{"no"};
             }
         }
     };
@@ -378,7 +347,7 @@ Tuple<std::vector<TriangleLinks>,
     load_map_graphics
     (TileGraphicGenerator & tileset, CellSubGrid grid)
 {
-    using std::get, std::get_if;
+    using std::get;
     Grid<std::pair<std::size_t, std::size_t>> links_grid;
     links_grid.set_size(grid.width(), grid.height());
     for (Vector2I r; r != grid.end_position(); r = grid.next(r)) {
@@ -416,20 +385,13 @@ Tuple<std::vector<TriangleLinks>,
             if (!other_tri) continue;
             if (this_tri == other_tri) continue;
             auto & link = links.back();
-#           if 0
-            std::cout << link.hash() << " to " << std::hash<const TriangleSegment *>{}( other_tri.get() ) << std::endl;
-#           endif
             link.attempt_attachment_to(other_tri);
         }}
-#       if 0
-        print_links(std::cout, links.back());
-#       endif
     }}
-    return std::make_tuple(links, tileset.give_entities());
+    return make_tuple(links, tileset.give_entities());
 }
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell & char_to_cell) {
-    using std::get_if;
     std::vector<CharToCell::MaybeCell> maybes;
     for (auto c = layout; *c; ++c) maybes.push_back(char_to_cell(*c));
     int width = 0;
@@ -445,7 +407,7 @@ Grid<Cell> load_map_cell(const char * layout, const CharToCell & char_to_cell) {
         ++width;
     }
     if (!maybes.empty()) {
-        if (!std::get_if<EndOfRow>(&maybes.back())) {
+        if (!get_if<EndOfRow>(&maybes.back())) {
             ++height;
         }
     }
@@ -489,7 +451,7 @@ void run_map_loader_tests() {
         return std::get<0>(gv);
     };
 
-    using std::any_of, std::get_if, std::get;
+    using std::any_of, std::get;
 
     static auto any_point_arrangement_of = []
         (const Triangle & tri, const std::array<Vector, 3> & pts)
@@ -515,13 +477,14 @@ void run_map_loader_tests() {
         (point_and_plane::Driver & driver, const Vector & start, const Vector & displacement)
     {
         PpState state = PpInAir{start + Vector{0, 0.1, 0}, Vector{0, -0.2, 0}};
-        state = driver(state, TestSubEnv{});
+        auto thandler = point_and_plane::EventHandler::make_test_handler();
+        state = driver(state, *thandler);
 
         auto & tri = *get<PpOnSurface>(state).segment;
         get<PpOnSurface>(state).displacement =
             tri.closest_point(displacement + start) - tri.closest_point(start);
 
-        return driver(state, TestSubEnv{});
+        return driver(state, *thandler);
     };
 
     // triangle locations sanity
@@ -538,7 +501,8 @@ void run_map_loader_tests() {
     mark(suite).test([] {
         auto ppdriver = make_driver_for_test_layout();
         PpState state = PpInAir{ Vector{2, 0.1, -1.9}, Vector{ 0, -0.2, 0 } };
-        state = (*ppdriver)(state, TestSubEnv{});
+        auto thandler = point_and_plane::EventHandler::make_test_handler();
+        state = (*ppdriver)(state, *thandler);
         return test(get_if<PpOnSurface>(&state));
     });
     // can cross eastbound
@@ -576,7 +540,6 @@ namespace {
 Tuple<SharedPtr<Triangle>, SharedPtr<Triangle>>
        make_flat_segments(Vector2I loc, Real elevation)
 {
-   using std::make_tuple, std::make_shared;
    auto translation = grid_location_to_v3(loc, elevation);
    return make_tuple(
        make_shared<TriangleSegment>(
@@ -593,7 +556,7 @@ TileGraphicGenerator::WallDips get_dips(CellSubGrid grid, Vector2I r) {
     using WallDips = TileGraphicGenerator::WallDips;
     WallDips rv = { 0.f, 0.f, 0.f, 0.f };
     using NTup = Tuple<Vector2I, float *>;
-    using std::get, std::get_if;
+    using std::get;
     std::array neighbors = {
         NTup{Vector2I{ 0, -1}, &rv[0]}, // n
         NTup{Vector2I{-1,  0}, &rv[1]}, // w
@@ -601,7 +564,7 @@ TileGraphicGenerator::WallDips get_dips(CellSubGrid grid, Vector2I r) {
         NTup{Vector2I{ 1,  1}, &rv[3]}  // e
     };
     if (!get_if<Flat>(&grid(r))) {
-        throw std::invalid_argument("");
+        throw InvArg{""};
     }
     const auto & flat = get<Flat>(grid(r));
     for (auto [nr, dip] : neighbors) {
