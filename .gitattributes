@@ -1,1 +1,7 @@
-./src/platform/linux/glad.c linguist-vendored	
+src/platform/linux/dist/glad.c -linguist-vendored
+*.c linguist-detectable=false
+*.h linguist-detectable=false
+src/platform/linux/*.c linguist-vendored
+src/platform/linux/dist/*.c linguist-vendored
+src/platform/linux/*.h linguist-vendored
+

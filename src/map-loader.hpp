@@ -159,4 +159,4 @@ Tuple<std::vector<TriangleLinks>,
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell &);
 
-void run_map_loader_tests();
+bool run_map_loader_tests();

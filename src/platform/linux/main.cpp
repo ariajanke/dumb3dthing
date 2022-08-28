@@ -204,10 +204,10 @@ public:
     }
 
     SharedPtr<Texture> make_texture() const final
-        { return std::make_shared<OpenGlTexture>(); }
+        { return make_shared<OpenGlTexture>(); }
 
     SharedPtr<RenderModel> make_render_model() const final
-        { return std::make_shared<OpenGlRenderModel>(); }
+        { return make_shared<OpenGlRenderModel>(); }
 
     void set_camera_entity(EntityRef eref) final
         { m_camera_ent = eref; }
@@ -233,11 +233,6 @@ private:
 // ----------------------------------------------------------------------------
 
 int main() {
-    point_and_plane::TriangleLinks::run_tests();
-    run_map_loader_tests();
-    TriangleSegment::run_tests();
-    run_system_tests();
-
     // glfw: initialize and configure
     // ------------------------------
     GlfwLibraryRAII glfw_raii; (void)glfw_raii;

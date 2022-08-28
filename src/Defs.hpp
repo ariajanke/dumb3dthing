@@ -183,6 +183,10 @@ bool are_very_close(Vector2, Vector2);
 
 bool are_very_close(Real, Real);
 
+template <typename T>
+bool are_very_close(const VectorLike<T> & lhs, const VectorLike<T> & rhs)
+    { return are_very_close(lhs.value, rhs.value); }
+
 void print_links(std::ostream &, const point_and_plane::TriangleLinks &);
 
 /** Gets the "nextafter" vector following a given direction

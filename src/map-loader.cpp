@@ -429,7 +429,7 @@ Grid<Cell> load_map_cell(const char * layout, const CharToCell & char_to_cell) {
     return rv;
 }
 
-void run_map_loader_tests() {
+bool run_map_loader_tests() {
     // test movements in each cardinal direction
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
     using namespace cul::ts;
@@ -533,6 +533,7 @@ void run_map_loader_tests() {
     });
     // land on...??? which triangle in the middle?
 #   undef mark
+    return suite.has_successes_only();
 }
 
 namespace {

@@ -36,6 +36,28 @@ std::enable_if_t<cul::k_is_vector_type<Vec>, Vec> normalize_if_nonzero(const Vec
 
 class PlayerControlToVelocity final {
 public:
+    struct PlayerMotionProfile final {
+        // Defaults...
+        static constexpr const Real k_max_willed_speed = 5;
+        static constexpr const Real k_max_acceleration = 10; // u/s^2
+        static constexpr const Real k_min_acceleration = 2;
+        static constexpr const Real k_unwilled_acceleration = 3;
+
+        PlayerMotionProfile() {}
+
+        PlayerMotionProfile(Real max_willed_speed_, Real max_acceleration_,
+                            Real min_acceleration_, Real unwilled_acceleration_):
+            max_willed_speed(max_willed_speed_), max_acceleration(max_acceleration_),
+            min_acceleration(min_acceleration_), unwilled_acceleration(unwilled_acceleration_)
+        {}
+
+        Real max_willed_speed = k_max_willed_speed;
+        Real max_acceleration = k_max_acceleration; // u/s^2
+        Real min_acceleration = k_min_acceleration;
+        Real unwilled_acceleration = k_unwilled_acceleration;
+
+    };
+
     explicit PlayerControlToVelocity(Real seconds):
         m_seconds(seconds)
     {}
@@ -54,7 +76,8 @@ public:
      *  @return new velocity for the player
      */
     static Velocity find_new_velocity_from_willed
-        (const Velocity & velocity,
+        (const PlayerMotionProfile & profile,
+         const Velocity & velocity,
          const Vector & willed_dir, Real seconds);
 
 private:
@@ -94,7 +117,7 @@ public:
 
     void operator () (Velocity & velocity, Opt<JumpVelocity> jumpvel) const {
         auto new_vel = [this](Vector r)
-            { return r + k_gravity*m_seconds; };
+            { return r /*+ k_gravity*m_seconds*/; };
         velocity = new_vel(velocity.value);
         if (jumpvel) { *jumpvel = new_vel(jumpvel->value); }
     }
@@ -152,4 +175,4 @@ private:
 };
 
 // Reminder to myself: testing is essential!
-void run_system_tests();
+bool run_system_tests();

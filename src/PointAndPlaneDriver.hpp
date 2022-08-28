@@ -63,7 +63,7 @@ public:
             { return has_side_attached(side); });
     }
 
-    static void run_tests();
+    static bool run_tests();
 
 private:
     struct SideInfo final {

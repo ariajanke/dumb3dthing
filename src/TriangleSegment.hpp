@@ -83,7 +83,7 @@ public:
     TriangleSegment(const Vector & a, const Vector & b, const Vector & c);
 
     /** Runs all builtin tests, prints out results to std::cout */
-    static void run_tests();
+    static bool run_tests();
 
     /** This defines a basis vector for the plane on which this TriangleSegment
      *  exists.

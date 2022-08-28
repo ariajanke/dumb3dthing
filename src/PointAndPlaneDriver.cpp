@@ -122,7 +122,7 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
     return rv;
 }
 
-/* static */ void TriangleLinks::run_tests() {
+/* static */ bool TriangleLinks::run_tests() {
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
     using namespace cul::ts;
     using Vec2 = Vector2;
@@ -268,6 +268,7 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
     });
 #   endif
 #   undef mark
+    return suite.has_successes_only();
 }
 
 /* private static */ inline bool TriangleLinks::has_opposing_normals
