@@ -158,5 +158,3 @@ Tuple<std::vector<TriangleLinks>,
     (TileGraphicGenerator &, CellSubGrid);
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell &);
-
-bool run_map_loader_tests();

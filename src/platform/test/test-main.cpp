@@ -18,23 +18,20 @@
 
 *****************************************************************************/
 
-#include "../../GameDriver.hpp"
-#include "../../map-loader.hpp"
-#include "../../Systems.hpp"
+#include "test-functions.hpp"
 
-namespace {
-
-using BoolFunc = bool(*)();
-
-} // end of <anonymous> namespace
+#include <array>
+#include <algorithm>
 
 int main() {
+    using BoolFunc = bool(*)();
+
     // I *could* just dump all my test functions here I guess...
     const std::array k_test_functions = {
-        point_and_plane::TriangleLinks::run_tests,
+        run_triangle_segment_tests,
         run_map_loader_tests,
-        TriangleSegment::run_tests,
-        run_system_tests
+        run_triangle_links_tests,
+        run_systems_tests
     };
     bool all_ok = std::all_of(k_test_functions.begin(), k_test_functions.end(),
                 [](BoolFunc f){ return f(); });

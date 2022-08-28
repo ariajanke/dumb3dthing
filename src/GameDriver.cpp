@@ -372,7 +372,7 @@ void GameDriverComplete::update_(Real seconds) {
         auto pent = Entity{trans_from_parent.parent};
         Real s = 1;
         auto & state = pent.get<PpState>();
-        if (auto * on_surf = get_if<PpOnSurface>(&state)) {
+        if (auto * on_surf = get_if<PpOnSegment>(&state)) {
             s *= on_surf->invert_normal ? -1 : 1;
             s *= (angle_between(on_surf->segment->normal(), k_up) > k_pi*0.5) ? -1 : 1;
         }

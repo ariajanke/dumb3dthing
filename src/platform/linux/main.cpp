@@ -155,7 +155,7 @@ public:
         }
     #   if 1
         , [](PpState & state, glm::mat4 & model) {
-            auto on_surface = std::get_if<PpOnSurface>(&state);
+            auto on_surface = std::get_if<PpOnSegment>(&state);
             if (!on_surface) return;
             auto norm = on_surface->segment->normal();
             if (are_very_close(norm - k_up, Vector{})) {

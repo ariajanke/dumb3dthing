@@ -87,8 +87,7 @@ private:
 class VelocitiesToDisplacement final {
 public:
     explicit VelocitiesToDisplacement(Real seconds):
-        m_seconds(seconds)
-    {}
+        m_seconds(seconds) {}
 
     void operator ()
         (PpState & state, Velocity & velocity, Opt<JumpVelocity> jumpvel) const;
@@ -103,7 +102,7 @@ public:
      *  @return displacement vector appropriate for the segment
      */
     static Vector2 find_on_segment_displacement
-        (const PpOnSurface & on_segment, const Vector & dis_in_3d);
+        (const PpOnSegment & on_segment, const Vector & dis_in_3d);
 
 private:
     Real m_seconds;
@@ -112,15 +111,9 @@ private:
 class AccelerateVelocities final {
 public:
     explicit AccelerateVelocities(Real seconds):
-        m_seconds(seconds)
-    {}
+        m_seconds(seconds) {}
 
-    void operator () (Velocity & velocity, Opt<JumpVelocity> jumpvel) const {
-        auto new_vel = [this](Vector r)
-            { return r /*+ k_gravity*m_seconds*/; };
-        velocity = new_vel(velocity.value);
-        if (jumpvel) { *jumpvel = new_vel(jumpvel->value); }
-    }
+    void operator () (PpState &, Velocity &, Opt<JumpVelocity>) const;
 
 private:
     Real m_seconds;
@@ -131,15 +124,13 @@ private:
 
 class CheckJump final {
 public:
-    void operator ()
-        (PpState & state, PlayerControl & control, JumpVelocity & vel) const;
+    void operator () (PpState &, PlayerControl &, JumpVelocity &, Opt<Velocity>) const;
 };
 
 class UpdatePpState final {
 public:
     explicit UpdatePpState(point_and_plane::Driver & driver):
-        m_driver(driver)
-    {}
+        m_driver(driver) {}
 
     void operator () (PpState & state, Opt<Velocity> vel) const {
 #       if 0
@@ -148,13 +139,16 @@ public:
         static auto evnhandler = point_and_plane::EventHandler::make_test_handler();
         state = m_driver(state, *evnhandler);
 #       else
-        state = m_driver(state, EventHandler{vel});
+        state = m_driver(state, EventHandler{vel, Opt<JumpVelocity>{}});
 #       endif
     }
 
     class EventHandler final : public point_and_plane::EventHandler {
     public:
-        EventHandler(Opt<Velocity> & vel): m_vel(vel) {}
+        EventHandler() {}
+
+        EventHandler(Opt<Velocity> vel, Opt<JumpVelocity> jumpvel):
+            m_vel(vel), m_jumpvel(jumpvel) {}
 
         Variant<Vector2, Vector> displacement_after_triangle_hit
             (const TriangleSegment & triangle, const Vector & /*location*/,
@@ -167,12 +161,10 @@ public:
         bool cling_to_edge(const TriangleSegment & triangle, TriangleSide side) const final;
 
     private:
-        Opt<Velocity> & m_vel;
+        Opt<Velocity> m_vel;
+        Opt<JumpVelocity> m_jumpvel;
     };
 
 private:
     point_and_plane::Driver & m_driver;
 };
-
-// Reminder to myself: testing is essential!
-bool run_system_tests();

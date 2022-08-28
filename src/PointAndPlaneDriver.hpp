@@ -63,8 +63,6 @@ public:
             { return has_side_attached(side); });
     }
 
-    static bool run_tests();
-
 private:
     struct SideInfo final {
         WeakCPtr<Triangle> target;
@@ -183,5 +181,5 @@ protected:
 
 using PpState = point_and_plane::State;
 using PpInAir = point_and_plane::InAir;
-using PpOnSurface = point_and_plane::OnSegment;
+using PpOnSegment = point_and_plane::OnSegment;
 using point_and_plane::TriangleLinks;
