@@ -21,6 +21,7 @@
 #include "../../Defs.hpp"
 #include "../../GameDriver.hpp"
 #include "../../map-loader.hpp"
+#include "../../Systems.hpp"
 
 #include "RenderModelImpl.hpp"
 #include "TextureImpl.hpp"
@@ -67,7 +68,7 @@ struct GLFWwindowDeleter {
         { glfwDestroyWindow(wptr); }
 };
 
-using GlfwWindowPtr = std::unique_ptr<GLFWwindow, GLFWwindowDeleter>;
+using GlfwWindowPtr = UniquePtr<GLFWwindow, GLFWwindowDeleter>;
 
 void framebuffer_size_callback(GLFWwindow * window, int width, int height);
 void process_input(GLFWwindow * window);
@@ -203,10 +204,10 @@ public:
     }
 
     SharedPtr<Texture> make_texture() const final
-        { return std::make_shared<OpenGlTexture>(); }
+        { return make_shared<OpenGlTexture>(); }
 
     SharedPtr<RenderModel> make_render_model() const final
-        { return std::make_shared<OpenGlRenderModel>(); }
+        { return make_shared<OpenGlRenderModel>(); }
 
     void set_camera_entity(EntityRef eref) final
         { m_camera_ent = eref; }
@@ -232,10 +233,6 @@ private:
 // ----------------------------------------------------------------------------
 
 int main() {
-    point_and_plane::TriangleLinks::run_tests();
-    run_map_loader_tests();
-    TriangleSegment::run_tests();
-
     // glfw: initialize and configure
     // ------------------------------
     GlfwLibraryRAII glfw_raii; (void)glfw_raii;

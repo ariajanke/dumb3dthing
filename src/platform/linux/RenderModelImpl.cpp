@@ -63,11 +63,12 @@ void OpenGlRenderModel::render() const {
 }
 
 void OpenGlRenderModel::swap(OpenGlRenderModel && lhs) {
-    std::swap(m_vbo               , lhs.m_vbo               );
-    std::swap(m_vao               , lhs.m_vao               );
-    std::swap(m_ebo               , lhs.m_ebo               );
-    std::swap(m_index_count       , lhs.m_index_count       );
-    std::swap(m_values_initialized, lhs.m_values_initialized);
+    using std::swap;
+    swap(m_vbo               , lhs.m_vbo               );
+    swap(m_vao               , lhs.m_vao               );
+    swap(m_ebo               , lhs.m_ebo               );
+    swap(m_index_count       , lhs.m_index_count       );
+    swap(m_values_initialized, lhs.m_values_initialized);
 }
 
 /* private */ void OpenGlRenderModel::load_

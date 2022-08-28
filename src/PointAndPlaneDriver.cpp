@@ -28,7 +28,7 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 using namespace point_and_plane;
-using std::get_if, std::get;
+using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
 using SegmentTransfer = EventHandler::SegmentTransfer;
@@ -49,13 +49,13 @@ private:
     // the job of each method here is to reduce displacement
     State handle_freebody(const InAir &, const EventHandler &) const;
 
-    State handle_tracker(const OnSurface &, const EventHandler &) const;
+    State handle_tracker(const OnSegment &, const EventHandler &) const;
 
-    const TriangleLinks & find_links_for(std::shared_ptr<const Triangle>) const;
+    const TriangleLinks & find_links_for(SharedPtr<const Triangle>) const;
 
     // both containers are owning
     std::unordered_map<std::size_t, TriangleLinks> m_links;
-    std::vector<std::shared_ptr<const Triangle>> m_triangles;
+    std::vector<SharedPtr<const Triangle>> m_triangles;
 };
 
 } // end of <anonymous> namespace
@@ -122,13 +122,13 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
     return rv;
 }
 
-/* static */ void TriangleLinks::run_tests() {
+/* static */ bool TriangleLinks::run_tests() {
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
     using namespace cul::ts;
     using Vec2 = Vector2;
     static auto make_tri = [](Vec2 a, Vec2 b, Vec2 c) {
         auto to_v3 = [](Vec2 r) { return Vector{r.x, r.y, 0}; };
-        return std::make_shared<Triangle>(to_v3(a), to_v3(b), to_v3(c));
+        return make_shared<Triangle>(to_v3(a), to_v3(b), to_v3(c));
     };
     TestSuite suite;
     suite.start_series("TriangleLinks");
@@ -144,11 +144,11 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
 #   if 1
     mark(suite).test([] {
         // triangle a's ca side to...
-        auto triangle_a = std::make_shared<Triangle>(
+        auto triangle_a = make_shared<Triangle>(
             // pt_a             , pt_b                , pt_c
             Vector{2.5, 0, -3.5}, Vector{2.5, 0, -4.5}, Vector{3.5, 0, -4.5});
         // triangle b's ab
-        auto triangle_b = std::make_shared<Triangle>(
+        auto triangle_b = make_shared<Triangle>(
             // pt_a             , pt_c                , pt_d
             Vector{2.5, 0, -3.5}, Vector{3.5, 0, -4.5}, Vector{3.5, 0, -3.5});
 
@@ -161,11 +161,11 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
     });
     mark(suite).test([] {
         // triangle a's ca side to...
-        auto triangle_a = std::make_shared<Triangle>(
+        auto triangle_a = make_shared<Triangle>(
             // pt_a             , pt_b                , pt_c
             Vector{2.5, 0, -3.5}, Vector{2.5, 0, -4.5}, Vector{3.5, 0, -4.5});
         // triangle b's ab
-        auto triangle_b = std::make_shared<Triangle>(
+        auto triangle_b = make_shared<Triangle>(
             // pt_a             , pt_c                , pt_d
             Vector{2.5, 0, -3.5}, Vector{3.5, 0, -4.5}, Vector{3.5, 0, -3.5});
 
@@ -178,11 +178,11 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
     });
     mark(suite).test([] {
         // triangle a's ca side to...
-        auto triangle_a = std::make_shared<Triangle>(
+        auto triangle_a = make_shared<Triangle>(
             // pt_a             , pt_b                , pt_c
             Vector{2.5, 0, -3.5}, Vector{2.5, 0, -4.5}, Vector{3.5, 0, -4.5});
         // triangle b's ab
-        auto triangle_b = std::make_shared<Triangle>(
+        auto triangle_b = make_shared<Triangle>(
             // pt_a             , pt_c                , pt_d
             Vector{2.5, 0, -3.5}, Vector{3.5, 0, -4.5}, Vector{3.5, 0, -3.5});
 
@@ -214,8 +214,61 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
         // if "side_crossing" returns k_inside, then if must contain "new_loc_"
         return test(triangle.contains_point(new_loc_));
     });
+    mark(suite).test([] {
+
+
+        // where I want to capture flip-flop
+        auto a = make_shared<Triangle>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
+        auto b = make_shared<Triangle>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
+        auto pdriver = [a, b] {
+            // need links too
+            TriangleLinks links_a{a};
+            TriangleLinks links_b{b};
+            links_a.attempt_attachment_to(b);
+            links_b.attempt_attachment_to(a);
+
+            auto pdriver = Driver::make_driver();
+            pdriver->add_triangle(links_a);
+            pdriver->add_triangle(links_b);
+            return pdriver;
+        } ();
+        auto test_handler = EventHandler::make_test_handler();
+
+
+
+        // first recorded frame
+        PpState state{PpOnSurface{a, true, Vector2{1.4142019007112767, 0.842617146393735}, Vector2{0.000982092751647734, -0.0762158869304308}}};
+        std::cout << segment_displacement_to_v3(state) << std::endl;
+        state = (*pdriver)(state, *test_handler);
+
+        // second frame displacement
+        if (get<PpOnSurface>(state).segment != b)
+            throw RtError{"should be on b"};
+
+        get<PpOnSurface>(state).displacement = Vector2{-0.0768356537697602, -0.02994869527758226};
+        std::cout << segment_displacement_to_v3(state) << std::endl;
+        state = (*pdriver)(state, *test_handler);
+
+        // third frame
+        get<PpOnSurface>(state).displacement = Vector2{0.000982092751647956, -0.07479998774150332};
+        std::cout << segment_displacement_to_v3(state) << std::endl;
+        state = (*pdriver)(state, *test_handler);
+
+        // I can now say for sure the funkiness happens with displacement,
+        // therefore it's not a problem with segment transfers
+
+        // a better test -> does constant velocity produce consistent
+        // displacements
+
+        // this will require rework of systems a bit to accomodate a test case...
+        return test(true); // test is invalid
+
+        // flip-flop seems sourced in this odd flipping back and forth with
+        // displacement (how can I test this?)
+    });
 #   endif
 #   undef mark
+    return suite.has_successes_only();
 }
 
 /* private static */ inline bool TriangleLinks::has_opposing_normals
@@ -289,14 +342,41 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
 }
 
 Vector location_of(const State & state) {
-    auto * in_air = std::get_if<InAir>(&state);
+    auto * in_air = get_if<InAir>(&state);
     if (in_air) return in_air->location;
-    auto & on_surf = std::get<OnSurface>(state);
+    auto & on_surf = std::get<OnSegment>(state);
     return on_surf.segment->point_at(on_surf.location);
 }
 
-/* static */ std::unique_ptr<Driver> Driver::make_driver()
-    { return std::make_unique<DriverComplete>(); }
+/* static */ UniquePtr<EventHandler> EventHandler::make_test_handler() {
+    class TestHandler final : public point_and_plane::EventHandler {
+        Variant<Vector2, Vector> displacement_after_triangle_hit
+            (const Triangle &, const Vector &,
+             const Vector &, const Vector &) const final
+        {
+            // always land
+            return Vector2{};
+        }
+
+        Variant<SegmentTransfer, Vector> pass_triangle_side
+            (const Triangle &, const Triangle * to,
+             const Vector &, const Vector &) const final
+        {
+            // always fall off
+            if (!to) return Vector{};
+            // always transfer
+            return make_tuple(false, Vector2{});
+        }
+
+        bool cling_to_edge(const Triangle &, TriangleSide) const final
+            { return false; }
+    };
+
+    return make_unique<TestHandler>();
+}
+
+/* static */ UniquePtr<Driver> Driver::make_driver()
+    { return make_unique<DriverComplete>(); }
 
 } // end of point_and_plane namespace
 
@@ -346,7 +426,7 @@ State DriverComplete::operator ()
         if (auto * freebody = get_if<InAir>(&state)) {
             return handle_freebody(*freebody, env);
         }
-        if (auto * tracker = get_if<OnSurface>(&state)) {
+        if (auto * tracker = get_if<OnSegment>(&state)) {
             return handle_tracker(*tracker, env);
         }
         throw MACRO_MAKE_BAD_BRANCH_EXCEPTION();
@@ -356,7 +436,7 @@ State DriverComplete::operator ()
         if (auto * freebody = get_if<InAir>(&state)) {
             return are_very_close(freebody->displacement, Vector{});
         }
-        if (auto * tracker = get_if<OnSurface>(&state)) {
+        if (auto * tracker = get_if<OnSegment>(&state)) {
             return are_very_close(tracker->displacement, Vector2{});
         }
         throw MACRO_MAKE_BAD_BRANCH_EXCEPTION();
@@ -394,7 +474,7 @@ State DriverComplete::operator ()
                                          triangle.normal()          ))
                 - triangle.normal(), Vector{});
             std::cout << "Made landing" << std::endl;
-            return OnSurface{*itr, heads_against_normal, r, *disv2};
+            return OnSegment{*itr, heads_against_normal, r, *disv2};
         } else if (auto * disv3 = get_if<Vector>(&gv)) {
             verify_decreasing_displacement<Vector, Vector>(
                 *disv3, freebody.displacement,
@@ -411,7 +491,7 @@ State DriverComplete::operator ()
 }
 
 /* private */ State DriverComplete::handle_tracker
-    (const OnSurface & tracker, const EventHandler & env) const
+    (const OnSegment & tracker, const EventHandler & env) const
 {
     assert(tracker.segment);
     // ground opens up from underneath
@@ -430,7 +510,7 @@ State DriverComplete::operator ()
             triangle.check_for_side_crossing(tracker.location, tracker.location + tracker.displacement);
         }
         assert(tracker.segment->contains_point(tracker.location + tracker.displacement));
-        return OnSurface{tracker.segment, tracker.invert_normal,
+        return OnSegment{tracker.segment, tracker.invert_normal,
                          tracker.location + tracker.displacement, Vector2{}};
     }
 
@@ -438,7 +518,7 @@ State DriverComplete::operator ()
     if (!transfer.target) {
         // without a callback I cannot cancel velocity
         if (env.cling_to_edge(*tracker.segment, gv.side)) {
-            OnSurface rv{tracker};
+            OnSegment rv{tracker};
             rv.location = gv.inside;
             rv.displacement = Vector2{};
             std::cout << "Cling to edge" << std::endl;
@@ -461,7 +541,7 @@ State DriverComplete::operator ()
         verify_decreasing_displacement<Vector2, Vector2>(
             to_tri->displacement, tracker.displacement,
             "DriverComplete::handle_tracker");
-        return OnSurface{transfer.target, bool(transfer.inverts ^ to_tri->invert),
+        return OnSegment{transfer.target, bool(transfer.inverts ^ to_tri->invert),
             transfer.target->closest_contained_point(outside_pt), to_tri->displacement};
     } else if (auto * disv3 = get_if<Vector>(&rem_displc_var)) {
         // you mean to "slip off"
@@ -476,7 +556,7 @@ State DriverComplete::operator ()
 }
 
 /* private */ const TriangleLinks & DriverComplete::find_links_for
-    (std::shared_ptr<const Triangle> tptr) const
+    (SharedPtr<const Triangle> tptr) const
 {
     auto itr = m_links.find(std::hash<const Triangle *>{}(tptr.get()));
     if (itr == m_links.end()) {

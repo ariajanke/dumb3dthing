@@ -63,7 +63,7 @@ public:
             { return has_side_attached(side); });
     }
 
-    static void run_tests();
+    static bool run_tests();
 
 private:
     struct SideInfo final {
@@ -82,10 +82,10 @@ private:
     std::array<SideInfo, 3> m_triangle_sides;
 };
 
-struct OnSurface final {
-    OnSurface() {}
+struct OnSegment final {
+    OnSegment() {}
 
-    OnSurface(SharedCPtr<Triangle> tri_, bool invert_norm_,
+    OnSegment(SharedCPtr<Triangle> tri_, bool invert_norm_,
               Vector2 loc_, Vector2 dis_):
         segment(tri_), invert_normal(invert_norm_),
         location(loc_), displacement(dis_)
@@ -111,9 +111,18 @@ struct InAir final {
     Vector displacement;
 };
 
-using State = std::variant<InAir, OnSurface>;
+using State = Variant<InAir, OnSegment>;
 
 Vector location_of(const State &);
+
+inline Vector segment_displacement_to_v3(const State & state) {
+    using std::get;
+    auto pt_at = [&state](Vector2 r)
+        { return get<OnSegment>(state).segment->point_at(r); };
+    auto dis = get<OnSegment>(state).displacement;
+    auto loc = get<OnSegment>(state).location;
+    return pt_at(loc + dis) - pt_at(loc);
+};
 
 class EventHandler {
 public:
@@ -125,6 +134,8 @@ public:
         bool invert = false;
         Vector2 displacement;
     };
+
+    static UniquePtr<EventHandler> make_test_handler();
 
     virtual ~EventHandler() {}
 
@@ -172,5 +183,5 @@ protected:
 
 using PpState = point_and_plane::State;
 using PpInAir = point_and_plane::InAir;
-using PpOnSurface = point_and_plane::OnSurface;
+using PpOnSurface = point_and_plane::OnSegment;
 using point_and_plane::TriangleLinks;

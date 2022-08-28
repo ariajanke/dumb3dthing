@@ -153,6 +153,6 @@ public:
         private:
             Func m_f;
         };
-        return std::make_unique<Impl>(std::move(f));
+        return make_unique<Impl>(std::move(f));
     }
 };

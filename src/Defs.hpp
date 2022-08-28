@@ -26,6 +26,7 @@
 
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
 #include <ariajanke/ecs3/Scene.hpp>
+#include <ariajanke/ecs3/SingleSystem.hpp>
 
 #include <variant>
 #include <memory>
@@ -63,6 +64,9 @@ using Variant = std::variant<Types...>;
 template <typename ... Types>
 using Tuple = std::tuple<Types...>;
 
+template <typename T>
+using Opt = ecs::Optional<T>;
+
 using cul::Grid;
 
 class TriangleSegment;
@@ -77,6 +81,19 @@ namespace point_and_plane {
 class BadBranchException final : public std::runtime_error {
 public:
     BadBranchException(int line, const char * file);
+};
+
+enum class KeyControl {
+    forward,
+    backward,
+    left,
+    right,
+    jump,
+
+    pause,
+    advance,
+    print_info,
+    restart
 };
 
 // ---------------------------- Component Helpers -----------------------------
@@ -95,8 +112,20 @@ struct VectorLike {
     Vector & operator = (const Vector & r)
         { return (value = r); }
 
+    Vector operator * (Real scalar) const noexcept
+        { return value*scalar; }
+
+
     Vector value;
 };
+
+template <typename T>
+Vector operator + (const VectorLike<T> & v, const Vector & r) noexcept
+    { return v.value + r; }
+
+template <typename T>
+Vector operator + (const Vector & r, const VectorLike<T> & v) noexcept
+    { return v.value + r; }
 
 template <typename FullType>
 struct Vector2Like {
@@ -128,22 +157,6 @@ struct ScalarLike {
     Real value = 0;
 };
 
-// --------------------------- Graphical Components ---------------------------
-
-struct Translation final : public VectorLike<Translation> {
-    using LikeBase::LikeBase;
-    using LikeBase::operator=;
-};
-
-struct YRotation final : public ScalarLike<YRotation> {
-    using LikeBase::LikeBase;
-    using LikeBase::operator=;
-};
-
-struct TextureTranslation final : public Vector2Like<TextureTranslation> {
-    using LikeBase::LikeBase;
-};
-
 // --------------------------- Everywhere Functions ---------------------------
 
 using cul::normalize;
@@ -152,6 +165,11 @@ using cul::angle_between;
 using cul::convert_to;
 using cul::project_onto;
 using cul::project_onto_plane;
+using std::make_shared;
+using std::get_if;
+// using std::get; <- too short and contextually vague for comfort
+using std::make_tuple;
+using std::make_unique;
 
 [[deprecated]] Vector rotate_around_up(Vector, Real);
 
@@ -164,6 +182,10 @@ bool are_very_close(Vector, Vector);
 bool are_very_close(Vector2, Vector2);
 
 bool are_very_close(Real, Real);
+
+template <typename T>
+bool are_very_close(const VectorLike<T> & lhs, const VectorLike<T> & rhs)
+    { return are_very_close(lhs.value, rhs.value); }
 
 void print_links(std::ostream &, const point_and_plane::TriangleLinks &);
 
@@ -205,7 +227,7 @@ Tuple<Head, Types...> validate_graphical_components
     using AcceptedTypes = cul::TypeList<SharedCPtr<Texture>, SharedCPtr<RenderModel>>;
     static_assert(AcceptedTypes::kt_occurance_count<Head>,
         "Type not contained in accepted graphical types.");
-    using std::make_tuple, std::tuple_cat;
+    using std::tuple_cat;
     if constexpr (sizeof...(Types) > 0) {
         return tuple_cat(make_tuple(std::move( obj )),
                          validate_graphical_components(std::forward<Types>(args)...));

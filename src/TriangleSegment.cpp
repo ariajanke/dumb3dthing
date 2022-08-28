@@ -33,12 +33,12 @@ using SideCrossing = TriangleSegment::SideCrossing;
 
 using cul::find_smallest_diff, cul::make_nonsolution_sentinel,
       cul::make_zero_vector;
-using std::min_element, std::make_tuple;
+using std::min_element;
 
 template <typename T>
 using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
 
-void run_tests();
+[[nodiscard]] bool run_tests();
 
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
@@ -86,7 +86,7 @@ TriangleSegment::TriangleSegment
     check_invarients();
 }
 
-/* static */ void TriangleSegment::run_tests() { ::run_tests(); }
+/* static */ bool TriangleSegment::run_tests() { return ::run_tests(); }
 
 Vector TriangleSegment::basis_i() const
     { return normalize(point_b() - point_a()); }
@@ -332,7 +332,7 @@ inline TriangleSegment make_not_flat_test()
 //
 // unit tests
 // positions on a plane
-void run_tests() {
+bool run_tests() {
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
     using namespace cul::ts;
     TestSuite suite;
@@ -465,6 +465,7 @@ void run_tests() {
     });
 
 #   undef mark
+    return suite.has_successes_only();
 }
 
 Real find_intersecting_position_for_first
