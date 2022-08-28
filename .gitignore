@@ -1,0 +1,6 @@
+.*
+proj/*
+lib/*
+!.gitattributes
+!.gitignore
+
