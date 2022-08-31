@@ -38,7 +38,7 @@ class PlayerControlToVelocity final {
 public:
     struct PlayerMotionProfile final {
         // Defaults...
-        static constexpr const Real k_max_willed_speed = 5;
+        static constexpr const Real k_max_willed_speed = 12;
         static constexpr const Real k_max_acceleration = 10; // u/s^2
         static constexpr const Real k_min_acceleration = 2;
         static constexpr const Real k_unwilled_acceleration = 3;

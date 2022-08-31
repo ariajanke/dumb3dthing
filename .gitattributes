@@ -5,4 +5,5 @@ src/platform/linux/stb_image.h -linguist-vendored
 src/platform/linux/*.c linguist-vendored
 src/platform/linux/dist/*.c linguist-vendored
 src/platform/linux/*.h linguist-vendored
-
+src/platform/wasm/out* linguist-vendored
+src/platform/wasm/spa_template.html -linguist-vendored
