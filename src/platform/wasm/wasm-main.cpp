@@ -1,11 +1,38 @@
+/******************************************************************************
+
+    GPLv3 License
+    Copyright (c) 2022 Aria Janke
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*****************************************************************************/
+
 #include "../platform.hpp"
 #include "../../Texture.hpp"
 #include "../../RenderModel.hpp"
 #include "../../GameDriver.hpp"
+#include "../../Components.hpp"
 
 #include <emscripten.h>
 
 #include <common/Util.hpp>
+
+#include <iostream>
+
+EM_JS(void, from_js_log_line, (const char * str), {
+    console.log(Module.UTF8ToString(str));
+});
 
 // ----------------------------- Texture Operations ---------------------------
 
@@ -17,7 +44,8 @@ EM_JS(int, from_js_create_texture, (), {
 // should be the case that: jsPlatform.UTF8ToString == Module.UTF8ToString
 EM_JS(void, from_js_load_texture, (int handle, const char * filename), {
     // Still have a possible problem when trying to read textuer width/height
-    jsPlatform.getTexture(handle).load(jsPlatform.UTF8ToString(filename));
+    // get the string conversion function from Module and yeet that name!
+    jsPlatform.getTexture(handle).load(Module.UTF8ToString(filename));
 });
 
 EM_JS(void, from_js_destroy_texture, (int handle), {    
@@ -99,18 +127,18 @@ public:
 
     WebGlTexture() {}
 
-    WebGlTexture(const OpenGlTexture &) = delete;
+    WebGlTexture(const WebGlTexture &) = delete;
 
-    WebGlTexture(OpenGlTexture &&) = delete;
+    WebGlTexture(WebGlTexture &&) = delete;
 
     ~WebGlTexture() final {
         if (m_handle == k_no_handle) return;
         from_js_destroy_texture(m_handle);
     }
 
-    OpenGlTexture & operator = (const OpenGlTexture &) = delete;
+    WebGlTexture & operator = (const WebGlTexture &) = delete;
 
-    OpenGlTexture & operator = (OpenGlTexture &&) = delete;
+    WebGlTexture & operator = (WebGlTexture &&) = delete;
 
     bool load_from_file_no_throw(const char * filename) noexcept final {
         if (m_handle == k_no_handle) {
@@ -169,6 +197,10 @@ private:
     void load_(const Vertex   * vertex_beg  , const Vertex   * vertex_end,
                const unsigned * elements_beg, const unsigned * elements_end) final
     {
+        if (m_handle == k_no_handle) {
+            m_handle = from_js_create_render_model();
+        }
+
         // since we're stuck on a single thread anyhow
         static std::vector<float> positions;
         static std::vector<float> txPositions;
@@ -215,7 +247,7 @@ public:
                 from_js_model_matrix_rotate_y(y_rotation->value);
             }
             auto [texture, render_model] = ent.get<SharedPtr<Texture>, SharedPtr<RenderModel>>();
-            texture->bind();
+            texture->bind_texture();
             render_model->render();
         }
         if (Entity e{m_camera_ent}) {
@@ -248,6 +280,12 @@ static UniquePtr<Driver> s_driver;
 
 } // end of <anonymous> namespace
 
+int main() {
+    using std::cout, std::endl;
+    cout << "Hello World!\n" << endl;
+    return 0;
+}
+
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE void to_js_start_up() {
@@ -264,7 +302,11 @@ EMSCRIPTEN_KEEPALIVE void to_js_release_key(int key) {
 }
 
 EMSCRIPTEN_KEEPALIVE void to_js_update(float et_in_seconds) {
-    s_driver->update(et_in_seconds, WebGlPlatform::instance());
+    try {
+        s_driver->update(et_in_seconds, WebGlPlatform::instance());
+    } catch (std::exception & ex) {
+        from_js_log_line(ex.what());
+    }
 }
 
 }

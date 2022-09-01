@@ -3,4 +3,4 @@ proj/*
 lib/*
 !.gitattributes
 !.gitignore
-
+bin/out*

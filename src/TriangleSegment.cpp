@@ -250,6 +250,9 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     assert(is_real(m_a));
     assert(is_real(m_b));
     assert(is_real(m_c));
+    assert(is_real(point_a_in_2d()));
+    assert(is_real(point_b_in_2d()));
+    assert(is_real(point_c_in_2d()));
     assert(are_very_close(point_at(point_a_in_2d()), point_a()));
     assert(are_very_close(point_at(point_b_in_2d()), point_b()));
     assert(are_very_close(point_at(point_c_in_2d()), point_c()));

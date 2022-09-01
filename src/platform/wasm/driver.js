@@ -1,3 +1,23 @@
+/******************************************************************************
+
+    GPLv3 License
+    Copyright (c) 2022 Aria Janke
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*****************************************************************************/
+
 const driver = (() => {
 
 const kBuiltinVertexShaderSource = `
@@ -118,23 +138,55 @@ const startUpWebGl = gl => {
     programInfo.attribLocations.textureCoord);
   jsPlatform.setTextureUnitHandler(unit =>
     gl.uniform1i(programInfo.uniformLocations.uSampler, unit));
+  return programInfo.program;
 };
   
-const startUpModule = (module, keymapper) => {
+const startUpModule = (gl, module, keymapper, shaderProgram) => {
   const pressKey_   = module.cwrap('to_js_press_key'  , 'null', ['number']);
-  const releaseKey_ = module.cwrap('to_js_release_key', 'null', ['number']);
-  
+  const releaseKey_ = module.cwrap('to_js_release_key', 'null', ['number']);  
+  const update_     = module.cwrap('to_js_update', 'null', ['number']);
+
   return Object.freeze({
     startUp   : module.cwrap('to_js_start_up'   , 'null'),
     pressKey  : ev => (ev = keymapper(ev)) ? pressKey_  (ev) : undefined,
     releaseKey: ev => (ev = keymapper(rv)) ? releaseKey_(ev) : undefined,
-    update    : module.cwrap('to_js_update', 'null', ['number'])
+    update    : et => drawScene(gl, shaderProgram, () => update_(et))
   });
 };
 
 const startUp = (gl, module, keymapper) => {
-  startUpWebGl(gl);
-  return startUpModule(module, keymapper);
+  const shaderProgram = startUpWebGl(gl);
+  const rv = startUpModule(gl, module, keymapper, shaderProgram);
+  rv.startUp();
+  return rv;
+};
+
+
+const drawScene = (gl, shaderProgram, updateGame) => {
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
+  gl.clearDepth(1.0);                 // Clear everything
+  gl.enable(gl.DEPTH_TEST);           // Enable depth testing
+  gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
+
+  // Clear the canvas before we start drawing on it.
+
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Create a perspective matrix, a special matrix that is
+  // used to simulate the distortion of perspective in a camera.
+  // Our field of view is 45 degrees, with a width/height
+  // ratio that matches the display size of the canvas
+  // and we only want to see objects between 0.1 units
+  // and 100 units away from the camera.
+
+  jsPlatform.projectionMatrix.reset();
+  
+  // Tell WebGL to use our program when drawing
+  gl.useProgram(shaderProgram);
+
+  jsPlatform.projectionMatrix.apply();
+
+  updateGame();
 };
 
 return (() => {

@@ -29,6 +29,8 @@ public:
 
     static UniquePtr<Driver> make_instance();
 
+    virtual ~Driver() {}
+
     // events may trigger loaders
     virtual void press_key(KeyControl) = 0;
 

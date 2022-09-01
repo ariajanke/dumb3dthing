@@ -51,6 +51,8 @@ public:
 
     ShaderProgram & operator = (ShaderProgram &&);
 
+    void load_builtin();
+
     void load_from_source(const char * vertex_shader_source,
                           const char * fragment_shader_source);
 
@@ -82,5 +84,3 @@ constexpr const unsigned k_color_attribute   = 1;
 constexpr const unsigned k_texture_attribute = 2;
 
 } // end of default_shader_positions namespace
-
-ShaderProgram load_default_shader();

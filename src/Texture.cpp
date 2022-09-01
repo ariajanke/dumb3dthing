@@ -22,6 +22,8 @@
 
 #include <common/Util.hpp>
 
+#include <string>
+
 void Texture::load_from_file(const char * filename) {
     using namespace cul::exceptions_abbr;
     if (!load_from_file_no_throw(filename)) {

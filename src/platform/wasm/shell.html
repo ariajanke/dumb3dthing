@@ -1,5 +1,24 @@
 <!doctype html>
 <html lang="en-us">
+  <!---------------------------------------------------------------------------
+
+    GPLv3 License
+    Copyright (c) 2022 Aria Janke
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+  ---------------------------------------------------------------------------->
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -15,8 +34,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
     integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
     crossorigin="anonymous" defer></script>
-    <script src="driver.js"></script>
-    <script src="jsPlatform.js"></script>
+    <script src="out-driver.js"></script>
+    <script src="out-jsPlatform.js"></script>
   </head>
   <body>
     <div class="emscripten" id="status">Downloading...</div>
@@ -47,42 +66,27 @@
       // connect to canvas
       const doOnStartStuff = () => {
         console.log('hello from console!');
-        const sum_array = (arr) => {
-          const reserve_buffer = Module.cwrap('to_js_reserve_temporary_buffer', 'number', 'number');
-          const offset = reserve_buffer(4*arr.length);
-          Module.HEAPF32.set(new Float32Array(arr), offset / 4); // <- divide by size?
-          const sum_ = Module.cwrap('to_js_sum_array', 'number', ['number', 'number']);
-          return sum_(offset, arr.length);
-        };
-        console.log(sum_array([1, 2, 3, 4, 5]));
-
-        Module.cwrap('to_js_get_secret_array')();
-
-        if (true) {
-          const canvas = document.querySelector('#canvas');
-          if (!canvas) {
-            console.log('Cannot find the canvas.');
-            return;
-          }
-          const gl = canvas.getContext('webgl');
-          const keyMap = Object.freeze({
-            [87]: 0, // w
-            [83]: 1, // s
-            [65]: 3, // a
-            [66]: 4, // d
-            [76]: 5, // l
-          });
-          driver.startUp(gl, Module, ev => keyMap[ev.keyCode]);
-          
-          msg.addEventListener("keypress", driver.pressKey);
-
-          msg.addEventListener("keyup", driver.releaseKey);
-
-          setInterval(() => {
-            driver.update(50);
-          }, 50);
+        const canvas = document.querySelector('#canvas');
+        if (!canvas) {
+          console.log('Cannot find the canvas.');
+          return;
         }
-
+        const gl = canvas.getContext('webgl');
+        const keyMap = Object.freeze({
+          [87]: 0, // w
+          [83]: 1, // s
+          [65]: 3, // a
+          [66]: 4, // d
+          [76]: 5, // l
+          [80]: 6, // p
+          [79]: 7, // o
+        });
+        driver.startUp(gl, Module, ev => keyMap[ev.keyCode]);
+        document.addEventListener("keypress", driver.pressKey);
+        document.addEventListener("keyup", driver.releaseKey);
+        setInterval(() => {
+          driver.update(0.1);
+        }, 100);
       };
       var Module = {
         preRun: [],
@@ -135,20 +139,6 @@
         }
       };
       Module.setStatus('Downloading...');
-    </script>
-    <script>
-      window.onload = () => {
-        // Alright... it's working!
-        // Time to actually create those functions and do those sample calls
-        // and output the results to console
-        console.log('hello from console!');
-        const sum_array =(arr) => {
-          const sum_ = Module.cwrap('to_js_sum_array', 'number', ['[number]', 'number']);
-          return sum_(arr, arr.length);
-          // Module.HEAPF32.set(new Float32Array(arr), )
-        };
-        //console.log(sum_array([1, 2, 3, 4, 5]));
-      }
     </script>
     {{{ SCRIPT }}}
   </body>

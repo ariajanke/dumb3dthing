@@ -22,6 +22,9 @@
 
 #include <common/TestSuite.hpp>
 
+#include <unordered_map>
+#include <iostream>
+
 namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
@@ -192,6 +195,24 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
                  + ": side must be valid value and not k_inside."};
 }
 
+OnSegment::OnSegment
+    (SharedCPtr<Triangle> tri_, bool invert_norm_, Vector2 loc_, Vector2 dis_):
+    segment(tri_), invert_normal(invert_norm_),
+    location(loc_), displacement(dis_)
+{
+    // there's state validation...
+    // surface; must not be nullptr
+    //
+    assert(tri_);
+    if (!tri_->contains_point(loc_)) {
+        std::cerr << loc_ << " " 
+                  << tri_->point_a_in_2d() << " " 
+                  << tri_->point_b_in_2d() << " " 
+                  << tri_->point_c_in_2d() << std::endl;
+    }
+    assert(tri_->contains_point(loc_));
+}
+
 Vector location_of(const State & state) {
     auto * in_air = get_if<InAir>(&state);
     if (in_air) return in_air->location;
@@ -227,7 +248,7 @@ Vector location_of(const State & state) {
 }
 
 /* static */ UniquePtr<Driver> Driver::make_driver()
-    { return make_unique<DriverComplete>(); }
+    { return UniquePtr<Driver>{make_unique<DriverComplete>()}; }
 
 } // end of point_and_plane namespace
 

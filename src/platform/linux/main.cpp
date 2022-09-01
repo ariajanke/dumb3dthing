@@ -271,7 +271,8 @@ int main() {
         return -1;
     }
 
-    ShaderProgram shader = load_default_shader();
+    ShaderProgram shader;// = load_default_shader();
+    shader.load_builtin();
     NativePlatformCallbacks npcallbacks{shader};
     gamedriver->setup(npcallbacks);
 
