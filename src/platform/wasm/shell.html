@@ -34,6 +34,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
     integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
     crossorigin="anonymous" defer></script>
+    <script type='text/javascript'>let driver;</script>
     <script src="out-driver.js"></script>
     <script src="out-jsPlatform.js"></script>
   </head>
@@ -42,6 +43,7 @@
     <div class="emscripten">
       <progress value="0" max="100" id="progress" hidden=1></progress>  
     </div>
+    <!--
     <div class="emscripten_border" style="display:none;">
       <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
     </div>
@@ -52,16 +54,15 @@
       <input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked, 
                                                                                 document.getElementById('resize').checked)">
     </div>
-    
     <hr/>
     <textarea class="emscripten" id="output" rows="2"></textarea>
+    -->
     <div id="canvas-parent">
       <div id="menus" class="on-pause"></div>
       <div class="emscripten_border">
           <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 width="800" height="800"></canvas>
       </div>
     </div>
-    <hr>
     <script type='text/javascript'>
       // connect to canvas
       const doOnStartStuff = () => {
@@ -81,9 +82,17 @@
           [80]: 6, // p
           [79]: 7, // o
         });
+        let keyState = {};
         driver.startUp(gl, Module, ev => keyMap[ev.keyCode]);
-        document.addEventListener("keypress", driver.pressKey);
-        document.addEventListener("keyup", driver.releaseKey);
+        document.addEventListener("keydown", ev => {
+          if (keyState[ev.keyCode]) return;
+          keyState[ev.keyCode] = true;
+          driver.pressKey(ev);
+        });
+        document.addEventListener("keyup"  , ev => {
+          keyState[ev.keyCode] = false;
+          driver.releaseKey(ev);
+        });
         setInterval(() => {
           driver.update(0.1);
         }, 100);
@@ -91,7 +100,9 @@
       var Module = {
         preRun: [],
         postRun: [],
-        print: (function() {
+        print: doOnStartStuff,
+        /*
+        (function() {
           var element = document.getElementById('output');
           element.value = ''; // clear browser cache
           return function(text) {
@@ -105,7 +116,7 @@
             element.scrollTop = element.scrollHeight; // focus on bottom
             doOnStartStuff();
           };
-        })(),
+        })(),*/
         printErr: function(text) {
           if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
           if (0) { // XXX disabled for safety typeof dump == 'function') {

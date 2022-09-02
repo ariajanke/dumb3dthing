@@ -27,6 +27,9 @@
  *
  *  Generally, triangles must be three non-colinear points. All points must not
  *  be nearly equal to each other.
+ *
+ *  NTS: with floating points, objects hitting the very edges of triangles
+ *       become *much* more likely, I need code to handle this situation!
  */
 class TriangleSegment final {
 public:
@@ -81,10 +84,10 @@ public:
      *  @param c
      */
     TriangleSegment(const Vector & a, const Vector & b, const Vector & c);
-
+#   if 0
     /** Runs all builtin tests, prints out results to std::cout */
     static bool run_tests();
-
+#   endif
     /** This defines a basis vector for the plane on which this TriangleSegment
      *  exists.
      *

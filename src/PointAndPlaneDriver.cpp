@@ -329,6 +329,10 @@ State DriverComplete::operator ()
     auto new_loc = freebody.location + freebody.displacement;
     for (auto itr = beg; itr != end; ++itr) {
         auto & triangle = **itr;
+        if (freebody.location.y >= 0 && new_loc.y <= 0) {
+            int i = 0;
+            ++i;
+        }
         auto r = triangle.intersection(freebody.location, new_loc);
 
         if (!is_solution(r)) continue;
@@ -345,7 +349,9 @@ State DriverComplete::operator ()
                   normalize(project_onto(new_loc - freebody.location,
                                          triangle.normal()          ))
                 - triangle.normal(), Vector{});
+#           if 0
             std::cout << "Made landing" << std::endl;
+#           endif
             return OnSegment{*itr, heads_against_normal, r, *disv2};
         } else if (auto * disv3 = get_if<Vector>(&gv)) {
             verify_decreasing_displacement<Vector, Vector>(
@@ -393,10 +399,14 @@ State DriverComplete::operator ()
             OnSegment rv{tracker};
             rv.location = gv.inside;
             rv.displacement = Vector2{};
+#           if 0
             std::cout << "Cling to edge" << std::endl;
+#           endif
             return rv;
         }
+#       if 0
         std::cout << "Slip off without attached" << std::endl;
+#       endif
         return InAir{triangle.point_at( gv.outside ), Vector{}};
     }
 
@@ -405,10 +415,12 @@ State DriverComplete::operator ()
         triangle, transfer.target.get(), outside_pt,
         outside_pt - triangle.point_at(tracker.location));
     if (auto * to_tri = get_if<SegmentTransfer>(&rem_displc_var)) {
+#       if 0
         static int i = 0;
         std::cout << "intersegment (" << (i++) << ") transfer occured..."
                   << &triangle << " to " << transfer.target.get() << " : "
                   << tracker.segment->normal() << " to " << transfer.target->normal() << std::endl;
+#       endif
         // you mean to transfer
         verify_decreasing_displacement<Vector2, Vector2>(
             to_tri->displacement, tracker.displacement,
@@ -417,7 +429,9 @@ State DriverComplete::operator ()
             transfer.target->closest_contained_point(outside_pt), to_tri->displacement};
     } else if (auto * disv3 = get_if<Vector>(&rem_displc_var)) {
         // you mean to "slip off"
+#       if 0
         std::cout << "Slip off w/ attached" << std::endl;
+#       endif
         verify_decreasing_displacement<Vector, Vector2>(
             *disv3, tracker.displacement,
             "DriverComplete::handle_tracker");

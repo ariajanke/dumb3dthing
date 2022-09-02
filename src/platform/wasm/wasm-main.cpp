@@ -31,7 +31,7 @@
 #include <iostream>
 
 EM_JS(void, from_js_log_line, (const char * str), {
-    console.log(Module.UTF8ToString(str));
+    //console.log(Module.UTF8ToString(str));
 });
 
 // ----------------------------- Texture Operations ---------------------------
@@ -45,7 +45,9 @@ EM_JS(int, from_js_create_texture, (), {
 EM_JS(void, from_js_load_texture, (int handle, const char * filename), {
     // Still have a possible problem when trying to read textuer width/height
     // get the string conversion function from Module and yeet that name!
-    jsPlatform.getTexture(handle).load(Module.UTF8ToString(filename));
+    const texture = jsPlatform.getTexture(handle);
+    texture.load(Module.UTF8ToString(filename));
+    texture.setUnit(0); // all 0 for now...
 });
 
 EM_JS(void, from_js_destroy_texture, (int handle), {    
@@ -94,6 +96,10 @@ EM_JS(void, from_js_destroy_render_model, (int handle), {
 });
 
 // ---------------------------- Matrix Operations -----------------------------
+
+EM_JS(void, from_js_reset_model_matrix, (), {
+    jsPlatform.modelMatrix.reset();
+});
 
 EM_JS(void, from_js_model_matrix_rotate_y, (float angle), {
     jsPlatform.modelMatrix.rotateY(angle);
@@ -237,26 +243,32 @@ public:
     }
 
     void render_scene(const Scene & scene) final {
-        for (auto & ent : scene) {
-            if (!ent.has_all<SharedPtr<Texture>, SharedPtr<RenderModel>>()) continue;
-            if (auto * translation = ent.ptr<Translation>()) {
-                const auto & r = translation->value;
-                from_js_model_matrix_translate(r.x, r.y, r.z);
-            }
-            if (auto * y_rotation = ent.ptr<YRotation>()) {
-                from_js_model_matrix_rotate_y(y_rotation->value);
-            }
-            auto [texture, render_model] = ent.get<SharedPtr<Texture>, SharedPtr<RenderModel>>();
-            texture->bind_texture();
-            render_model->render();
-        }
         if (Entity e{m_camera_ent}) {
+            from_js_log_line("[cpp]: setting camera");
             const auto & cam = e.get<Camera>();
             // something with camera...
             from_js_projection_matrix_look_at(
                 cam.position.x, cam.position.y, cam.position.z,
                 cam.target  .x, cam.target  .y, cam.target  .z,
                 cam.up      .x, cam.up      .y, cam.up      .z);
+        }
+
+        for (auto & ent : scene) {
+            if (!ent.has_all<SharedCPtr<Texture>, SharedCPtr<RenderModel>>()) continue;
+            from_js_reset_model_matrix();
+            if (auto * translation = ent.ptr<Translation>()) {
+                const auto & r = translation->value;
+                from_js_model_matrix_translate(r.x, r.y, r.z);
+                from_js_log_line("[cpp]: applying translation");
+            }
+            if (auto * y_rotation = ent.ptr<YRotation>()) {
+                from_js_model_matrix_rotate_y(y_rotation->value);
+                from_js_log_line("[cpp]: applying y rotation");
+            }
+            from_js_log_line("[cpp]: rendering model");
+            auto [texture, render_model] = ent.get<SharedCPtr<Texture>, SharedCPtr<RenderModel>>();
+            texture->bind_texture();
+            render_model->render();
         }
     }
 
@@ -289,15 +301,18 @@ int main() {
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE void to_js_start_up() {
+    from_js_log_line("[cpp]: driver started");
     s_driver = Driver::make_instance();
     s_driver->setup(WebGlPlatform::instance());
 }
 
 EMSCRIPTEN_KEEPALIVE void to_js_press_key(int key) {
+    from_js_log_line("[cpp]: press key hit");
     s_driver->press_key(static_cast<KeyControl>(key));
 }
 
 EMSCRIPTEN_KEEPALIVE void to_js_release_key(int key) {
+    from_js_log_line("[cpp]: release key hit");
     s_driver->release_key(static_cast<KeyControl>(key));
 }
 

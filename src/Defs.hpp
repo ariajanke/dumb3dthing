@@ -34,13 +34,18 @@
 
 // ----------------------------- Type Definitions -----------------------------
 
+#ifndef MACRO_SCALAR_TYPE_FOR_VECTORS
+using Real      = double;
+#else
+using Real      = MACRO_SCALAR_TYPE_FOR_VECTORS;
+#endif
+
 using Entity    = ecs::AvlTreeEntity;
 using Scene     = ecs::SceneOf<Entity>;
 using EntityRef = ecs::EntityRef;
 
-using Real      = double;
-using Vector    = cul::Vector3<double>;
-using Vector2   = cul::Vector2<double>;
+using Vector    = cul::Vector3<Real>;
+using Vector2   = cul::Vector2<Real>;
 using Vector2I  = cul::Vector2<int>;
 
 template <typename T>

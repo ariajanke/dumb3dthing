@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-const driver = (() => {
+driver = (() => {
 
 const kBuiltinVertexShaderSource = `
 attribute vec4 aVertexPosition;
@@ -149,7 +149,7 @@ const startUpModule = (gl, module, keymapper, shaderProgram) => {
   return Object.freeze({
     startUp   : module.cwrap('to_js_start_up'   , 'null'),
     pressKey  : ev => (ev = keymapper(ev)) ? pressKey_  (ev) : undefined,
-    releaseKey: ev => (ev = keymapper(rv)) ? releaseKey_(ev) : undefined,
+    releaseKey: ev => (ev = keymapper(ev)) ? releaseKey_(ev) : undefined,
     update    : et => drawScene(gl, shaderProgram, () => update_(et))
   });
 };

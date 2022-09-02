@@ -57,7 +57,7 @@ bool run_triangle_segment_tests() {
 
     mark(suite).test([] {
         auto ts = make_not_flat_test();
-        double compval = 1. / std::sqrt(3.);
+        Real compval = 1. / std::sqrt(3.);
         return test(are_very_close(ts.normal(), Vector(compval, compval, -compval)));
     });
 
@@ -72,8 +72,8 @@ bool run_triangle_segment_tests() {
     mark(suite).test([] {
         // basis i here should look like: (0, 1 / sqrt(2), 1 / sqrt(2))
         auto ts = make_not_flat_test();
-        double on_triangle_val = 0.5;
-        double compval = (1. / std::sqrt(2.))*on_triangle_val;
+        Real on_triangle_val = 0.5;
+        Real compval = (1. / std::sqrt(2.))*on_triangle_val;
         return test(are_very_close(ts.point_at(Vector2(on_triangle_val, 0.)),
                              Vector(0., compval, compval)             ));
     });
@@ -164,6 +164,25 @@ bool run_triangle_segment_tests() {
                             Vector{6.5, 0, -4.5}};
         auto side = tri.check_for_side_crossing(old, new_).side;
         return test(side != Side::k_inside);
+    });
+
+    // fails?!
+    // <x: 0.6, y: 0.6> <x: 0, y: 0> <x: 1.4142, y: 0> <x: 0.70711, y: 0.70711>
+
+    mark(suite).test([] {
+        Vector2 pt{0.6, 0.6};
+        TriangleSegment triangle{Vector{0, 0, 0}, Vector{1.4142, 0, 0}, Vector{0.70711, 0.70711, 0}};
+        return test(triangle.contains_point(pt));
+    });
+
+    // issues with 32bit floats
+    mark(suite).test([] {
+        Vector a{3.0999999,  0.0249999985 , -2.0999999};
+        Vector b{3.0999999, -0.00416667014, -2.0999999};
+        TriangleSegment triangle{Vector{2.5, 0, -2}, Vector{3.5, 0, -2},
+                                 Vector{2.5, 0, -3}};
+        auto r = triangle.intersection(a, b);
+        return test(cul::is_solution(r));
     });
 
 #   undef mark

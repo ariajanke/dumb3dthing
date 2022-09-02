@@ -19,9 +19,9 @@
 *****************************************************************************/
 
 #include "TriangleSegment.hpp"
-
+#if 0
 #include <common/TestSuite.hpp>
-
+#endif
 namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
@@ -37,9 +37,9 @@ using std::min_element;
 
 template <typename T>
 using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
-
+#if 0
 [[nodiscard]] bool run_tests();
-
+#endif
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
      Vector2 second_line_a, Vector2 second_line_b);
@@ -85,9 +85,9 @@ TriangleSegment::TriangleSegment
 
     check_invarients();
 }
-
+#if 0
 /* static */ bool TriangleSegment::run_tests() { return ::run_tests(); }
-
+#endif
 Vector TriangleSegment::basis_i() const
     { return normalize(point_b() - point_a()); }
 
@@ -108,6 +108,7 @@ Vector2 TriangleSegment::center_in_2d() const noexcept
 SideCrossing TriangleSegment::check_for_side_crossing
     (const Vector2 & old, const Vector2 & new_) const
 {
+    check_invarients();
     if (old == new_ || contains_point(old) == contains_point(new_))
         { return SideCrossing{}; }
 
@@ -143,6 +144,7 @@ SideCrossing TriangleSegment::check_for_side_crossing
 }
 
 Vector2 TriangleSegment::closest_contained_point(Vector p) const {
+    check_invarients();
     auto r = closest_point(p);
     // do something to r...
     if (contains_point(r)) return r;
@@ -152,6 +154,7 @@ Vector2 TriangleSegment::closest_contained_point(Vector p) const {
 }
 
 Vector2 TriangleSegment::closest_point(Vector p) const {
+    check_invarients();
     // find via projection
     // https://math.stackexchange.com/questions/633181/formula-to-project-a-vector-onto-a-plane
     // by copyright law, mathematics/geometry cannot be copyrighted
@@ -174,6 +177,7 @@ TriangleSegment TriangleSegment::flip() const noexcept {
 }
 
 Vector2 TriangleSegment::intersection(Vector a, Vector b) const {
+    check_invarients();
     // multiple sources on this
     // from stackoverflow (multiple posts), blender, rosetta code, and on, and on
     // again, maintaining that simple geometic formulae as uncopyrightable
@@ -326,7 +330,7 @@ inline TriangleSegment make_flat_test()
 
 inline TriangleSegment make_not_flat_test()
     { return TriangleSegment{Vector{0, 0, 0}, Vector{0, 1, 1}, Vector{1, 1, 2}}; }
-
+#if 0
 // for this implementation:
 // the origin shall be a
 // surface normal: cross(b - a, c - a)
@@ -470,7 +474,7 @@ bool run_tests() {
 #   undef mark
     return suite.has_successes_only();
 }
-
+#endif
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
      Vector2 second_line_a, Vector2 second_line_b)

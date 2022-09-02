@@ -85,7 +85,8 @@ const mkTexture = gl => {
     load  : url => blockReturn([mImage, mTexture] = loadImageTexture(gl, url)),
     bind: doWithUnit => {
       // not sure what to do on slots???
-      // do I have to implement an LRU or something (yuck!)
+      // do I have to implement an LRU or something (yuck!) 
+      if (!mUnit) throw 'mkTexture().bind(f): texture unit must be set.';
       gl.activeTexture(mUnit);
       gl.bindTexture(gl.TEXTURE_2D, mTexture);
       doWithUnit(mUnitIdx);
@@ -153,15 +154,14 @@ const mkJsPlatform = () => {
   let mGlContext;
   let mPositionsAttrLoc;
   let mTexturePositionsAttrLoc;
-  let mHandleTextureUnit = () => {};
+  let mHandleTextureUnit = () => { throw 'jsPlatform.bindTexture: must setTextureUnitHandler before use.'; };
 
   const mkIndexMap = factory => {
     let mIndex = 0;
     let mMap = {};
-    return [/* create */ () => {
-      const idx = mIndex;
+    return [/* create */ idx_ => {
+      const idx = idx_ ?? mIndex++;
       mMap[idx] = factory(mGlContext);
-      mIndex++;
       return idx;
     }, /* destroy */ handle => {
       mMap[handle].destroy();
@@ -182,7 +182,7 @@ const mkJsPlatform = () => {
     const kXAxis = [1, 0, 0];
     const kZAxis = [0, 0, 1];
     let mMatrix;
-    let mApplier = () => {};
+    let mApplier = () => { throw 'modelMatrix.apply: applier must be set before use.'; };
     return Object.freeze({
       rotateY: angle => mat4.rotate(mMatrix, mMatrix, angle, kYAxis),
       rotateX: angle => mat4.rotate(mMatrix, mMatrix, angle, kXAxis),
@@ -197,8 +197,8 @@ const mkJsPlatform = () => {
 
   const projectionMatrix = (() => {
     let mMatrix;
-    let mReseter = () => { throw 'projectionMatrix.reset: must be set before use.'; };
-    let mApplier = () => {};
+    let mReseter = () => { throw 'projectionMatrix.reset: reseter must be set before use.'; };
+    let mApplier = () => { throw 'projectionMatrix.apply: applier must be set before use.'; };
     return Object.freeze({
       reset: () => blockReturn( mMatrix = mReseter() ),
       // !<needs to be set before start>!

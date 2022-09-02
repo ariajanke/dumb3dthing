@@ -168,7 +168,7 @@ bool run_systems_tests() {
     mark(suite).test([] {
         constexpr const Real k_et = 0.05;
         PlayerMotionProfile default_prof;
-        Velocity init_run{default_prof.max_willed_speed*1.5, 0, 0};
+        Velocity init_run{Real(default_prof.max_willed_speed*1.5), 0, 0};
         auto res = PCtoV::find_new_velocity_from_willed(
             default_prof, init_run, Vector{-1, 0, 0}, k_et).value;
         // must be true, if a valid test case
@@ -182,7 +182,7 @@ bool run_systems_tests() {
     mark(suite).test([] {
         constexpr const Real k_et = 0.5;
         PlayerMotionProfile default_prof;
-        Velocity init_run{default_prof.max_willed_speed*1.5, 0, 0};
+        Velocity init_run{Real(default_prof.max_willed_speed*1.5), 0, 0};
         auto res = PCtoV::find_new_velocity_from_willed(
             default_prof, init_run, Vector{1, 0, 0}, k_et).value;
         return test(are_very_close(res, init_run.value));
@@ -195,7 +195,7 @@ bool run_systems_tests() {
     mark(suite).test([] {
         constexpr const Real k_et = 0.15;
         PlayerMotionProfile default_prof;
-        Velocity init_run{default_prof.max_willed_speed*1.5, 0, 0};
+        Velocity init_run{Real(default_prof.max_willed_speed*1.5), 0, 0};
         auto res = PCtoV::find_new_velocity_from_willed(
             default_prof, init_run, normalize(Vector{-1, 0, 1}), k_et).value;
         return test(   angle_between(res, init_run.value) > 0
