@@ -43,17 +43,43 @@
       <div id="menus" class="on-pause"></div>
         <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 width="800" height="800"></canvas>
     </div>
+    <script src=".webgl-debug.js"></script>
     <script type='text/javascript' defer>
       // connect to canvas
       const doOnStartStuff = () => {
         // perhaps I'll repurpose main to startup the driver?
         console.log('hello from console!');
+        
+        const losesCanvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(document.querySelector('#canvas'));
+        losesCanvas.loseContextInNCalls(45);
+        
+        {
+          let keyState = {};
+          document.addEventListener("keydown", ev => {
+            if (keyState[ev.keyCode]) return;
+            keyState[ev.keyCode] = true;
+            driver.pressKey(ev);
+          });
+
+          document.addEventListener("keyup", ev => {
+            keyState[ev.keyCode] = false;
+            driver.releaseKey(ev);
+          });
+        }
+
         const canvas = document.querySelector('#canvas');
         if (!canvas) {
           console.log('Cannot find the canvas.');
           return;
         }
-        const gl = canvas.getContext('webgl');
+        
+        canvas.addEventListener("webglcontextlost", event => {
+          event.preventDefault();
+          driver.onContextLost();
+        }, false);
+
+        canvas.addEventListener("webglcontextrestored", driver.onContextRestore, false);
+
         const keyMap = Object.freeze({
           [87]: 0, // w
           [83]: 1, // s
@@ -63,22 +89,10 @@
           [80]: 5, // p
           [79]: 6  // o
         });
-        let keyState = {};
-        driver.startUp(() => {
-          const canvas = document.querySelector('#canvas');
-          return canvas.getContext('webgl');
-        }, Module, ev => keyMap[ev.keyCode]);
-        document.addEventListener("keydown", ev => {
-          if (keyState[ev.keyCode]) return;
-          keyState[ev.keyCode] = true;
-          driver.pressKey(ev);
-        });
-        document.addEventListener("keyup", ev => {
-          keyState[ev.keyCode] = false;
-          driver.releaseKey(ev);
-        });
-        let interval = 1 / 48;
-        setInterval(() => driver.update(interval), interval*1000);
+
+        driver.startUp(
+          () => document.querySelector('#canvas').getContext('webgl'),
+          Module, ev => keyMap[ev.keyCode]);
       };
       var Module = {
         preRun: [],

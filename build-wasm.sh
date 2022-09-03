@@ -15,7 +15,7 @@ if [[ ! true ]]; then
     node bin/out-unit-tests.js
 fi
 
-if [[ true ]]; then
+if [[ ! true ]]; then
     emcc -O3 -std=c++17 \
         src/platform/wasm/wasm-main.cpp $(find src -maxdepth 2 | grep 'cpp\b') \
         --shell-file src/platform/wasm/shell.html \
@@ -29,7 +29,7 @@ if [[ true ]]; then
 fi
 
 # could use cp when debugging these modules
-if [[ ! true ]]; then
+if [[ true ]]; then
     cp src/platform/wasm/jsPlatform.js bin/out-jsPlatform.js
     cp src/platform/wasm/driver.js bin/out-driver.js
 else

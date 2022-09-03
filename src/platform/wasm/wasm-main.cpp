@@ -161,8 +161,6 @@ public:
 
         // How to handle problems with loading?
         from_js_load_texture(m_handle, filename);
-        m_width  = from_js_get_width (m_handle);
-        m_height = from_js_get_height(m_handle);
         return true;
     }
 
@@ -171,9 +169,9 @@ public:
                       "memory not supported on this platform."};
     }
 
-    int width () const final { return m_width ; }
+    int width () const final { return from_js_get_width (m_handle); }
 
-    int height() const final { return m_height; }
+    int height() const final { return from_js_get_height(m_handle); }
 
     void bind_texture(/* there is a rendering context in WebGL */) const final {
         from_js_bind_texture(m_handle);
@@ -181,8 +179,6 @@ public:
 
 private:
     int m_handle = k_no_handle;
-    int m_width = 0;
-    int m_height = 0;
 };
 
 class WebGlRenderModel final : public RenderModel {
