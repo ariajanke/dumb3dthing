@@ -128,104 +128,13 @@ const setPlatformCallbacks = getShader => {
   });
 };
 
-if (false) {
-const setMatrixAndPlatformCallbacks = shaderProgramMap => {
-  // platform has a lot of "must sets"
-  // but this greatly eases things in the main cpp file
-  // afterall the jsPlatform is supposed to take care of everything on the js 
-  // side for C++
-  if (false)
-  jsPlatform.modelMatrix.setApplier((gl, matrix) => {
-    gl.uniformMatrix4fv(
-      shaderProgramMap.uniformLocations.modelViewMatrix,
-      false, matrix);
-  });
-  if (false)
-  perspectiveMatrix.setReseter(gl => {
-    const fieldOfView = 45 * Math.PI / 180;   // in radians
-    const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    const zNear = 0.1;
-    const zFar = 100.0;
-    const projectionMatrix = mat4.create();
+const startUpModule = module => Object.freeze({
+  startUp   : module.cwrap('to_js_start_up'   , 'null'),
+  pressKey  : module.cwrap('to_js_press_key'  , 'null', ['number']),
+  releaseKey: module.cwrap('to_js_release_key', 'null', ['number']),
+  update    : module.cwrap('to_js_update'     , 'null', ['number'])
+});
 
-    // note: glmatrix.js always has the first argument
-    // as the destination to receive the result.
-    mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
-    return projectionMatrix;
-  });
-  if (false)
-  perspectiveMatrix.setApplier((gl, matrix) => {
-    gl.uniformMatrix4fv(
-      shaderProgramMap.uniformLocations.projectionMatrix,
-      false, matrix);
-  });
-  if (false)
-  jsPlatform.setRenderModelAttributes(
-    shaderProgramMap.attribLocations.vertexPosition,
-    shaderProgramMap.attribLocations.textureCoord);
-  if (false)
-  jsPlatform.setTextureUnitHandler((gl, unit) =>
-    gl.uniform1i(shaderProgramMap.uniformLocations.uSampler, unit));
-  if (false)
-  jsPlatform.viewMatrix.setApplier((gl, matrix) => {
-    gl.uniformMatrix4fv(
-      shaderProgramMap.uniformLocations.viewMatrix,
-      false, matrix);
-  });
-};
-}
-if (false) {
-const startUpWebGlAndGetShader = initGl => {
-  const shaderProgram = initShaderProgram(initGl, 
-    kBuiltinVertexShaderSource, kBuiltinFragmentShaderSource);
-
-  const programInfo = {
-    program: shaderProgram,
-    attribLocations: {
-      vertexPosition: initGl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      textureCoord: initGl.getAttribLocation(shaderProgram, "aTextureCoord"),
-    },
-    uniformLocations: {
-      projectionMatrix: initGl.getUniformLocation(
-        shaderProgram,
-        "uProjectionMatrix"
-      ),
-      modelViewMatrix: initGl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-      uSampler: initGl.getUniformLocation(shaderProgram, "uSampler"),
-      viewMatrix: initGl.getUniformLocation(shaderProgram, "uViewMatrix")
-    }
-  };
-  
-  setMatrixAndPlatformCallbacks(programInfo);
-  return programInfo.program;
-};
-  
-}
-const startUpModule = module => {
-  const pressKey_   = module.cwrap('to_js_press_key'  , 'null', ['number']);
-  const releaseKey_ = module.cwrap('to_js_release_key', 'null', ['number']);  
-  const update_     = module.cwrap('to_js_update'     , 'null', ['number']);
-
-  return Object.freeze({
-    startUp   : module.cwrap('to_js_start_up', 'null'),
-    pressKey  : pressKey_,
-    releaseKey: releaseKey_,
-    update    : update_
-  });
-
-  return Object.freeze({
-    startUp   : module.cwrap('to_js_start_up'   , 'null'),
-    pressKey  : ev => (ev = keymapper(ev)) ? pressKey_  (ev - 1) : undefined,
-    releaseKey: ev => (ev = keymapper(ev)) ? releaseKey_(ev - 1) : undefined,
-    update    : et => {
-      // I should get a reset function from the page itself
-
-      // document.querySelector('#canvas').getContext('webgl')
-
-      drawScene(gl, shaderProgram, () => update_(et));
-    }
-  });
-};
 
 const perspectiveMatrix = (() => {
   const blockReturn = () => {};
@@ -249,31 +158,15 @@ const perspectiveMatrix = (() => {
   });
 })();
 
-if (false) {
-const startUp = (gl, module, keymapper) => {
-  const shaderProgram = startUpWebGl(gl);
-  const rv = startUpModule(gl, module, keymapper, shaderProgram);
-  rv.startUp();
-  return rv;
-};
-}
-
 const startNewFrame = (gl, shaderProgram) => {
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
-  gl.clearDepth(1.0);                 // Clear everything
-  gl.enable(gl.DEPTH_TEST);           // Enable depth testing
-  gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
+  gl.clearColor(0.1, 0.2, 0.4, 1.0);
+  gl.clearDepth(1.0);
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LEQUAL);
 
   // Clear the canvas before we start drawing on it.
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-  // Create a perspective matrix, a special matrix that is
-  // used to simulate the distortion of perspective in a camera.
-  // Our field of view is 45 degrees, with a width/height
-  // ratio that matches the display size of the canvas
-  // and we only want to see objects between 0.1 units
-  // and 100 units away from the camera.
 
   perspectiveMatrix.reset();
   
@@ -282,11 +175,7 @@ const startNewFrame = (gl, shaderProgram) => {
 
   perspectiveMatrix.apply();
 };
-if (false) {
-const passToIfDefined = (x, f) => {
-  if (typeof x === 'number') f(x);
-};
-}
+
 const makePassToIfNumber = f => ev => {
   const x = f(ev);
   if (typeof x === 'number') f(x);
@@ -307,10 +196,9 @@ return (() => {
       kBuiltinVertexShaderSource, kBuiltinFragmentShaderSource);
     perspectiveMatrix.setContext(mGlContext);
     jsPlatform.setContext(mGlContext);
-    if (false) mShaderProgram = startUpWebGlAndGetShader(mGlContext);
   };
 
-  const pressKey_ = makePassToIfNumber(ev => mMod.pressKey(ev));
+  const pressKey_   = makePassToIfNumber(ev => mMod.pressKey  (ev));
   const releaseKey_ = makePassToIfNumber(ev => mMod.releaseKey(ev));
 
   const makeUpdateRoutine = () => {
@@ -321,27 +209,40 @@ return (() => {
         console.log('Update routine stopped.');
         return; // <- stop, no more udpates!
       }
+      let start = new Date(); 
       startNewFrame(mGlContext, mShaderProgram);
       mMod.update(1 / oldFrameRate);
       if (oldFrameRate != mTargetFrameRate) {
         return setTimeout(makeUpdateRoutine(), (1000 / mTargetFrameRate));
       }
-      setTimeout(thisUpdater, 1000 / oldFrameRate);
+      let end = new Date();
+      setTimeout(thisUpdater, Math.max(0, (1000 / oldFrameRate) - (end - start)));
     };
     return thisUpdater;
+  };
+
+  const resume = () => {
+    console.log('Restarting update routine.');
+    mHalt = false;
+    setTimeout(makeUpdateRoutine(), (1000 / mTargetFrameRate));
+  };
+  const stop = () => {
+    console.log('Stopping update routine.');
+    mHalt = true;
   };
 
   return Object.freeze({
     // call once per page load
     startUp: (getGlContext, module, keymapper) => {
-      setPlatformCallbacks(() => mShaderProgram);
+      setPlatformCallbacks(() =>
+        mShaderProgram);
       mGlContextGetter = getGlContext;
       resetContext();
       mKeyMapper = keymapper;
       mMod       = startUpModule(module);
       mMod.startUp();
       
-      setTimeout(makeUpdateRoutine(), (1000 / mTargetFrameRate));
+      resume();
     },
     setTargetFrameRate: fps => mTargetFrameRate = fps,
     targetFrameRate: () => mTargetFrameRate,
@@ -349,13 +250,13 @@ return (() => {
     onContextRestore: () => {
       console.log('Attempting to restore context');
       resetContext();
-      setTimeout(makeUpdateRoutine(), (1000 / mTargetFrameRate));
+      resume();
     },
-    onContextLost: () => {
-      mHalt = true;
-    },
+    onContextLost: stop,
     pressKey  : ev => pressKey_(mKeyMapper(ev)),
-    releaseKey: ev => releaseKey_(mKeyMapper(ev))
+    releaseKey: ev => releaseKey_(mKeyMapper(ev)),
+    resume,
+    stop
   });
 })();
 

@@ -36,7 +36,8 @@ const textureLoader = (() => {
   {
     // call setContext to clear this cache
     if (mImageTextureCache[url].texture) {
-      if (mustHaveInvalidatedOrUndef) {
+      if (mustHaveInvalidatedOrUndef) { // <- not actually useful?!
+        // ^ how would this be tested?!
         throw `Cache Safety: textureLoader's cache was no invalided`;
       }
       return mImageTextureCache[url].texture;
@@ -96,13 +97,15 @@ const textureLoader = (() => {
       Object.keys(mImageTextureCache).forEach(url => {
         // I think this is okay...
         delete mImageTextureCache[url].texture;
+        mImageTextureCache[url].texture = undefined;
       });
     },
     loadImage,
   });
 })();
 
-const mkTexture = mGl => {
+const mkTexture = () => {
+  let mGl;
   let mTextureCreator; // <- this not being set is well defined
   let mTexture;
   let mUnit;
@@ -116,8 +119,9 @@ const mkTexture = mGl => {
   return Object.freeze({
     setContext: newGl => {
       mGl = newGl;
+      mTexture = undefined;
       if (!mTextureCreator) return;
-      refreshTexture(kMustHaveInvalidated);
+      refreshTexture(/*kMustHaveInvalidated*/);
     },
     // issues of timing with loading?
     height: () => { throw 'idk what to do'; },
@@ -144,16 +148,17 @@ const mkTexture = mGl => {
     getNativeTexture: () => mTexture,
     setUnit: n => blockReturn( mUnitIdx = n ),
     getUnit: () => mUnitIdx,
-    destroy: () => {} // gl.deleteTexture(mTexture)
+    destroy: () => { if (false) gl.deleteTexture(mTexture); }
   });
 };
 
-const mkRenderModel = mGl => {
+const mkRenderModel = () => {
+  let mGl;
   let mElements;
   let mPositions;
   let mTexturePositions;
   let mElementsCount;
-  let mRefreshModel = () => { throw 'renderModel.setContext load* must be called first.'; };
+  let mRefreshModel;// = () => { throw 'renderModel.setContext load* must be called first.'; };
 
   const doBufferLoad = (enumTarget, typedArr) => {
     const buf = mGl.createBuffer();
@@ -170,13 +175,6 @@ const mkRenderModel = mGl => {
 
   const loadFromTypedArrays = (positions, texturePosits, elements) =>
     (mRefreshModel = makeRefresherFunction(positions, texturePosits, elements))();
-  if (false)
-  (positions, texturePosits, elements) => {
-    mElements = doBufferLoad(mGl.ELEMENT_ARRAY_BUFFER, elements);
-    mPositions = doBufferLoad(mGl.ARRAY_BUFFER, positions);
-    mTexturePositions = doBufferLoad(mGl.ARRAY_BUFFER, texturePosits);
-    mElementsCount = elements.length;
-  };
 
   const makeRefresherFunction = (positions, texturePosits, elements) => {
     mElementsCount = elements.length; // <- does not go bad
@@ -212,21 +210,21 @@ const mkRenderModel = mGl => {
 };
 
 const mkJsPlatform = () => {
-  let mGlContext;
-  //let mPositionsAttrLoc;
-  //let mTexturePositionsAttrLoc;
+  
   let mHandleTextureUnit = () => { throw 'jsPlatform.bindTexture: must setTextureUnitHandler before use.'; };
   let mRenderModelAttributesAccepter = () => { throw 'jsPlatform.renderRenderModel: must setRenderModelAttributesNeeder before use.'; };
   let mRenderModelAttributesAccepterFactory = () => { throw ''; };
   const mkIndexMap = factory => {
     let mIndex = 0;
     let mMap = {};
+    let mGl;
     return [/* create */ idx_ => {
       const idx = idx_ ?? mIndex++;
       if (mMap[idx]) {
         throw `indexMap.create: key "${idx}" already in use.`;
       }
-      mMap[idx] = factory(mGlContext);
+      mMap[idx] = factory();
+      mMap[idx].setContext(mGl);
       return idx;
     }, /* destroy */ handle => {
       mMap[handle].destroy();
@@ -236,10 +234,11 @@ const mkJsPlatform = () => {
       const rv = mMap[handle];
       if (!rv) throw "Did you forget to initialize this resource with the create function?";
       return rv;
-    }, /* setContext */ gl =>
+    }, /* setContext */ gl => {
       Object.keys(mMap).forEach(key =>
-        mMap[key].setContext(gl))
-    ];
+        mMap[key].setContext(gl));
+      mGl = gl;
+    }];
   };
 
   // need things for model matrix and look at
@@ -266,23 +265,6 @@ const mkJsPlatform = () => {
       setApplierFactory: f => blockReturn( mApplierFactory = f )
     });
   })();
-  if (false) {
-  // gonna deprecate/move this to the driver
-  const projectionMatrix = (() => {
-    let mMatrix;
-    let mReseter = () => { throw 'projectionMatrix.reset: reseter must be set before use.'; };
-    let mApplier = () => { throw 'projectionMatrix.apply: applier must be set before use.'; };
-    return Object.freeze({
-      reset: () => blockReturn( mMatrix = mReseter() ),
-      // !<needs to be set before start>!
-      setReseter: f => blockReturn(mReseter = f),
-      // lookAt: (eye, center, up) => mat4.lookAt(mMatrix, eye, center, up),
-      apply: () => mApplier(mMatrix),
-      // !<needs to be set before start>!
-      setApplier: f => blockReturn(mApplier = f)
-    });
-  })();
-  }
 
   const viewMatrix = (() => {
     let mMatrix = mat4.create();
@@ -307,7 +289,6 @@ const mkJsPlatform = () => {
     mkIndexMap(mkRenderModel);
 
   const contextSetters = [
-    textureLoader.invalidateTextureCache, // <- must come before resetting textures
     setContextForAllRenderModels, setContextForAllTextures,
     viewMatrix.setContext, modelMatrix.setContext];
 
@@ -315,28 +296,24 @@ const mkJsPlatform = () => {
   return Object.freeze({
     // the idea is, you set this function per context restoration...
     setContext: gl => {
-      mGlContext = gl;
       // call the factory and reset the function-function that takes two attributes
+      // v must come before resetting textures
+      textureLoader.invalidateTextureCache();
       contextSetters.forEach(f => f(gl));
       mRenderModelAttributesAccepter = mRenderModelAttributesAccepterFactory(gl);
       mHandleTextureUnit = mTextureUnitHandlerFactory(gl);
     },
     createTexture    , destroyTexture    , getTexture    ,
     createRenderModel, destroyRenderModel, getRenderModel,
-    // !<needs to be set before start>!
-    /*setRenderModelAttributes: (positionAttrLoc, textureAttrLoc) => {
-      mPositionsAttrLoc = positionAttrLoc;
-      mTexturePositionsAttrLoc = textureAttrLoc;
-    },*/
     renderRenderModel: handle =>
       mRenderModelAttributesAccepter( getRenderModel(handle).render ),
-      //getRenderModel(handle).render(mPositionsAttrLoc, mTexturePositionsAttrLoc),
-    // !<needs to be set before start>!
-    // setTextureUnitHandler: handler => blockReturn(mHandleTextureUnit = handler),
-    setTextureUnitHandlerFactory: f => blockReturn( mTextureUnitHandlerFactory = f),
     bindTexture: handle => getTexture(handle).bind(mHandleTextureUnit),
-    modelMatrix, viewMatrix,
-    // The idea is that each of these functions only need to be called once!
+    // !<matricies need to have factories set>!
+    modelMatrix,
+    viewMatrix,
+    // !<needs to be set before start>!
+    setTextureUnitHandlerFactory: factory => 
+      blockReturn( mTextureUnitHandlerFactory = factory),
     // !<needs to be set before start>!
     // provide me with an fn, that takes another fn, which itself takes the attrs
     setRenderModelAttributesNeederFactory: factory => 

@@ -46,12 +46,10 @@
     <script src=".webgl-debug.js"></script>
     <script type='text/javascript' defer>
       // connect to canvas
+      const losesCanvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(document.querySelector('#canvas'));
       const doOnStartStuff = () => {
         // perhaps I'll repurpose main to startup the driver?
         console.log('hello from console!');
-        
-        const losesCanvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(document.querySelector('#canvas'));
-        losesCanvas.loseContextInNCalls(45);
         
         {
           let keyState = {};
@@ -66,6 +64,8 @@
             driver.releaseKey(ev);
           });
         }
+        document.addEventListener('focusout', driver.stop);
+        document.addEventListener('focusin', driver.resume);
 
         const canvas = document.querySelector('#canvas');
         if (!canvas) {
@@ -76,9 +76,9 @@
         canvas.addEventListener("webglcontextlost", event => {
           event.preventDefault();
           driver.onContextLost();
-        }, false);
+        });
 
-        canvas.addEventListener("webglcontextrestored", driver.onContextRestore, false);
+        canvas.addEventListener("webglcontextrestored", driver.onContextRestore);
 
         const keyMap = Object.freeze({
           [87]: 0, // w
@@ -98,8 +98,10 @@
         preRun: [],
         postRun: () => {
           if (document.readyState === 'complete') {
+            console.log('document is already ready');
             doOnStartStuff();
           } else {
+            console.log('setting onload...');
             document.onload = doOnStartStuff;
           }
         }, //[],

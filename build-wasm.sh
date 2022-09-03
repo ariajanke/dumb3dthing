@@ -25,14 +25,14 @@ if [[ ! true ]]; then
         -DMACRO_NEW_20220728_VECTORS \
         -sEXPORTED_FUNCTIONS=_main,_to_js_start_up,_to_js_press_key,_to_js_release_key,_to_js_update \
         -sEXPORTED_RUNTIME_METHODS=cwrap,ccall,UTF8ToString \
-        -o bin/out.html
+        -o /media/ramdisk/bin-wasm-app/out.html
 fi
 
 # could use cp when debugging these modules
 if [[ true ]]; then
-    cp src/platform/wasm/jsPlatform.js bin/out-jsPlatform.js
-    cp src/platform/wasm/driver.js bin/out-driver.js
+    cp src/platform/wasm/jsPlatform.js /media/ramdisk/bin-wasm-app/out-jsPlatform.js
+    cp src/platform/wasm/driver.js /media/ramdisk/bin-wasm-app/out-driver.js
 else
-    esbuild --minify src/platform/wasm/jsPlatform.js > bin/out-jsPlatform.js
-    esbuild --minify src/platform/wasm/driver.js > bin/out-driver.js
+    esbuild --minify src/platform/wasm/jsPlatform.js > /media/ramdisk/bin-wasm-app/out-jsPlatform.js
+    esbuild --minify src/platform/wasm/driver.js > /media/ramdisk/bin-wasm-app/out-driver.js
 fi
