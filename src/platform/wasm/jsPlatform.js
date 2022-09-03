@@ -19,59 +19,68 @@
 *****************************************************************************/
 
 const jsPlatform = (() => {
+"use strict";
 
 // I don't think I nor anyone else is served by that first indentation...
 
-const isPowerOf2 = x => (x & (x - 1)) == 0;
 const blockReturn = () => {};
 
-const loadImageTexture = (gl, url) => {
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
+const textureLoader = (() => {
+  let mGlContext;
+  let mImageTextureCache = {};
 
-  // Because images have to be download over the internet
-  // they might take a moment until they are ready.
-  // Until then put a single pixel in the texture so we can
-  // use it immediately. When the image has finished downloading
-  // we'll update the texture with the contents of the image.
+  const isPowerOf2 = x => (x & (x - 1)) == 0;
 
-  // ^ how will that play with my accessors? or C++ code?
-  const level = 0;
-  const internalFormat = gl.RGBA;
-  const width = 1;
-  const height = 1;
-  const border = 0;
-  const srcFormat = gl.RGBA;
-  const srcType = gl.UNSIGNED_BYTE;
-  const pixel = new Uint8Array([0, 0, 255, 255]); // opaque blue
-  gl.texImage2D(
-    gl.TEXTURE_2D, level, internalFormat, width, height, border, srcFormat,
-    srcType, pixel);
-
-  const image = new Image();
-  image.onload = () => {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
-
-    // WebGL1 has different requirements for power of 2 images
-    // vs non power of 2 images so check if the image is a
-    // power of 2 in both dimensions.
-    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-      // Yes, it's a power of 2. Generate mips.
-      gl.generateMipmap(gl.TEXTURE_2D);
-    } else {
-      // No, it's not a power of 2. Turn of mips and set
-      // wrapping to clamp to edge
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  const loadImageTexture = (gl, url) => {
+    if (mImageTextureCache[url]) {
+      return mImageTextureCache[url];
     }
+  
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+  
+    // ^ how will that play with my accessors? or C++ code?
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const width = 1;
+    const height = 1;
+    const border = 0;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    const pixel = new Uint8Array([0, 0, 255, 255]); // opaque blue
+    gl.texImage2D(
+      gl.TEXTURE_2D, level, internalFormat, width, height, border, srcFormat,
+      srcType, pixel);
+  
+    const image = new Image();
+    image.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(
+        gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
+  
+      // WebGL1 has different requirements for power of 2 images
+      // vs non power of 2 images so check if the image is a
+      // power of 2 in both dimensions.
+      if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+        // Generate mips.
+        gl.generateMipmap(gl.TEXTURE_2D);
+      } else {
+        // Turn off mips and set wrapping to clamp to edge
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      }
+    };
+    image.src = url;
+  
+    return (mImageTextureCache[url] =  { image, texture });
   };
-  image.src = url;
-
-  return [image, texture];
-};
+  
+  return Object.freeze({
+    setContext: gl => blockReturn( mGlContext = gl ),
+    loadImageTexture: url => loadImageTexture(mGlContext, url)
+  });
+})();
 
 const mkTexture = gl => {
   let mImage;
@@ -79,20 +88,26 @@ const mkTexture = gl => {
   let mUnit;
   let mUnitIdx;
   return Object.freeze({
+    setContext: newGl => gl = newGl,
     // issues of timing with loading?
     height: () => mImage.height,
     width : () => mImage.width,
-    load  : url => blockReturn([mImage, mTexture] = loadImageTexture(gl, url)),
+    load  : url => {
+      const { image, texture } = textureLoader.loadImageTexture(url);
+      mImage = image;
+      mTexture = texture;
+    },
     bind: doWithUnit => {
       // not sure what to do on slots???
       // do I have to implement an LRU or something (yuck!) 
       if (!mUnit) throw 'mkTexture().bind(f): texture unit must be set.';
       gl.activeTexture(mUnit);
       gl.bindTexture(gl.TEXTURE_2D, mTexture);
-      doWithUnit(mUnitIdx);
+      doWithUnit(gl, mUnitIdx);
     },
     getNativeTexture: () => mTexture,
     setUnit: n => {
+      // gonna just assume TEXTUREN across contexts are the same (dangerously)
       const tu = gl['TEXTURE' + n];
       if (!tu) {
         throw `Failed to set texture unit to "TEXTURE${ + n}".`;
@@ -101,7 +116,7 @@ const mkTexture = gl => {
       mUnitIdx = n;
     },
     getUnit: () => mUnitIdx,
-    destroy: () => gl.deleteTexture(mTexture)
+    destroy: () => {} // gl.deleteTexture(mTexture)
   });
 };
 
@@ -132,6 +147,7 @@ const mkRenderModel = gl => {
   };
 
   return Object.freeze({
+    setContext: newGl => gl = newGl,
     load: loadFromTypedArrays,
     loadFromJsArrays: (positions, texturePosits, elements) =>
       loadFromTypedArrays(new Float32Array(positions), new Float32Array(texturePosits),
@@ -143,6 +159,7 @@ const mkRenderModel = gl => {
       gl.drawElements(gl.TRIANGLES, mElementsCount, gl.UNSIGNED_SHORT, 0);
     },
     destroy: () => {
+      return;
       gl.deleteBuffer(mElements);
       gl.deleteBuffer(mPositions);
       gl.deleteBuffer(mTexturePositions);
@@ -165,16 +182,20 @@ const mkJsPlatform = () => {
       return idx;
     }, /* destroy */ handle => {
       mMap[handle].destroy();
-      mMap[handle] = undefined;
+      delete mMap[handle];
     }, /* get */ handle => {
       // don't accidentally let client write dictionary
       const rv = mMap[handle];
       if (!rv) throw "Did you forget to initialize this resource with the create function?";
       return rv;
-    }];
+    }, /* setContext */ gl =>
+      Object.keys(mMap).forEach(res =>
+        res.setContext(gl))
+    ];
   };
 
   // need things for model matrix and look at
+  // *all* appliers and reseters now have a "gl" parameter
 
   const modelMatrix = (() => {
     const kYAxis = [0, 1, 0];
@@ -182,19 +203,22 @@ const mkJsPlatform = () => {
     const kXAxis = [1, 0, 0];
     const kZAxis = [0, 0, 1];
     let mMatrix;
+    let mGlContext;
     let mApplier = () => { throw 'modelMatrix.apply: applier must be set before use.'; };
     return Object.freeze({
+      setContext: gl => mGlContext = gl,
       rotateY: angle => mat4.rotate(mMatrix, mMatrix, angle, kYAxis),
       rotateX: angle => mat4.rotate(mMatrix, mMatrix, angle, kXAxis),
       rotateZ: angle => mat4.rotate(mMatrix, mMatrix, angle, kZAxis),
       translate: r => mat4.translate(mMatrix, mMatrix, r),
       reset: () => blockReturn(mMatrix = mat4.create()),
-      apply: () => mApplier(mMatrix),
+      apply: () => mApplier(mGlContext, mMatrix),
       // !<needs to be set before start>!
       setApplier: f => blockReturn(mApplier = f)
     });
   })();
-
+  if (false) {
+  // gonna deprecate/move this to the driver
   const projectionMatrix = (() => {
     let mMatrix;
     let mReseter = () => { throw 'projectionMatrix.reset: reseter must be set before use.'; };
@@ -203,20 +227,43 @@ const mkJsPlatform = () => {
       reset: () => blockReturn( mMatrix = mReseter() ),
       // !<needs to be set before start>!
       setReseter: f => blockReturn(mReseter = f),
-      lookAt: (eye, center, up) => mat4.lookAt(mMatrix, eye, center, up),
+      // lookAt: (eye, center, up) => mat4.lookAt(mMatrix, eye, center, up),
       apply: () => mApplier(mMatrix),
       // !<needs to be set before start>!
       setApplier: f => blockReturn(mApplier = f)
     });
   })();
+  }
 
-  const [createTexture, destroyTexture, getTexture] =
+  const viewMatrix = (() => {
+    let mMatrix = mat4.create();
+    let mGlContext;
+    let mApplier = () => { throw 'viewMatrix.apply: applier must be set before use.'; };
+    return Object.freeze({
+      setContext: gl => mGlContext = gl,
+      // lookAt "resets" the matrix
+      lookAt: (eye, center, up) => mat4.lookAt(mMatrix, eye, center, up),
+      apply: () => mApplier(mGlContext, mMatrix),
+      // !<needs to be set before start>!
+      setApplier: f => blockReturn(mApplier = f)
+    });
+  })();
+
+  const [createTexture, destroyTexture, getTexture, 
+         setContextForAllTextures] =
     mkIndexMap(mkTexture);
-  const [createRenderModel, destroyRenderModel, getRenderModel] =
+  const [createRenderModel, destroyRenderModel, getRenderModel,
+         setContextForAllRenderModels] =
     mkIndexMap(mkRenderModel);
 
+  const contextSetters = [
+    setContextForAllRenderModels, setContextForAllTextures,
+    textureLoader.setContext, viewMatrix.setContext, modelMatrix.setContext];
   return Object.freeze({
-    setContext: gl => mGlContext = gl,
+    setContext: gl => {
+      mGlContext = gl;
+      contextSetters.forEach(f => f(gl));
+    },
     createTexture    , destroyTexture    , getTexture    ,
     createRenderModel, destroyRenderModel, getRenderModel,
     // !<needs to be set before start>!
@@ -229,7 +276,7 @@ const mkJsPlatform = () => {
     // !<needs to be set before start>!
     setTextureUnitHandler: handler => blockReturn(mHandleTextureUnit = handler),
     bindTexture: handle => getTexture(handle).bind(mHandleTextureUnit),
-    modelMatrix, projectionMatrix
+    modelMatrix, viewMatrix
   });
 };
 

@@ -340,7 +340,7 @@ Loader::LoaderTuple GameDriverComplete::initial_load
 
     auto tgg_ptr = TileGraphicGenerator{entities, triangles, callbacks};
     tgg_ptr.setup();
-    auto [tlinks, ents] = load_map_graphics(tgg_ptr, load_map_cell(k_layout2, CharToCell::default_instance())); {}
+    auto [tlinks, ents] = load_map_graphics(tgg_ptr, load_map_cell(k_layout4, CharToCell::default_instance())); {}
     auto [renderable, physical] = make_sample_player(callbacks); {}
     callbacks.set_camera_entity(EntityRef{physical});
 

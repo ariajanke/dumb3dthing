@@ -22,50 +22,31 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Emscripten-Generated Code</title>
+    <title>Dumb 3D Thing</title>
     <style>
       .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
       textarea.emscripten { font-family: monospace; width: 80%; }
       div.emscripten { text-align: center; }
-      div.emscripten_border { border: 1px solid black; }
-      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-      canvas.emscripten { border: 0px none; background-color: black; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
-    integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
-    crossorigin="anonymous" defer></script>
-    <script type='text/javascript'>let driver;</script>
-    <script src="out-driver.js"></script>
-    <script src="out-jsPlatform.js"></script>
+      integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
+      crossorigin="anonymous" defer></script>
+    <script src="out-driver.js" defer></script>
+    <script src="out-jsPlatform.js" defer></script>
   </head>
   <body>
     <div class="emscripten" id="status">Downloading...</div>
     <div class="emscripten">
       <progress value="0" max="100" id="progress" hidden=1></progress>  
     </div>
-    <!--
-    <div class="emscripten_border" style="display:none;">
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-    </div>
-    <div class="emscripten" style="display:none;">
-      <input type="checkbox" id="resize">Resize canvas
-      <input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer
-      &nbsp;&nbsp;&nbsp;
-      <input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked, 
-                                                                                document.getElementById('resize').checked)">
-    </div>
-    <hr/>
-    <textarea class="emscripten" id="output" rows="2"></textarea>
-    -->
     <div id="canvas-parent">
       <div id="menus" class="on-pause"></div>
-      <div class="emscripten_border">
-          <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 width="800" height="800"></canvas>
-      </div>
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 width="800" height="800"></canvas>
     </div>
-    <script type='text/javascript'>
+    <script type='text/javascript' defer>
       // connect to canvas
       const doOnStartStuff = () => {
+        // perhaps I'll repurpose main to startup the driver?
         console.log('hello from console!');
         const canvas = document.querySelector('#canvas');
         if (!canvas) {
@@ -76,47 +57,39 @@
         const keyMap = Object.freeze({
           [87]: 0, // w
           [83]: 1, // s
-          [65]: 3, // a
-          [66]: 4, // d
-          [76]: 5, // l
-          [80]: 6, // p
-          [79]: 7, // o
+          [65]: 2, // a
+          [68]: 3, // d
+          [76]: 4, // l
+          [80]: 5, // p
+          [79]: 6  // o
         });
         let keyState = {};
-        driver.startUp(gl, Module, ev => keyMap[ev.keyCode]);
+        driver.startUp(() => {
+          const canvas = document.querySelector('#canvas');
+          return canvas.getContext('webgl');
+        }, Module, ev => keyMap[ev.keyCode]);
         document.addEventListener("keydown", ev => {
           if (keyState[ev.keyCode]) return;
           keyState[ev.keyCode] = true;
           driver.pressKey(ev);
         });
-        document.addEventListener("keyup"  , ev => {
+        document.addEventListener("keyup", ev => {
           keyState[ev.keyCode] = false;
           driver.releaseKey(ev);
         });
-        setInterval(() => {
-          driver.update(0.1);
-        }, 100);
+        let interval = 1 / 48;
+        setInterval(() => driver.update(interval), interval*1000);
       };
       var Module = {
         preRun: [],
-        postRun: [],
-        print: doOnStartStuff,
-        /*
-        (function() {
-          var element = document.getElementById('output');
-          element.value = ''; // clear browser cache
-          return function(text) {
-            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-            // These replacements are necessary if you render to raw HTML
-            //text = text.replace(/&/g, "&amp;");
-            //text = text.replace(/</g, "&lt;");
-            //text = text.replace(/>/g, "&gt;");
-            //text = text.replace('\n', '<br>', 'g');
-            element.value += text + "\n";
-            element.scrollTop = element.scrollHeight; // focus on bottom
+        postRun: () => {
+          if (document.readyState === 'complete') {
             doOnStartStuff();
-          };
-        })(),*/
+          } else {
+            document.onload = doOnStartStuff;
+          }
+        }, //[],
+        print: () => {},
         printErr: function(text) {
           if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
           if (0) { // XXX disabled for safety typeof dump == 'function') {

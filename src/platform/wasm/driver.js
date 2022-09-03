@@ -18,18 +18,20 @@
 
 *****************************************************************************/
 
-driver = (() => {
+const driver = (() => {
+"use strict";
 
 const kBuiltinVertexShaderSource = `
 attribute vec4 aVertexPosition;
 attribute vec2 aTextureCoord;
 
 uniform mat4 uModelViewMatrix;
+uniform mat4 uViewMatrix; // <- added by me
 uniform mat4 uProjectionMatrix;
 
 varying highp vec2 vTextureCoord;
 void main(void) {
-  gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+  gl_Position = uProjectionMatrix * uViewMatrix * uModelViewMatrix * aVertexPosition;
   vTextureCoord = aTextureCoord;
 }
 `;
@@ -73,50 +75,17 @@ const initShaderProgram = (gl, vsSource, fsSource) => {
   return shaderProgram;
 };
 
-const startUpWebGl = gl => {
-  gl.clearColor(0.1, 0.6, 0.1, 1);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-
-  const shaderProgram = initShaderProgram(gl, 
-    kBuiltinVertexShaderSource, kBuiltinFragmentShaderSource);
-
-  const programInfo = {
-    program: shaderProgram,
-    attribLocations: {
-      vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
-    },
-    uniformLocations: {
-      projectionMatrix: gl.getUniformLocation(
-        shaderProgram,
-        "uProjectionMatrix"
-      ),
-      modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-      uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
-    }
-  };
-  
-  jsPlatform.setContext(gl);
-  
-  // Browsers copy pixels from the loaded image in top-to-bottom order —
-  // from the top-left corner; but WebGL wants the pixels in bottom-to-top
-  // order — starting from the bottom-left corner. So in order to prevent
-  // the resulting image texture from having the wrong orientation when
-  // rendered, we need to make the following call, to cause the pixels to
-  // be flipped into the bottom-to-top order that WebGL expects.
-  // See jameshfisher.com/2020/10/22/why-is-my-webgl-texture-upside-down
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
+const setMatrixAndPlatformCallbacks = shaderProgramMap => {
   // platform has a lot of "must sets"
   // but this greatly eases things in the main cpp file
   // afterall the jsPlatform is supposed to take care of everything on the js 
   // side for C++
-  jsPlatform.modelMatrix.setApplier(matrix => {
+  jsPlatform.modelMatrix.setApplier((gl, matrix) => {
     gl.uniformMatrix4fv(
-      programInfo.uniformLocations.modelViewMatrix,
+      shaderProgramMap.uniformLocations.modelViewMatrix,
       false, matrix);
   });
-  jsPlatform.projectionMatrix.setReseter(() => {
+  perspectiveMatrix.setReseter(gl => {
     const fieldOfView = 45 * Math.PI / 180;   // in radians
     const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     const zNear = 0.1;
@@ -128,41 +97,101 @@ const startUpWebGl = gl => {
     mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
     return projectionMatrix;
   });
-  jsPlatform.projectionMatrix.setApplier(matrix => {
+  perspectiveMatrix.setApplier((gl, matrix) => {
     gl.uniformMatrix4fv(
-      programInfo.uniformLocations.projectionMatrix,
+      shaderProgramMap.uniformLocations.projectionMatrix,
       false, matrix);
   });
   jsPlatform.setRenderModelAttributes(
-    programInfo.attribLocations.vertexPosition,
-    programInfo.attribLocations.textureCoord);
-  jsPlatform.setTextureUnitHandler(unit =>
-    gl.uniform1i(programInfo.uniformLocations.uSampler, unit));
+    shaderProgramMap.attribLocations.vertexPosition,
+    shaderProgramMap.attribLocations.textureCoord);
+  jsPlatform.setTextureUnitHandler((gl, unit) =>
+    gl.uniform1i(shaderProgramMap.uniformLocations.uSampler, unit));
+  jsPlatform.viewMatrix.setApplier((gl, matrix) => {
+    gl.uniformMatrix4fv(
+      shaderProgramMap.uniformLocations.viewMatrix,
+      false, matrix);
+  });
+};
+
+const startUpWebGlAndGetShader = initGl => {
+  const shaderProgram = initShaderProgram(initGl, 
+    kBuiltinVertexShaderSource, kBuiltinFragmentShaderSource);
+
+  const programInfo = {
+    program: shaderProgram,
+    attribLocations: {
+      vertexPosition: initGl.getAttribLocation(shaderProgram, "aVertexPosition"),
+      textureCoord: initGl.getAttribLocation(shaderProgram, "aTextureCoord"),
+    },
+    uniformLocations: {
+      projectionMatrix: initGl.getUniformLocation(
+        shaderProgram,
+        "uProjectionMatrix"
+      ),
+      modelViewMatrix: initGl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+      uSampler: initGl.getUniformLocation(shaderProgram, "uSampler"),
+      viewMatrix: initGl.getUniformLocation(shaderProgram, "uViewMatrix")
+    }
+  };
+  
+  setMatrixAndPlatformCallbacks(programInfo);
   return programInfo.program;
 };
   
-const startUpModule = (gl, module, keymapper, shaderProgram) => {
+const startUpModule = module => {
   const pressKey_   = module.cwrap('to_js_press_key'  , 'null', ['number']);
   const releaseKey_ = module.cwrap('to_js_release_key', 'null', ['number']);  
   const update_     = module.cwrap('to_js_update', 'null', ['number']);
 
   return Object.freeze({
+    startUp   : module.cwrap('to_js_start_up', 'null'),
+    pressKey  : pressKey_,
+    releaseKey: releaseKey_,
+    update    : update_
+  });
+
+  return Object.freeze({
     startUp   : module.cwrap('to_js_start_up'   , 'null'),
-    pressKey  : ev => (ev = keymapper(ev)) ? pressKey_  (ev) : undefined,
-    releaseKey: ev => (ev = keymapper(ev)) ? releaseKey_(ev) : undefined,
-    update    : et => drawScene(gl, shaderProgram, () => update_(et))
+    pressKey  : ev => (ev = keymapper(ev)) ? pressKey_  (ev - 1) : undefined,
+    releaseKey: ev => (ev = keymapper(ev)) ? releaseKey_(ev - 1) : undefined,
+    update    : et => {
+      // I should get a reset function from the page itself
+
+      // document.querySelector('#canvas').getContext('webgl')
+
+      drawScene(gl, shaderProgram, () => update_(et));
+    }
   });
 };
 
+const perspectiveMatrix = (() => {
+  const blockReturn = () => {};
+  let mMatrix;
+  let mGlContext;
+  let mReseter = () => { throw 'perspectiveMatrix.reset: reseter must be set before use.'; };
+  let mApplier = () => { throw 'perspectiveMatrix.apply: applier must be set before use.'; };
+  return Object.freeze({
+    setContext: gl => mGlContext = gl,
+    reset: () => blockReturn(mMatrix = mReseter(mGlContext) ),
+    // !<needs to be set before start>!
+    setReseter: f => blockReturn(mReseter = f),
+    apply: () => mApplier(mGlContext, mMatrix),
+    // !<needs to be set before start>!
+    setApplier: f => blockReturn(mApplier = f)
+  });
+})();
+
+if (false) {
 const startUp = (gl, module, keymapper) => {
   const shaderProgram = startUpWebGl(gl);
   const rv = startUpModule(gl, module, keymapper, shaderProgram);
   rv.startUp();
   return rv;
 };
+}
 
-
-const drawScene = (gl, shaderProgram, updateGame) => {
+const startNewFrame = (gl, shaderProgram) => {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
   gl.clearDepth(1.0);                 // Clear everything
   gl.enable(gl.DEPTH_TEST);           // Enable depth testing
@@ -179,30 +208,52 @@ const drawScene = (gl, shaderProgram, updateGame) => {
   // and we only want to see objects between 0.1 units
   // and 100 units away from the camera.
 
-  jsPlatform.projectionMatrix.reset();
+  perspectiveMatrix.reset();
   
   // Tell WebGL to use our program when drawing
   gl.useProgram(shaderProgram);
 
-  jsPlatform.projectionMatrix.apply();
+  perspectiveMatrix.apply();
+};
 
-  updateGame();
+const passToIfDefined = (x, f) => {
+  if (typeof x === 'number') f(x);
 };
 
 return (() => {
-  const kUninit = 'uninit';
-  let mod = {
-    pressKey  : () => { throw kUninit; },
-    releaseKey: () => { throw kUninit; },
-    update    : () => { throw kUninit; }
+  let mMod;
+  let mKeyMapper;
+  let mGlContextGetter;
+  let mShaderProgram;
+  let mGlContext;
+
+  const resetContext = () => {
+    mGlContext = mGlContextGetter();
+    perspectiveMatrix.setContext(mGlContext);
+    jsPlatform.setContext(mGlContext);
   };
+
   return Object.freeze({
-    startUp: (gl, module, keymapper) => {
-      mod = Object.assign({}, startUp(gl, module, keymapper))
+    startUp: (getGlContext, module, keymapper) => {
+      mGlContextGetter = getGlContext;
+      resetContext();
+
+      mKeyMapper     = keymapper;
+      mShaderProgram = startUpWebGlAndGetShader(mGlContext);
+      mMod           = startUpModule(module);
+      mMod.startUp();
     },
-    update: et => mod.update(et),
-    pressKey: ev => mod.pressKey(ev),
-    releaseKey: ev => mod.releaseKey(ev)
+    restart: () => mMod.startUp(),
+    update: et => {
+      if (mGlContext.isContextLost()) {
+        console.log('Attempting to recover WebGL context.');
+        resetContext();
+      }
+      startNewFrame(mGlContext, mShaderProgram);
+      mMod.update(et);
+    },
+    pressKey  : ev => passToIfDefined(mKeyMapper(ev), mMod.pressKey  ),
+    releaseKey: ev => passToIfDefined(mKeyMapper(ev), mMod.releaseKey)
   });
 })();
 

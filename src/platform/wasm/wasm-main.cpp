@@ -109,16 +109,24 @@ EM_JS(void, from_js_model_matrix_translate, (float x, float y, float z), {
     jsPlatform.modelMatrix.translate([x, y, z]);
 });
 
+EM_JS(void, from_js_model_matrix_apply, (), {
+    jsPlatform.modelMatrix.apply();
+});
+
 // did not enjoy this...
-EM_JS(void, from_js_projection_matrix_look_at,
+EM_JS(void, from_js_view_matrix_look_at,
       (float eyeX, float eyeY, float eyeZ,
        float cenX, float cenY, float cenZ,
        float upX, float upY, float upZ),
 {
-    jsPlatform.projectionMatrix.lookAt(
+    jsPlatform.viewMatrix.lookAt(
         [eyeX, eyeY, eyeZ],
         [cenX, cenY, cenZ],
         [upX , upY , upZ ]);
+});
+
+EM_JS(void, from_js_view_matrix_apply, (), {
+    jsPlatform.viewMatrix.apply();
 });
 
 // I'm going to need other functions for matrix transformations/operations
@@ -212,6 +220,10 @@ private:
         static std::vector<float> txPositions;
         static std::vector<uint16_t> elements;
 
+        positions.clear();
+        txPositions.clear();
+        elements.clear();
+        
         positions  .reserve((vertex_end - vertex_beg)*3);
         txPositions.reserve((vertex_end - vertex_beg)*2);
         elements   .reserve(elements_end - elements_beg);
@@ -247,11 +259,13 @@ public:
             from_js_log_line("[cpp]: setting camera");
             const auto & cam = e.get<Camera>();
             // something with camera...
-            from_js_projection_matrix_look_at(
+            from_js_view_matrix_look_at(
                 cam.position.x, cam.position.y, cam.position.z,
                 cam.target  .x, cam.target  .y, cam.target  .z,
                 cam.up      .x, cam.up      .y, cam.up      .z);
         }
+
+        from_js_view_matrix_apply();
 
         for (auto & ent : scene) {
             if (!ent.has_all<SharedCPtr<Texture>, SharedCPtr<RenderModel>>()) continue;
@@ -267,6 +281,7 @@ public:
             }
             from_js_log_line("[cpp]: rendering model");
             auto [texture, render_model] = ent.get<SharedCPtr<Texture>, SharedCPtr<RenderModel>>();
+            from_js_model_matrix_apply();
             texture->bind_texture();
             render_model->render();
         }
