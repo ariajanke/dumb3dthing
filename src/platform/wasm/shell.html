@@ -102,7 +102,7 @@
             doOnStartStuff();
           } else {
             console.log('setting onload...');
-            document.onload = doOnStartStuff;
+            document.addEventListener('DOMContentLoaded', doOnStartStuff);
           }
         }, //[],
         print: () => {},

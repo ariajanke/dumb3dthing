@@ -246,7 +246,7 @@ return (() => {
     },
     setTargetFrameRate: fps => mTargetFrameRate = fps,
     targetFrameRate: () => mTargetFrameRate,
-    restart: () => mMod.startUp(),
+    restart: () => mMod.startUp(), // <- infinite loop?!
     onContextRestore: () => {
       console.log('Attempting to restore context');
       resetContext();

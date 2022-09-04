@@ -5,3 +5,4 @@ src/platform/linux/stb_image.h -linguist-vendored
 src/platform/linux/*.c linguist-vendored
 src/platform/linux/dist/*.c linguist-vendored
 src/platform/linux/*.h linguist-vendored
+bin/* linguist-vendored
