@@ -33,7 +33,9 @@ void PlayerControlToVelocity::operator ()
      Camera & camera) const
 {
     Vector player_loc = point_and_plane::location_of(state);
-    Vector forward    = normalize(project_onto_plane(player_loc - camera.position, k_up));
+    Vector diff       = project_onto_plane(player_loc - camera.position, k_up);
+    if (are_very_close(diff, Vector{})) return;
+    Vector forward    = normalize(diff);
     Vector left       = normalize(cross(k_up, forward));
     // +y is forward, +x is right
     auto willed_dir = normalize_if_nonzero(control.heading().y*forward - control.heading().x*left);

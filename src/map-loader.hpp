@@ -27,6 +27,8 @@
 
 #include <common/SubGrid.hpp>
 
+#include <unordered_map>
+
 using cul::ConstSubGrid;
 
 struct AppearanceId {

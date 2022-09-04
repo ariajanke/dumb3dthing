@@ -78,6 +78,43 @@ private:
     unsigned m_shad_handle = k_no_shader;
 };
 
+constexpr const char * k_fragment_shader_source =
+"#version 330 core\n"
+"out vec4 FragColor;\n"
+"\n"
+"in vec4 vertex_color;\n"
+"in vec2 tex_coord;\n"
+"\n"
+"uniform vec4 our_color;\n"
+"uniform sampler2D our_texture;\n"
+"\n"
+"void main() {\n"
+"   FragColor.rgb = texture(our_texture, tex_coord).rgb;\n"
+"   FragColor.a = vertex_color.a;\n"
+"}\n\0";
+
+constexpr const char * k_vertex_shader_source =
+"#version 330 core\n"
+"layout (location = 0) in vec3 a_pos;\n"
+"layout (location = 1) in vec3 a_color;\n"
+"layout (location = 2) in vec2 a_tex_coord;\n"
+"\n"
+"uniform mat4 model;\n"
+"uniform mat4 view;\n"
+"uniform mat4 projection;\n"
+"\n"
+"uniform vec2 tex_offset;\n"
+"uniform float tex_alpha;\n"
+"\n"
+"out vec4 vertex_color;\n" // specify a color output to the fragment shader
+"out vec2 tex_coord;\n"
+"\n"
+"void main() {\n"
+"    gl_Position = projection * view * model * vec4(a_pos, 1.0);\n"
+"    vertex_color = vec4(a_color, tex_alpha);\n"
+"    tex_coord = a_tex_coord + tex_offset;\n"
+"}\n\0";
+
 } // end of <anonymous> namespace
 
 ShaderProgram::ShaderProgram(ShaderProgram && lhs)
@@ -90,6 +127,9 @@ ShaderProgram & ShaderProgram::operator = (ShaderProgram && lhs) {
     swap(std::move(lhs));
     return *this;
 }
+
+void ShaderProgram::load_builtin()
+    { load_from_source(k_vertex_shader_source, k_fragment_shader_source); }
 
 void ShaderProgram::load_from_source
     (const char * vertex_shader_source, const char * fragment_shader_source)
@@ -148,14 +188,6 @@ void ShaderProgram::set_vec2(const char * name, const glm::vec2 & r) const
 
 void ShaderProgram::swap(ShaderProgram && lhs)
     { std::swap(m_program_handle, lhs.m_program_handle); }
-
-ShaderProgram load_default_shader() {
-    const char * vertex_shader_file   = "v.glsl";
-    const char * fragment_shader_file = "f.glsl";
-    ShaderProgram program;
-    program.load_from_files(vertex_shader_file, fragment_shader_file);
-    return program;
-}
 
 namespace {
 

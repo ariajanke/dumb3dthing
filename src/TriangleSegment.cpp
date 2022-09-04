@@ -20,8 +20,6 @@
 
 #include "TriangleSegment.hpp"
 
-#include <common/TestSuite.hpp>
-
 namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
@@ -37,8 +35,6 @@ using std::min_element;
 
 template <typename T>
 using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
-
-[[nodiscard]] bool run_tests();
 
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
@@ -86,8 +82,6 @@ TriangleSegment::TriangleSegment
     check_invarients();
 }
 
-/* static */ bool TriangleSegment::run_tests() { return ::run_tests(); }
-
 Vector TriangleSegment::basis_i() const
     { return normalize(point_b() - point_a()); }
 
@@ -108,6 +102,7 @@ Vector2 TriangleSegment::center_in_2d() const noexcept
 SideCrossing TriangleSegment::check_for_side_crossing
     (const Vector2 & old, const Vector2 & new_) const
 {
+    check_invarients();
     if (old == new_ || contains_point(old) == contains_point(new_))
         { return SideCrossing{}; }
 
@@ -143,6 +138,7 @@ SideCrossing TriangleSegment::check_for_side_crossing
 }
 
 Vector2 TriangleSegment::closest_contained_point(Vector p) const {
+    check_invarients();
     auto r = closest_point(p);
     // do something to r...
     if (contains_point(r)) return r;
@@ -152,6 +148,7 @@ Vector2 TriangleSegment::closest_contained_point(Vector p) const {
 }
 
 Vector2 TriangleSegment::closest_point(Vector p) const {
+    check_invarients();
     // find via projection
     // https://math.stackexchange.com/questions/633181/formula-to-project-a-vector-onto-a-plane
     // by copyright law, mathematics/geometry cannot be copyrighted
@@ -174,6 +171,7 @@ TriangleSegment TriangleSegment::flip() const noexcept {
 }
 
 Vector2 TriangleSegment::intersection(Vector a, Vector b) const {
+    check_invarients();
     // multiple sources on this
     // from stackoverflow (multiple posts), blender, rosetta code, and on, and on
     // again, maintaining that simple geometic formulae as uncopyrightable
@@ -250,6 +248,9 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     assert(is_real(m_a));
     assert(is_real(m_b));
     assert(is_real(m_c));
+    assert(is_real(point_a_in_2d()));
+    assert(is_real(point_b_in_2d()));
+    assert(is_real(point_c_in_2d()));
     assert(are_very_close(point_at(point_a_in_2d()), point_a()));
     assert(are_very_close(point_at(point_b_in_2d()), point_b()));
     assert(are_very_close(point_at(point_c_in_2d()), point_c()));
@@ -317,156 +318,6 @@ namespace {
 
 static const constexpr Real k_no_intersection_2d =
     std::numeric_limits<Real>::infinity();
-
-inline TriangleSegment make_flat_test()
-    { return TriangleSegment{Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 1, 0}}; }
-
-inline TriangleSegment make_not_flat_test()
-    { return TriangleSegment{Vector{0, 0, 0}, Vector{0, 1, 1}, Vector{1, 1, 2}}; }
-
-// for this implementation:
-// the origin shall be a
-// surface normal: cross(b - a, c - a)
-// basis i shall be: (b - a) / mag(b - a)
-// basis j shall be: cross(normal, i)
-//
-// unit tests
-// positions on a plane
-bool run_tests() {
-#   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
-    using namespace cul::ts;
-    TestSuite suite;
-    suite.start_series("TriangleSegment");
-
-    // testing position_on method
-    // proper origin?
-    mark(suite).test([] {
-        TriangleSegment ts;
-        auto a = Vector{1, 2, 3};
-        ts = TriangleSegment{a, Vector{4, 5, 6}, Vector{7, 8, 8}};
-        return test(are_very_close(ts.point_at(Vector2()), a));
-    });
-
-    // test normal
-    mark(suite).test([] {
-        auto ts = make_flat_test();
-        return test(are_very_close(ts.normal(), Vector(0., 0., 1.)));
-    });
-
-    mark(suite).test([] {
-        auto ts = make_not_flat_test();
-        double compval = 1. / std::sqrt(3.);
-        return test(are_very_close(ts.normal(), Vector(compval, compval, -compval)));
-    });
-
-    // test along basis i (both z = 0, z varies)
-    // this is done using point_at
-    mark(suite).test([] {
-        // basis i here should look like: (0, 1, 0)
-        auto ts = make_flat_test();
-        return test(are_very_close(ts.point_at(Vector2(0.5, 0.)), Vector{0.5, 0., 0.}));
-    });
-
-    mark(suite).test([] {
-        // basis i here should look like: (0, 1 / sqrt(2), 1 / sqrt(2))
-        auto ts = make_not_flat_test();
-        double on_triangle_val = 0.5;
-        double compval = (1. / std::sqrt(2.))*on_triangle_val;
-        return test(are_very_close(ts.point_at(Vector2(on_triangle_val, 0.)),
-                             Vector(0., compval, compval)             ));
-    });
-
-    // test along basis j (both z = 0, z varies)
-    mark(suite).test([] {
-        // I want basis j to favor positive values as being "more inside" the
-        // triangle
-        auto ts = make_flat_test();
-        std::cout << ts.point_at(Vector2(0., 0.5)) << std::endl;
-        return test(are_very_close(ts.point_at(Vector2(0., 0.5)), Vector(0., 0.5, 0.)));
-    });
-
-    // test along both (both z = 0, z varies)
-
-    // closest_point
-    // is found via projection, it maybe inside or not
-    mark(suite).test([] {
-        // generally everything projected on the flat test surface should end up on
-        // the xy plane
-        auto ts = make_flat_test();
-        auto p = ts.closest_point(Vector(0.5, 0.5, 0.5));
-        std::cout << p << "; " << ts.point_at(p) << std::endl;
-        return test(are_very_close(ts.point_at(p), Vector(0.5, 0.5, 0.)));
-    });
-
-    mark(suite).test([] {
-        auto ts = make_flat_test();
-        auto p = ts.closest_point(Vector(-0.5, -0.5, -0.5));
-        std::cout << p << "; " << ts.point_at(p) << std::endl;
-        return test(are_very_close(ts.point_at(p), Vector(-0.5, -0.5, 0.)));
-    });
-
-    mark(suite).test([] {
-        auto ts = make_flat_test();
-        auto p = ts.closest_point(Vector(10., -10., -123.));
-        return test(are_very_close(ts.point_at(p), Vector(10., -10., 0.)));
-    });
-    // generally: a is very close to ts.closest_point(ts.point_at(a))
-
-    // intersection
-    // two regular intersections
-    // one outside
-
-    // point_region
-    // two inside
-    // one in each region: k_out_of_ab, k_out_of_bc, k_out_of_ca
-
-    // points in 2d
-    set_context(suite, [](TestSuite & suite, Unit & unit) {
-        auto ts = make_flat_test();
-        unit.start(mark(suite), [&] {
-            return test(are_very_close(ts.point_at(ts.point_a_in_2d()), ts.point_a()));
-        });
-        unit.start(mark(suite), [&] {
-            return test(are_very_close(ts.point_at(ts.point_b_in_2d()), ts.point_b()));
-        });
-        unit.start(mark(suite), [&] {
-            return test(are_very_close(ts.point_at(ts.point_c_in_2d()), ts.point_c()));
-        });
-    });
-
-    set_context(suite, [](TestSuite & suite, Unit & unit) {
-        auto ts = make_not_flat_test();
-        unit.start(mark(suite), [&] {
-            return test(are_very_close(ts.point_at(ts.point_a_in_2d()), ts.point_a()));
-        });
-        unit.start(mark(suite), [&] {
-            return test(are_very_close(ts.point_at(ts.point_b_in_2d()), ts.point_b()));
-        });
-        unit.start(mark(suite), [&] {
-            return test(are_very_close(ts.point_at(ts.point_c_in_2d()), ts.point_c()));
-        });
-    });
-
-    mark(suite).test([] {
-        TriangleSegment seg{Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 1, 0}};
-        auto outside = seg.closest_point(Vector{ -0.1, 0.5, 0 });
-        auto inside  = seg.closest_point(Vector{  0.1, 0.5, 0 });
-        auto side = seg.check_for_side_crossing(outside, inside).side;
-        return test(TriangleSide::k_side_ca == side);
-    });
-
-    mark(suite).test([] {
-        Vector2 old{0.9999863376435526, 0.47360747242417789};
-        Vector2 new_{1.00024374529933, 0.50750195015971578};
-        TriangleSegment tri{Vector{5.5, 0, -3.5}, Vector{5.5, 0, -4.5},
-                            Vector{6.5, 0, -4.5}};
-        auto side = tri.check_for_side_crossing(old, new_).side;
-        return test(side != Side::k_inside);
-    });
-
-#   undef mark
-    return suite.has_successes_only();
-}
 
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,

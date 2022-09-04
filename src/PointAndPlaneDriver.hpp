@@ -84,16 +84,7 @@ struct OnSegment final {
     OnSegment() {}
 
     OnSegment(SharedCPtr<Triangle> tri_, bool invert_norm_,
-              Vector2 loc_, Vector2 dis_):
-        segment(tri_), invert_normal(invert_norm_),
-        location(loc_), displacement(dis_)
-    {
-        // there's state validation...
-        // surface; must not be nullptr
-        //
-        assert(tri_);
-        assert(tri_->contains_point(loc_));
-    }
+              Vector2 loc_, Vector2 dis_);
 
     SharedCPtr<Triangle> segment;
     bool invert_normal = false;

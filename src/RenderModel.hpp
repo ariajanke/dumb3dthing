@@ -22,7 +22,7 @@
 
 #include "Defs.hpp"
 
-struct Vertex {
+struct Vertex final {
     Vertex() {}
     Vertex(Vector pos, Vector2 tx):
         position(pos), texture_position(tx) {}
@@ -30,7 +30,7 @@ struct Vertex {
     Vector2 texture_position = Vector2(0, 0);
 };
 
-struct RenderModelData {
+struct RenderModelData final {
     std::vector<Vertex  > vertices;
     std::vector<unsigned> elements;
 };

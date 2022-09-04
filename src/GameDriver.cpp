@@ -217,7 +217,7 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
     return rv;
 }
 
-static constexpr const Vector k_player_start{3.1, 0.1, -2.1};
+static constexpr const Vector k_player_start{2.6, 0.1, -1.6};
 
 // model entity, physical entity
 Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
@@ -232,7 +232,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
         return *(list.begin() + i);
     };
 
-    static const auto mk_v = [](double x, double y, double z, int vtidx) {
+    static const auto mk_v = [](Real x, Real y, Real z, int vtidx) {
         Vertex v;
         v.position.x = x*0.5;
         v.position.y = y*0.5;
@@ -297,9 +297,9 @@ static constexpr auto k_layout =
 static constexpr auto k_layout2 =
     "xxxxxxx\n"
     "xxxxxxx\n"
+    "xxx xxx\n"
     "xxxxxxx\n"
-    "xxx^xxx\n"
-    "xxx xxx\n";
+    "xxxxxxx\n";
 static constexpr auto k_layout3 =
     "xx   xx\n"
     "       \n"
