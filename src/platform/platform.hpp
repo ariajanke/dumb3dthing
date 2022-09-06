@@ -30,6 +30,25 @@ class RenderModel;
 
 class Loader;
 
+//template <typename T>
+//class Promise
+
+template <typename T>
+class Future {
+public:
+
+    virtual ~Future() {}
+
+    virtual bool is_ready() const noexcept = 0;
+
+    virtual bool is_lost() const noexcept = 0;
+
+    virtual T && retrieve() = 0;
+
+};
+
+using FutureString = UniquePtr<Future<std::string>>;
+
 /** Represents the platform on which the application runs. This class is a way
  *  for the driver/loaders/certain systems to obtain platform specific
  *  functionality.
@@ -79,13 +98,17 @@ public:
          *  Perhaps save the camera for the player.
          */
         virtual void set_camera_entity(EntityRef) = 0;
+
+        virtual FutureString promise_file_contents(const char *) = 0;
+
+        // consider adding "side tasks"?
     };
 
     class Callbacks : public ForDriver, public ForLoaders {};
 
     static Callbacks & null_callbacks();
 };
-
+#if 0
 /** Intended as a "synchronous" system more than anything
  *
  */
@@ -95,12 +118,44 @@ public:
 
     virtual UniquePtr<Loader> operator () (Scene &) const = 0;
 };
+#endif
+class Preloader {
+public:
+    virtual ~Preloader() {}
+
+    /**
+     *  @note calling preloaders may have side-effects/mutate the preloader
+     *        once a preloader is "used up" it should throw an exception or
+     *        error up in some fashion on subsequent calls
+     * @return
+     */
+    virtual UniquePtr<Loader> operator () () = 0;
+
+    template <typename Func>
+    static UniquePtr<Preloader> make(Func && f) {
+        class Impl final : public Preloader {
+        public:
+            explicit Impl(Func && f_):
+                m_f(std::move(f_)) {}
+
+            UniquePtr<Loader> operator () () final
+                { return m_f(); }
+
+        private:
+            Func m_f;
+        };
+        return make_unique<Impl>(std::move(f));
+    }
+};
 
 /** A loader provides facilities to the driver/controller
  *
+ *  [NTS] Consume all loaders immediately?
  */
 class Loader {
 public:
+    using SinglesSystemPtr = UniquePtr<ecs::SingleSystemBase<Entity>>;
+
     struct PlayerEntities final {
         PlayerEntities() {}
         PlayerEntities(Entity physical_, Entity renderable_):
@@ -109,11 +164,44 @@ public:
         Entity physical, renderable;
     };
 
+    class Callbacks final {
+    public:
+        Callbacks(Platform::ForLoaders & platform_, PlayerEntities ents,
+                  std::vector<SinglesSystemPtr> & dynamic_systems,
+                  Scene & scene):
+            m_platform(platform_),
+            m_player_ents(ents),
+            m_dynamic_systems(dynamic_systems),
+            m_scene(scene) {}
+
+        void add_to_scene(Entity ent) const { return m_scene.add_entity(ent); };
+
+        void add_dynamic_system(SinglesSystemPtr uptr) const
+            { m_dynamic_systems.emplace_back(std::move(uptr)); }
+
+        Platform::ForLoaders & platform() const
+            { return m_platform; }
+
+        PlayerEntities player_entites() const
+            { return m_player_ents; }
+
+        void set_player_entities(const PlayerEntities & entities)
+            { m_player_ents = entities; }
+
+    private:
+        Platform::ForLoaders & m_platform;
+        PlayerEntities m_player_ents;
+        std::vector<SinglesSystemPtr> & m_dynamic_systems;
+        Scene & m_scene;
+    };
+#   if 0
     using EntityVec = std::vector<Entity>;
     using SingleSysVec = std::vector<UniquePtr<ecs::SingleSystemBase<Entity>>>;
+#   if 0
     using TriggerSysVec = std::vector<UniquePtr<TriggerSystem>>;
-    using LoaderTuple = Tuple<PlayerEntities, EntityVec, SingleSysVec, TriggerSysVec>;
-
+#   endif
+    using LoaderTuple = Tuple<PlayerEntities, EntityVec, SingleSysVec/*, TriggerSysVec*/>;
+#   endif
     virtual ~Loader() {}
 
     /** When the driver uses a loader it does several things with the values
@@ -135,8 +223,7 @@ public:
      *  @param callbacks provided functions by the platform for loaders
      *  @return tuple of items for the driver
      */
-    virtual LoaderTuple operator () (PlayerEntities player_entities,
-                                     Platform::ForLoaders & callbacks) const = 0;
+    virtual void operator () (Callbacks & callbacks) const = 0;
 
     virtual bool reset_dynamic_systems() const { return true; }
 
@@ -146,9 +233,8 @@ public:
         public:
             explicit Impl(Func && f): m_f(std::move(f)) {}
 
-            LoaderTuple operator () (PlayerEntities player_entities,
-                                     Platform::ForLoaders & callbacks) const final
-            { return m_f(player_entities, callbacks); }
+            void operator () (Callbacks & callbacks) const final
+                { return m_f(callbacks); }
 
         private:
             Func m_f;

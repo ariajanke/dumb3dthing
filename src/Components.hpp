@@ -141,7 +141,6 @@ public:
         { return m_jump_pressed_before && !m_jump_this_frame; }
 
 private:
-
     static int to_index(KeyControl ky) {
         using Kc = KeyControl;
         switch (ky) {
@@ -155,3 +154,70 @@ private:
     bool m_jump_pressed_before = false;
     bool m_jump_this_frame = false;
 };
+
+class Preloader;
+
+class PreloadSpawner {
+public:
+    class Adder {
+    public:
+        virtual ~Adder() {}
+
+        virtual void add_preloader(UniquePtr<Preloader> &&) const = 0;
+    };
+
+    template <typename Func>
+    using EnableTempFunc = std::enable_if_t<!std::is_same_v<Func, Adder>, Func &&>;
+
+    virtual ~PreloadSpawner() {}
+
+    template <typename Func>
+    void check_for_preloaders_f(Func && f);//EnableTempFunc<Func> && f);
+
+    void check_for_preloaders(const Adder & f)
+        { check_for_preloaders_(f); }
+
+    template <typename Func>
+    static UniquePtr<PreloadSpawner> make(Func && f);
+
+protected:
+    virtual void check_for_preloaders_(const Adder &) = 0;
+
+    PreloadSpawner() {}
+};
+
+template <typename Func>
+void PreloadSpawner::check_for_preloaders_f(Func && f) {//EnableTempFunc<Func> && f) {
+    class Impl final : public Adder {
+    public:
+        explicit Impl(Func && f_):
+            m_f(std::move(f_)) {}
+
+        void add_preloader(UniquePtr<Preloader> && ptr) const final {
+            if (!ptr) return;
+            assert(ptr);
+            m_f(std::move(ptr));
+            assert(!ptr);
+        }
+
+    private:
+        Func m_f;
+    };
+    check_for_preloaders_(Impl{std::move(f)});
+}
+
+template <typename Func>
+/* static */ UniquePtr<PreloadSpawner> PreloadSpawner::make(Func && f) {
+    class Impl final : public PreloadSpawner {
+    public:
+        explicit Impl(Func && f_):
+            m_f(std::move(f_)) {}
+
+    private:
+        void check_for_preloaders_(const Adder & adder)
+            { m_f(adder); }
+
+        Func m_f;
+    };
+    return make_unique<Impl>(std::move(f));
+}

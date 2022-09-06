@@ -51,20 +51,26 @@ TileGraphicGenerator::WallDips get_dips(CellSubGrid, Vector2I);
 // ----------------------------------------------------------------------------
 
 TileGraphicGenerator::TileGraphicGenerator
+    (TriangleVec & tris, LoaderCallbacks & callbacks):
+    m_triangles_out(tris),
+    m_callbacks(callbacks)
+{}
+#if 0
+TileGraphicGenerator::TileGraphicGenerator
     (EntityVec & ents, TriangleVec & tris, Platform::ForLoaders & platform):
     m_entities_out(ents),
     m_triangles_out(tris),
     m_platform(platform)
 {}
-
+#endif
 void TileGraphicGenerator::setup() {
     get_slope_model_(Slopes{0, 1, 1, 0, 0}, Vector{});
     get_slope_model_(Slopes{0, 1, 0, 0, 0}, Vector{});
 }
 
 void TileGraphicGenerator::create_slope(Vector2I loc, const Slopes & slopes) {
-    auto e = m_platform.make_renderable_entity();
-    m_entities_out.push_back(e);
+    auto e = m_callbacks.platform().make_renderable_entity();// m_platform.make_renderable_entity();
+    m_callbacks.add_to_scene(e); //m_entities_out.push_back(e);
     Translation translation{grid_location_to_v3(loc, 0)};
     auto [key_slopes, model, segment_a, segment_b] =
         get_slope_model_(sub_minimum_value(slopes), translation.value); {}
@@ -120,8 +126,8 @@ void TileGraphicGenerator::create_flat
     if (m_flat_model) {
         using std::get, std::tuple_cat;
         assert(m_wall_model);
-        auto e = m_platform.make_renderable_entity();
-        m_entities_out.push_back(e);
+        auto e = m_callbacks.platform().make_renderable_entity();// m_platform.make_renderable_entity();
+        m_callbacks.add_to_scene(e);// m_entities_out.push_back(e);
         Translation flat_transl{grid_location_to_v3(loc, flat.y)};
         auto ground_tex = ensure_texture(m_ground_texture, "ground.png");
         e.add<SharedCPtr<RenderModel>, Translation, SharedCPtr<Texture>>() =
@@ -154,7 +160,11 @@ void TileGraphicGenerator::create_flat
         for (const auto & val : dips) {
             assert(titr != transf.end());
             if (val != 0.f) {
-                m_entities_out.push_back(add_wall(Entity::make_sceneless_entity(),
+                m_callbacks.add_to_scene(
+#               if 0
+                m_entities_out.push_back(
+#               endif
+                                add_wall(Entity::make_sceneless_entity(),
                     flat_transl.value + get<Vector>(*titr),
                     get<YRotation>(*titr)));
             }
@@ -167,18 +177,15 @@ void TileGraphicGenerator::create_flat
         }
         return;
     }
-    m_flat_model = m_platform.make_render_model();
+    m_flat_model = m_callbacks.platform().make_render_model();// m_platform.make_render_model();
     m_flat_model->load(
     { // +x is east, +z is north
         Vertex{k_flat_points[0], Vector2{ 0      , 0       }},
         Vertex{k_flat_points[1], Vector2{ 1. / 3., 0       }},
         Vertex{k_flat_points[2], Vector2{ 1. / 3., 1. / 3. }},
         Vertex{k_flat_points[3], Vector2{ 0      , 1. / 3. }},
-    }, {
-        0, 1, 2,
-        0, 2, 3
-    });
-    m_wall_model = m_platform.make_render_model();
+    }, get_common_elements());
+    m_wall_model = m_callbacks.platform().make_render_model();// m_platform.make_render_model();
     m_wall_model->load(
     { // +x is east, +z is north
       // wall runs east to west
@@ -186,10 +193,7 @@ void TileGraphicGenerator::create_flat
         Vertex{Vector{0.5, 0.5, 0}, Vector2{1. / 3., 2. / 3.}},
         Vertex{Vector{0.5, -.5, 0}, Vector2{1. / 3., 3. / 3.}},
         Vertex{Vector{-.5, -.5, 0}, Vector2{0      , 3. / 3.}},
-    }, {
-        0, 1, 2,
-        0, 2, 3
-    });
+    }, get_common_elements());
     assert(*m_flat_model);
     assert(*m_wall_model);
     return create_flat(loc, flat, dips);
@@ -234,11 +238,33 @@ void TileGraphicGenerator::create_flat
                   slopes.sw - min_val, slopes.se - min_val};
 }
 
+/* static */ std::array<Vector, 4> TileGraphicGenerator::get_points_for
+    (const Slopes & slopes)
+{
+    return std::array<Vector, 4> {
+        k_flat_points[0] + Vector{0, slopes.nw, 0},
+        k_flat_points[1] + Vector{0, slopes.sw, 0},
+        k_flat_points[2] + Vector{0, slopes.se, 0},
+        k_flat_points[3] + Vector{0, slopes.ne, 0}
+    };
+}
+
+/* static */ const std::vector<unsigned> &
+    TileGraphicGenerator::get_common_elements()
+{
+    static constexpr const std::array<unsigned, 6> arr = {
+            0, 1, 2,
+            0, 2, 3
+        };
+    static const std::vector<unsigned> s_rv{arr.begin(), arr.end()};
+    return s_rv;
+}
+
 /* private */ SharedPtr<Texture> & TileGraphicGenerator::ensure_texture
     (SharedPtr<Texture> & sptr, const char * filename)
 {
     if (!sptr) {
-        sptr = m_platform.make_texture();
+        sptr = m_callbacks.platform().make_texture();// m_platform.make_texture();
         sptr->load_from_file(filename);
     }
     return sptr;
@@ -250,41 +276,34 @@ void TileGraphicGenerator::create_flat
     (const Slopes & slopes, const Vector & translation)
 {
     static constexpr const Real tx_tile_len = 16. / 256.;
-    const std::array<Vector, 4> k_points = {
-        k_flat_points[0] + Vector{0, slopes.nw, 0},
-        k_flat_points[1] + Vector{0, slopes.sw, 0},
-        k_flat_points[2] + Vector{0, slopes.se, 0},
-        k_flat_points[3] + Vector{0, slopes.ne, 0}
-    };
+    const auto k_points = get_points_for(slopes);
 
     auto itr = m_slopes_map.find(slopes);
     if (itr != m_slopes_map.end()) {
+        const auto & els = get_common_elements();
         auto triangle_segments = make_tuple(
             make_shared<TriangleSegment>(
-                k_points[0] + translation,
-                k_points[1] + translation,
-                k_points[2] + translation),
+                k_points[els[0]] + translation,
+                k_points[els[1]] + translation,
+                k_points[els[2]] + translation),
             make_shared<TriangleSegment>(
-                k_points[0] + translation,
-                k_points[2] + translation,
-                k_points[3] + translation));
+                k_points[els[3]] + translation,
+                k_points[els[4]] + translation,
+                k_points[els[5]] + translation));
         assert(*itr->second);
         auto pair = *itr;
         return std::tuple_cat(std::move(pair), triangle_segments);
     }
 
     // it's just a dumb quad (two triangles)
-    auto rmptr = m_platform.make_render_model();
+    auto rmptr = m_callbacks.platform().make_render_model();// m_platform.make_render_model();
     rmptr->load(
     { // +x is east, +z is north
         Vertex{k_points[0], Vector2{ tx_tile_len, 0 }},
         Vertex{k_points[1], Vector2{ 0, 0 }},
         Vertex{k_points[2], Vector2{ 0, tx_tile_len }},
         Vertex{k_points[3], Vector2{ tx_tile_len, tx_tile_len }},
-    }, {
-        0, 1, 2,
-        0, 2, 3
-    });
+    }, get_common_elements());
     m_slopes_map[slopes] = rmptr;
     assert(*m_slopes_map[slopes]);
     auto rmptr2 = *m_slopes_map.find(slopes);
@@ -342,11 +361,21 @@ MaybeCell CharToCell::operator () (char c) const {
 
 // ----------------------------------------------------------------------------
 
-Tuple<std::vector<TriangleLinks>,
-      std::vector<Entity>       >
+Tuple<std::vector<TriangleLinks>/*,
+      std::vector<Entity>       */>
     load_map_graphics
     (TileGraphicGenerator & tileset, CellSubGrid grid)
 {
+    using std::get;
+    auto links = add_triangles_and_link(grid.width(), grid.height(),
+        [&tileset, &grid](Vector2I r, const TrianglesAdder &) {
+        if (get_if<Slopes>(&grid(r))) {
+            tileset.create_slope(r, get<Slopes>(grid(r)));
+        } else if (get_if<Flat>(&grid(r))) {
+            tileset.create_flat(r, get<Flat>(grid(r)), get_dips(grid, r));
+        }
+    }, &tileset.full_triangles_vec());
+#   if 0
     using std::get;
     Grid<std::pair<std::size_t, std::size_t>> links_grid;
     links_grid.set_size(grid.width(), grid.height());
@@ -388,7 +417,8 @@ Tuple<std::vector<TriangleLinks>,
             link.attempt_attachment_to(other_tri);
         }}
     }}
-    return make_tuple(links, tileset.give_entities());
+#   endif
+    return make_tuple(links/*, tileset.give_entities()*/);
 }
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell & char_to_cell) {

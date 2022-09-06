@@ -22,6 +22,11 @@
 
 #include "Defs.hpp"
 #include "platform/platform.hpp"
+#include "Components.hpp"
+
+namespace point_and_plane {
+class Driver;
+}
 
 class Driver {
 public:
@@ -36,18 +41,29 @@ public:
 
     virtual void release_key(KeyControl) = 0;
 
-    void setup(Platform::ForLoaders & forloaders)
-        { handle_loader_tuple(initial_load(forloaders)); }
+    void setup(Platform::ForLoaders & forloaders) {
+        LoaderCallbacks loadercallbacks{ forloaders, player_entities(), m_single_systems, m_scene };
+#       if 0
+        handle_loader_tuple(initial_load(forloaders));
+#       endif
+        initial_load(loadercallbacks);
+        m_player_entities = loadercallbacks.player_entites();
+    }
 
     void update(Real seconds, Platform::Callbacks &);
 
 protected:
     using PlayerEntities = Loader::PlayerEntities;
+    using SinglesSystemPtr = Loader::SinglesSystemPtr;
+    using LoaderCallbacks = Loader::Callbacks;
+#   if 0
     using EntityVec = Loader::EntityVec;
     using SingleSysVec = Loader::SingleSysVec;
+#   if 0
     using TriggerSysVec = Loader::TriggerSysVec;
-
-    virtual Loader::LoaderTuple initial_load(Platform::ForLoaders &) = 0;
+#   endif
+#   endif
+    virtual void initial_load(LoaderCallbacks &) = 0;
 
     PlayerEntities & player_entities() { return m_player_entities; }
 
@@ -55,11 +71,33 @@ protected:
 
     virtual void update_(Real seconds) = 0;
 
+    auto get_preload_checker() {
+        class Impl final : public PreloadSpawner::Adder {
+        public:
+            explicit Impl(std::vector<UniquePtr<Preloader>> & preloaders):
+                m_preloaders(preloaders) {}
+
+            void add_preloader(UniquePtr<Preloader> && uptr) const final
+                { m_preloaders.emplace_back(std::move(uptr)); }
+
+        private:
+            std::vector<UniquePtr<Preloader>> & m_preloaders;
+        };
+
+        return Impl{m_preloaders};
+    }
+
+    // have to break design a little here for this iteration
+    virtual point_and_plane::Driver & ppdriver() = 0;
+
 private:
-    void handle_loader_tuple(Loader::LoaderTuple &&);
+    //void handle_loader_tuple(Loader::LoaderTuple &&);
 
     Scene m_scene;
     PlayerEntities m_player_entities;
-    SingleSysVec m_singles;
+    std::vector<SinglesSystemPtr> m_single_systems;
+#   if 0
     TriggerSysVec m_triggers;
+#   endif
+    std::vector<UniquePtr<Preloader>> m_preloaders;
 };

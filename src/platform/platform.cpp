@@ -25,6 +25,8 @@
 
 namespace {
 
+using namespace cul::exceptions_abbr;
+
 class NullRenderModel final : public RenderModel {
 public:
     void render() const final {}
@@ -58,6 +60,10 @@ private:
 } // end of <anonymous> namespace
 
 Platform::Callbacks & Platform::null_callbacks() {
+    static constexpr const auto k_cannot_promise_file_contents =
+        "Platform::null_callbacks()::...::promise_file_contents: cannot use "
+        "null instance of platform to promise file contents.";
+
     class Impl final : public Callbacks {
         void render_scene(const Scene &) final {}
 
@@ -71,6 +77,9 @@ Platform::Callbacks & Platform::null_callbacks() {
             { return make_shared<NullRenderModel>(); }
 
         void set_camera_entity(EntityRef) {}
+
+        FutureString promise_file_contents(const char *) final
+            { throw RtError{k_cannot_promise_file_contents}; }
     };
     static Impl impl;
     return impl;

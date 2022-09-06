@@ -76,14 +76,18 @@ using Cell = Variant<VoidSpace, Pit, Slopes, Flat>;
 
 using CellSubGrid = ConstSubGrid<Cell>;
 
+
 class TileGraphicGenerator {
 public:
+    using LoaderCallbacks = Loader::Callbacks;
     using WallDips = std::array<float, 4>;
     using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
     using EntityVec = std::vector<Entity>;
 
+    TileGraphicGenerator(TriangleVec &, LoaderCallbacks &);
+#   if 0
     TileGraphicGenerator(EntityVec &, TriangleVec &, Platform::ForLoaders &);
-
+#   endif
     void setup();
 
     void create_slope(Vector2I, const Slopes &);
@@ -103,8 +107,15 @@ public:
     cul::View<TriangleVec::iterator> triangles_view()
         { return cul::View{ m_triangles_out.begin(), m_triangles_out.end() }; }
 
+    TriangleVec & full_triangles_vec() { return m_triangles_out; }
+#   if 0
     std::vector<Entity> give_entities()
         { return std::move(m_entities_out); }
+#   endif
+
+    static std::array<Vector, 4> get_points_for(const Slopes &);
+
+    static const std::vector<unsigned> & get_common_elements();
 
 private:
     struct SlopesHasher final {
@@ -126,9 +137,13 @@ private:
           SharedPtr<TriangleSegment>, SharedPtr<TriangleSegment>>
         get_slope_model_(const Slopes & slopes, const Vector & translation);
 
-    EntityVec & m_entities_out;
+
     TriangleVec & m_triangles_out;
+#   if 0
+    EntityVec & m_entities_out;
     Platform::ForLoaders & m_platform;
+#   endif
+    LoaderCallbacks & m_callbacks;
 
     SharedPtr<Texture> m_ground_texture, m_tileset4;
 
@@ -155,8 +170,70 @@ protected:
     virtual Cell to_cell(char) const = 0;
 };
 
-Tuple<std::vector<TriangleLinks>,
-      std::vector<Entity>       > load_map_graphics
+Tuple<std::vector<TriangleLinks>/*,
+      std::vector<Entity>       */> load_map_graphics
     (TileGraphicGenerator &, CellSubGrid);
 
+
 Grid<Cell> load_map_cell(const char * layout, const CharToCell &);
+
+class TrianglesAdder final {
+public:
+    using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
+
+    TrianglesAdder(TriangleVec & vec): m_vec(vec) {}
+
+    void add_triangle(SharedPtr<TriangleSegment> ptr)
+        { m_vec.push_back(ptr); }
+
+private:
+    TriangleVec & m_vec;
+};
+
+template <typename Func>
+std::vector<TriangleLinks> add_triangles_and_link
+    (int width, int height, Func && on_add_tile,
+     TrianglesAdder::TriangleVec * outvec = nullptr)
+{
+    using TriangleVec = TrianglesAdder::TriangleVec;
+    using std::get;
+    Grid<std::pair<std::size_t, std::size_t>> links_grid;
+    links_grid.set_size(width, height);
+    TriangleVec infn_vec;
+    TriangleVec & vec = outvec ? *outvec : infn_vec;
+    for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
+        links_grid(r).first = vec.size();
+        on_add_tile(r, TrianglesAdder{vec});
+        links_grid(r).second = vec.size();
+    }
+
+    using TrisItr = TileGraphicGenerator::TriangleVec::const_iterator;
+    using TrisView = cul::View<TrisItr>;
+    Grid<TrisView> triangles_grid;
+    triangles_grid.set_size(links_grid.width(), links_grid.height(),
+                            TrisView{vec.end(), vec.end()});
+    {
+    auto beg = vec.begin();
+    for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
+        triangles_grid(r) = TrisView{beg + links_grid(r).first, beg + links_grid(r).second};
+    }
+    }
+    using Links = point_and_plane::TriangleLinks;
+    std::vector<Links> links;
+    // now link them together
+    for (Vector2I r; r != triangles_grid.end_position(); r = triangles_grid.next(r)) {
+    for (auto this_tri : triangles_grid(r)) {
+        if (!this_tri) continue;
+        links.emplace_back(this_tri);
+        for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
+/*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
+        if (!links_grid.has_position(v)) continue;
+        for (auto other_tri : triangles_grid(v)) {
+            if (!other_tri) continue;
+            if (this_tri == other_tri) continue;
+            auto & link = links.back();
+            link.attempt_attachment_to(other_tri);
+        }}
+    }}
+    return links;
+}
