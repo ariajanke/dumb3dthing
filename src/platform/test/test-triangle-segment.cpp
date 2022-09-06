@@ -157,6 +157,8 @@ bool run_triangle_segment_tests() {
         return test(TriangleSide::k_side_ca == side);
     });
 
+#   if 0 // made invalid with change of interface
+         // specifically: edges are inside the triangle now
     mark(suite).test([] {
         Vector2 old{0.9999863376435526, 0.47360747242417789};
         Vector2 new_{1.00024374529933, 0.50750195015971578};
@@ -165,7 +167,7 @@ bool run_triangle_segment_tests() {
         auto side = tri.check_for_side_crossing(old, new_).side;
         return test(side != Side::k_inside);
     });
-
+#   endif
     // fails?!
     // <x: 0.6, y: 0.6> <x: 0, y: 0> <x: 1.4142, y: 0> <x: 0.70711, y: 0.70711>
 
@@ -183,6 +185,15 @@ bool run_triangle_segment_tests() {
                                  Vector{2.5, 0, -3}};
         auto r = triangle.intersection(a, b);
         return test(cul::is_solution(r));
+    });
+
+    // must collide with on edge of triangle
+    mark(suite).test([] {
+        Vector a{0.5,  0.1, 0};
+        Vector b{0.5, -0.1, 0};
+        TriangleSegment triangle{Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, 1}};
+        auto res = triangle.intersection(a, b);
+        return test(cul::is_solution(res));
     });
 
 #   undef mark

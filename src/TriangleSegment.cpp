@@ -293,12 +293,17 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     auto center = center_in_2d();
     auto is_crossed_line = [r, center] (const Vector2 & a, const Vector2 & b)
         { return is_solution(find_intersecting_position_for_first(a, b, center, r)); };
+    auto intersecting_pt = [center, r](const Vector2 & a, const Vector2 & b)
+        { return find_intersecting_position_for_first(a, b, center, r); };
 
     auto a = point_a_in_2d();
     auto b = point_b_in_2d();
+    if (are_parallel(a - b, a - r)) return k_inside;
     if (is_crossed_line(a, b)) return k_side_ab;
 
     auto c = point_c_in_2d();
+    // cold branch
+    if (are_parallel(b - c, b - r) || are_parallel(c - a, c - r)) return k_inside;
     if (is_crossed_line(b, c)) return k_side_bc;
     if (is_crossed_line(c, a)) return k_side_ca;
     return k_inside;

@@ -20,15 +20,17 @@
 
 #include "test-functions.hpp"
 
+#include "../../TriangleLinks.hpp"
 #include "../../PointAndPlaneDriver.hpp"
+
 #include <common/TestSuite.hpp>
 
 bool run_triangle_links_tests() {
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
-    using namespace point_and_plane;
     using namespace cul::ts;
     using namespace cul::exceptions_abbr;
-    using Side = Triangle::Side;
+    using Triangle = TriangleSegment;
+    using Side = TriangleSegment::Side;
     using Vec2 = Vector2;
     using std::get;
     static auto make_tri = [](Vec2 a, Vec2 b, Vec2 c) {
@@ -132,12 +134,12 @@ bool run_triangle_links_tests() {
             links_a.attempt_attachment_to(b);
             links_b.attempt_attachment_to(a);
 
-            auto pdriver = Driver::make_driver();
+            auto pdriver = point_and_plane::Driver::make_driver();
             pdriver->add_triangle(links_a);
             pdriver->add_triangle(links_b);
             return pdriver;
         } ();
-        auto test_handler = EventHandler::make_test_handler();
+        auto test_handler = point_and_plane::EventHandler::make_test_handler();
 
         // first recorded frame
         PpState state{PpOnSegment{a, true, Vector2{1.4142019007112767, 0.842617146393735}, Vector2{0.000982092751647734, -0.0762158869304308}}};
@@ -168,6 +170,21 @@ bool run_triangle_links_tests() {
 
         // flip-flop seems sourced in this odd flipping back and forth with
         // displacement (how can I test this?)
+    });
+    mark(suite).test([] {
+#       if 0
+        auto lhs = make_shared<Triangle>(
+            Vector{16.5, 0, -0.5}, Vector{17.5, 1, -1.5}, Vector{17.5, 0, -0.5});
+        auto rhs = make_shared<Triangle>(
+            Vector{16.5, 1, 0.5}, Vector{16.5, 0, -0.5}, Vector{17.5, 0, -0.5});
+#       endif
+        auto lhs = make_shared<Triangle>(
+            Vector{0, 0, -0.5}, Vector{1, 1, -1.5}, Vector{1, 0, -0.5});
+        auto rhs = make_shared<Triangle>(
+            Vector{0, 1, 0.5}, Vector{0, 0, -0.5}, Vector{1, 0, -0.5});
+        TriangleLinks left_links{lhs};
+        left_links.attempt_attachment_to(rhs);
+        return test(left_links.has_side_attached(Side::k_side_ca));
     });
 #   endif
 #   undef mark

@@ -34,10 +34,13 @@ bool run_map_loader_tests() {
             "xxx\n"
             "xx \n"
             "x  \n";
-        std::vector<Entity> entities;
+        // std::vector<Entity> entities;
         std::vector<SharedPtr<TriangleSegment>> triangles;
+        std::vector<UniquePtr<ecs::SingleSystemBase<Entity>>> ssvec;
+        Scene scene;
+        Loader::Callbacks callbacks{Platform::null_callbacks(), Loader::PlayerEntities{}, ssvec, scene};
 
-        TileGraphicGenerator tgg{entities, triangles, Platform::null_callbacks()};
+        TileGraphicGenerator tgg{triangles, callbacks};
         tgg.setup();
 
         auto grid = load_map_cell(k_layout, CharToCell::default_instance());

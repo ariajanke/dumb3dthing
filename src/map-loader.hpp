@@ -218,7 +218,7 @@ std::vector<TriangleLinks> add_triangles_and_link
         triangles_grid(r) = TrisView{beg + links_grid(r).first, beg + links_grid(r).second};
     }
     }
-    using Links = point_and_plane::TriangleLinks;
+    using Links = TriangleLinks;
     std::vector<Links> links;
     // now link them together
     for (Vector2I r; r != triangles_grid.end_position(); r = triangles_grid.next(r)) {

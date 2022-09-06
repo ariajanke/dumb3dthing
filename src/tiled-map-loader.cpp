@@ -135,14 +135,16 @@ protected:
         { return s_texture; }
 
     static std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) {
-        static constexpr const std::array<Vector2, 4> k_base = {
+        const Real x_scale = s_tile_size.x / s_texture_size.x;
+        const Real y_scale = s_tile_size.y / s_texture_size.y;
+        const std::array<Vector2, 4> k_base = {
             // for textures not physical locations
-            Vector2{ 0, 0 }, // nw
-            Vector2{ 0, 1 }, // sw
-            Vector2{ 1, 1 }, // se
-            Vector2{ 1, 0 }  // ne
+            Vector2{ 0*x_scale, 0*y_scale }, // nw
+            Vector2{ 0*x_scale, 1*y_scale }, // sw
+            Vector2{ 1*x_scale, 1*y_scale }, // se
+            Vector2{ 1*x_scale, 0*y_scale }  // ne
         };
-        Vector2 origin{ts_r.x*s_tile_size.x, ts_r.y*s_tile_size.y};
+        Vector2 origin{ts_r.x*x_scale, ts_r.y*y_scale};
         auto rv = k_base;
         for (auto & r : rv) r += origin;
         return rv;
@@ -183,13 +185,17 @@ protected:
     }
 
     static void add_triangles_based_on_model_details
-        (const Tuple<const std::vector<Vector> &, const std::vector<unsigned> &> & tup,
+        (Vector2I gridloc,
+         const Tuple<const std::vector<Vector> &, const std::vector<unsigned> &> & tup,
          TrianglesAdder & adder)
     {
         const auto & [pos, els] = tup; {}
         assert(els.size() == 6);
-        adder.add_triangle(make_shared<TriangleSegment>(pos[els[0]], pos[els[1]], pos[els[2]]));
-        adder.add_triangle(make_shared<TriangleSegment>(pos[els[3]], pos[els[4]], pos[els[5]]));
+        auto offset = grid_position_to_v3(gridloc);
+        adder.add_triangle(make_shared<TriangleSegment>(
+            pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset));
+        adder.add_triangle(make_shared<TriangleSegment>(
+            pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset));
     }
 
     Entity make_entity(Platform::ForLoaders & platform, Vector translation,
@@ -281,8 +287,8 @@ protected:
         return TranslatableTile::make_entity(platform, r, yrot, m_render_model);
     }
 
-    void add_triangles_based_on_model_details(TrianglesAdder & adder) const {
-        TileLoader::add_triangles_based_on_model_details(get_model_positions_and_elements(), adder);
+    void add_triangles_based_on_model_details(Vector2I gridloc, TrianglesAdder & adder) const {
+        TileLoader::add_triangles_based_on_model_details(gridloc, get_model_positions_and_elements(), adder);
     }
 
     void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) override {
@@ -317,7 +323,7 @@ protected:
     virtual YRotation direction_to_rotation(const char *) const = 0;
 
     Entity operator () (Vector2I r, TrianglesAdder & adder, Platform::ForLoaders & platform) const final {
-        add_triangles_based_on_model_details(adder);
+        add_triangles_based_on_model_details(r, adder);
         return make_entity(platform, r, m_rotation);
     }
 
@@ -329,6 +335,10 @@ protected:
     }
 
 private:
+    // going to remove rotations
+    // add slopes
+    // have different models for each direction & ramp type
+
     YRotation m_rotation;
 };
 
@@ -351,21 +361,21 @@ class InRamp final : public CornerRamp {
 class OutRamp final : public CornerRamp {
     Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
         get_model_positions_and_elements() const final
-    { return get_model_positions_and_elements_<InRamp>(Slopes{0, 0, 0, 0, 1}); }
+    { return get_model_positions_and_elements_<OutRamp>(Slopes{0, 0, 0, 0, 1}); }
 };
 
 class TwoRamp final : public Ramp {
     Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
         get_model_positions_and_elements() const final
-    { return get_model_positions_and_elements_<InRamp>(Slopes{0, 0, 0, 0, 1}); }
+    { return get_model_positions_and_elements_<TwoRamp>(Slopes{0, 1, 1, 0, 0}); }
 
     YRotation direction_to_rotation(const char * val) const final {
         using Cd = CardinalDirections;
         switch (cardinal_direction_from(val)) {
-        case Cd::n: return YRotation{0};
-        case Cd::w: return YRotation{k_pi*0.5};
-        case Cd::s: return YRotation{k_pi};
-        case Cd::e: return YRotation{k_pi*1.5};
+        case Cd::n: return YRotation{-0};
+        case Cd::w: return YRotation{-k_pi*0.5};
+        case Cd::s: return YRotation{-k_pi};
+        case Cd::e: return YRotation{-k_pi*1.5};
         default: throw InvArg{""};
         }
     }
@@ -377,7 +387,7 @@ class FlatTile final : public RenderModelTile {
     { return Ramp::get_model_positions_and_elements_<FlatTile>(Slopes{0, 0, 0, 0, 0}); }
 
     Entity operator () (Vector2I r, TrianglesAdder & adder, Platform::ForLoaders & platform) const final {
-        add_triangles_based_on_model_details(adder);
+        add_triangles_based_on_model_details(r, adder);
         return make_entity(platform, r, YRotation{});
     }
 };

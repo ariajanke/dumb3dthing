@@ -33,7 +33,10 @@ int main() {
         run_triangle_links_tests,
         run_systems_tests
     };
-    bool all_ok = std::all_of(k_test_functions.begin(), k_test_functions.end(),
-                [](BoolFunc f){ return f(); });
+    std::array<bool, k_test_functions.size()> results;
+    for (std::size_t i = 0; i != k_test_functions.size(); ++i)
+        results[i] = k_test_functions[i]();
+    bool all_ok = std::all_of(results.begin(), results.end(),
+                [](bool b){ return b; });
     return all_ok ? 0 : ~0;
 }

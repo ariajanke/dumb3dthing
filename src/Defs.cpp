@@ -82,7 +82,7 @@ std::ostream & operator << (std::ostream & out, const Vector2 & r) {
     return out;
 }
 
-void print_links(std::ostream & out, const point_and_plane::TriangleLinks & link) {
+void print_links(std::ostream & out, const TriangleLinks & link) {
     using std::endl;
     out << "link: " << link.hash() << endl;
     auto & tri = link.segment();

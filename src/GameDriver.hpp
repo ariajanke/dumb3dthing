@@ -77,8 +77,10 @@ protected:
             explicit Impl(std::vector<UniquePtr<Preloader>> & preloaders):
                 m_preloaders(preloaders) {}
 
-            void add_preloader(UniquePtr<Preloader> && uptr) const final
-                { m_preloaders.emplace_back(std::move(uptr)); }
+            void add_preloader(UniquePtr<Preloader> && uptr) const final {
+                if (!uptr) return;
+                m_preloaders.emplace_back(std::move(uptr));
+            }
 
         private:
             std::vector<UniquePtr<Preloader>> & m_preloaders;
