@@ -145,11 +145,27 @@ public:
 
     class EventHandler final : public point_and_plane::EventHandler {
     public:
+        using Triangle = TriangleSegment;
+
         EventHandler() {}
 
         EventHandler(Opt<Velocity> vel, Opt<JumpVelocity> jumpvel):
             m_vel(vel), m_jumpvel(jumpvel) {}
 
+        Variant<Vector2, Vector>
+            on_triangle_hit
+            (const Triangle &, const Vector &, const Vector2 &, const Vector &) const final;
+
+        Variant<Vector, Vector2>
+            on_transfer_absent_link
+            (const Triangle &, const SideCrossing &, const Vector2 &) const final;
+
+        Variant<Vector, Tuple<bool, Vector2>>
+            on_transfer
+            (const Triangle &, const Triangle::SideCrossing &,
+             const Triangle &, const Vector &) const final;
+
+#       if 0
         Variant<Vector2, Vector> displacement_after_triangle_hit
             (const TriangleSegment & triangle, const Vector & /*location*/,
              const Vector & new_, const Vector & intersection) const final;
@@ -159,7 +175,7 @@ public:
              const Vector &, const Vector &) const final;
 
         bool cling_to_edge(const TriangleSegment & triangle, TriangleSide side) const final;
-
+#       endif
     private:
         Opt<Velocity> m_vel;
         Opt<JumpVelocity> m_jumpvel;

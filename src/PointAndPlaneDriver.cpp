@@ -34,8 +34,9 @@ using namespace point_and_plane;
 using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
+#if 0
 using SegmentTransfer = EventHandler::SegmentTransfer;
-
+#endif
 class DriverComplete final : public Driver {
 public:
     void add_triangle(const TriangleLinks &) final;
@@ -92,6 +93,23 @@ Vector location_of(const State & state) {
 
 /* static */ UniquePtr<EventHandler> EventHandler::make_test_handler() {
     class TestHandler final : public point_and_plane::EventHandler {
+        Variant<Vector2, Vector>
+            on_triangle_hit
+            (const Triangle &, const Vector &, const Vector2 &, const Vector &) const final
+        { return Vector2{}; }
+
+        Variant<Vector, Vector2>
+            on_transfer_absent_link
+            (const Triangle &, const SideCrossing &, const Vector2 &) const final
+        { return Vector{}; }
+
+        Variant<Vector, Tuple<bool, Vector2>>
+            on_transfer
+            (const Triangle &, const Triangle::SideCrossing &,
+             const Triangle &, const Vector &) const final
+        { return make_tuple(true, Vector2{}); }
+
+#       if 0
         Variant<Vector2, Vector> displacement_after_triangle_hit
             (const Triangle &, const Vector &,
              const Vector &, const Vector &) const final
@@ -112,6 +130,7 @@ Vector location_of(const State & state) {
 
         bool cling_to_edge(const Triangle &, TriangleSide) const final
             { return false; }
+#       endif
     };
 
     return make_unique<TestHandler>();
@@ -199,10 +218,8 @@ State DriverComplete::operator ()
     auto new_loc = freebody.location + freebody.displacement;
     for (auto itr = beg; itr != end; ++itr) {
         auto & triangle = **itr;
-        if (freebody.location.y >= 0 && new_loc.y <= 0) {
-            int i = 0;
-            ++i;
-        }
+
+#       if 0
         auto r = triangle.intersection(freebody.location, new_loc);
 
         if (!is_solution(r)) continue;
@@ -219,10 +236,7 @@ State DriverComplete::operator ()
                   normalize(project_onto(new_loc - freebody.location,
                                          triangle.normal()          ))
                 - triangle.normal(), Vector{});
-#           if 0
-            std::cout << "Made landing" << std::endl;
-#           endif
-            return OnSegment{*itr, heads_against_normal, r, *disv2};
+           return OnSegment{*itr, heads_against_normal, r, *disv2};
         } else if (auto * disv3 = get_if<Vector>(&gv)) {
             verify_decreasing_displacement<Vector, Vector>(
                 *disv3, freebody.displacement,
@@ -234,6 +248,32 @@ State DriverComplete::operator ()
                          freebody.displacement*(1 - after)               };
         }
         throw MACRO_MAKE_BAD_BRANCH_EXCEPTION();
+#       else
+        constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
+        auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
+        if (!is_solution(liminx.intersection)) continue;
+        auto gv = env.on_triangle_hit(triangle, liminx.limit, liminx.intersection, new_loc);
+        if (auto * disv2 = get_if<Vector2>(&gv)) {
+            // attach to segment
+            verify_decreasing_displacement<Vector2, Vector>(
+                *disv2, freebody.displacement, k_caller_name);
+            bool heads_against_normal = are_very_close(
+                  normalize(project_onto(new_loc - freebody.location,
+                                         triangle.normal()          ))
+                - triangle.normal(), Vector{});
+            return OnSegment{*itr, heads_against_normal, liminx.intersection, *disv2};
+        }
+        auto * disv3 = get_if<Vector>(&gv);
+        assert(disv3);
+        verify_decreasing_displacement<Vector, Vector>(
+            *disv3, freebody.displacement, k_caller_name);
+#       if 0
+        // sigmoid false -> true
+        auto [before, after] = find_smallest_diff<Real>([&triangle, &freebody](Real x)
+            { return !is_solution( triangle.intersection( freebody.location, freebody.location + freebody.displacement*x) ); });
+#       endif
+        return InAir{liminx.limit, *disv3};
+#       endif
     }
     return InAir{freebody.location + freebody.displacement, Vector{}};
 }
@@ -252,8 +292,9 @@ State DriverComplete::operator ()
     // I think I may skip this for now, until I have some results
 
     // usual segment transfer
-    auto gv = triangle.check_for_side_crossing(tracker.location, tracker.location + tracker.displacement);
-    if (gv.side == TriangleSide::k_inside) {
+    const auto new_loc = tracker.location + tracker.displacement;
+    auto crossing = triangle.check_for_side_crossing(tracker.location, new_loc);
+    if (crossing.side == TriangleSide::k_inside) {
         if (!tracker.segment->contains_point(tracker.location + tracker.displacement)) {
             triangle.check_for_side_crossing(tracker.location, tracker.location + tracker.displacement);
         }
@@ -262,53 +303,79 @@ State DriverComplete::operator ()
                          tracker.location + tracker.displacement, Vector2{}};
     }
 
-    const auto transfer = find_links_for(tracker.segment).transfers_to(gv.side);
+    const auto transfer = find_links_for(tracker.segment).transfers_to(crossing.side);
+    constexpr const auto k_caller_name = "DriverComplete::handle_tracker";
     if (!transfer.target) {
+#       if 0
         // without a callback I cannot cancel velocity
         if (env.cling_to_edge(*tracker.segment, gv.side)) {
             OnSegment rv{tracker};
             rv.location = gv.inside;
             rv.displacement = Vector2{};
-#           if 0
-            std::cout << "Cling to edge" << std::endl;
-#           endif
             return rv;
         }
-#       if 0
-        std::cout << "Slip off without attached" << std::endl;
-#       endif
         return InAir{triangle.point_at( gv.outside ), Vector{}};
+#       else
+        auto abgv = env.on_transfer_absent_link(*tracker.segment, crossing, new_loc);
+        if (auto * disv2 = get_if<Vector2>(&abgv)) {
+            OnSegment rv{tracker};
+            rv.location     = crossing.inside;
+            rv.displacement = *disv2;
+            verify_decreasing_displacement<Vector2, Vector2>(
+                *disv2, tracker.displacement, k_caller_name);
+            return rv;
+        } else {
+            auto * disv3 = get_if<Vector>(&abgv);
+            assert(disv3);
+            verify_decreasing_displacement<Vector, Vector2>(
+                *disv3, tracker.displacement, k_caller_name);
+            return InAir{triangle.point_at(crossing.outside), *disv3};
+        }
+#       endif
     }
 
-    auto outside_pt = triangle.point_at(gv.outside);
+    auto outside_pt = triangle.point_at(crossing.outside);
+#   if 0
     auto rem_displc_var = env.pass_triangle_side(
         triangle, transfer.target.get(), outside_pt,
         outside_pt - triangle.point_at(tracker.location));
     if (auto * to_tri = get_if<SegmentTransfer>(&rem_displc_var)) {
-#       if 0
-        static int i = 0;
-        std::cout << "intersegment (" << (i++) << ") transfer occured..."
-                  << &triangle << " to " << transfer.target.get() << " : "
-                  << tracker.segment->normal() << " to " << transfer.target->normal() << std::endl;
-#       endif
         // you mean to transfer
         verify_decreasing_displacement<Vector2, Vector2>(
-            to_tri->displacement, tracker.displacement,
-            "DriverComplete::handle_tracker");
+            to_tri->displacement, tracker.displacement, k_caller_name);
         return OnSegment{transfer.target, bool(transfer.inverts ^ to_tri->invert),
             transfer.target->closest_contained_point(outside_pt), to_tri->displacement};
     } else if (auto * disv3 = get_if<Vector>(&rem_displc_var)) {
         // you mean to "slip off"
-#       if 0
-        std::cout << "Slip off w/ attached" << std::endl;
-#       endif
         verify_decreasing_displacement<Vector, Vector2>(
-            *disv3, tracker.displacement,
-            "DriverComplete::handle_tracker");
+            *disv3, tracker.displacement, k_caller_name);
         return InAir{outside_pt, *disv3};
     }
-
     throw MACRO_MAKE_BAD_BRANCH_EXCEPTION();
+#   else
+    auto stgv = env.on_transfer(*tracker.segment, crossing,
+                                *transfer.target, tracker.segment->point_at(new_loc));
+    if (auto * tup = get_if<Tuple<bool, Vector2>>(&stgv)) {
+        auto [does_transfer, rem_displc] = *tup; {}
+        verify_decreasing_displacement<Vector2, Vector2>(
+            rem_displc, tracker.displacement, k_caller_name);
+        if (does_transfer) {
+            return OnSegment{
+                transfer.target, bool(transfer.inverts),
+                transfer.target->closest_contained_point(outside_pt), rem_displc};
+        }
+        OnSegment rv{tracker};
+        rv.location = crossing.inside;
+        rv.displacement = rem_displc;
+        return rv;
+    } else {
+        auto * disv3 = get_if<Vector>(&stgv);
+        assert(disv3);
+        verify_decreasing_displacement<Vector, Vector2>(
+            *disv3, tracker.displacement, k_caller_name);
+        return InAir{outside_pt, *disv3};
+    }
+#   endif
 }
 
 /* private */ const TriangleLinks & DriverComplete::find_links_for

@@ -167,6 +167,27 @@ protected:
 
     static SharedCPtr<RenderModel> make_render_model_with_common_texture_positions
         (Platform::ForLoaders & platform,
+         const Slopes & slopes,
+         Vector2I loc_in_ts)
+    {
+        const auto & pos = TileGraphicGenerator::get_points_for(slopes);
+        auto txpos = common_texture_positions_from(loc_in_ts);
+
+        std::vector<Vertex> verticies;
+        assert(txpos.size() == pos.size());
+        for (int i = 0; i != int(pos.size()); ++i) {
+            verticies.emplace_back(pos[i], txpos[i]);
+        }
+
+        auto render_model = platform.make_render_model(); // need platform
+        const auto & els = TileGraphicGenerator::get_common_elements();
+        render_model->load(verticies, els);
+        return render_model;
+    }
+
+
+    static SharedCPtr<RenderModel> make_render_model_with_common_texture_positions
+        (Platform::ForLoaders & platform,
          const Tuple<const std::vector<Vector> &, const std::vector<unsigned> &> & tup,
          Vector2I loc_in_ts)
     {
@@ -192,6 +213,19 @@ protected:
         const auto & [pos, els] = tup; {}
         assert(els.size() == 6);
         auto offset = grid_position_to_v3(gridloc);
+        adder.add_triangle(make_shared<TriangleSegment>(
+            pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset));
+        adder.add_triangle(make_shared<TriangleSegment>(
+            pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset));
+    }
+
+    static void add_triangles_based_on_model_details
+        (Vector2I gridloc, Vector translation, const Slopes & slopes,
+         TrianglesAdder & adder)
+    {
+        const auto & els = TileGraphicGenerator::get_common_elements();
+        const auto pos = TileGraphicGenerator::get_points_for(slopes);
+        auto offset = grid_position_to_v3(gridloc) + translation;
         adder.add_triangle(make_shared<TriangleSegment>(
             pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset));
         adder.add_triangle(make_shared<TriangleSegment>(
@@ -280,22 +314,31 @@ YRotation corner_direction_to_rotation(const char * dir_) {
 class RenderModelTile : public TranslatableTile {
 protected:
 
+    virtual Slopes tile_elevations() const = 0;
+#   if 0
     virtual Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
             get_model_positions_and_elements() const = 0;
-
+#   endif
     Entity make_entity(Platform::ForLoaders & platform, Vector2I r, YRotation yrot) const {
         return TranslatableTile::make_entity(platform, r, yrot, m_render_model);
     }
 
     void add_triangles_based_on_model_details(Vector2I gridloc, TrianglesAdder & adder) const {
+        TileLoader::add_triangles_based_on_model_details(gridloc, translation().value, tile_elevations(), adder);
+#       if 0
         TileLoader::add_triangles_based_on_model_details(gridloc, get_model_positions_and_elements(), adder);
+#       endif
     }
 
     void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) override {
         TranslatableTile::setup(loc_in_ts, properties, platform);
-
+#       if 0
         m_render_model = make_render_model_with_common_texture_positions(
             platform, get_model_positions_and_elements(), loc_in_ts);
+#       else
+        m_render_model = make_render_model_with_common_texture_positions(
+            platform, tile_elevations(), loc_in_ts);
+#       endif
     }
 
 private:
@@ -322,53 +365,130 @@ public:
 protected:
     virtual YRotation direction_to_rotation(const char *) const = 0;
 
+    virtual void set_direction(const char *) = 0;
+
     Entity operator () (Vector2I r, TrianglesAdder & adder, Platform::ForLoaders & platform) const final {
         add_triangles_based_on_model_details(r, adder);
-        return make_entity(platform, r, m_rotation);
+        return make_entity(platform, r, YRotation{});
     }
 
     void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) final {
-        RenderModelTile::setup(loc_in_ts, properties, platform);
         if (const auto * val = find_property("direction", properties)) {
+            set_direction(val);
+#           if 0
             m_rotation = direction_to_rotation(val);
+#           endif
         }
+        RenderModelTile::setup(loc_in_ts, properties, platform);
     }
-
+#if 0
 private:
     // going to remove rotations
     // add slopes
     // have different models for each direction & ramp type
 
     YRotation m_rotation;
+#   endif
 };
 
 class CornerRamp : public Ramp {
 protected:
     CornerRamp() {}
 
+    virtual Slopes non_rotated_slopes() const = 0;
+
 private:
     YRotation direction_to_rotation(const char * val) const final {
         return corner_direction_to_rotation(val);
     }
+
+    Slopes tile_elevations() const final {
+        return m_slopes;
+    }
+
+    void set_direction(const char * dir) final {
+        using Cd = CardinalDirections;
+        int n = [dir] {
+            switch (cardinal_direction_from(dir)) {
+            case Cd::nw: return 0;
+            case Cd::sw: return 1;
+            case Cd::se: return 2;
+            case Cd::ne: return 3;
+            default: throw InvArg{""};
+            }
+        } ();
+        m_slopes = half_pi_rotations(non_rotated_slopes(), n);
+    }
+
+    Slopes m_slopes;
+
 };
 
 class InRamp final : public CornerRamp {
+    Slopes non_rotated_slopes() const final
+    { return Slopes{0, 1, 1, 1, 0}; }
+#   if 0
+    Slopes tile_elevations() const final {
+        return m_slopes;
+    }
+
+    void set_direction(const char * dir) final {
+        using Cd = CardinalDirections;
+        int n = [dir] {
+            switch (cardinal_direction_from(dir)) {
+            case Cd::nw: return 0;
+            case Cd::sw: return 1;
+            case Cd::se: return 2;
+            case Cd::ne: return 3;
+            default: throw InvArg{""};
+            }
+        } ();
+        m_slopes = half_pi_rotations(Slopes{0, 1, 1, 1, 0}, n);
+    }
+#   if 0
     Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
         get_model_positions_and_elements() const final
     { return get_model_positions_and_elements_<InRamp>(Slopes{0, 1, 1, 1, 0}); }
+#   endif
+    Slopes m_slopes;
+#   endif
 };
 
 class OutRamp final : public CornerRamp {
+    Slopes non_rotated_slopes() const final
+        { return Slopes{0, 0, 0, 0, 1}; }
+#   if 0
     Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
         get_model_positions_and_elements() const final
     { return get_model_positions_and_elements_<OutRamp>(Slopes{0, 0, 0, 0, 1}); }
+#   endif
 };
 
 class TwoRamp final : public Ramp {
+    Slopes tile_elevations() const final {
+        return m_slopes;
+    }
+
+    void set_direction(const char * dir) final {
+        static const Slopes k_non_rotated_slopes{0, 1, 1, 0, 0};
+        using Cd = CardinalDirections;
+        int n = [dir] {
+            switch (cardinal_direction_from(dir)) {
+            case Cd::n: return 0;
+            case Cd::w: return 1;
+            case Cd::s: return 2;
+            case Cd::e: return 3;
+            default: throw InvArg{""};
+            }
+        } ();
+        m_slopes = half_pi_rotations(k_non_rotated_slopes, n);
+    }
+
+#   if 0
     Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
         get_model_positions_and_elements() const final
     { return get_model_positions_and_elements_<TwoRamp>(Slopes{0, 1, 1, 0, 0}); }
-
+#   endif
     YRotation direction_to_rotation(const char * val) const final {
         using Cd = CardinalDirections;
         switch (cardinal_direction_from(val)) {
@@ -379,13 +499,18 @@ class TwoRamp final : public Ramp {
         default: throw InvArg{""};
         }
     }
+
+    Slopes m_slopes;
 };
 
 class FlatTile final : public RenderModelTile {
+    Slopes tile_elevations() const final
+        { return Slopes{0, 0, 0, 0, 0}; }
+#   if 0
     Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
         get_model_positions_and_elements() const final
     { return Ramp::get_model_positions_and_elements_<FlatTile>(Slopes{0, 0, 0, 0, 0}); }
-
+#   endif
     Entity operator () (Vector2I r, TrianglesAdder & adder, Platform::ForLoaders & platform) const final {
         add_triangles_based_on_model_details(r, adder);
         return make_entity(platform, r, YRotation{});

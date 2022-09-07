@@ -243,6 +243,18 @@ private:
     int m_handle = k_no_handle;
 };
 
+class WebFutureString final : public Future<std::string> {
+public:
+    explicit WebFutureString(const char * filename)
+        {}
+
+    bool is_ready() const noexcept final;
+
+    bool is_lost() const noexcept final;
+
+    std::string && retrieve() final;
+};
+
 class WebGlPlatform final : public Platform::Callbacks {
 public:
     static WebGlPlatform & instance() {
@@ -294,6 +306,9 @@ public:
 
     void set_camera_entity(EntityRef ref) final
         { m_camera_ent = ref; }
+
+    FutureString promise_file_contents(const char * filename) final
+        { return make_unique<WebFutureString>(filename); }
 
 private:
     EntityRef m_camera_ent;

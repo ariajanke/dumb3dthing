@@ -257,7 +257,7 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
     return rv;
 }
 
-static constexpr const Vector k_player_start{2.6, 0.1, -1.6};
+static constexpr const Vector k_player_start{2.6, 3.1, -1.6};
 
 // model entity, physical entity
 Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
@@ -401,7 +401,7 @@ Loader::LoaderTuple GameDriverComplete::initial_load
 
     auto tgg_ptr = TileGraphicGenerator{triangles, callbacks};// TileGraphicGenerator{entities, triangles, callbacks};
     tgg_ptr.setup();
-    auto [tlinks] = load_map_graphics(tgg_ptr, load_map_cell(k_layout4, CharToCell::default_instance())); {}
+    auto [tlinks] = load_map_graphics(tgg_ptr, load_map_cell(k_layout2, CharToCell::default_instance())); {}
     auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
     callbacks.platform().set_camera_entity(EntityRef{physical});
 

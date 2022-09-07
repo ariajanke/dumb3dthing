@@ -28,6 +28,7 @@ using namespace cul::exceptions_abbr;
 
 using Side = TriangleSide;
 using SideCrossing = TriangleSegment::SideCrossing;
+using LimitIntersection = TriangleSegment::LimitIntersection;
 
 using cul::find_smallest_diff, cul::make_nonsolution_sentinel,
       cul::make_zero_vector;
@@ -171,6 +172,8 @@ TriangleSegment TriangleSegment::flip() const noexcept {
 }
 
 Vector2 TriangleSegment::intersection(Vector a, Vector b) const {
+    return limit_with_intersection(a, b).intersection;
+#   if 0
     check_invarients();
     // multiple sources on this
     // from stackoverflow (multiple posts), blender, rosetta code, and on, and on
@@ -187,10 +190,61 @@ Vector2 TriangleSegment::intersection(Vector a, Vector b) const {
     if (back_from_head < 0 || back_from_head > 1)
         { return k_no_sol; }
 
+    // [NTS] back_from_head > 1 will be before the intersection
+    //       I will need to find a value s.t. it's not counted as being on the
+    //       plane (that is intersecting)
     auto on_plane = b - ba*back_from_head;
     auto r = closest_point(on_plane);
     // it's possible to hit the plane, but not be inside the triangle segment
     return contains_point(r) ? r : k_no_sol;
+#   endif
+}
+
+inline bool within_01(Real x) { return x >= 0 && x <= 1; }
+
+LimitIntersection TriangleSegment::limit_with_intersection
+    (const Vector & a, const Vector & b) const
+{
+    check_invarients();
+    auto make_never_intersects = [b] {
+        constexpr const auto k_no_sol = make_nonsolution_sentinel<Vector2>();
+        return LimitIntersection{k_no_sol, b};
+    };
+
+    auto find_back_from_head = [this, a] {
+        auto norm = normal();
+        return [this, norm, a] (Vector b) {
+            auto ba = b - a;
+            auto denom = dot(norm, ba);
+
+            // basically a case where the displacement is parallel to the segment
+            if (are_very_close(denom, 0)) return k_inf;
+
+            return dot(norm, b - point_a()) / denom;
+        };
+    } ();
+
+    auto back_from_head = find_back_from_head(b);
+
+    // 0 at head, 1 at tail
+    // this branch catches if back_from_head is infinity
+    if (!within_01(back_from_head))
+        { return make_never_intersects(); }
+    // v this algebra is wrong!!
+    auto on_plane2 = a*back_from_head;
+    auto on_plane = b - (b - a)*back_from_head;
+    //assert(are_very_close(b - (b - a)*back_from_head, on_plane2));
+    auto r = closest_point(on_plane);
+    // it's possible to hit the plane, but not be inside the triangle segment
+    if (!contains_point(r)) return make_never_intersects();
+
+    // as we approach b from a, search for a back_from_head that's barely over 1
+
+    auto along_t = [a, b](Real t) { return a + (b - a)*t; };
+
+    auto t = cul::find_highest_false<Real>([&find_back_from_head, &along_t] (Real t)
+        { return within_01(find_back_from_head(along_t(t))); }, 0.0005, 1 - back_from_head);
+    return LimitIntersection{ r, along_t(t) };
 }
 
 Vector TriangleSegment::normal() const noexcept

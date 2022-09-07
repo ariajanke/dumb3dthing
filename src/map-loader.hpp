@@ -66,6 +66,12 @@ struct Slopes final : public AppearanceId {
     float nw, ne, sw, se;
 };
 
+inline Slopes half_pi_rotations(const Slopes & s, int n) {
+    if (n < 0) throw std::invalid_argument{""};
+    if (n == 0) return s;
+    return half_pi_rotations(Slopes{s.id, s.se, s.ne, s.nw, s.sw}, n - 1);
+}
+
 struct Flat final : public AppearanceId {
     Flat() {}
     Flat(int id_, float y_): AppearanceId(id_), y(y_) {}

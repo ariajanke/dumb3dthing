@@ -317,7 +317,11 @@ const mkJsPlatform = () => {
     // !<needs to be set before start>!
     // provide me with an fn, that takes another fn, which itself takes the attrs
     setRenderModelAttributesNeederFactory: factory => 
-      blockReturn( mRenderModelAttributesAccepterFactory = factory )
+      blockReturn( mRenderModelAttributesAccepterFactory = factory ),
+    promiseFileContents: (url, cpphandle) => {
+      // promise response needs to respond to the module...
+      fetch()
+    }
   });
 };
 
