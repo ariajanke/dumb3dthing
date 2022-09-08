@@ -105,11 +105,59 @@ enum class CardinalDirections {
     nw, sw, se, ne
 };
 
+class TileLoader;
+
+using TileSet = std::unordered_map<int, UniquePtr<TileLoader>>;
+
+class EntityAndTrianglesAdder final {
+public:
+    EntityAndTrianglesAdder(Loader::Callbacks & callbacks_, TrianglesAdder & adder_):
+        m_callbacks(callbacks_), m_tri_adder(adder_) {}
+
+    void add_triangle(SharedPtr<TriangleSegment> ptr)
+        { m_tri_adder.add_triangle(ptr); }
+
+    void add_entity(const Entity & ent)
+        { m_callbacks.add_to_scene(ent); }
+
+    TrianglesAdder & triangle_adder()
+        { return m_tri_adder; }
+
+private:
+    Loader::Callbacks & m_callbacks;
+    TrianglesAdder & m_tri_adder;
+};
+
 class TileLoader {
 public:
     virtual ~TileLoader() {}
 
-    virtual Entity operator () (Vector2I, TrianglesAdder &, Platform::ForLoaders &) const = 0;
+    class NeighborInfo final {
+    public:
+        NeighborInfo
+            (const TileSet & ts, const Grid<int> & layer, Vector2I tileloc):
+            m_tileset(ts), m_layer(layer), m_loc(tileloc) {}
+
+        // +x second (east)
+        Tuple<Real, Real> north_elevations() const;
+
+        Tuple<Real, Real> south_elevations() const;
+
+        // +z second (north)
+        Tuple<Real, Real> east_elevations() const;
+
+        Tuple<Real, Real> west_elevations() const;
+
+        Vector2I tile_location() const { return m_loc; }
+
+    private:
+        const TileSet & m_tileset;
+        const Grid<int> & m_layer;
+        Vector2I m_loc;
+    };
+
+    virtual void operator ()
+        (EntityAndTrianglesAdder &, const NeighborInfo &, Platform::ForLoaders &) const = 0;
 
     // turn xml parameters into components
     // how should I handle walls?
@@ -129,6 +177,11 @@ public:
     }
 
     virtual void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders &) = 0;
+
+    // need all elevations, I need to prevent triangle link conflicts
+    // I'm going to need it to account for translation, which will be different
+    // than model's slopes
+    virtual Slopes tile_elevations() const = 0;
 
 protected:
     static SharedCPtr<Texture> common_texture()
@@ -233,12 +286,12 @@ protected:
     }
 
     Entity make_entity(Platform::ForLoaders & platform, Vector translation,
-                       YRotation yrot, SharedCPtr<RenderModel> model_ptr) const
+                       SharedCPtr<RenderModel> model_ptr) const
     {
         assert(model_ptr);
         auto ent = platform.make_renderable_entity();
-        ent.add<SharedCPtr<RenderModel>, SharedCPtr<Texture>, YRotation, Translation>() =
-                make_tuple(model_ptr, common_texture(), yrot, Translation{translation});
+        ent.add<SharedCPtr<RenderModel>, SharedCPtr<Texture>, Translation>() =
+                make_tuple(model_ptr, common_texture(), Translation{translation});
         return ent;
     }
 
@@ -247,12 +300,9 @@ private:
     static Vector2 s_texture_size;
     static Vector2 s_tile_size;
 };
-
 /* static */ SharedCPtr<Texture> TileLoader::s_texture;
 /* static */ Vector2 TileLoader::s_texture_size;
 /* static */ Vector2 TileLoader::s_tile_size;
-
-using TileSet = std::unordered_map<int, UniquePtr<TileLoader>>;
 
 class TranslatableTile : public TileLoader {
 public:
@@ -260,7 +310,7 @@ public:
         // eugh... having to run through elements at a time
         // not gonna worry about it this iteration
         if (const auto * val = find_property("translation", properties)) {
-            auto list = { &m_translation.value.x, &m_translation.value.y, &m_translation.value.z };
+            auto list = { &m_translation.x, &m_translation.y, &m_translation.z };
             auto itr = list.begin();
             for (auto value_str : split_range(val, val + ::strlen(val),
                                               is_comma, trim_whitespace))
@@ -273,17 +323,17 @@ public:
     }
 
 protected:
-    Translation translation() const { return m_translation; }
+    Vector translation() const { return m_translation; }
 
     Entity make_entity(Platform::ForLoaders & platform, Vector2I tile_loc,
-                       YRotation yrot, SharedCPtr<RenderModel> model_ptr) const
+                       SharedCPtr<RenderModel> model_ptr) const
     {
         return TileLoader::make_entity(platform,
-            m_translation.value + grid_position_to_v3(tile_loc), yrot, model_ptr);
+            m_translation + grid_position_to_v3(tile_loc), model_ptr);
     }
 
 private:
-    Translation m_translation;
+    Vector m_translation;
 };
 
 CardinalDirections cardinal_direction_from(const char * str) {
@@ -299,7 +349,7 @@ CardinalDirections cardinal_direction_from(const char * str) {
     if (seq("sw")) return Cd::sw;
     throw InvArg{""};
 }
-
+#if 0
 YRotation corner_direction_to_rotation(const char * dir_) {
     using Cd = CardinalDirections;
     switch (cardinal_direction_from(dir_)) {
@@ -310,42 +360,115 @@ YRotation corner_direction_to_rotation(const char * dir_) {
     default: throw InvArg{""};
     }
 }
+#endif
+class WallTile final : public TranslatableTile {
+public:
 
-class RenderModelTile : public TranslatableTile {
+    static void set_shared_texture_coordinates(const std::array<Vector2, 4> & coords)
+        { s_wall_texture_coords = coords; }
+
+private:
+
+    template <typename Iter>
+    static void translate_points(Vector r, Iter beg, Iter end) {
+        for (auto itr = beg; itr != end; ++itr) {
+            *itr += r;
+        }
+    }
+
+    template <typename Iter>
+    static void scale_points_x(Real x, Iter beg, Iter end) {
+        for (auto itr = beg; itr != end; ++itr) {
+            itr->x *= x;
+        }
+    }
+
+    template <typename Iter>
+    static void scale_points_z(Real x, Iter beg, Iter end) {
+        for (auto itr = beg; itr != end; ++itr) {
+            itr->z *= x;
+        }
+    }
+
+    void setup
+        (Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders &) final
+    {
+        m_dir = cardinal_direction_from(find_property("direction", properties));
+        // visually factory wide: two render models...
+        auto mk_base_pts = [] { return TileGraphicGenerator::get_points_for(Slopes{0, 0, 0, 0, 0}); };
+        auto txposs = common_texture_positions_from(loc_in_ts);
+        // ^ want to split that in half
+        using Cd = CardinalDirections;
+        switch (m_dir) {
+        case Cd::n: case Cd::s: {
+            // horizontal split
+            auto arr = mk_base_pts();
+            translate_points(Vector{0, 0, 0.5}, arr.begin(), arr.end());
+            scale_points_z(0.5, arr.begin(), arr.end());
+            ;
+            }
+            break;
+        case Cd::w: case Cd::e:
+            break;
+        default: break;
+        }
+    }
+
+    Slopes tile_elevations() const final {
+        // it is possible that some elevations are indeterminent...
+    }
+
+    void operator ()
+        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
+         Platform::ForLoaders & platform) const final
+    {
+        // it would be nice if I could share render models between similar walls
+        // saves on models, and time building them
+        // physical triangles wise:
+        // the ledge extends *all* the to the end of the time, with no flooring
+        // on the bottom
+        // visually:
+        // there appears to be a wall half-way through the tile
+
+        // wall tiles may add multiple entities
+        // one for the flat
+        // wall needs to know something about its neighbors
+        ninfo.tile_location();
+    }
+
+    SharedCPtr<RenderModel> m_bottom, m_top;
+    CardinalDirections m_dir = CardinalDirections::ne;
+
+    static std::array<Vector2, 4> s_wall_texture_coords;
+};
+
+class SlopesBasedModelTile : public TranslatableTile {
 protected:
 
-    virtual Slopes tile_elevations() const = 0;
-#   if 0
-    virtual Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
-            get_model_positions_and_elements() const = 0;
-#   endif
-    Entity make_entity(Platform::ForLoaders & platform, Vector2I r, YRotation yrot) const {
-        return TranslatableTile::make_entity(platform, r, yrot, m_render_model);
+    virtual Slopes model_tile_elevations() const = 0;
+
+    Slopes tile_elevations() const final
+        { return translate_y(model_tile_elevations(), translation().y); }
+
+    Entity make_entity(Platform::ForLoaders & platform, Vector2I r) const {
+        return TranslatableTile::make_entity(platform, r, m_render_model);
     }
 
     void add_triangles_based_on_model_details(Vector2I gridloc, TrianglesAdder & adder) const {
-        TileLoader::add_triangles_based_on_model_details(gridloc, translation().value, tile_elevations(), adder);
-#       if 0
-        TileLoader::add_triangles_based_on_model_details(gridloc, get_model_positions_and_elements(), adder);
-#       endif
+        TileLoader::add_triangles_based_on_model_details(gridloc, translation(), model_tile_elevations(), adder);
     }
 
     void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) override {
         TranslatableTile::setup(loc_in_ts, properties, platform);
-#       if 0
         m_render_model = make_render_model_with_common_texture_positions(
-            platform, get_model_positions_and_elements(), loc_in_ts);
-#       else
-        m_render_model = make_render_model_with_common_texture_positions(
-            platform, tile_elevations(), loc_in_ts);
-#       endif
+            platform, model_tile_elevations(), loc_in_ts);
     }
 
 private:
     SharedCPtr<RenderModel> m_render_model;
 };
 
-class Ramp : public RenderModelTile {
+class Ramp : public SlopesBasedModelTile {
 public:
     template <typename T>
     static Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
@@ -363,32 +486,27 @@ public:
     }
 
 protected:
+#   if 0
     virtual YRotation direction_to_rotation(const char *) const = 0;
-
+#   endif
     virtual void set_direction(const char *) = 0;
 
-    Entity operator () (Vector2I r, TrianglesAdder & adder, Platform::ForLoaders & platform) const final {
-        add_triangles_based_on_model_details(r, adder);
-        return make_entity(platform, r, YRotation{});
+    void operator ()
+        (EntityAndTrianglesAdder & adder,
+         const NeighborInfo & ninfo,
+         Platform::ForLoaders & platform) const final
+    {
+        auto r = ninfo.tile_location();
+        add_triangles_based_on_model_details(r, adder.triangle_adder());
+        adder.add_entity(make_entity(platform, r));
     }
 
     void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) final {
         if (const auto * val = find_property("direction", properties)) {
             set_direction(val);
-#           if 0
-            m_rotation = direction_to_rotation(val);
-#           endif
         }
-        RenderModelTile::setup(loc_in_ts, properties, platform);
+        SlopesBasedModelTile::setup(loc_in_ts, properties, platform);
     }
-#if 0
-private:
-    // going to remove rotations
-    // add slopes
-    // have different models for each direction & ramp type
-
-    YRotation m_rotation;
-#   endif
 };
 
 class CornerRamp : public Ramp {
@@ -398,13 +516,13 @@ protected:
     virtual Slopes non_rotated_slopes() const = 0;
 
 private:
+#   if 0
     YRotation direction_to_rotation(const char * val) const final {
         return corner_direction_to_rotation(val);
     }
-
-    Slopes tile_elevations() const final {
-        return m_slopes;
-    }
+#   endif
+    Slopes model_tile_elevations() const final
+        { return m_slopes; }
 
     void set_direction(const char * dir) final {
         using Cd = CardinalDirections;
@@ -426,48 +544,17 @@ private:
 
 class InRamp final : public CornerRamp {
     Slopes non_rotated_slopes() const final
-    { return Slopes{0, 1, 1, 1, 0}; }
-#   if 0
-    Slopes tile_elevations() const final {
-        return m_slopes;
-    }
-
-    void set_direction(const char * dir) final {
-        using Cd = CardinalDirections;
-        int n = [dir] {
-            switch (cardinal_direction_from(dir)) {
-            case Cd::nw: return 0;
-            case Cd::sw: return 1;
-            case Cd::se: return 2;
-            case Cd::ne: return 3;
-            default: throw InvArg{""};
-            }
-        } ();
-        m_slopes = half_pi_rotations(Slopes{0, 1, 1, 1, 0}, n);
-    }
-#   if 0
-    Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
-        get_model_positions_and_elements() const final
-    { return get_model_positions_and_elements_<InRamp>(Slopes{0, 1, 1, 1, 0}); }
-#   endif
-    Slopes m_slopes;
-#   endif
+        { return Slopes{0, 1, 1, 1, 0}; }
 };
 
 class OutRamp final : public CornerRamp {
     Slopes non_rotated_slopes() const final
         { return Slopes{0, 0, 0, 0, 1}; }
-#   if 0
-    Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
-        get_model_positions_and_elements() const final
-    { return get_model_positions_and_elements_<OutRamp>(Slopes{0, 0, 0, 0, 1}); }
-#   endif
 };
 
 class TwoRamp final : public Ramp {
-    Slopes tile_elevations() const final {
-        return m_slopes;
-    }
+    Slopes model_tile_elevations() const final
+        { return m_slopes; }
 
     void set_direction(const char * dir) final {
         static const Slopes k_non_rotated_slopes{0, 1, 1, 0, 0};
@@ -483,12 +570,7 @@ class TwoRamp final : public Ramp {
         } ();
         m_slopes = half_pi_rotations(k_non_rotated_slopes, n);
     }
-
 #   if 0
-    Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
-        get_model_positions_and_elements() const final
-    { return get_model_positions_and_elements_<TwoRamp>(Slopes{0, 1, 1, 0, 0}); }
-#   endif
     YRotation direction_to_rotation(const char * val) const final {
         using Cd = CardinalDirections;
         switch (cardinal_direction_from(val)) {
@@ -499,21 +581,23 @@ class TwoRamp final : public Ramp {
         default: throw InvArg{""};
         }
     }
-
+#   endif
     Slopes m_slopes;
 };
 
-class FlatTile final : public RenderModelTile {
-    Slopes tile_elevations() const final
+class FlatTile final : public SlopesBasedModelTile {
+
+    Slopes model_tile_elevations() const final
         { return Slopes{0, 0, 0, 0, 0}; }
-#   if 0
-    Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
-        get_model_positions_and_elements() const final
-    { return Ramp::get_model_positions_and_elements_<FlatTile>(Slopes{0, 0, 0, 0, 0}); }
-#   endif
-    Entity operator () (Vector2I r, TrianglesAdder & adder, Platform::ForLoaders & platform) const final {
-        add_triangles_based_on_model_details(r, adder);
-        return make_entity(platform, r, YRotation{});
+
+    void operator ()
+        (EntityAndTrianglesAdder & adder,
+         const NeighborInfo & ninfo,
+         Platform::ForLoaders & platform) const final
+    {
+        auto r = ninfo.tile_location();
+        add_triangles_based_on_model_details(r, adder.triangle_adder());
+        adder.add_entity(make_entity(platform, r));
     }
 };
 
@@ -570,7 +654,8 @@ public:
                     auto itr = tileset.find(layer(r) - 1);
                     if (itr == tileset.end()) return;
                     auto & uptr = itr->second;
-                    callbacks.add_to_scene((*uptr)(r, adder, callbacks.platform()));
+                    EntityAndTrianglesAdder etadder{callbacks, adder};
+                    (*uptr)(etadder, TileLoader::NeighborInfo{tileset, layer, r}, callbacks.platform());
                 });
                 TileLoader::set_common_texture(nullptr);
             });

@@ -334,7 +334,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
         // for now, just get the sample map preloader
 
         // perhaps I should take this as being excuted during "entity sync time"
-        adder.add_preloader(make_tiled_map_preloader("test-map.tmx", platform));
+        adder.add_preloader(make_tiled_map_preloader("test-map2.tmx", platform));
 
         // prevents second call
         Entity{physics_ent}.remove<UniquePtr<PreloadSpawner>>();

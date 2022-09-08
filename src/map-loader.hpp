@@ -47,7 +47,7 @@ struct EndOfRow final {};
 struct Slopes final : public AppearanceId {
     Slopes() {}
 
-    Slopes(int id_, float ne_, float nw_, float sw_, float se_):
+    Slopes(int id_, Real ne_, Real nw_, Real sw_, Real se_):
         AppearanceId(id_),
         nw(nw_), ne(ne_), sw(sw_), se(se_) {}
 
@@ -58,12 +58,12 @@ struct Slopes final : public AppearanceId {
         { return !are_same(rhs); }
 
     bool are_same(const Slopes & rhs) const noexcept {
-        using Fe = std::equal_to<float>;
+        using Fe = std::equal_to<Real>;
         return    id == rhs.id && Fe{}(nw, rhs.nw) && Fe{}(ne, rhs.ne)
                && Fe{}(sw, rhs.sw) && Fe{}(se, rhs.se);
     }
 
-    float nw, ne, sw, se;
+    Real nw, ne, sw, se;
 };
 
 inline Slopes half_pi_rotations(const Slopes & s, int n) {
@@ -72,10 +72,13 @@ inline Slopes half_pi_rotations(const Slopes & s, int n) {
     return half_pi_rotations(Slopes{s.id, s.se, s.ne, s.nw, s.sw}, n - 1);
 }
 
+inline Slopes translate_y(const Slopes & s, Real y)
+    { return Slopes{0, s.ne + y, s.nw + y, s.sw + y, s.se + y}; }
+
 struct Flat final : public AppearanceId {
     Flat() {}
-    Flat(int id_, float y_): AppearanceId(id_), y(y_) {}
-    float y;
+    Flat(int id_, Real y_): AppearanceId(id_), y(y_) {}
+    Real y;
 };
 
 using Cell = Variant<VoidSpace, Pit, Slopes, Flat>;

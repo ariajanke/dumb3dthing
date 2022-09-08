@@ -321,7 +321,11 @@
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
- <tile id="56" type="pure-texture"/>
+ <tile id="56" type="pure-texture">
+  <properties>
+   <property name="assignment" value="wall"/>
+  </properties>
+ </tile>
  <tile id="57" type="out-ramp">
   <properties>
    <property name="direction" value="nw"/>
