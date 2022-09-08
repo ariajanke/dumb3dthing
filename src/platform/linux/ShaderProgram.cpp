@@ -48,8 +48,6 @@ constexpr const int k_info_log_size = 512;
 using InfoLog = std::array<char, k_info_log_size>;
 using namespace cul::exceptions_abbr;
 
-std::string file_to_string(const char * filename);
-
 class ScopedShader {
 public:
     static constexpr const unsigned k_no_shader = 0;
@@ -189,8 +187,6 @@ void ShaderProgram::set_vec2(const char * name, const glm::vec2 & r) const
 void ShaderProgram::swap(ShaderProgram && lhs)
     { std::swap(m_program_handle, lhs.m_program_handle); }
 
-namespace {
-
 std::string file_to_string(const char * filename) {
     std::ifstream fin;
     fin.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -200,6 +196,8 @@ std::string file_to_string(const char * filename) {
     fin.close();
     return sstrm.str();
 }
+
+namespace {
 
 ScopedShader::~ScopedShader() {
     // it's worth noting that the shader is not immediately deleted

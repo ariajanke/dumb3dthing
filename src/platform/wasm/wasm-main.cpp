@@ -28,10 +28,11 @@
 
 #include <common/Util.hpp>
 
+#include <set>
 #include <iostream>
 
 EM_JS(void, from_js_log_line, (const char * str), {
-    //console.log(Module.UTF8ToString(str));
+    /* console.log(Module.UTF8ToString(str)); */
 });
 
 // ----------------------------- Texture Operations ---------------------------
@@ -127,6 +128,12 @@ EM_JS(void, from_js_view_matrix_look_at,
 
 EM_JS(void, from_js_view_matrix_apply, (), {
     jsPlatform.viewMatrix.apply();
+});
+
+// ----------------------------------------------------------------------------
+
+EM_JS(void, from_js_promise_file_contents_as_string, (const void * instance, const char * filename), {
+    jsPlatform.promiseFileContents(Module.UTF8ToString(filename), instance);
 });
 
 // I'm going to need other functions for matrix transformations/operations
@@ -243,6 +250,36 @@ private:
     int m_handle = k_no_handle;
 };
 
+class WebFutureString final : public Future<std::string> {
+public:
+    explicit WebFutureString() {}
+
+    ~WebFutureString() {}
+
+    bool is_ready() const noexcept final
+        { return m_fulfilled; }
+
+    bool is_lost() const noexcept final
+        { return m_lost; }
+
+    std::string && retrieve() final
+        { return std::move(m_contents); }
+
+    void set_aside(std::size_t len)
+        { m_contents.resize(len); }
+
+    void * data() { return m_contents.data(); }
+
+    void mark_as_fulfilled()
+        { m_fulfilled = true; }
+
+private:
+    std::string m_contents;
+
+    bool m_fulfilled = false;
+    bool m_lost = false;
+};
+
 class WebGlPlatform final : public Platform::Callbacks {
 public:
     static WebGlPlatform & instance() {
@@ -295,6 +332,12 @@ public:
     void set_camera_entity(EntityRef ref) final
         { m_camera_ent = ref; }
 
+    FutureString promise_file_contents(const char * filename) final {
+        auto uptr = make_unique<WebFutureString>();
+        from_js_promise_file_contents_as_string(uptr.get(), filename);
+        return uptr;
+    }
+
 private:
     EntityRef m_camera_ent;
 };
@@ -335,4 +378,21 @@ EMSCRIPTEN_KEEPALIVE void to_js_update(float et_in_seconds) {
     }
 }
 
+EMSCRIPTEN_KEEPALIVE void * to_js_prepare_content_buffer(void * handle, std::size_t length) {
+    auto & future = *reinterpret_cast<WebFutureString *>(handle);
+    future.set_aside(length);
+    return future.data();
+}
+
+EMSCRIPTEN_KEEPALIVE void to_js_mark_fulfilled(void * handle) {
+    auto & future = *reinterpret_cast<WebFutureString *>(handle);
+    future.mark_as_fulfilled();
+}
+
+// I have to set buffer length and copy seperately :/?
+#if 0
+EMSCRIPTEN_KEEPALIVE void to_js_fulfill_promised_string(void * handle, const char * contents) {
+    reinterpret_cast<WebFutureString *>(handle)->set(contents);
+}
+#endif
 }

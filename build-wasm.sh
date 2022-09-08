@@ -19,9 +19,9 @@ fi
 outputpath="bin"
 if [[ true ]]; then
     emcc -O3 -std=c++17 \
-        src/platform/wasm/wasm-main.cpp $(find src -maxdepth 2 | grep 'cpp\b') \
+        src/platform/wasm/wasm-main.cpp lib/tinyxml2/tinyxml2.cpp $(find src -maxdepth 2 | grep 'cpp\b') \
         --shell-file src/platform/wasm/shell.html \
-        -Ilib/cul/inc -Ilib/ecs3/inc \
+        -Ilib/cul/inc -Ilib/ecs3/inc -Ilib/tinyxml2 \
         -Wno-unqualified-std-cast-call \
         -sNO_EXIT_RUNTIME=1 -sNO_DISABLE_EXCEPTION_CATCHING \
         -DMACRO_NEW_20220728_VECTORS \

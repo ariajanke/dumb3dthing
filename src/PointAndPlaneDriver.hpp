@@ -22,63 +22,11 @@
 
 #include "Defs.hpp"
 #include "TriangleSegment.hpp"
+#include "TriangleLinks.hpp"
 
 namespace point_and_plane {
 
 using Triangle = TriangleSegment;
-
-class TriangleLinks final {
-public:
-    using Side = TriangleSide;
-
-    struct Transfer final {
-        SharedCPtr<Triangle> target; // set if there is a valid transfer to be had
-        Side side = Side::k_inside; // transfer on what side of target?
-        bool inverts = false; // normal *= -1
-        bool flips = false; // true -> (1 - t)
-    };
-
-    explicit TriangleLinks(SharedCPtr<Triangle>);
-
-    // atempts all sides
-    TriangleLinks & attempt_attachment_to(SharedCPtr<Triangle>);
-
-    TriangleLinks & attempt_attachment_to(SharedCPtr<Triangle>, Side);
-
-    bool has_side_attached(Side) const;
-
-    std::size_t hash() const noexcept
-        { return std::hash<const Triangle *>{}(m_segment.get()); }
-
-    const Triangle & segment() const;
-
-    SharedCPtr<Triangle> segment_ptr() const
-        { return m_segment; }
-
-    Transfer transfers_to(Side) const;
-
-    int sides_attached_count() const {
-        auto list = { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca };
-        return std::count_if(list.begin(), list.end(), [this](Side side)
-            { return has_side_attached(side); });
-    }
-
-private:
-    struct SideInfo final {
-        WeakCPtr<Triangle> target;
-        Side side = Side::k_inside;
-        bool inverts = false;
-        bool flip = false;
-    };
-
-    static bool has_opposing_normals(const Triangle &, Side, const Triangle &, Side);
-
-    static Side verify_valid_side(const char * caller, Side);
-
-    SharedCPtr<Triangle> m_segment;
-
-    std::array<SideInfo, 3> m_triangle_sides;
-};
 
 struct OnSegment final {
     OnSegment() {}
@@ -115,6 +63,8 @@ inline Vector segment_displacement_to_v3(const State & state) {
 
 class EventHandler {
 public:
+    using SideCrossing = Triangle::SideCrossing;
+#   if 0
     struct SegmentTransfer {
         SegmentTransfer(const SegmentTransfer &) = default;
         SegmentTransfer(Tuple<bool, Vector2> && tup):
@@ -123,24 +73,82 @@ public:
         bool invert = false;
         Vector2 displacement;
     };
-
+#   endif
     static UniquePtr<EventHandler> make_test_handler();
 
     virtual ~EventHandler() {}
-
+#   if 0
     // in either case: displacement is being returned
     // return a Vector2 -> you mean to attach to the triangle
     // return a Vector -> you mean to maintain a freebody state and fail to
     // attach to the triangle
+    // don't like this either, displacement is supposed to be partially
+    // consumed at this point
     virtual Variant<Vector2, Vector> displacement_after_triangle_hit
         (const Triangle &, const Vector & location, const Vector & next,
          const Vector & intersection) const = 0;
+#   endif
+    /** @brief Called when a PpState hits a triangle segment.
+     *
+     *  @param tri triangle the PpState is colliding against
+     *  @param ouside position immediately before hiting the triangle
+     *  @param inside position on the triangle segment that's been hit
+     *         (parameter tri)
+     *  @param next what the end location of the PpState would be if the
+     *         triangle segment wasn't there
+     *  @return
+     */
+    virtual Variant<Vector2, Vector>
+        on_triangle_hit
+        (const Triangle & tri, const Vector & ouside, const Vector2 & inside,
+         const Vector & next) const = 0;
 
+#   if 0
     virtual Variant<SegmentTransfer, Vector> pass_triangle_side
         (const Triangle & from, const Triangle * to,
          const Vector & location, const Vector & remaining_displacement) const = 0;
 
     virtual bool cling_to_edge(const Triangle &, TriangleSide side_hit) const = 0;
+#   endif
+    /** @brief Called when a failed transfer occured due to the absence of a
+     *         linked segment
+     *
+     *  @param tri triangle presently occupied by the PpState
+     *  @param cross describes the side crossing occuring
+     *  @param projected_new_location what the new location of the PpState
+     *         would be if the segment extended forever
+     *
+     *  @return indicates the new remaining displacement
+     *          - (3D) Vector to mean an InAir state
+     *          - Vector2 to mean "stay on this segment" indicating the new
+     *          If 3D vector is indicated then the new PpState's location will
+     *          be decidely outside the triangle segment. If 2D, the location
+     *          will be on the inside of the segment.
+     */
+    virtual Variant<Vector, Vector2>
+        on_transfer_absent_link
+        (const Triangle & tri, const SideCrossing & cross,
+         const Vector2 & projected_new_location) const = 0;
+
+    /** @brief Called when a transfer from one segment to another may occur
+     *
+     *  @param original the original triangle segment which the PpState is on
+     *  @param cross describes the side crossing occuring
+     *  @param next the segment the PpState may transfer to
+     *  @param projected_new_loaction what the new location would be if the
+     *         PpState were to stay on the segment and if that segment were
+     *         infinite
+     *  @return indicates the new remaining displacement
+     *          - (3D) Vector to mean an InAir state
+     *          - Vector2 to mean "commence with the transfer" indicating the
+     *          If 3D vector is indicated then the new PpState's location will
+     *          be decidely outside the triangle segment. If 2D, the location
+     *          will be on the inside of the segment.
+     */
+    virtual Variant<Vector, Tuple<bool, Vector2>>
+        on_transfer
+        (const Triangle & original, const SideCrossing & cross,
+         const Triangle & next, const Vector & projected_new_loaction) const = 0;
 };
 
 class Driver {
@@ -173,4 +181,3 @@ protected:
 using PpState = point_and_plane::State;
 using PpInAir = point_and_plane::InAir;
 using PpOnSegment = point_and_plane::OnSegment;
-using point_and_plane::TriangleLinks;

@@ -24,6 +24,7 @@
 #include "map-loader.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
+#include "tiled-map-loader.hpp"
 
 #include <common/BezierCurves.hpp>
 #include <common/TestSuite.hpp>
@@ -60,13 +61,20 @@ public:
     void release_key(KeyControl) final;
 
 private:
+    void initial_load(LoaderCallbacks &) final;
+#   if 0
     Loader::LoaderTuple initial_load(Platform::ForLoaders &) final;
-
+#   endif
     void update_(Real seconds) final;
+
+    point_and_plane::Driver & ppdriver() final
+        { return *m_ppdriver; }
 
     Vector m_camera_target;
     UniquePtr<point_and_plane::Driver> m_ppdriver = point_and_plane::Driver::make_driver();
+#   if 0
     Entity m_player;
+#   endif
     TimeControl m_time_controller;
 };
 
@@ -77,10 +85,41 @@ private:
 
 void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
     update_(seconds);
-    for (auto & single : m_singles) {
+    // "dynamic" systems
+    for (auto & single : m_single_systems) {
         (*single)(m_scene);
     }
+    // future: have a way to unload "dynamic" systems in a complex manner
+    LoaderCallbacks loadercallbacks{ callbacks, player_entities(), m_single_systems, m_scene };
+    for (auto & preloader : m_preloaders) {
+        auto loader = (*preloader)();
+        if (loader) {
+            (*loader)(loadercallbacks);
+            preloader = nullptr;
+        }
+    }
+    bool preloaders_changed = [this] {
+        auto old_size = m_preloaders.size();
+        m_preloaders.erase(std::remove(m_preloaders.begin(), m_preloaders.end(), nullptr),
+                           m_preloaders.end());
+        return old_size != m_preloaders.size();
+    } ();
+    if (preloaders_changed) {
+        m_scene.update_entities();
+        for (auto & ent : m_scene) {
+            auto * vec = ent.ptr<std::vector<TriangleLinks>>();
+            if (!vec) continue;
+            ppdriver().add_triangles(*vec);
+            // ecs has a bug...
+            // the following line fails because active entities aren't exactly
+            // in order...
+            Entity{ent}.request_deletion();
+        }
+    }
 
+    // not going to worry about wiping old stuff for now...
+
+#   if 0
     UniquePtr<Loader> loader;
     for (auto & trigger : m_triggers) {
         auto uptr = (*trigger)(m_scene);
@@ -101,10 +140,11 @@ void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
         m_scene.update_entities();
         handle_loader_tuple((*loader)(m_player_entities, callbacks));
     }
+#   endif
     m_scene.update_entities();
     callbacks.render_scene(m_scene);
 }
-
+#if 0
 /* private */ void Driver::handle_loader_tuple(Loader::LoaderTuple && tup) {
     using std::get;
     auto player_ents = get<PlayerEntities>(tup);
@@ -129,7 +169,7 @@ void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
         m_triggers.emplace_back(std::move(trigger));
     }
 }
-
+#endif
 namespace {
 
 // ------------------------------ <Messy Space> -------------------------------
@@ -217,10 +257,10 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
     return rv;
 }
 
-static constexpr const Vector k_player_start{2.6, 0.1, -1.6};
+static constexpr const Vector k_player_start{2.6, 3.1, -1.6};
 
 // model entity, physical entity
-Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
+Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
         constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
@@ -263,14 +303,14 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
         4, 6, 7, /**/ 4, 5, 6  // bottom faces
     };
 
-    auto model = callbacks.make_render_model();
+    auto model = platform.make_render_model();
     model->load(&verticies.front(), &verticies.front() + verticies.size(),
                 &elements .front(), &elements .front() + elements.size());
 
     auto physics_ent = Entity::make_sceneless_entity();
-    auto model_ent   = callbacks.make_renderable_entity();
+    auto model_ent   = platform.make_renderable_entity();
 #   if 1
-    auto tx = callbacks.make_texture();
+    auto tx = platform.make_texture();
     tx->load_from_file("ground.png");
     model_ent.add<
         SharedCPtr<Texture>, SharedCPtr<RenderModel>, Translation,
@@ -282,6 +322,24 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & callbacks) {
 
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<Velocity, JumpVelocity, DragCamera, Camera, PlayerControl>();
+
+    physics_ent.add<UniquePtr<PreloadSpawner>>() = PreloadSpawner
+        ::make([physics_ent, &platform]
+        (const PreloadSpawner::Adder & adder)
+    {
+        // the call to this function is deferred, it's invoked inside a system
+        // in here there could be logic for dynamically loading maps based on
+        // player location
+
+        // for now, just get the sample map preloader
+
+        // perhaps I should take this as being excuted during "entity sync time"
+        adder.add_preloader(make_tiled_map_preloader("test-map2.tmx", platform));
+
+        // prevents second call
+        Entity{physics_ent}.remove<UniquePtr<PreloadSpawner>>();
+    });
+
 #   endif
     return make_tuple(model_ent, physics_ent);
 }
@@ -322,7 +380,7 @@ static constexpr auto k_layout4 =
 // ----------------------------------------------------------------------------
 
 void GameDriverComplete::press_key(KeyControl ky) {
-    m_player.get<PlayerControl>().press(ky);
+    player_entities().physical.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
         //setup();
@@ -330,26 +388,37 @@ void GameDriverComplete::press_key(KeyControl ky) {
 }
 
 void GameDriverComplete::release_key(KeyControl ky)
-    { m_player.get<PlayerControl>().release(ky); }
+    { player_entities().physical.get<PlayerControl>().release(ky); }
 
+void GameDriverComplete::initial_load(LoaderCallbacks & callbacks)
+#if 0
 Loader::LoaderTuple GameDriverComplete::initial_load
     (Platform::ForLoaders & callbacks)
+#endif
 {
     std::vector<Entity> entities;
     std::vector<SharedPtr<TriangleSegment>> triangles;
 
-    auto tgg_ptr = TileGraphicGenerator{entities, triangles, callbacks};
+    auto tgg_ptr = TileGraphicGenerator{triangles, callbacks};// TileGraphicGenerator{entities, triangles, callbacks};
     tgg_ptr.setup();
-    auto [tlinks, ents] = load_map_graphics(tgg_ptr, load_map_cell(k_layout4, CharToCell::default_instance())); {}
-    auto [renderable, physical] = make_sample_player(callbacks); {}
-    callbacks.set_camera_entity(EntityRef{physical});
+    auto [tlinks] = load_map_graphics(tgg_ptr, load_map_cell(k_layout2, CharToCell::default_instance())); {}
+    auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
+    callbacks.platform().set_camera_entity(EntityRef{physical});
 
     // v kinda icky v
+#   if 0
     m_player = physical;
+#   endif
     m_ppdriver->clear_all_triangles();
     m_ppdriver->add_triangles(tlinks);
 
+    callbacks.set_player_entities(PlayerEntities{physical, renderable});
+    callbacks.add_to_scene(physical);
+    callbacks.add_to_scene(renderable);
+
+#   if 0
     return make_tuple(PlayerEntities{physical, renderable}, ents, SingleSysVec{}, TriggerSysVec{});
+#   endif
 }
 
 void GameDriverComplete::update_(Real seconds) {
@@ -378,6 +447,9 @@ void GameDriverComplete::update_(Real seconds) {
         }
         trans = location_of(state) + s*trans_from_parent.translation;
     },
+    [this] (UniquePtr<PreloadSpawner> & preload_spawner) {
+        preload_spawner->check_for_preloaders(get_preload_checker());
+    },
     PlayerControlToVelocity{seconds},
     AccelerateVelocities{seconds},
     VelocitiesToDisplacement{seconds},
@@ -385,16 +457,17 @@ void GameDriverComplete::update_(Real seconds) {
     CheckJump{})(scene());
 
     // this code here is a good candidate for a "Trigger" system
-    m_player.get<PlayerControl>().frame_update();
+    auto player = player_entities().physical;
+    player.get<PlayerControl>().frame_update();
 
-    auto pos = location_of(m_player.get<PpState>()) + Vector{0, 3, 0};
-    auto & cam = m_player.get<DragCamera>();
+    auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};
+    auto & cam = player.get<DragCamera>();
     if (magnitude(cam.position - pos) > cam.max_distance) {
         cam.position += normalize(pos - cam.position)*(magnitude(cam.position - pos) - cam.max_distance);
         assert(are_very_close( magnitude( cam.position - pos ), cam.max_distance ));
     }
-    m_player.get<Camera>().target = location_of(m_player.get<PpState>());
-    m_player.get<Camera>().position = cam.position;
+    player.get<Camera>().target = location_of(player.get<PpState>());
+    player.get<Camera>().position = cam.position;
 
     m_time_controller.frame_update();
 }

@@ -21,13 +21,13 @@
 #include "Systems.hpp"
 
 #include <common/TestSuite.hpp>
-
+#if 0
 namespace {
 
 using SegmentTransfer = point_and_plane::EventHandler::SegmentTransfer;
 
 } // end of <anonymous> namespace
-
+#endif
 void PlayerControlToVelocity::operator ()
     (PpState & state, Velocity & velocity, PlayerControl & control,
      Camera & camera) const
@@ -133,7 +133,7 @@ void AccelerateVelocities::operator ()
             return project_onto_plane(new_vel(r), seg_norm);
         };
         velocity = new_vel_on_seg(velocity.value);
-        if (jumpvel) { *jumpvel = new_vel_on_seg(jumpvel->value); }
+        if (jumpvel) { *jumpvel = Vector{}; }// new_vel_on_seg(jumpvel->value); }
     }
 }
 
@@ -167,7 +167,7 @@ void CheckJump::operator ()
 }
 
 // ----------------------------------------------------------------------------
-
+#if 0
 Variant<Vector2, Vector> UpdatePpState::EventHandler::
     displacement_after_triangle_hit
     (const TriangleSegment & triangle, const Vector & /*location*/,
@@ -211,3 +211,46 @@ bool UpdatePpState::EventHandler::
     *Opt<Velocity>{m_vel} = project_onto(m_vel->value, sa - sb);
     return true;
 }
+#else
+
+Variant<Vector2, Vector>
+    UpdatePpState::EventHandler::on_triangle_hit
+    (const Triangle & triangle, const Vector &, const Vector2 & inside,
+     const Vector & next) const
+{
+    // for starters:
+    // always attach, entirely consume displacement
+    if (m_vel) {
+        *Opt<Velocity>{m_vel} = project_onto_plane(m_vel->value, triangle.normal());
+    }
+    if (m_jumpvel) {
+        *Opt<JumpVelocity>{m_jumpvel} = project_onto_plane(m_jumpvel->value, triangle.normal());
+    }
+    auto intersection = triangle.point_at(inside);
+    auto diff = next - intersection;
+    auto rem_displc = project_onto_plane(diff, triangle.normal());
+
+    auto rv =  triangle.closest_point(rem_displc + intersection)
+             - triangle.closest_point(intersection);
+    return rv;
+}
+
+Variant<Vector, Vector2>
+    UpdatePpState::EventHandler::on_transfer_absent_link
+    (const Triangle & triangle, const SideCrossing & crossing, const Vector2 &) const
+{
+    if (!m_vel) return Vector2{};
+    auto [sa, sb] = triangle.side_points(crossing.side); {}
+    *Opt<Velocity>{m_vel} = project_onto(m_vel->value, sa - sb);
+    return Vector2{};
+}
+
+Variant<Vector, Tuple<bool, Vector2>>
+    UpdatePpState::EventHandler::on_transfer
+    (const Triangle &, const SideCrossing &,
+     const Triangle &, const Vector &) const
+{
+    return make_tuple(true, Vector2{});
+}
+
+#endif

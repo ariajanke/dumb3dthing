@@ -147,6 +147,14 @@ public:
      */
     Vector2 intersection(Vector a, Vector b) const;
 
+    struct LimitIntersection final {
+        Vector2 intersection;
+        Vector limit;
+    };
+
+    LimitIntersection limit_with_intersection
+        (const Vector & a, const Vector & b) const;
+
     /** Creates a new triangle segment, that is offset from this one. Each
      *  point still maintains there relative (to each other) positions.
      *  @param r a real vector offset to "move" the segment
