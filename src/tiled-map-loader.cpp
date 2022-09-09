@@ -290,8 +290,8 @@ protected:
     {
         assert(model_ptr);
         auto ent = platform.make_renderable_entity();
-        ent.add<SharedCPtr<RenderModel>, SharedCPtr<Texture>, Translation>() =
-                make_tuple(model_ptr, common_texture(), Translation{translation});
+        ent.add<SharedCPtr<RenderModel>, SharedCPtr<Texture>, Translation, Visible>() =
+                make_tuple(model_ptr, common_texture(), Translation{translation}, true);
         return ent;
     }
 

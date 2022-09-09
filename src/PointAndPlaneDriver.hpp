@@ -64,30 +64,11 @@ inline Vector segment_displacement_to_v3(const State & state) {
 class EventHandler {
 public:
     using SideCrossing = Triangle::SideCrossing;
-#   if 0
-    struct SegmentTransfer {
-        SegmentTransfer(const SegmentTransfer &) = default;
-        SegmentTransfer(Tuple<bool, Vector2> && tup):
-            invert(std::get<0>(tup)), displacement(std::get<1>(tup))
-        {}
-        bool invert = false;
-        Vector2 displacement;
-    };
-#   endif
+
     static UniquePtr<EventHandler> make_test_handler();
 
     virtual ~EventHandler() {}
-#   if 0
-    // in either case: displacement is being returned
-    // return a Vector2 -> you mean to attach to the triangle
-    // return a Vector -> you mean to maintain a freebody state and fail to
-    // attach to the triangle
-    // don't like this either, displacement is supposed to be partially
-    // consumed at this point
-    virtual Variant<Vector2, Vector> displacement_after_triangle_hit
-        (const Triangle &, const Vector & location, const Vector & next,
-         const Vector & intersection) const = 0;
-#   endif
+
     /** @brief Called when a PpState hits a triangle segment.
      *
      *  @param tri triangle the PpState is colliding against
@@ -103,13 +84,6 @@ public:
         (const Triangle & tri, const Vector & ouside, const Vector2 & inside,
          const Vector & next) const = 0;
 
-#   if 0
-    virtual Variant<SegmentTransfer, Vector> pass_triangle_side
-        (const Triangle & from, const Triangle * to,
-         const Vector & location, const Vector & remaining_displacement) const = 0;
-
-    virtual bool cling_to_edge(const Triangle &, TriangleSide side_hit) const = 0;
-#   endif
     /** @brief Called when a failed transfer occured due to the absence of a
      *         linked segment
      *

@@ -211,6 +211,8 @@ public:
      */
     Tuple<Vector, Vector> side_points(Side) const;
 
+    Tuple<Vector2, Vector2> side_points_in_2d(Side) const;
+
 private:
     void check_invarients() const noexcept;
 
@@ -222,6 +224,9 @@ private:
     Side point_region(const Vector2 &) const;
 
     Vector m_a, m_b, m_c;
+
+    Real m_bx_2d;
+    Vector2 m_c_2d;
 };
 
 using TriangleSide = TriangleSegment::Side;

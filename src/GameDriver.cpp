@@ -321,7 +321,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     );
 
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
-    physics_ent.add<Velocity, JumpVelocity, DragCamera, Camera, PlayerControl>();
+    physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
     physics_ent.add<UniquePtr<PreloadSpawner>>() = PreloadSpawner
         ::make([physics_ent, &platform]
@@ -337,7 +337,9 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
         adder.add_preloader(make_tiled_map_preloader("test-map2.tmx", platform));
 
         // prevents second call
-        Entity{physics_ent}.remove<UniquePtr<PreloadSpawner>>();
+        Entity pent{physics_ent};
+        pent.remove<UniquePtr<PreloadSpawner>>();
+        pent.add<Velocity>();
     });
 
 #   endif
@@ -399,7 +401,7 @@ Loader::LoaderTuple GameDriverComplete::initial_load
     std::vector<Entity> entities;
     std::vector<SharedPtr<TriangleSegment>> triangles;
 
-    auto tgg_ptr = TileGraphicGenerator{triangles, callbacks};// TileGraphicGenerator{entities, triangles, callbacks};
+    auto tgg_ptr = TileGraphicGenerator{triangles, callbacks};
     tgg_ptr.setup();
     auto [tlinks] = load_map_graphics(tgg_ptr, load_map_cell(k_layout2, CharToCell::default_instance())); {}
     auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
@@ -454,7 +456,17 @@ void GameDriverComplete::update_(Real seconds) {
     AccelerateVelocities{seconds},
     VelocitiesToDisplacement{seconds},
     UpdatePpState{*m_ppdriver},
-    CheckJump{})(scene());
+    CheckJump{},
+    [ppstate = player_entities().physical.get<PpState>(),
+     plyvel  = player_entities().physical.ptr<Velocity>()]
+        (Translation & trans, Opt<Visible> vis)
+    {
+        using point_and_plane::location_of;
+        if (!vis) return;
+        Vector vel = plyvel ? plyvel->value*0.4 : Vector{};
+        auto dist = magnitude(location_of(ppstate) + vel - trans.value);
+        *vis = dist < 12;
+    })(scene());
 
     // this code here is a good candidate for a "Trigger" system
     auto player = player_entities().physical;

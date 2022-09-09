@@ -48,6 +48,12 @@ EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b);
 
 Real get_component_for_basis(const Vector & pt_on_place, const Vector & basis);
 
+Vector2 find_point_c_in_2d(const Vector & a, const Vector & b, const Vector & c);
+
+Real find_point_b_x_in_2d(const Vector & a, const Vector & b);
+
+inline bool within_01(Real x) { return x >= 0 && x <= 1; }
+
 } // end of <anonymous> namespace
 
 TriangleSegment::SideCrossing::SideCrossing
@@ -58,12 +64,16 @@ TriangleSegment::SideCrossing::SideCrossing
 TriangleSegment::TriangleSegment():
     m_a(Vector{1, 0, 0}),
     m_b(Vector{0, 1, 0}),
-    m_c(Vector{0, 0, 1})
+    m_c(Vector{0, 0, 1}),
+    m_bx_2d(find_point_b_x_in_2d(m_a, m_b)),
+    m_c_2d(find_point_c_in_2d(m_a, m_b, m_c))
     { check_invarients(); }
 
 TriangleSegment::TriangleSegment
     (const Vector & a, const Vector & b, const Vector & c):
-    m_a(a), m_b(b), m_c(c)
+    m_a(a), m_b(b), m_c(c),
+    m_bx_2d(find_point_b_x_in_2d(a, b)),
+    m_c_2d(find_point_c_in_2d(a, b, c))
 {
     if (!is_real(a) || !is_real(b) || !is_real(c)) {
         throw InvArg{"TriangleSegment::TriangleSegment: points a, b, and c must "
@@ -200,8 +210,6 @@ Vector2 TriangleSegment::intersection(Vector a, Vector b) const {
 #   endif
 }
 
-inline bool within_01(Real x) { return x >= 0 && x <= 1; }
-
 LimitIntersection TriangleSegment::limit_with_intersection
     (const Vector & a, const Vector & b) const
 {
@@ -269,15 +277,12 @@ Vector2 TriangleSegment::point_a_in_2d() const noexcept
 Vector TriangleSegment::point_b() const noexcept { return m_b; }
 
 Vector2 TriangleSegment::point_b_in_2d() const noexcept
-    { return Vector2{magnitude(point_b() - point_a()), 0.}; }
+    { return Vector2{m_bx_2d, 0.}; }
 
 Vector TriangleSegment::point_c() const noexcept { return m_c; }
 
-Vector2 TriangleSegment::point_c_in_2d() const noexcept {
-    auto i_proj = project_onto(point_c() - point_a(), point_b() - point_a());
-    return Vector2{magnitude(i_proj),
-                   magnitude((point_c() - point_a()) - i_proj)};
-}
+Vector2 TriangleSegment::point_c_in_2d() const noexcept
+    { return m_c_2d; }
 
 Vector TriangleSegment::point_at(Vector2 r) const {
     if (!is_real(r)) {
@@ -293,7 +298,18 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     case Side::k_side_bc: return make_tuple(point_b(), point_c());
     case Side::k_side_ca: return make_tuple(point_c(), point_a());
     default:
-        throw InvArg{"TriangleSegment::get_side_points: given side must "
+        throw InvArg{"TriangleSegment::side_points: given side must "
+                     "represent a side of the triangle (and not the inside)."};
+    }
+}
+
+Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
+    switch (side) {
+    case Side::k_side_ab: return make_tuple(point_a_in_2d(), point_b_in_2d());
+    case Side::k_side_bc: return make_tuple(point_b_in_2d(), point_c_in_2d());
+    case Side::k_side_ca: return make_tuple(point_c_in_2d(), point_a_in_2d());
+    default:
+        throw InvArg{"TriangleSegment::side_points_in_2d: given side must "
                      "represent a side of the triangle (and not the inside)."};
     }
 }
@@ -347,9 +363,10 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     auto center = center_in_2d();
     auto is_crossed_line = [r, center] (const Vector2 & a, const Vector2 & b)
         { return is_solution(find_intersecting_position_for_first(a, b, center, r)); };
+#   if 0
     auto intersecting_pt = [center, r](const Vector2 & a, const Vector2 & b)
         { return find_intersecting_position_for_first(a, b, center, r); };
-
+#   endif
     auto a = point_a_in_2d();
     auto b = point_b_in_2d();
     if (are_parallel(a - b, a - r)) return k_inside;
@@ -437,5 +454,16 @@ Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
     bool is_antipara = dot(proj, basis) / (magnitude(proj) * 1.) < 0.;
     return (is_antipara ? -1. : 1.)*magnitude(proj);
 }
+
+Vector2 find_point_c_in_2d
+    (const Vector & a, const Vector & b, const Vector & c)
+{
+    auto i_proj = project_onto(c - a, b - a);
+    return Vector2{magnitude(i_proj), magnitude((c - a) - i_proj)};
+}
+
+Real find_point_b_x_in_2d
+    (const Vector & a, const Vector & b)
+{ return magnitude(b - a); }
 
 } // end of <anonymous> namespace

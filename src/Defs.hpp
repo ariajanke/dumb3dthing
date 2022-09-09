@@ -25,6 +25,7 @@
 #include <common/Vector3.hpp>
 
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
+#include <ariajanke/ecs3/HashTableEntity.hpp>
 #include <ariajanke/ecs3/Scene.hpp>
 #include <ariajanke/ecs3/SingleSystem.hpp>
 

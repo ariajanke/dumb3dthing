@@ -45,6 +45,18 @@ struct Camera final {
     Vector position, target, up = k_up;
 };
 
+struct Visible final {
+    bool & operator = (bool b) { return (value = b); }
+
+    explicit operator bool () const noexcept
+        { return value; }
+
+    bool value = true;
+};
+
+inline bool should_be_visible(const Opt<Visible> & vis)
+    { return vis ? vis->value : true; }
+
 // ----------------------------- Other Components -----------------------------
 
 struct Velocity final : public VectorLike<Velocity> {

@@ -21,13 +21,7 @@
 #include "Systems.hpp"
 
 #include <common/TestSuite.hpp>
-#if 0
-namespace {
 
-using SegmentTransfer = point_and_plane::EventHandler::SegmentTransfer;
-
-} // end of <anonymous> namespace
-#endif
 void PlayerControlToVelocity::operator ()
     (PpState & state, Velocity & velocity, PlayerControl & control,
      Camera & camera) const
@@ -39,13 +33,9 @@ void PlayerControlToVelocity::operator ()
     Vector left       = normalize(cross(k_up, forward));
     // +y is forward, +x is right
     auto willed_dir = normalize_if_nonzero(control.heading().y*forward - control.heading().x*left);
-#   if 0
-    velocity = are_very_close(willed_dir, Vector{}) ? Velocity{} : Velocity{willed_dir*2.5};
-#   else
     // more likely to flip-flop
     velocity = find_new_velocity_from_willed(
         PlayerMotionProfile{}, velocity, willed_dir, m_seconds);
-#   endif
 }
 
 /* static */ Velocity PlayerControlToVelocity::find_new_velocity_from_willed
@@ -133,7 +123,7 @@ void AccelerateVelocities::operator ()
             return project_onto_plane(new_vel(r), seg_norm);
         };
         velocity = new_vel_on_seg(velocity.value);
-        if (jumpvel) { *jumpvel = Vector{}; }// new_vel_on_seg(jumpvel->value); }
+        if (jumpvel) { *jumpvel = Vector{}; }
     }
 }
 
@@ -167,51 +157,6 @@ void CheckJump::operator ()
 }
 
 // ----------------------------------------------------------------------------
-#if 0
-Variant<Vector2, Vector> UpdatePpState::EventHandler::
-    displacement_after_triangle_hit
-    (const TriangleSegment & triangle, const Vector & /*location*/,
-     const Vector & new_, const Vector & intersection) const
-{
-    // for starters:
-    // always attach, entirely consume displacement
-    if (m_vel) {
-        *Opt<Velocity>{m_vel} = project_onto_plane(m_vel->value, triangle.normal());
-    }
-    if (m_jumpvel) {
-        *Opt<JumpVelocity>{m_jumpvel} = project_onto_plane(m_jumpvel->value, triangle.normal());
-    }
-    auto diff = new_ - intersection;
-    auto rem_displc = project_onto_plane(diff, triangle.normal());
-
-    auto rv =  triangle.closest_point(rem_displc + intersection)
-             - triangle.closest_point(intersection);
-    return rv;
-}
-
-Variant<SegmentTransfer, Vector> UpdatePpState::EventHandler::
-    pass_triangle_side
-    (const TriangleSegment &, const TriangleSegment * to,
-     const Vector &, const Vector &) const
-{
-    // always transfer to the other surface
-    if (!to) {
-        return make_tuple(false, Vector2{});
-    }
-    // may I know the previous inversion value?
-    return make_tuple(false, Vector2{});
-}
-
-bool UpdatePpState::EventHandler::
-    cling_to_edge
-    (const TriangleSegment & triangle, TriangleSide side) const
-{
-    if (!m_vel) return true;
-    auto [sa, sb] = triangle.side_points(side); {}
-    *Opt<Velocity>{m_vel} = project_onto(m_vel->value, sa - sb);
-    return true;
-}
-#else
 
 Variant<Vector2, Vector>
     UpdatePpState::EventHandler::on_triangle_hit
@@ -237,20 +182,26 @@ Variant<Vector2, Vector>
 
 Variant<Vector, Vector2>
     UpdatePpState::EventHandler::on_transfer_absent_link
-    (const Triangle & triangle, const SideCrossing & crossing, const Vector2 &) const
+    (const Triangle & triangle, const SideCrossing & crossing,
+     const Vector2 & projected_new_location) const
 {
     if (!m_vel) return Vector2{};
     auto [sa, sb] = triangle.side_points(crossing.side); {}
     *Opt<Velocity>{m_vel} = project_onto(m_vel->value, sa - sb);
-    return Vector2{};
+
+    // clip remaining displacement
+    // but needs to not end up calling this again for the same triangle
+    // (within the framce)
+    auto [t, u] = triangle.side_points_in_2d(crossing.side);
+    return project_onto(projected_new_location - crossing.outside, t - u);
 }
 
 Variant<Vector, Tuple<bool, Vector2>>
     UpdatePpState::EventHandler::on_transfer
-    (const Triangle &, const SideCrossing &,
-     const Triangle &, const Vector &) const
+    (const Triangle & original, const SideCrossing & crossing,
+     const Triangle & next, const Vector & new_loc) const
 {
-    return make_tuple(true, Vector2{});
+    auto outside = original.point_at(crossing.outside);
+    auto rv = next.closest_point(new_loc) - next.closest_point(outside);
+    return make_tuple(true, rv);
 }
-
-#endif
