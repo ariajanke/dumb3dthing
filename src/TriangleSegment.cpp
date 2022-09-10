@@ -315,6 +315,7 @@ Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
 }
 
 /* private */ void TriangleSegment::check_invarients() const noexcept {
+#   if 0
     assert(is_real(m_a));
     assert(is_real(m_b));
     assert(is_real(m_c));
@@ -326,6 +327,7 @@ Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
     assert(are_very_close(point_at(point_c_in_2d()), point_c()));
     assert(!are_very_close(normal(), Vector{}));
     assert(contains_point(center_in_2d()));
+#   endif
 }
 
 /* private */ Tuple<Vector2, Vector2>

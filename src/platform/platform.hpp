@@ -108,17 +108,7 @@ public:
 
     static Callbacks & null_callbacks();
 };
-#if 0
-/** Intended as a "synchronous" system more than anything
- *
- */
-class TriggerSystem {
-public:
-    virtual ~TriggerSystem() {}
 
-    virtual UniquePtr<Loader> operator () (Scene &) const = 0;
-};
-#endif
 class Preloader {
 public:
     virtual ~Preloader() {}

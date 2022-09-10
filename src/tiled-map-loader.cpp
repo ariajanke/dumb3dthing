@@ -1,3 +1,23 @@
+/******************************************************************************
+
+    GPLv3 License
+    Copyright (c) 2022 Aria Janke
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*****************************************************************************/
+
 #include "tiled-map-loader.hpp"
 #include "map-loader.hpp"
 #include "Components.hpp"
@@ -105,9 +125,37 @@ enum class CardinalDirections {
     nw, sw, se, ne
 };
 
-class TileLoader;
+class TileFactory;
 
-using TileSet = std::unordered_map<int, UniquePtr<TileLoader>>;
+using TileSet = std::unordered_map<int, UniquePtr<TileFactory>>;
+using Size2 = cul::Size2<Real>;
+class TileSetN final {
+public:
+    void set_texture_information
+        (SharedPtr<const Texture> texture, const Size2 & tile_size,
+         const Size2 & texture_size)
+    {
+        m_texture = texture;
+        m_texture_size = texture_size;
+        m_tile_size = tile_size;
+    }
+
+    TileFactory & insert_factory(UniquePtr<TileFactory> uptr, int tid);
+
+    // there may, or may not be a factory for a particular id
+    TileFactory * operator () (int tid) const {
+        auto itr = m_factory_map.find(tid);
+        if (itr == m_factory_map.end()) return nullptr;
+        return itr->second.get();
+    }
+
+private:
+    std::map<int, UniquePtr<TileFactory>> m_factory_map;
+
+    SharedPtr<const Texture> m_texture;
+    Size2 m_texture_size;
+    Size2 m_tile_size;
+};
 
 class EntityAndTrianglesAdder final {
 public:
@@ -128,15 +176,17 @@ private:
     TrianglesAdder & m_tri_adder;
 };
 
-class TileLoader {
+class TileFactory {
 public:
-    virtual ~TileLoader() {}
+    virtual ~TileFactory() {}
 
     class NeighborInfo final {
     public:
         NeighborInfo
-            (const TileSet & ts, const Grid<int> & layer, Vector2I tileloc):
-            m_tileset(ts), m_layer(layer), m_loc(tileloc) {}
+            (const TileSetN & ts, const Grid<int> & layer,
+             Vector2I tilelocmap, Vector2I spawner_offset):
+            m_tileset(ts), m_layer(layer), m_loc(tilelocmap),
+            m_offset(spawner_offset) {}
 
         // +x second (east)
         Tuple<Real, Real> north_elevations() const;
@@ -148,12 +198,14 @@ public:
 
         Tuple<Real, Real> west_elevations() const;
 
-        Vector2I tile_location() const { return m_loc; }
+        Vector2I tile_location() const { return m_loc + m_offset; }
 
+        Vector2I tile_location_in_map() const { return m_loc; }
     private:
-        const TileSet & m_tileset;
+        const TileSetN & m_tileset;
         const Grid<int> & m_layer;
         Vector2I m_loc;
+        Vector2I m_offset;
     };
 
     virtual void operator ()
@@ -163,18 +215,8 @@ public:
     // how should I handle walls?
     // think I might be getting too mixed up
 
-    static UniquePtr<TileLoader> tileset_factory
+    static UniquePtr<TileFactory> tileset_factory
         (const char * type, tinyxml2::XMLElement * properties);
-
-    static void set_common_texture(SharedCPtr<Texture> txptr) {
-        s_texture = txptr;
-
-    }
-
-    static void set_tileset_size_info(Vector2 tssize, Vector2 tilesize) {
-        s_texture_size = tssize;
-        s_tile_size = tilesize;
-    }
 
     virtual void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders &) = 0;
 
@@ -183,13 +225,24 @@ public:
     // than model's slopes
     virtual Slopes tile_elevations() const = 0;
 
-protected:
-    static SharedCPtr<Texture> common_texture()
-        { return s_texture; }
+    // as assign implies, these resources must outlive the life of the object
+    void set_shared_texture_information
+        (SharedCPtr<Texture> & texture_ptr_,
+         Size2 & texture_size_,
+         Size2 & tile_size_)
+    {
+        m_texture_ptr = texture_ptr_;
+        m_texture_size = texture_size_;
+        m_tile_size = tile_size_;
+    }
 
-    static std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) {
-        const Real x_scale = s_tile_size.x / s_texture_size.x;
-        const Real y_scale = s_tile_size.y / s_texture_size.y;
+protected:
+    SharedCPtr<Texture> common_texture() const
+        { return m_texture_ptr; }
+
+    std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) const {
+        const Real x_scale = m_tile_size.width  / m_texture_size.width ;
+        const Real y_scale = m_tile_size.height / m_texture_size.height;
         const std::array<Vector2, 4> k_base = {
             // for textures not physical locations
             Vector2{ 0*x_scale, 0*y_scale }, // nw
@@ -218,10 +271,10 @@ protected:
         return nullptr;
     }
 
-    static SharedCPtr<RenderModel> make_render_model_with_common_texture_positions
+    SharedCPtr<RenderModel> make_render_model_with_common_texture_positions
         (Platform::ForLoaders & platform,
          const Slopes & slopes,
-         Vector2I loc_in_ts)
+         Vector2I loc_in_ts) const
     {
         const auto & pos = TileGraphicGenerator::get_points_for(slopes);
         auto txpos = common_texture_positions_from(loc_in_ts);
@@ -236,40 +289,6 @@ protected:
         const auto & els = TileGraphicGenerator::get_common_elements();
         render_model->load(verticies, els);
         return render_model;
-    }
-
-
-    static SharedCPtr<RenderModel> make_render_model_with_common_texture_positions
-        (Platform::ForLoaders & platform,
-         const Tuple<const std::vector<Vector> &, const std::vector<unsigned> &> & tup,
-         Vector2I loc_in_ts)
-    {
-        const auto & [pos, els] = tup; {}
-        auto txpos = common_texture_positions_from(loc_in_ts);
-
-        std::vector<Vertex> verticies;
-        assert(txpos.size() == pos.size());
-        for (int i = 0; i != int(pos.size()); ++i) {
-            verticies.emplace_back(pos[i], txpos[i]);
-        }
-
-        auto render_model = platform.make_render_model(); // need platform
-        render_model->load(verticies, els);
-        return render_model;
-    }
-
-    static void add_triangles_based_on_model_details
-        (Vector2I gridloc,
-         const Tuple<const std::vector<Vector> &, const std::vector<unsigned> &> & tup,
-         TrianglesAdder & adder)
-    {
-        const auto & [pos, els] = tup; {}
-        assert(els.size() == 6);
-        auto offset = grid_position_to_v3(gridloc);
-        adder.add_triangle(make_shared<TriangleSegment>(
-            pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset));
-        adder.add_triangle(make_shared<TriangleSegment>(
-            pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset));
     }
 
     static void add_triangles_based_on_model_details
@@ -296,15 +315,23 @@ protected:
     }
 
 private:
-    static SharedCPtr<Texture> s_texture;
-    static Vector2 s_texture_size;
-    static Vector2 s_tile_size;
+    SharedCPtr<Texture> m_texture_ptr;
+    Size2 m_texture_size;
+    Size2 m_tile_size;
 };
-/* static */ SharedCPtr<Texture> TileLoader::s_texture;
-/* static */ Vector2 TileLoader::s_texture_size;
-/* static */ Vector2 TileLoader::s_tile_size;
 
-class TranslatableTile : public TileLoader {
+TileFactory & TileSetN::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
+    auto itr = m_factory_map.find(tid);
+    if (itr != m_factory_map.end()) {
+        throw RtError{"TileSet::insert_factory: tile id already assigned a "
+                      "factory. Only one factory is permitted per id."};
+    }
+    auto & factory = *(m_factory_map[tid] = std::move(uptr));
+    factory.set_shared_texture_information(m_texture, m_texture_size, m_tile_size);
+    return factory;
+}
+
+class TranslatableTileFactory : public TileFactory {
 public:
     void setup(Vector2I, tinyxml2::XMLElement * properties, Platform::ForLoaders &) override {
         // eugh... having to run through elements at a time
@@ -328,7 +355,7 @@ protected:
     Entity make_entity(Platform::ForLoaders & platform, Vector2I tile_loc,
                        SharedCPtr<RenderModel> model_ptr) const
     {
-        return TileLoader::make_entity(platform,
+        return TileFactory::make_entity(platform,
             m_translation + grid_position_to_v3(tile_loc), model_ptr);
     }
 
@@ -349,19 +376,8 @@ CardinalDirections cardinal_direction_from(const char * str) {
     if (seq("sw")) return Cd::sw;
     throw InvArg{""};
 }
-#if 0
-YRotation corner_direction_to_rotation(const char * dir_) {
-    using Cd = CardinalDirections;
-    switch (cardinal_direction_from(dir_)) {
-    case Cd::nw: return YRotation{0};
-    case Cd::sw: return YRotation{k_pi*0.5};
-    case Cd::se: return YRotation{k_pi};
-    case Cd::ne: return YRotation{k_pi*1.5};
-    default: throw InvArg{""};
-    }
-}
-#endif
-class WallTile final : public TranslatableTile {
+
+class WallTileFactory final : public TranslatableTileFactory {
 public:
 
     static void set_shared_texture_coordinates(const std::array<Vector2, 4> & coords)
@@ -442,7 +458,7 @@ private:
     static std::array<Vector2, 4> s_wall_texture_coords;
 };
 
-class SlopesBasedModelTile : public TranslatableTile {
+class SlopesBasedModelTile : public TranslatableTileFactory {
 protected:
 
     virtual Slopes model_tile_elevations() const = 0;
@@ -451,17 +467,27 @@ protected:
         { return translate_y(model_tile_elevations(), translation().y); }
 
     Entity make_entity(Platform::ForLoaders & platform, Vector2I r) const {
-        return TranslatableTile::make_entity(platform, r, m_render_model);
+        return TranslatableTileFactory::make_entity(platform, r, m_render_model);
     }
 
     void add_triangles_based_on_model_details(Vector2I gridloc, TrianglesAdder & adder) const {
-        TileLoader::add_triangles_based_on_model_details(gridloc, translation(), model_tile_elevations(), adder);
+        TileFactory::add_triangles_based_on_model_details(gridloc, translation(), model_tile_elevations(), adder);
     }
 
     void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) override {
-        TranslatableTile::setup(loc_in_ts, properties, platform);
+        TranslatableTileFactory::setup(loc_in_ts, properties, platform);
         m_render_model = make_render_model_with_common_texture_positions(
             platform, model_tile_elevations(), loc_in_ts);
+    }
+
+    void operator ()
+        (EntityAndTrianglesAdder & adder,
+         const NeighborInfo & ninfo,
+         Platform::ForLoaders & platform) const final
+    {
+        auto r = ninfo.tile_location();
+        add_triangles_based_on_model_details(r, adder.triangle_adder());
+        adder.add_entity(make_entity(platform, r));
     }
 
 private:
@@ -486,20 +512,7 @@ public:
     }
 
 protected:
-#   if 0
-    virtual YRotation direction_to_rotation(const char *) const = 0;
-#   endif
     virtual void set_direction(const char *) = 0;
-
-    void operator ()
-        (EntityAndTrianglesAdder & adder,
-         const NeighborInfo & ninfo,
-         Platform::ForLoaders & platform) const final
-    {
-        auto r = ninfo.tile_location();
-        add_triangles_based_on_model_details(r, adder.triangle_adder());
-        adder.add_entity(make_entity(platform, r));
-    }
 
     void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) final {
         if (const auto * val = find_property("direction", properties)) {
@@ -516,11 +529,6 @@ protected:
     virtual Slopes non_rotated_slopes() const = 0;
 
 private:
-#   if 0
-    YRotation direction_to_rotation(const char * val) const final {
-        return corner_direction_to_rotation(val);
-    }
-#   endif
     Slopes model_tile_elevations() const final
         { return m_slopes; }
 
@@ -542,17 +550,17 @@ private:
 
 };
 
-class InRamp final : public CornerRamp {
+class InRampTileFactory final : public CornerRamp {
     Slopes non_rotated_slopes() const final
         { return Slopes{0, 1, 1, 1, 0}; }
 };
 
-class OutRamp final : public CornerRamp {
+class OutRampTileFactory final : public CornerRamp {
     Slopes non_rotated_slopes() const final
         { return Slopes{0, 0, 0, 0, 1}; }
 };
 
-class TwoRamp final : public Ramp {
+class TwoRampTileFactory final : public Ramp {
     Slopes model_tile_elevations() const final
         { return m_slopes; }
 
@@ -570,48 +578,25 @@ class TwoRamp final : public Ramp {
         } ();
         m_slopes = half_pi_rotations(k_non_rotated_slopes, n);
     }
-#   if 0
-    YRotation direction_to_rotation(const char * val) const final {
-        using Cd = CardinalDirections;
-        switch (cardinal_direction_from(val)) {
-        case Cd::n: return YRotation{-0};
-        case Cd::w: return YRotation{-k_pi*0.5};
-        case Cd::s: return YRotation{-k_pi};
-        case Cd::e: return YRotation{-k_pi*1.5};
-        default: throw InvArg{""};
-        }
-    }
-#   endif
     Slopes m_slopes;
 };
 
-class FlatTile final : public SlopesBasedModelTile {
-
+class FlatTileFactory final : public SlopesBasedModelTile {
     Slopes model_tile_elevations() const final
         { return Slopes{0, 0, 0, 0, 0}; }
-
-    void operator ()
-        (EntityAndTrianglesAdder & adder,
-         const NeighborInfo & ninfo,
-         Platform::ForLoaders & platform) const final
-    {
-        auto r = ninfo.tile_location();
-        add_triangles_based_on_model_details(r, adder.triangle_adder());
-        adder.add_entity(make_entity(platform, r));
-    }
 };
 
-/* static */ UniquePtr<TileLoader> tileset_factory
+/* static */ UniquePtr<TileFactory> make_tileset_factory
     (const char * type)
 {
-    using TlPtr = UniquePtr<TileLoader>;
-    using FnPtr = UniquePtr<TileLoader>(*)();
+    using TlPtr = UniquePtr<TileFactory>;
+    using FnPtr = UniquePtr<TileFactory>(*)();
     using std::make_pair;
     static const std::map<std::string, FnPtr> k_factory_map {
-        make_pair("flat"    , [] { return TlPtr{make_unique<FlatTile>()}; }),
-        make_pair("ramp"    , [] { return TlPtr{make_unique<TwoRamp >()}; }),
-        make_pair("in-ramp" , [] { return TlPtr{make_unique<InRamp  >()}; }),
-        make_pair("out-ramp", [] { return TlPtr{make_unique<OutRamp >()}; }),
+        make_pair("flat"    , [] { return TlPtr{make_unique<FlatTileFactory>()}; }),
+        make_pair("ramp"    , [] { return TlPtr{make_unique<TwoRampTileFactory >()}; }),
+        make_pair("in-ramp" , [] { return TlPtr{make_unique<InRampTileFactory  >()}; }),
+        make_pair("out-ramp", [] { return TlPtr{make_unique<OutRampTileFactory >()}; }),
     };
     auto itr = k_factory_map.find(type);
     if (itr == k_factory_map.end()) return nullptr;
@@ -622,9 +607,11 @@ using tinyxml2::XMLDocument;
 
 class TiledMapPreloader final : public Preloader {
 public:
-    TiledMapPreloader(const char * filename, Platform::ForLoaders & platfrom):
+    TiledMapPreloader(const char * filename, Vector2I map_offset,
+                      Platform::ForLoaders & platfrom):
         m_file_contents(platfrom.promise_file_contents(filename)),
-        m_platform(platfrom)
+        m_platform(platfrom),
+        m_map_offset(map_offset)
     {}
 
     // another thing... maps could/should potentially be reloaded from the
@@ -640,24 +627,25 @@ public:
         }}
         if (!m_file_contents && !m_tileset_contents) {
             Grid<int> layer = std::move(m_layer);
-            TileSet tileset = std::move(m_tileset);
+            auto tileset = std::move(m_tileset);
             return Loader::make_loader(
-                [layer = std::move(layer), tileset = std::move(tileset)]
+                [layer = std::move(layer), tileset = std::move(tileset), this]
                 (Loader::Callbacks & callbacks)
             {
                 auto e = Entity::make_sceneless_entity();
                 callbacks.add_to_scene(e);
                 e.add<std::vector<TriangleLinks>>() =
                     add_triangles_and_link(layer.width(), layer.height(),
-                    [&] (Vector2I r, TrianglesAdder adder)
+                    [&, this] (Vector2I r, TrianglesAdder adder)
                 {
-                    auto itr = tileset.find(layer(r) - 1);
-                    if (itr == tileset.end()) return;
-                    auto & uptr = itr->second;
+                    auto * factory = tileset(layer(r) - 1);
+                    if (!factory) return;
+
                     EntityAndTrianglesAdder etadder{callbacks, adder};
-                    (*uptr)(etadder, TileLoader::NeighborInfo{tileset, layer, r}, callbacks.platform());
+                    (*factory)(etadder,
+                            TileFactory::NeighborInfo{tileset, layer, r, m_map_offset},
+                            callbacks.platform());
                 });
-                TileLoader::set_common_texture(nullptr);
             });
         }
         return nullptr;
@@ -708,8 +696,8 @@ private:
         document.Parse(tileset_contents.c_str());
         // this part is much harder
         // we're not quite at a complete picture of the new map, but close
-        TileSet & tileset = m_tileset;
-        auto ts_el = document.RootElement();//->FirstChildElement("tileset");
+        auto & tileset = m_tileset;
+        auto ts_el = document.RootElement();
         int tile_width = ts_el->IntAttribute("tilewidth");
         int tile_height = ts_el->IntAttribute("tileheight");
         auto to_ts_loc = [ts_el]() {
@@ -720,21 +708,22 @@ private:
         auto image_el = ts_el->FirstChildElement("image");
         int tx_width = image_el->IntAttribute("width");
         int tx_height = image_el->IntAttribute("height");
-        TileLoader::set_tileset_size_info(Vector2{tx_width, tx_height}, Vector2{tile_width, tile_height});
+
         auto tx = m_platform.make_texture();
         (*tx).load_from_file(image_el->Attribute("source"));
-        TileLoader::set_common_texture(tx);
+
+        tileset.set_texture_information(tx, Size2{tile_width, tile_height}, Size2{tx_width, tx_height});
         for (auto itr = ts_el->FirstChildElement("tile"); itr;
              itr = itr->NextSiblingElement("tile"))
         {
             int id = itr->IntAttribute("id");
-            auto tileset_tile = tileset_factory(itr->Attribute("type"));
-            if (!tileset_tile)
+            auto tileset_factory = make_tileset_factory(itr->Attribute("type"));
+            if (!tileset_factory)
                 continue;
-            tileset[id] = std::move(tileset_tile);
-            tileset[id]->setup(to_ts_loc(id),
-                itr->FirstChildElement("properties")->FirstChildElement("property"),
-                m_platform);
+            tileset.insert_factory(std::move(tileset_factory), id)
+                .setup(to_ts_loc(id),
+                       itr->FirstChildElement("properties")->FirstChildElement("property"),
+                       m_platform);
         }
     }
 
@@ -742,13 +731,14 @@ private:
     FutureString m_tileset_contents;
     Grid<int> m_layer;
     Platform::ForLoaders & m_platform;
-    TileSet m_tileset;
+    TileSetN m_tileset;
+    Vector2I m_map_offset;
 };
 
-}
+} // end of <anonymous> namespace
 
 UniquePtr<Preloader> make_tiled_map_preloader
-    (const char * filename, Platform::ForLoaders & platform)
+    (const char * filename, Vector2I map_offset, Platform::ForLoaders & platform)
 {
-    return make_unique<TiledMapPreloader>(filename, platform);
+    return make_unique<TiledMapPreloader>(filename, map_offset, platform);
 }

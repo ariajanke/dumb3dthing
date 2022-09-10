@@ -30,12 +30,11 @@ bool run_systems_tests() {
     TestSuite suite;
     suite.start_series("Systems Tests");
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
-    mark(suite).test([] {
+    set_context(suite, [](TestSuite & suite, Unit & unit) {
         using std::get;
         using VtoD = VelocitiesToDisplacement;
-        auto a = make_shared<Triangle>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
-        auto b = make_shared<Triangle>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
-        auto pdriver = [a, b] {
+
+        auto make_pdriver = [] (SharedPtr<const Triangle> a, SharedPtr<const Triangle> b) {
             // need links too
             TriangleLinks links_a{a};
             TriangleLinks links_b{b};
@@ -46,23 +45,39 @@ bool run_systems_tests() {
             pdriver->add_triangle(links_a);
             pdriver->add_triangle(links_b);
             return pdriver;
-        } ();
+        };
 
-        Vector displacement{-0.076216, -0.00069444, -0.00069444};
-        PpState state{PpOnSegment{a, true, Vector2{1.4142019007112767, 0.842617146393735}, Vector2{}}};
-        get<PpOnSegment>(state).displacement = VtoD::find_on_segment_displacement(get<PpOnSegment>(state), displacement);
         auto test_handler = point_and_plane::EventHandler::make_test_handler();
 
-        // what should displacement be after the transfer?
-        state = (*pdriver)(state, *test_handler);
-        get<PpOnSegment>(state).displacement = VtoD::find_on_segment_displacement(get<PpOnSegment>(state), displacement);
-        auto displc = segment_displacement_to_v3(state);
-        // now I need to reverse it...
+        unit.start(mark(suite), [&] {
+            auto a = make_shared<Triangle>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
+            auto b = make_shared<Triangle>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
+            auto pdriver = make_pdriver(a, b);
+            Vector displacement{-0.076216, -0.00069444, -0.00069444};
+            PpState state{PpOnSegment{a, true, Vector2{1.4142019007112767, 0.842617146393735}, Vector2{}}};
+            get<PpOnSegment>(state).displacement = VtoD::find_on_segment_displacement(get<PpOnSegment>(state), displacement);
 
-        state = (*pdriver)(state, *test_handler);
+            // what should displacement be after the transfer?
+            state = (*pdriver)(state, *test_handler);
+            get<PpOnSegment>(state).displacement = VtoD::find_on_segment_displacement(get<PpOnSegment>(state), displacement);
+            auto displc = segment_displacement_to_v3(state);
+            // now I need to reverse it...
 
-        are_very_close(displc, Vector{displacement.x, 0, displacement.z});
-        return test(get<PpOnSegment>(state).segment != a);
+            state = (*pdriver)(state, *test_handler);
+
+            are_very_close(displc, Vector{displacement.x, 0, displacement.z});
+            return test(get<PpOnSegment>(state).segment != a);
+        });
+        unit.start(mark(suite), [&] {
+            // inverts correctly
+            auto a = make_shared<Triangle>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, 1});
+            auto b = make_shared<Triangle>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, -1});
+            PpOnSegment a_state{a, true, a->closest_point(Vector{ 0.5, 0, 0.1 }),
+                        a->closest_point(Vector{ 0.5, 0, -0.1 }) - a->closest_point(Vector{ 0.5, 0, 0.1 })};
+            auto pdriver = make_pdriver(a, b);
+            auto res = std::get<PpOnSegment>((*pdriver)(PpState{a_state}, *test_handler));
+            return test(!res.invert_normal);
+        });
     });
     mark(suite).test([] {
         using VtoD = VelocitiesToDisplacement;

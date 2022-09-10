@@ -285,7 +285,7 @@ State DriverComplete::operator ()
             rem_displc, tracker.displacement, k_caller_name);
         if (does_transfer) {
             return OnSegment{
-                transfer.target, bool(transfer.inverts),
+                transfer.target, transfer.inverts,
                 transfer.target->closest_contained_point(outside_pt), rem_displc};
         }
         OnSegment rv{tracker};

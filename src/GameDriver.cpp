@@ -62,9 +62,7 @@ public:
 
 private:
     void initial_load(LoaderCallbacks &) final;
-#   if 0
-    Loader::LoaderTuple initial_load(Platform::ForLoaders &) final;
-#   endif
+
     void update_(Real seconds) final;
 
     point_and_plane::Driver & ppdriver() final
@@ -72,9 +70,6 @@ private:
 
     Vector m_camera_target;
     UniquePtr<point_and_plane::Driver> m_ppdriver = point_and_plane::Driver::make_driver();
-#   if 0
-    Entity m_player;
-#   endif
     TimeControl m_time_controller;
 };
 
@@ -117,59 +112,10 @@ void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
         }
     }
 
-    // not going to worry about wiping old stuff for now...
-
-#   if 0
-    UniquePtr<Loader> loader;
-    for (auto & trigger : m_triggers) {
-        auto uptr = (*trigger)(m_scene);
-        if (!uptr) continue;
-        if (loader) {
-            // emit warning
-        } else {
-            loader = std::move(uptr);
-        }
-    }
-    if (loader) {
-        if (loader->reset_dynamic_systems()) {
-            m_singles.clear();
-            m_triggers.clear();
-        }
-
-        // wipe entities requesting deletion from triggers before loads
-        m_scene.update_entities();
-        handle_loader_tuple((*loader)(m_player_entities, callbacks));
-    }
-#   endif
     m_scene.update_entities();
     callbacks.render_scene(m_scene);
 }
-#if 0
-/* private */ void Driver::handle_loader_tuple(Loader::LoaderTuple && tup) {
-    using std::get;
-    auto player_ents = get<PlayerEntities>(tup);
-    auto & ents = get<EntityVec>(tup);
-    auto & singles = get<SingleSysVec>(tup);
-    auto & triggers = get<TriggerSysVec>(tup);
-    auto optionally_replace = [this](Entity & e, Entity new_) {
-        if (!new_) return;
-        if (e) e.request_deletion();
-        e = new_;
 
-        m_scene.add_entity(e);
-    };
-    optionally_replace(m_player_entities.physical, player_ents.physical);
-    optionally_replace(m_player_entities.renderable, player_ents.renderable);
-
-    m_scene.add_entities(ents);
-    for (auto & single : singles) {
-        m_singles.emplace_back(std::move(single));
-    }
-    for (auto & trigger : triggers) {
-        m_triggers.emplace_back(std::move(trigger));
-    }
-}
-#endif
 namespace {
 
 // ------------------------------ <Messy Space> -------------------------------
@@ -179,10 +125,11 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 //  :eyes:
     make_bezier_strip_model
     (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     Platform::Callbacks & callbacks,
+     Platform::ForLoaders & platform,
      SharedPtr<Texture> texture, int resolution,
      Vector2 texture_offset, Real texture_scale)
 {
+    std::vector<SharedPtr<const TriangleSegment>> triangles;
     std::vector<Vertex> verticies;
     std::vector<int> elements;
     int el = 0;
@@ -193,18 +140,33 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
         verticies.emplace_back(b.point(), texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
         verticies.emplace_back(c.point(), texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
 
+        triangles.emplace_back(make_shared<TriangleSegment>(a.point(), b.point(), c.point()));
+
         elements.emplace_back(el++);
         elements.emplace_back(el++);
         elements.emplace_back(el++);
     }
-    auto mod = callbacks.make_render_model();
+
+    std::vector<TriangleLinks> links;
+    if (triangles.size() > 1) {
+        links.emplace_back( triangles.front() );
+        for (auto itr = triangles.begin() + 1; itr != triangles.end(); ++itr) {
+
+            links.back().attempt_attachment_to( *itr );
+            links.emplace_back( *itr );
+            links.back().attempt_attachment_to( *(itr - 1) );
+        }
+    }
+
+    auto mod = platform.make_render_model();
     mod->load<int>(verticies, elements);
 
-    auto ent = callbacks.make_renderable_entity();
+    auto ent = platform.make_renderable_entity();
     ent.add<
-        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain
+        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain,
+        std::vector<TriangleLinks>
     >() = make_tuple(
-        std::move(mod), texture, VisibilityChain{}
+        std::move(mod), texture, VisibilityChain{}, std::move(links)
     );
     return ent;
 }
@@ -235,6 +197,22 @@ Entity make_sample_bezier_model(Platform::Callbacks & callbacks, SharedPtr<Textu
     return rv;
 }
 
+class CircleLine final {
+public:
+    CircleLine(const Tuple<Vector, Vector, Vector> & pts_):
+        m_points(pts_) {}
+
+    Vector operator () (Real t) const noexcept {
+
+    }
+
+private:
+    const Tuple<Vector, Vector, Vector> & m_points;
+};
+
+Entity make_loop(Platform::Callbacks & callbacks,
+                 const Tuple<Vector, Vector, Vector> & tup);
+
 Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
 
     static constexpr const Real k_y = 10;
@@ -257,7 +235,7 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
     return rv;
 }
 
-static constexpr const Vector k_player_start{2.6, 3.1, -1.6};
+static constexpr const Vector k_player_start{4.5, 5.1, -18};
 
 // model entity, physical entity
 Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
@@ -288,10 +266,10 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
         mk_v(-1, -1,  1, k_tr), // 1: tnw
         mk_v(-1,  1,  1, k_bl), // 2: tsw
         mk_v( 1,  1,  1, k_br), // 3: tse
-        mk_v(-1,  1, -1, 0), // 4: bsw
-        mk_v( 1,  1, -1, 0), // 5: bse
-        mk_v( 1, -1, -1, 0), // 6: bne
-        mk_v(-1, -1, -1, 0)  // 7: bnw
+        mk_v(-1,  1, -1, k_bl), // 4: bsw
+        mk_v( 1,  1, -1, k_br), // 5: bse
+        mk_v( 1, -1, -1, k_tl), // 6: bne
+        mk_v(-1, -1, -1, k_tr)  // 7: bnw
     };
 
     std::array<unsigned, 3*2*6> elements = {
@@ -322,26 +300,29 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
 
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
-
+#   if 1
+    Grid<bool> loaded_maps;
+    loaded_maps.set_size(3, 3, false);
     physics_ent.add<UniquePtr<PreloadSpawner>>() = PreloadSpawner
-        ::make([physics_ent, &platform]
-        (const PreloadSpawner::Adder & adder)
+        ::make([physics_ent, &platform, loaded_maps = std::move(loaded_maps)]
+        (const PreloadSpawner::Adder & adder) mutable
     {
-        // the call to this function is deferred, it's invoked inside a system
-        // in here there could be logic for dynamically loading maps based on
-        // player location
+        using namespace point_and_plane;
+        auto player_loc = location_of(physics_ent.get<PpState>());
+        auto gposv3 =
+            (Vector{0.5, 0, -0.5} + player_loc)*
+            ( 1. / 40. );
+        Vector2I gpos{ int(std::floor(gposv3.x)), int(std::floor(-gposv3.z)) };
+        if (!loaded_maps.has_position(gpos)) return;
+        if (loaded_maps(gpos)) return;
+        loaded_maps(gpos) = true;
 
-        // for now, just get the sample map preloader
+        adder.add_preloader(make_tiled_map_preloader("test-map2.tmx", gpos*40, platform));
 
-        // perhaps I should take this as being excuted during "entity sync time"
-        adder.add_preloader(make_tiled_map_preloader("test-map2.tmx", platform));
-
-        // prevents second call
-        Entity pent{physics_ent};
-        pent.remove<UniquePtr<PreloadSpawner>>();
-        pent.add<Velocity>();
+        // pent.remove<UniquePtr<PreloadSpawner>>();
+        physics_ent.ensure<Velocity>();
     });
-
+#   endif
 #   endif
     return make_tuple(model_ent, physics_ent);
 }
@@ -385,41 +366,59 @@ void GameDriverComplete::press_key(KeyControl ky) {
     player_entities().physical.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
-        //setup();
+        player_entities().physical.get<PpState>() = PpInAir{k_player_start, Vector{}};
     }
 }
 
 void GameDriverComplete::release_key(KeyControl ky)
     { player_entities().physical.get<PlayerControl>().release(ky); }
 
-void GameDriverComplete::initial_load(LoaderCallbacks & callbacks)
-#if 0
-Loader::LoaderTuple GameDriverComplete::initial_load
-    (Platform::ForLoaders & callbacks)
-#endif
-{
+void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
+#   if 0
     std::vector<Entity> entities;
     std::vector<SharedPtr<TriangleSegment>> triangles;
-
     auto tgg_ptr = TileGraphicGenerator{triangles, callbacks};
     tgg_ptr.setup();
     auto [tlinks] = load_map_graphics(tgg_ptr, load_map_cell(k_layout2, CharToCell::default_instance())); {}
-    auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
-    callbacks.platform().set_camera_entity(EntityRef{physical});
 
     // v kinda icky v
-#   if 0
-    m_player = physical;
-#   endif
     m_ppdriver->clear_all_triangles();
     m_ppdriver->add_triangles(tlinks);
-
+#   endif
+    auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
+    callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.set_player_entities(PlayerEntities{physical, renderable});
     callbacks.add_to_scene(physical);
     callbacks.add_to_scene(renderable);
-
 #   if 0
-    return make_tuple(PlayerEntities{physical, renderable}, ents, SingleSysVec{}, TriggerSysVec{});
+    // let's... head north... starting 0.5+ ues north
+    auto west = make_tuple(
+        Vector{  3,  3, -20      },
+        Vector{  3,  3,  0.5     },
+        Vector{  3,  3,  0.5 - 19},
+        Vector{2.5, -55,  0.5 - 19},
+        Vector{2.5, -55,  0.5 + 19},
+        Vector{  6,  3,  0.5 + 19},
+        Vector{  6,  3,  0.5     },
+        Vector{  6,  3,  20      });
+
+    auto east = make_tuple(
+        Vector{  6,  3, -20      },
+        Vector{  6,  3,  0.5     },
+        Vector{  6,  3,  0.5 - 19},
+        Vector{8.5, -55,  0.5 - 19},
+        Vector{8.5, -55,  0.5 + 19},
+        Vector{  9,  3,  0.5 + 19},
+        Vector{  9,  3,  0.5     },
+        Vector{  9,  3,  20      });
+
+    auto texture = callbacks.platform().make_texture();
+    texture->load_from_file("ground.png");
+    auto bezent = make_bezier_strip_model(
+        west, east, callbacks.platform(), texture, 64, Vector2{0, 0}, 1. / 3.);
+    m_ppdriver->add_triangles(bezent.get<std::vector<TriangleLinks>>());
+    bezent.remove<std::vector<TriangleLinks>>();
+    callbacks.add_to_scene(bezent);
 #   endif
 }
 
