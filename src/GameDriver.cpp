@@ -107,7 +107,7 @@ void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
             ppdriver().add_triangles(*vec);
             // ecs has a bug...
             // the following line fails because active entities aren't exactly
-            // in order...
+            // in order... (unless I call "update_entities" before
             Entity{ent}.request_deletion();
         }
     }

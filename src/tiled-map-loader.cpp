@@ -68,13 +68,11 @@ public:
     }
 
 private:
-    bool is_at_end() const noexcept {
-        return m_beg == m_end;
-    }
+    bool is_at_end() const noexcept
+        { return m_beg == m_end; }
 
-    void update_end_segment() {
-        m_segment_end = std::find_if(m_beg, m_end, m_splitter_f);
-    }
+    void update_end_segment()
+        { m_segment_end = std::find_if(m_beg, m_end, m_splitter_f); }
 
     void move_to_next() {
         m_beg = m_segment_end;
@@ -86,7 +84,7 @@ private:
     WithAdditionalFunc m_with_f;
 };
 
-constexpr const auto is_comma = [](char c) { return c == ','; };//  bool is_comma(char c) { return c == ','; }
+constexpr const auto is_comma = [](char c) { return c == ','; };
 #if 0
 constexpr const auto is_whitespace = [](char c)
     { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; };
@@ -127,10 +125,14 @@ enum class CardinalDirections {
 
 class TileFactory;
 
-using TileSet = std::unordered_map<int, UniquePtr<TileFactory>>;
 using Size2 = cul::Size2<Real>;
-class TileSetN final {
+class TileSet final {
 public:
+    using ConstTileSetPtr = std::shared_ptr<const TileSet>;
+    using TileSetPtr      = std::shared_ptr<TileSet>;
+
+    void load_information(Platform::ForLoaders &, tinyxml2::XMLElement * tileset);
+
     void set_texture_information
         (SharedPtr<const Texture> texture, const Size2 & tile_size,
          const Size2 & texture_size)
@@ -149,13 +151,135 @@ public:
         return itr->second.get();
     }
 
+    int total_tile_count() const { return m_tile_count; }
+
 private:
     std::map<int, UniquePtr<TileFactory>> m_factory_map;
 
     SharedPtr<const Texture> m_texture;
     Size2 m_texture_size;
     Size2 m_tile_size;
+    int m_tile_count = 0;
 };
+
+// straight up yoinked from tmap
+class GidTidTranslator final {
+public:
+    using ConstTileSetPtr = TileSet::ConstTileSetPtr;
+    using TileSetPtr      = TileSet::TileSetPtr;
+
+    GidTidTranslator() {}
+
+    GidTidTranslator(const std::vector<TileSetPtr> & tilesets, const std::vector<int> & startgids);
+
+    std::pair<int, ConstTileSetPtr> gid_to_tid(int gid) const;
+
+    std::pair<int, TileSetPtr> gid_to_tid(int gid);
+
+    int tid_to_gid(int tid, ConstTileSetPtr tileset) const;
+
+    void swap(GidTidTranslator &);
+
+private:
+    template <bool kt_is_const>
+    struct GidAndTileSetPtrImpl {
+        using TsPtrType = typename std::conditional_t<kt_is_const, ConstTileSetPtr, TileSetPtr>;
+        GidAndTileSetPtrImpl() {}
+        GidAndTileSetPtrImpl(int sid, const TsPtrType & ptr): starting_id(sid), tileset(ptr) {}
+        int starting_id = 0;
+        TsPtrType tileset;
+    };
+
+    using GidAndTileSetPtr      = GidAndTileSetPtrImpl<false>;
+    using GidAndConstTileSetPtr = GidAndTileSetPtrImpl<true>;
+
+    static bool order_by_gids(const GidAndTileSetPtr &, const GidAndTileSetPtr &);
+    static bool order_by_ptrs(const GidAndConstTileSetPtr &, const GidAndConstTileSetPtr &);
+
+    std::vector<GidAndConstTileSetPtr> m_ptr_map;
+    std::vector<GidAndTileSetPtr> m_gid_map;
+    int m_gid_end = 0;
+};
+
+GidTidTranslator::GidTidTranslator
+    (const std::vector<TileSetPtr> & tilesets, const std::vector<int> & startgids)
+{
+    if (tilesets.size() != startgids.size()) {
+        throw RtError("Bug in library, GidTidTranslator constructor expects "
+                      "both passed containers to be equal in size.");
+    }
+    m_gid_map.reserve(tilesets.size());
+    for (std::size_t i = 0; i != tilesets.size(); ++i) {
+        m_gid_map.emplace_back(startgids[i], tilesets[i]);
+    }
+    if (!startgids.empty()) {
+        m_gid_end = startgids.back() + tilesets.back()->total_tile_count();
+    }
+    m_ptr_map.reserve(m_gid_map.size());
+    for (auto & pair : m_gid_map) {
+        m_ptr_map.emplace_back( pair.starting_id, pair.tileset );
+    }
+
+    std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
+    std::sort(m_ptr_map.begin(), m_ptr_map.end(), order_by_ptrs);
+}
+
+std::pair<int, GidTidTranslator::ConstTileSetPtr> GidTidTranslator::gid_to_tid(int gid) const {
+    if (gid < 1 || gid >= m_gid_end) {
+        throw InvArg("Given gid is either the empty tile or not contained in "
+                     "this map; translatable gids: [1 " + std::to_string(m_gid_end)
+                     + ").");
+    }
+    GidAndTileSetPtr samp;
+    samp.starting_id = gid;
+    auto itr = std::upper_bound(m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
+    if (itr == m_gid_map.begin()) {
+        throw RtError("Library error: GidTidTranslator said that it owned a "
+                      "gid, but does not have a tileset for it.");
+    }
+    --itr;
+    assert(gid >= itr->starting_id);
+    return std::make_pair(gid - itr->starting_id, itr->tileset);
+}
+
+std::pair<int, GidTidTranslator::TileSetPtr> GidTidTranslator::gid_to_tid(int gid) {
+    const auto & const_this = *this;
+    auto gv = const_this.gid_to_tid(gid);
+    return std::make_pair(gv.first, std::const_pointer_cast<TileSet>(gv.second));
+}
+
+int GidTidTranslator::tid_to_gid(int tid, ConstTileSetPtr tileset) const {
+    GidAndConstTileSetPtr samp;
+    samp.tileset = tileset;
+    auto itr = std::lower_bound(m_ptr_map.begin(), m_ptr_map.end(), samp, order_by_ptrs);
+    static constexpr const auto k_unowned_msg = "Map/layer does not own this tile set.";
+    if (itr == m_ptr_map.end()) {
+        throw RtError(k_unowned_msg);
+    } else if (itr->tileset != tileset) {
+        throw RtError(k_unowned_msg);
+    }
+    return tid + itr->starting_id;
+}
+
+void GidTidTranslator::swap(GidTidTranslator & rhs) {
+    m_ptr_map.swap(rhs.m_ptr_map);
+    m_gid_map.swap(rhs.m_gid_map);
+
+    std::swap(m_gid_end, rhs.m_gid_end);
+}
+
+/* private static */ bool GidTidTranslator::order_by_gids
+    (const GidAndTileSetPtr & lhs, const GidAndTileSetPtr & rhs)
+{ return lhs.starting_id < rhs.starting_id; }
+
+/* private static */ bool GidTidTranslator::order_by_ptrs
+    (const GidAndConstTileSetPtr & lhs, const GidAndConstTileSetPtr & rhs)
+{
+    const void * lptr = lhs.tileset.get();
+    const void * rptr = rhs.tileset.get();
+    return std::less<const void *>()(lptr, rptr);
+}
+
 
 class EntityAndTrianglesAdder final {
 public:
@@ -183,9 +307,9 @@ public:
     class NeighborInfo final {
     public:
         NeighborInfo
-            (const TileSetN & ts, const Grid<int> & layer,
+            (SharedPtr<const TileSet> ts, const Grid<int> & layer,
              Vector2I tilelocmap, Vector2I spawner_offset):
-            m_tileset(ts), m_layer(layer), m_loc(tilelocmap),
+            m_tileset(*ts), m_layer(layer), m_loc(tilelocmap),
             m_offset(spawner_offset) {}
 
         // +x second (east)
@@ -202,7 +326,7 @@ public:
 
         Vector2I tile_location_in_map() const { return m_loc; }
     private:
-        const TileSetN & m_tileset;
+        const TileSet & m_tileset;
         const Grid<int> & m_layer;
         Vector2I m_loc;
         Vector2I m_offset;
@@ -256,9 +380,8 @@ protected:
         return rv;
     }
 
-    static Vector grid_position_to_v3(Vector2I r) {
-        return Vector{r.x, 0, -r.y};
-    }
+    static Vector grid_position_to_v3(Vector2I r)
+        { return Vector{r.x, 0, -r.y}; }
 
     static const char * find_property(const char * name_, tinyxml2::XMLElement * properties) {
         for (auto itr = properties; itr; itr = itr->NextSiblingElement("property")) {
@@ -320,7 +443,41 @@ private:
     Size2 m_tile_size;
 };
 
-TileFactory & TileSetN::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
+/* static */ UniquePtr<TileFactory> make_tileset_factory(const char * type);
+
+void TileSet::load_information(Platform::ForLoaders & platform, tinyxml2::XMLElement * tileset) {
+    int tile_width = tileset->IntAttribute("tilewidth");
+    int tile_height = tileset->IntAttribute("tileheight");
+    int tile_count = tileset->IntAttribute("tilecount");
+    auto to_ts_loc = [tileset] {
+        int columns = tileset->IntAttribute("columns");
+        return [columns] (int n) { return Vector2I{n % columns, n / columns}; };
+    } ();
+
+    auto image_el = tileset->FirstChildElement("image");
+    int tx_width = image_el->IntAttribute("width");
+    int tx_height = image_el->IntAttribute("height");
+
+    auto tx = platform.make_texture();
+    (*tx).load_from_file(image_el->Attribute("source"));
+
+    set_texture_information(tx, Size2{tile_width, tile_height}, Size2{tx_width, tx_height});
+    m_tile_count = tile_count;
+    for (auto itr = tileset->FirstChildElement("tile"); itr;
+         itr = itr->NextSiblingElement("tile"))
+    {
+        int id = itr->IntAttribute("id");
+        auto tileset_factory = make_tileset_factory(itr->Attribute("type"));
+        if (!tileset_factory)
+            continue;
+        insert_factory(std::move(tileset_factory), id)
+            .setup(to_ts_loc(id),
+                   itr->FirstChildElement("properties")->FirstChildElement("property"),
+                   platform);
+    }
+}
+
+TileFactory & TileSet::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
     auto itr = m_factory_map.find(tid);
     if (itr != m_factory_map.end()) {
         throw RtError{"TileSet::insert_factory: tile id already assigned a "
@@ -593,7 +750,7 @@ class FlatTileFactory final : public SlopesBasedModelTile {
     using FnPtr = UniquePtr<TileFactory>(*)();
     using std::make_pair;
     static const std::map<std::string, FnPtr> k_factory_map {
-        make_pair("flat"    , [] { return TlPtr{make_unique<FlatTileFactory>()}; }),
+        make_pair("flat"    , [] { return TlPtr{make_unique<FlatTileFactory    >()}; }),
         make_pair("ramp"    , [] { return TlPtr{make_unique<TwoRampTileFactory >()}; }),
         make_pair("in-ramp" , [] { return TlPtr{make_unique<InRampTileFactory  >()}; }),
         make_pair("out-ramp", [] { return TlPtr{make_unique<OutRampTileFactory >()}; }),
@@ -621,29 +778,33 @@ public:
             do_content_load(m_file_contents->retrieve());
             m_file_contents = nullptr;
         }}
-        if (m_tileset_contents) { if (m_tileset_contents->is_ready()) {
-            do_tileset_load(m_tileset_contents->retrieve());
-            m_tileset_contents = nullptr;
-        }}
-        if (!m_file_contents && !m_tileset_contents) {
+        if (check_has_remaining_pending_tilesets()) return nullptr;
+        if (!m_file_contents && m_pending_tilesets.empty()) {
+            m_tidgid_translater = GidTidTranslator{m_tilesets, m_startgids};
             Grid<int> layer = std::move(m_layer);
-            auto tileset = std::move(m_tileset);
+            // this call is deferred, "this" instance could be long gone
+            auto tidgid_translator = std::move(m_tidgid_translater);
+            auto map_offset = m_map_offset;
+
             return Loader::make_loader(
-                [layer = std::move(layer), tileset = std::move(tileset), this]
+                [layer = std::move(layer),
+                 tidgid_translator = std::move(tidgid_translator),
+                 map_offset]
                 (Loader::Callbacks & callbacks)
             {
                 auto e = Entity::make_sceneless_entity();
                 callbacks.add_to_scene(e);
                 e.add<std::vector<TriangleLinks>>() =
                     add_triangles_and_link(layer.width(), layer.height(),
-                    [&, this] (Vector2I r, TrianglesAdder adder)
+                    [&] (Vector2I r, TrianglesAdder adder)
                 {
-                    auto * factory = tileset(layer(r) - 1);
+                    auto [tid, tileset] = tidgid_translator.gid_to_tid(layer(r)); {}
+                    auto * factory = (*tileset)(tid);
                     if (!factory) return;
 
                     EntityAndTrianglesAdder etadder{callbacks, adder};
                     (*factory)(etadder,
-                            TileFactory::NeighborInfo{tileset, layer, r, m_map_offset},
+                            TileFactory::NeighborInfo{tileset, layer, r, map_offset},
                             callbacks.platform());
                 });
             });
@@ -652,6 +813,28 @@ public:
     }
 
 private:
+    bool check_has_remaining_pending_tilesets() {
+        // no short circuting permitted, therefore STL sequence algorithms
+        // not appropriate
+        static constexpr const std::size_t k_no_idx = std::string::npos;
+        bool rv = m_pending_tilesets.empty();
+        for (auto & [idx, future] : m_pending_tilesets) {
+            if (!future->is_ready()) continue;
+            XMLDocument document;
+            auto contents = future->retrieve();
+            document.Parse(contents.c_str());
+            m_tilesets[idx]->load_information(m_platform, document.RootElement());
+            idx = k_no_idx;
+        }
+        auto end_itr = m_pending_tilesets.end();
+        m_pending_tilesets.erase(
+            std::remove_if(m_pending_tilesets.begin(), end_itr,
+                [](const Tuple<std::size_t, FutureString> & tup)
+                { return std::get<std::size_t>(tup) == k_no_idx; }),
+            end_itr);
+        return rv;
+    }
+
     void do_content_load(std::string contents) {
         XMLDocument document;
         if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
@@ -660,13 +843,13 @@ private:
         }
 
         auto * root = document.RootElement();
-        // don't wanna do a whole lot of checking...
-        // I'm going to make a *ton* of assumptions
-        auto itr = root->FirstChildElement("tileset");
-        assert(itr);
-        auto * source = itr->Attribute("source");
-        assert(source);
-        m_tileset_contents = m_platform.promise_file_contents(source);
+
+        for (auto itr = root->FirstChildElement("tileset"); itr;
+             itr = itr->NextSiblingElement("tileset"))
+        {
+            add_tileset(itr);
+        }
+
         auto * layer = root->FirstChildElement("layer");
         assert(layer);
 
@@ -691,48 +874,29 @@ private:
         }
     }
 
-    void do_tileset_load(std::string tileset_contents) {
-        XMLDocument document;
-        document.Parse(tileset_contents.c_str());
-        // this part is much harder
-        // we're not quite at a complete picture of the new map, but close
-        auto & tileset = m_tileset;
-        auto ts_el = document.RootElement();
-        int tile_width = ts_el->IntAttribute("tilewidth");
-        int tile_height = ts_el->IntAttribute("tileheight");
-        auto to_ts_loc = [ts_el]() {
-            int columns = ts_el->IntAttribute("columns");
-            return [columns] (int n) { return Vector2I{n % columns, n / columns}; };
-        } ();
-
-        auto image_el = ts_el->FirstChildElement("image");
-        int tx_width = image_el->IntAttribute("width");
-        int tx_height = image_el->IntAttribute("height");
-
-        auto tx = m_platform.make_texture();
-        (*tx).load_from_file(image_el->Attribute("source"));
-
-        tileset.set_texture_information(tx, Size2{tile_width, tile_height}, Size2{tx_width, tx_height});
-        for (auto itr = ts_el->FirstChildElement("tile"); itr;
-             itr = itr->NextSiblingElement("tile"))
-        {
-            int id = itr->IntAttribute("id");
-            auto tileset_factory = make_tileset_factory(itr->Attribute("type"));
-            if (!tileset_factory)
-                continue;
-            tileset.insert_factory(std::move(tileset_factory), id)
-                .setup(to_ts_loc(id),
-                       itr->FirstChildElement("properties")->FirstChildElement("property"),
-                       m_platform);
+    void add_tileset(tinyxml2::XMLElement * tileset) {
+        m_tilesets.emplace_back(make_shared<TileSet>());
+        m_startgids.emplace_back(tileset->IntAttribute("firstgid"));
+        if (const auto * source = tileset->Attribute("source")) {
+            m_pending_tilesets.emplace_back(
+                m_tilesets.size() - 1,
+                m_platform.promise_file_contents(source));
+        } else {
+            m_tilesets.back()->load_information(m_platform, tileset);
         }
     }
 
     FutureString m_file_contents;
-    FutureString m_tileset_contents;
+
     Grid<int> m_layer;
     Platform::ForLoaders & m_platform;
-    TileSetN m_tileset;
+
+    std::vector<SharedPtr<TileSet>> m_tilesets;
+    std::vector<int> m_startgids;
+
+    std::vector<Tuple<std::size_t, FutureString>> m_pending_tilesets;
     Vector2I m_map_offset;
+    GidTidTranslator m_tidgid_translater;
 };
 
 } // end of <anonymous> namespace
