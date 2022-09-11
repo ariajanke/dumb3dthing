@@ -49,6 +49,8 @@ using Vector    = cul::Vector3<Real>;
 using Vector2   = cul::Vector2<Real>;
 using Vector2I  = cul::Vector2<int>;
 
+using Size2 = cul::Size2<Real>;
+
 template <typename T>
 using SharedPtr = std::shared_ptr<T>;
 

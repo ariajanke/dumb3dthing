@@ -32,7 +32,7 @@
 #include <iostream>
 
 EM_JS(void, from_js_log_line, (const char * str), {
-    /* console.log(Module.UTF8ToString(str)); */
+    console.log(Module.UTF8ToString(str));
 });
 
 // ----------------------------- Texture Operations ---------------------------
@@ -332,7 +332,7 @@ public:
     void set_camera_entity(EntityRef ref) final
         { m_camera_ent = ref; }
 
-    FutureString promise_file_contents(const char * filename) final {
+    FutureStringPtr promise_file_contents(const char * filename) final {
         auto uptr = make_unique<WebFutureString>();
         from_js_promise_file_contents_as_string(uptr.get(), filename);
         return uptr;
@@ -379,20 +379,16 @@ EMSCRIPTEN_KEEPALIVE void to_js_update(float et_in_seconds) {
 }
 
 EMSCRIPTEN_KEEPALIVE void * to_js_prepare_content_buffer(void * handle, std::size_t length) {
+    from_js_log_line("[cpp]: prepared buffer for future");
     auto & future = *reinterpret_cast<WebFutureString *>(handle);
     future.set_aside(length);
     return future.data();
 }
 
 EMSCRIPTEN_KEEPALIVE void to_js_mark_fulfilled(void * handle) {
+    from_js_log_line("[cpp]: mark future as fulfilled");
     auto & future = *reinterpret_cast<WebFutureString *>(handle);
     future.mark_as_fulfilled();
 }
 
-// I have to set buffer length and copy seperately :/?
-#if 0
-EMSCRIPTEN_KEEPALIVE void to_js_fulfill_promised_string(void * handle, const char * contents) {
-    reinterpret_cast<WebFutureString *>(handle)->set(contents);
-}
-#endif
-}
+} // end of extern "C"

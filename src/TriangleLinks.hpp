@@ -62,6 +62,8 @@ public:
     bool is_sole_owner() const noexcept
         { return m_segment.use_count() == 1; }
 
+    int owner_count() const noexcept
+        { return m_segment.use_count(); }
 private:
     struct SideInfo final {
         WeakCPtr<Triangle> target;

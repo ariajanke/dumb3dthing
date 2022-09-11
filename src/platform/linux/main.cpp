@@ -223,7 +223,7 @@ public:
         }
     }
 
-    FutureString promise_file_contents(const char * filename) {
+    FutureStringPtr promise_file_contents(const char * filename) {
         class Impl final : public Future<std::string> {
         public:
             Impl(const char * filename):

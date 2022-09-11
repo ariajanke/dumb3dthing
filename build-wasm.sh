@@ -18,7 +18,7 @@ fi
 # sometimes I build to: /media/ramdisk/bin-wasm-app
 outputpath="bin"
 if [[ true ]]; then
-    emcc -O3 -std=c++17 \
+    emcc -O0 -std=c++17 \
         src/platform/wasm/wasm-main.cpp lib/tinyxml2/tinyxml2.cpp $(find src -maxdepth 2 | grep 'cpp\b') \
         --shell-file src/platform/wasm/shell.html \
         -Ilib/cul/inc -Ilib/ecs3/inc -Ilib/tinyxml2 \
@@ -31,7 +31,7 @@ if [[ true ]]; then
 fi
 
 # could use cp when debugging these modules
-if [[ ! true ]]; then
+if [[ true ]]; then
     cp src/platform/wasm/jsPlatform.js $outputpath"/out-jsPlatform.js"
     cp src/platform/wasm/driver.js $outputpath"/out-driver.js"
 else

@@ -157,14 +157,20 @@ void DriverComplete::clear_all_triangles() {
 }
 
 Driver & DriverComplete::update() {
+    m_triangles.clear();
+    int triangles_dropped = 0;
     for (auto itr = m_links.begin(); itr != m_links.end(); ) {
         if (itr->second.is_sole_owner()) {
             itr = m_links.erase(itr);
+            ++triangles_dropped;
         } else {
             ++itr;
         }
     }
-    m_triangles.clear();
+    if (triangles_dropped) {
+        std::cout << "Dropeed " << triangles_dropped << " triangles." << std::endl;
+    }
+
     m_triangles.reserve(m_links.size());
     for (auto & pair : m_links) {
         m_triangles.emplace_back(pair.second.segment_ptr());

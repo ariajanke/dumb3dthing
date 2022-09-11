@@ -78,7 +78,7 @@ Platform::Callbacks & Platform::null_callbacks() {
 
         void set_camera_entity(EntityRef) {}
 
-        FutureString promise_file_contents(const char *) final
+        FutureStringPtr promise_file_contents(const char *) final
             { throw RtError{k_cannot_promise_file_contents}; }
     };
     static Impl impl;
