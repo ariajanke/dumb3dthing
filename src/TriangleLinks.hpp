@@ -59,6 +59,9 @@ public:
             { return has_side_attached(side); });
     }
 
+    bool is_sole_owner() const noexcept
+        { return m_segment.use_count() == 1; }
+
 private:
     struct SideInfo final {
         WeakCPtr<Triangle> target;

@@ -22,5 +22,5 @@
 
 #include "platform/platform.hpp"
 
-UniquePtr<Preloader> make_tiled_map_preloader
+SharedPtr<Preloader> make_tiled_map_preloader
     (const char * filename, Vector2I map_offset, Platform::ForLoaders &);

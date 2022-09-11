@@ -33,6 +33,8 @@
 
 namespace {
 
+using namespace cul::exceptions_abbr;
+
 class TimeControl final {
 public:
     void press(KeyControl ky) {
@@ -73,6 +75,11 @@ private:
     TimeControl m_time_controller;
 };
 
+template <typename T>
+auto make_sole_owner_pred() {
+    return [](const SharedPtr<T> & ptr) { return ptr.use_count() == 1; };
+}
+
 } // end of <anonymous> namespace
 
 /* static */ UniquePtr<Driver> Driver::make_instance()
@@ -80,6 +87,7 @@ private:
 
 void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
     update_(seconds);
+#   if 0
     // "dynamic" systems
     for (auto & single : m_single_systems) {
         (*single)(m_scene);
@@ -111,9 +119,62 @@ void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
             Entity{ent}.request_deletion();
         }
     }
-
+#   else
+    bool had_any_task_activity = false;
+    auto callbacks_ = get_callbacks(callbacks);
+    {
+    auto enditr = m_every_frame_tasks.begin();
+    m_every_frame_tasks.erase(
+        std::remove_if(m_every_frame_tasks.begin(), enditr,
+                      make_sole_owner_pred<EveryFrameTask>()),
+        enditr);
+    }
+    for (auto & task : m_every_frame_tasks) {
+        task->on_every_frame(callbacks_, seconds);
+    }
+    for (auto & task : m_occasional_tasks) {
+        // v same bug?
+        m_scene.update_entities();
+        task->on_occasion(callbacks_);
+        had_any_task_activity = true;
+    }
+    for (auto & task : m_loader_tasks) {
+        (*task)(callbacks_);
+        had_any_task_activity = true;
+    }
+    m_occasional_tasks.clear();
+    m_loader_tasks.clear();
+    if (had_any_task_activity) {
+        on_entities_changed();
+    }
+#   endif
     m_scene.update_entities();
     callbacks.render_scene(m_scene);
+}
+
+/* protected */ void Driver::on_entities_changed() {
+    // I need to peak at new entities?
+    for (auto & ent : m_scene) {
+        if (auto * every_frame = ent.ptr<SharedPtr<EveryFrameTask>>()) {
+            m_every_frame_tasks.push_back(*every_frame);
+        }
+    }
+    // m_scene.update_entities();
+    // | this is super hacky
+    // v and (should prevent) double add triangles
+    struct AlreadyAdded final {};
+    for (auto & ent : m_scene) {
+        if (ent.has<AlreadyAdded>()) continue;
+        auto * vec = ent.ptr<std::vector<TriangleLinks>>();
+        if (!vec) continue;
+        ppdriver().add_triangles(*vec);
+        Entity{ent}.add<AlreadyAdded>();
+        // ecs has a bug...
+        // the following line fails because active entities aren't exactly
+        // in order... (unless I call "update_entities" before
+
+    }
+
 }
 
 namespace {
@@ -203,7 +264,7 @@ public:
         m_points(pts_) {}
 
     Vector operator () (Real t) const noexcept {
-
+        throw RtError{"unimplemented"};
     }
 
 private:
@@ -301,8 +362,51 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 #   if 1
-    Grid<bool> loaded_maps;
-    loaded_maps.set_size(3, 3, false);
+    {
+    using TeardownTaskFactoryPtr = Preloader::TeardownTaskFactoryPtr;
+    Grid<Tuple<bool, SharedPtr<Preloader>, SharedPtr<LoaderTask>, TeardownTaskFactoryPtr>> loaded_maps;
+    static const Tuple<bool, SharedPtr<Preloader>, SharedPtr<LoaderTask>, TeardownTaskFactoryPtr> k_def_grid_val = make_tuple(false, nullptr, nullptr, nullptr);
+    loaded_maps.set_size(3, 3, k_def_grid_val);
+    std::vector<Vector2I> loaded_positions;
+
+    physics_ent.add<SharedPtr<EveryFrameTask>>() =
+        EveryFrameTask::make(
+        [loaded_maps = std::move(loaded_maps), physics_ent, loaded_positions]
+        (TaskCallbacks & callbacks, Real) mutable
+    {
+        using namespace point_and_plane;
+        auto player_loc = location_of(physics_ent.get<PpState>());
+        auto gposv3 =
+            (Vector{0.5, 0, -0.5} + player_loc)*
+            ( 1. / 40. );
+        Vector2I gpos{ int(std::floor(gposv3.x)), int(std::floor(-gposv3.z)) };
+        if (!loaded_maps.has_position(gpos)) return;
+        // teardown task?
+        auto & [loaded, preloader, loadtask, teardown_factory] = loaded_maps(gpos); {}
+        if (loaded) return;
+        if (preloader) {
+            std::tie(loadtask, teardown_factory) = (*preloader)();
+            physics_ent.ensure<Velocity>();
+            if (loadtask) {
+                preloader = nullptr;
+            }
+        } else if (!loadtask) {
+            preloader = make_tiled_map_preloader("test-map2.tmx", gpos*40, callbacks.platform());
+            return;
+        }
+        callbacks.add(loadtask);
+        loaded = true;
+        loaded_positions.push_back(gpos);
+        int n_too_many = std::max(int(loaded_positions.size()) - 3, 0);
+        for (auto itr = loaded_positions.begin(); itr != loaded_positions.begin() + n_too_many; ++itr) {
+            auto & teardown_factory = std::get<TeardownTaskFactoryPtr>(loaded_maps(*itr));
+            callbacks.add((*teardown_factory)());
+            loaded_maps(*itr) = k_def_grid_val;
+        }
+        loaded_positions.erase(loaded_positions.begin(), loaded_positions.begin() + n_too_many);
+    });
+    }
+#   if 0
     physics_ent.add<UniquePtr<PreloadSpawner>>() = PreloadSpawner
         ::make([physics_ent, &platform, loaded_maps = std::move(loaded_maps)]
         (const PreloadSpawner::Adder & adder) mutable
@@ -322,6 +426,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
         // pent.remove<UniquePtr<PreloadSpawner>>();
         physics_ent.ensure<Velocity>();
     });
+#   endif
 #   endif
 #   endif
     return make_tuple(model_ent, physics_ent);
@@ -388,8 +493,8 @@ void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
     auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
     callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.set_player_entities(PlayerEntities{physical, renderable});
-    callbacks.add_to_scene(physical);
-    callbacks.add_to_scene(renderable);
+    callbacks.add(physical);
+    callbacks.add(renderable);
 #   if 0
     // let's... head north... starting 0.5+ ues north
     auto west = make_tuple(
@@ -448,9 +553,11 @@ void GameDriverComplete::update_(Real seconds) {
         }
         trans = location_of(state) + s*trans_from_parent.translation;
     },
+#   if 0
     [this] (UniquePtr<PreloadSpawner> & preload_spawner) {
         preload_spawner->check_for_preloaders(get_preload_checker());
     },
+#   endif
     PlayerControlToVelocity{seconds},
     AccelerateVelocities{seconds},
     VelocitiesToDisplacement{seconds},

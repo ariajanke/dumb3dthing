@@ -157,6 +157,13 @@ void DriverComplete::clear_all_triangles() {
 }
 
 Driver & DriverComplete::update() {
+    for (auto itr = m_links.begin(); itr != m_links.end(); ) {
+        if (itr->second.is_sole_owner()) {
+            itr = m_links.erase(itr);
+        } else {
+            ++itr;
+        }
+    }
     m_triangles.clear();
     m_triangles.reserve(m_links.size());
     for (auto & pair : m_links) {

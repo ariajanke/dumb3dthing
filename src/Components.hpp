@@ -21,6 +21,7 @@
 #pragma once
 
 #include "Defs.hpp"
+#include "platform/platform.hpp"
 
 // --------------------------- Graphical Components ---------------------------
 
@@ -167,6 +168,137 @@ private:
     bool m_jump_this_frame = false;
 };
 
+class EveryFrameTask;
+class OccasionalTask;
+class LoaderTask;
+
+class TaskCallbacks {
+public:
+    virtual ~TaskCallbacks() {}
+
+    virtual void add(const SharedPtr<EveryFrameTask> &) = 0;
+
+    virtual void add(const SharedPtr<OccasionalTask> &) = 0;
+
+    virtual void add(const SharedPtr<LoaderTask> &) = 0;
+
+    virtual void add(const Entity &) = 0;
+
+    virtual Platform::ForLoaders & platform() = 0;
+};
+
+// EveryFrameTasks are retained and ran every frame
+// when the scheduler/driver becomes the sole owner, it removes the task
+// without any further calls
+class EveryFrameTask {
+public:
+    using Callbacks = TaskCallbacks;
+
+    virtual ~EveryFrameTask() {}
+
+    virtual void on_every_frame(Callbacks &, Real et) = 0;
+
+    template <typename Func>
+    static SharedPtr<EveryFrameTask> make(Func && f_) {
+        class Impl final : public EveryFrameTask {
+        public:
+            Impl(Func && f_): m_f(std::move(f_)) {}
+
+            void on_every_frame(Callbacks & callbacks, Real et) final
+                { m_f(callbacks, et); }
+
+        private:
+            Func m_f;
+        };
+        return make_shared<Impl>(std::move(f_));
+    }
+};
+
+// An occasional task, is called only once, before being removed by the
+// scheduler/driver. It should not be possible that driver/scheduler is the
+// sole owner, as the owning entity should survive until the end of the frame,
+// when usual frame clean up occurs.
+class OccasionalTask {
+public:
+    using Callbacks = TaskCallbacks;
+
+    virtual ~OccasionalTask() {}
+
+    virtual void on_occasion(Callbacks &) = 0;
+    template <typename Func>
+
+    static SharedPtr<OccasionalTask> make(Func && f_) {
+        class Impl final : public OccasionalTask {
+        public:
+            Impl(Func && f_): m_f(std::move(f_)) {}
+
+            void on_occasion(Callbacks & callbacks) final
+                { m_f(callbacks); }
+
+        private:
+            Func m_f;
+        };
+        return make_shared<Impl>(std::move(f_));
+    }
+
+};
+
+class LoaderTask {
+public:
+    struct PlayerEntities final {
+        PlayerEntities() {}
+        PlayerEntities(Entity physical_, Entity renderable_):
+            physical(physical_), renderable(renderable_)
+        {}
+        Entity physical, renderable;
+    };
+
+    class Callbacks : public TaskCallbacks {
+    public:
+        virtual PlayerEntities player_entites() const = 0;
+
+        virtual void set_player_entities(const PlayerEntities & entities) = 0;
+    };
+
+    virtual ~LoaderTask() {}
+
+    /** When the driver uses a loader it does several things with the values
+     *  returned to it.
+     *
+     *  - If the player entities returned are different from what's passed,
+     *    then it deletes the old player entities from the scene.
+     *  - All new entities are added to the scene
+     *  - All non-builtin single systems, and trigger systems are deleted and
+     *    replaced with what's returned in the tuple
+     *
+     *  @note if you want to delete any old entities, the trigger system
+     *        responsible for creating this loader should make calls to
+     *        request_deletion for each entity to delete
+     *
+     *  @param player_entities old player entities before this loader was
+     *         called, they will be "null" if player entities haven't been
+     *         created yet (driver startup)
+     *  @param callbacks provided functions by the platform for loaders
+     *
+     */
+    virtual void operator () (Callbacks &) const = 0;
+
+    template <typename Func>
+    static SharedPtr<LoaderTask> make(Func && f_) {
+        class Impl final : public LoaderTask {
+        public:
+            explicit Impl(Func && f_): m_f(std::move(f_)) {}
+
+            void operator () (Callbacks & callbacks) const final
+                { m_f(callbacks); }
+
+        private:
+            Func m_f;
+        };
+        return make_shared<Impl>(std::move(f_));
+    }
+};
+#if 0
 class Preloader;
 
 class PreloadSpawner {
@@ -184,7 +316,7 @@ public:
     virtual ~PreloadSpawner() {}
 
     template <typename Func>
-    void check_for_preloaders_f(Func && f);//EnableTempFunc<Func> && f);
+    void check_for_preloaders_f(Func && f);
 
     void check_for_preloaders(const Adder & f)
         { check_for_preloaders_(f); }
@@ -199,7 +331,7 @@ protected:
 };
 
 template <typename Func>
-void PreloadSpawner::check_for_preloaders_f(Func && f) {//EnableTempFunc<Func> && f) {
+void PreloadSpawner::check_for_preloaders_f(Func && f) {
     class Impl final : public Adder {
     public:
         explicit Impl(Func && f_):
@@ -233,3 +365,4 @@ template <typename Func>
     };
     return make_unique<Impl>(std::move(f));
 }
+#endif

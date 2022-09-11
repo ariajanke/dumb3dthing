@@ -70,7 +70,7 @@ void TileGraphicGenerator::setup() {
 
 void TileGraphicGenerator::create_slope(Vector2I loc, const Slopes & slopes) {
     auto e = m_callbacks.platform().make_renderable_entity();// m_platform.make_renderable_entity();
-    m_callbacks.add_to_scene(e); //m_entities_out.push_back(e);
+    m_callbacks.add(e); //m_entities_out.push_back(e);
     Translation translation{grid_location_to_v3(loc, 0)};
     auto [key_slopes, model, segment_a, segment_b] =
         get_slope_model_(sub_minimum_value(slopes), translation.value); {}
@@ -127,7 +127,7 @@ void TileGraphicGenerator::create_flat
         using std::get, std::tuple_cat;
         assert(m_wall_model);
         auto e = m_callbacks.platform().make_renderable_entity();// m_platform.make_renderable_entity();
-        m_callbacks.add_to_scene(e);// m_entities_out.push_back(e);
+        m_callbacks.add(e);// m_entities_out.push_back(e);
         Translation flat_transl{grid_location_to_v3(loc, flat.y)};
         auto ground_tex = ensure_texture(m_ground_texture, "ground.png");
         e.add<SharedCPtr<RenderModel>, Translation, SharedCPtr<Texture>>() =
@@ -160,7 +160,7 @@ void TileGraphicGenerator::create_flat
         for (const auto & val : dips) {
             assert(titr != transf.end());
             if (val != 0.f) {
-                m_callbacks.add_to_scene(
+                m_callbacks.add(
 #               if 0
                 m_entities_out.push_back(
 #               endif

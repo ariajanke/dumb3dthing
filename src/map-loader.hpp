@@ -22,6 +22,7 @@
 
 #include "Defs.hpp"
 #include "PointAndPlaneDriver.hpp"
+#include "Components.hpp"
 
 #include "platform/platform.hpp"
 
@@ -88,7 +89,7 @@ using CellSubGrid = ConstSubGrid<Cell>;
 
 class TileGraphicGenerator {
 public:
-    using LoaderCallbacks = Loader::Callbacks;
+    using LoaderCallbacks = LoaderTask::Callbacks;
     using WallDips = std::array<float, 4>;
     using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
     using EntityVec = std::vector<Entity>;

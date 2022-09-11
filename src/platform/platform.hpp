@@ -109,17 +109,20 @@ public:
     static Callbacks & null_callbacks();
 };
 
+class LoaderTask;
+class OccasionalTask;
+
 class Preloader {
 public:
     virtual ~Preloader() {}
-
+    using TeardownTaskFactoryPtr = SharedPtr<std::function<SharedPtr<OccasionalTask>()>>;
     /**
      *  @note calling preloaders may have side-effects/mutate the preloader
      *        once a preloader is "used up" it should throw an exception or
      *        error up in some fashion on subsequent calls
      * @return
      */
-    virtual UniquePtr<Loader> operator () () = 0;
+    virtual Tuple<SharedPtr<LoaderTask>, TeardownTaskFactoryPtr> operator () () = 0;
 
     template <typename Func>
     static UniquePtr<Preloader> make(Func && f) {
@@ -128,7 +131,7 @@ public:
             explicit Impl(Func && f_):
                 m_f(std::move(f_)) {}
 
-            UniquePtr<Loader> operator () () final
+            Tuple<SharedPtr<LoaderTask>, TeardownTaskFactoryPtr> operator () () final
                 { return m_f(); }
 
         private:
@@ -137,10 +140,12 @@ public:
         return make_unique<Impl>(std::move(f));
     }
 };
-
+#if 0
 /** A loader provides facilities to the driver/controller
  *
  *  [NTS] Consume all loaders immediately?
+ *  [NTS] going to outmode loaders, and turn it into a special case of
+ *  "occasional task" where everything is more visible
  */
 class Loader {
 public:
@@ -184,14 +189,7 @@ public:
         std::vector<SinglesSystemPtr> & m_dynamic_systems;
         Scene & m_scene;
     };
-#   if 0
-    using EntityVec = std::vector<Entity>;
-    using SingleSysVec = std::vector<UniquePtr<ecs::SingleSystemBase<Entity>>>;
-#   if 0
-    using TriggerSysVec = std::vector<UniquePtr<TriggerSystem>>;
-#   endif
-    using LoaderTuple = Tuple<PlayerEntities, EntityVec, SingleSysVec/*, TriggerSysVec*/>;
-#   endif
+
     virtual ~Loader() {}
 
     /** When the driver uses a loader it does several things with the values
@@ -232,3 +230,4 @@ public:
         return make_unique<Impl>(std::move(f));
     }
 };
+#endif

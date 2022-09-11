@@ -283,21 +283,32 @@ void GidTidTranslator::swap(GidTidTranslator & rhs) {
 
 class EntityAndTrianglesAdder final {
 public:
-    EntityAndTrianglesAdder(Loader::Callbacks & callbacks_, TrianglesAdder & adder_):
-        m_callbacks(callbacks_), m_tri_adder(adder_) {}
+    EntityAndTrianglesAdder(LoaderTask::Callbacks & callbacks_,
+                            std::vector<Entity> & entities,
+                            TrianglesAdder & triangles_):
+        m_callbacks(callbacks_), m_tri_adder(triangles_), m_entities(entities) {}
 
     void add_triangle(SharedPtr<TriangleSegment> ptr)
         { m_tri_adder.add_triangle(ptr); }
 
-    void add_entity(const Entity & ent)
-        { m_callbacks.add_to_scene(ent); }
+    void add_entity(const Entity & ent) {
 
+        m_entities.push_back(ent);
+    }
+#   if 0
     TrianglesAdder & triangle_adder()
         { return m_tri_adder; }
+#   endif
 
 private:
-    Loader::Callbacks & m_callbacks;
+    LoaderTask::Callbacks & m_callbacks;
+#   if 1
     TrianglesAdder & m_tri_adder;
+#   endif
+    std::vector<Entity> & m_entities;
+#   if 0
+    std::vector<SharedPtr<TriangleSegment>> & m_triangles;
+#   endif
 };
 
 class TileFactory {
@@ -416,7 +427,7 @@ protected:
 
     static void add_triangles_based_on_model_details
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
-         TrianglesAdder & adder)
+         EntityAndTrianglesAdder & adder)
     {
         const auto & els = TileGraphicGenerator::get_common_elements();
         const auto pos = TileGraphicGenerator::get_points_for(slopes);
@@ -627,7 +638,7 @@ protected:
         return TranslatableTileFactory::make_entity(platform, r, m_render_model);
     }
 
-    void add_triangles_based_on_model_details(Vector2I gridloc, TrianglesAdder & adder) const {
+    void add_triangles_based_on_model_details(Vector2I gridloc, EntityAndTrianglesAdder & adder) const {
         TileFactory::add_triangles_based_on_model_details(gridloc, translation(), model_tile_elevations(), adder);
     }
 
@@ -643,7 +654,7 @@ protected:
          Platform::ForLoaders & platform) const final
     {
         auto r = ninfo.tile_location();
-        add_triangles_based_on_model_details(r, adder.triangle_adder());
+        add_triangles_based_on_model_details(r, adder);
         adder.add_entity(make_entity(platform, r));
     }
 
@@ -773,43 +784,61 @@ public:
 
     // another thing... maps could/should potentially be reloaded from the
     // loader
-    UniquePtr<Loader> operator () () {
+    Tuple<SharedPtr<LoaderTask>, TeardownTaskFactoryPtr> operator () () {
         if (m_file_contents) { if (m_file_contents->is_ready()) {
             do_content_load(m_file_contents->retrieve());
             m_file_contents = nullptr;
         }}
-        if (check_has_remaining_pending_tilesets()) return nullptr;
-        if (!m_file_contents && m_pending_tilesets.empty()) {
-            m_tidgid_translater = GidTidTranslator{m_tilesets, m_startgids};
-            Grid<int> layer = std::move(m_layer);
-            // this call is deferred, "this" instance could be long gone
-            auto tidgid_translator = std::move(m_tidgid_translater);
-            auto map_offset = m_map_offset;
+        if (check_has_remaining_pending_tilesets())
+            { return make_tuple(nullptr, nullptr); }
+        if (m_file_contents || !m_pending_tilesets.empty())
+            { return make_tuple(nullptr, nullptr); }
 
-            return Loader::make_loader(
-                [layer = std::move(layer),
-                 tidgid_translator = std::move(tidgid_translator),
-                 map_offset]
-                (Loader::Callbacks & callbacks)
+        m_tidgid_translater = GidTidTranslator{m_tilesets, m_startgids};
+        Grid<int> layer = std::move(m_layer);
+        // this call is deferred, "this" instance could be long gone
+        auto tidgid_translator = std::move(m_tidgid_translater);
+        auto map_offset = m_map_offset;
+        TeardownTaskFactoryPtr teardown_factory =
+            make_shared<std::function<SharedPtr<OccasionalTask>()>>(
+            [] () -> SharedPtr<OccasionalTask>
+            { throw RtError{"called before loading"}; });
+        auto loader = LoaderTask::make(
+            [layer = std::move(layer),
+             tidgid_translator = std::move(tidgid_translator),
+             map_offset, teardown_factory]
+            (LoaderTask::Callbacks & callbacks)
+        {
+            std::vector<Entity> entities;
+            auto e = Entity::make_sceneless_entity();
+            e.add<std::vector<TriangleLinks>>() =
+                add_triangles_and_link(layer.width(), layer.height(),
+                [&] (Vector2I r, TrianglesAdder adder)
             {
-                auto e = Entity::make_sceneless_entity();
-                callbacks.add_to_scene(e);
-                e.add<std::vector<TriangleLinks>>() =
-                    add_triangles_and_link(layer.width(), layer.height(),
-                    [&] (Vector2I r, TrianglesAdder adder)
-                {
-                    auto [tid, tileset] = tidgid_translator.gid_to_tid(layer(r)); {}
-                    auto * factory = (*tileset)(tid);
-                    if (!factory) return;
+                auto [tid, tileset] = tidgid_translator.gid_to_tid(layer(r)); {}
+                auto * factory = (*tileset)(tid);
+                if (!factory) return;
 
-                    EntityAndTrianglesAdder etadder{callbacks, adder};
-                    (*factory)(etadder,
-                            TileFactory::NeighborInfo{tileset, layer, r, map_offset},
-                            callbacks.platform());
-                });
+                EntityAndTrianglesAdder etadder{callbacks, entities, adder};
+                (*factory)(etadder,
+                        TileFactory::NeighborInfo{tileset, layer, r, map_offset},
+                        callbacks.platform());
             });
-        }
-        return nullptr;
+            entities.push_back(e);
+            for (auto & ent : entities)
+                callbacks.add(ent);
+            *teardown_factory = [entities = std::move(entities)] () -> SharedPtr<OccasionalTask> {
+                // the callback hell thickens
+                return OccasionalTask::make(
+                    [entities = std::move(entities)](TaskCallbacks &) mutable
+                {
+                    for (auto & ent : entities) {
+                        ent.request_deletion();
+                    }
+                });
+            };
+        });
+        return make_tuple(loader, teardown_factory);
     }
 
 private:
@@ -901,8 +930,8 @@ private:
 
 } // end of <anonymous> namespace
 
-UniquePtr<Preloader> make_tiled_map_preloader
+SharedPtr<Preloader> make_tiled_map_preloader
     (const char * filename, Vector2I map_offset, Platform::ForLoaders & platform)
 {
-    return make_unique<TiledMapPreloader>(filename, map_offset, platform);
+    return make_shared<TiledMapPreloader>(filename, map_offset, platform);
 }
