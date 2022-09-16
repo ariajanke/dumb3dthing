@@ -200,8 +200,12 @@ private:
     TriangleVec & m_vec;
 };
 
+using TrianglePtrsViewGrid =
+    Grid<cul::View<std::vector<SharedPtr<TriangleSegment>>::const_iterator>>;
+
 template <typename Func>
-std::vector<TriangleLinks> add_triangles_and_link
+Tuple<std::vector<TriangleLinks>, TrianglePtrsViewGrid>
+    add_triangles_and_link
     (int width, int height, Func && on_add_tile,
      TrianglesAdder::TriangleVec * outvec = nullptr)
 {
@@ -219,7 +223,7 @@ std::vector<TriangleLinks> add_triangles_and_link
 
     using TrisItr = TileGraphicGenerator::TriangleVec::const_iterator;
     using TrisView = cul::View<TrisItr>;
-    Grid<TrisView> triangles_grid;
+    TrianglePtrsViewGrid triangles_grid;
     triangles_grid.set_size(links_grid.width(), links_grid.height(),
                             TrisView{vec.end(), vec.end()});
     {
@@ -245,5 +249,5 @@ std::vector<TriangleLinks> add_triangles_and_link
             link.attempt_attachment_to(other_tri);
         }}
     }}
-    return links;
+    return make_tuple(links, triangles_grid);
 }

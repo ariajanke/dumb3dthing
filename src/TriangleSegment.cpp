@@ -33,19 +33,19 @@ using LimitIntersection = TriangleSegment::LimitIntersection;
 using cul::find_smallest_diff, cul::make_nonsolution_sentinel,
       cul::make_zero_vector;
 using std::min_element;
-
+#if 0
 template <typename T>
 using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
-
+#endif
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
      Vector2 second_line_a, Vector2 second_line_b);
 
 bool is_solution(Real x);
-
+#if 0
 template <typename Vec>
 EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b);
-
+#endif
 Real get_component_for_basis(const Vector & pt_on_place, const Vector & basis);
 
 Vector2 find_point_c_in_2d(const Vector & a, const Vector & b, const Vector & c);
@@ -238,10 +238,9 @@ LimitIntersection TriangleSegment::limit_with_intersection
     // this branch catches if back_from_head is infinity
     if (!within_01(back_from_head))
         { return make_never_intersects(); }
-    // v this algebra is wrong!!
-    auto on_plane2 = a*back_from_head;
+
     auto on_plane = b - (b - a)*back_from_head;
-    //assert(are_very_close(b - (b - a)*back_from_head, on_plane2));
+
     auto r = closest_point(on_plane);
     // it's possible to hit the plane, but not be inside the triangle segment
     if (!contains_point(r)) return make_never_intersects();
@@ -425,7 +424,7 @@ Real find_intersecting_position_for_first
 
 bool is_solution(Real x)
     { return !std::equal_to<Real>{}(x, k_no_intersection_2d); }
-
+#if 0
 template <typename Vec>
 EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
 #   if 0 // gdb *really* doesn't like me short circutting functions :c
@@ -445,7 +444,7 @@ EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
     return are_very_close(magnitude(frac), 1);
 #   endif
 }
-
+#endif
 Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
     // basis is assumed to be a normal vector
     assert(are_very_close(magnitude(basis), 1.));

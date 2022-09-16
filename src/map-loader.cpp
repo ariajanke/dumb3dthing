@@ -418,7 +418,7 @@ Tuple<std::vector<TriangleLinks>/*,
         }}
     }}
 #   endif
-    return make_tuple(links/*, tileset.give_entities()*/);
+    return make_tuple(std::get<0>(links)/*, tileset.give_entities()*/);
 }
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell & char_to_cell) {

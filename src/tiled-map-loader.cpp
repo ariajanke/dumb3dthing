@@ -38,8 +38,36 @@ using namespace cul::exceptions_abbr;
 
 using tinyxml2::XMLDocument;
 using TeardownTask = MapLoader::TeardownTask;
+using MapSide = MapEdgeLinks::Side;
+using TileRange = MapEdgeLinks::TileRange;
 
 } // end of <anonymous> namespace
+
+TiXmlIter::TiXmlIter(): el(nullptr), name(nullptr) {}
+
+TiXmlIter::TiXmlIter(const TiXmlElement * el_, const char * name_):
+    el(el_), name(name_) {}
+
+TiXmlIter & TiXmlIter::operator ++ ()
+    { el = el->NextSiblingElement(name); return *this; }
+
+bool TiXmlIter::operator != (const TiXmlIter & rhs) const
+    { return el != rhs.el; }
+
+const TiXmlElement & TiXmlIter::operator * () const
+    { return *el; }
+
+XmlRange::XmlRange(const TiXmlElement * el_, const char * name_):
+    m_beg(el_ ? el_->FirstChildElement(name_) : nullptr, name_) {}
+
+XmlRange::XmlRange(const TiXmlElement & el_, const char * name_):
+    m_beg(el_.FirstChildElement(name_), name_) {}
+
+TiXmlIter XmlRange::begin() const { return m_beg;       }
+
+TiXmlIter XmlRange::end()   const { return TiXmlIter{}; }
+
+// ----------------------------------------------------------------------------
 
 Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     (const Vector2I & map_offset)
@@ -53,20 +81,13 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     if (m_file_contents || !m_pending_tilesets.empty())
         { return make_tuple(nullptr, nullptr); }
 
-
-#   if 0
-    Grid<int> layer = std::move(m_layer);
-    // this call is deferred, "this" instance could be long gone
-    auto tidgid_translator = std::move(m_tidgid_translater);
-#   endif
     SharedPtr<TeardownTask> teardown_task = make_shared<TeardownTask>();
     auto loader = LoaderTask::make(
-        [this,
-         map_offset, teardown_task]
+        [this, map_offset, teardown_task]
         (LoaderTask::Callbacks & callbacks)
     {
         std::vector<Entity> entities;
-        auto triangles =
+        auto triangles_and_grid =
             add_triangles_and_link(m_layer.width(), m_layer.height(),
             [&] (Vector2I r, TrianglesAdder adder)
         {
@@ -79,7 +100,9 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                     TileFactory::NeighborInfo{tileset, m_layer, r, map_offset},
                     callbacks.platform());
         });
-        entities.back().add<std::vector<TriangleLinks>>() = std::move(triangles);
+        entities.back().add<
+            std::vector<TriangleLinks>, TrianglePtrsViewGrid>()
+            = std::move(triangles_and_grid);
         for (auto & ent : entities)
             callbacks.add(ent);
         *teardown_task = TeardownTask{std::move(entities)};
@@ -87,10 +110,10 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     return make_tuple(loader, teardown_task);
 }
 
-/* private */ void MapLoader::add_tileset(tinyxml2::XMLElement * tileset) {
+/* private */ void MapLoader::add_tileset(const tinyxml2::XMLElement & tileset) {
     m_tilesets.emplace_back(make_shared<TileSet>());
-    m_startgids.emplace_back(tileset->IntAttribute("firstgid"));
-    if (const auto * source = tileset->Attribute("source")) {
+    m_startgids.emplace_back(tileset.IntAttribute("firstgid"));
+    if (const auto * source = tileset.Attribute("source")) {
         m_pending_tilesets.emplace_back(
             m_tilesets.size() - 1,
             m_platform->promise_file_contents(source));
@@ -108,7 +131,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
         XMLDocument document;
         auto contents = future->retrieve();
         document.Parse(contents.c_str());
-        m_tilesets[idx]->load_information(*m_platform, document.RootElement());
+        m_tilesets[idx]->load_information(*m_platform, *document.RootElement());
         idx = k_no_idx;
     }
     bool was_empty = m_pending_tilesets.empty();
@@ -124,6 +147,95 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     return !m_pending_tilesets.empty();
 }
 
+template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
+void on_key_found(const std::map<Key, Value, Comparator> & map, const Key2 & key, Func && f_) {
+    auto itr = map.find(key);
+    if (itr == map.end()) return;
+    f_(itr->second);
+}
+
+template <typename Key, typename Value, typename Comparator, typename Key2>
+Value find_key(const std::map<Key, Value, Comparator> & map, const Key2 & key, const Value & default_val) {
+    auto itr = map.find(key);
+    if (itr == map.end()) return default_val;
+    return itr->second;
+}
+
+template <typename Key, typename Comparator, typename Key2>
+const char * find_key_cstr(const std::map<Key, const char *, Comparator> & map, const Key2 & key) {
+    return find_key(map, key, static_cast<const char *>(nullptr));
+}
+
+class XmlPropertiesReader final {
+public:
+    XmlPropertiesReader() {}
+
+    void load(const TiXmlElement * el) {
+        for (auto & pair : m_properties) {
+            pair.second = nullptr;
+        }
+        const auto props = XmlRange{el ? el->FirstChildElement("properties") : el, "property"};
+        for (auto & property : props) {
+           auto * name = property.Attribute("name");
+           if (!name) continue;
+
+           m_properties[std::string{name}] = property.Attribute("value");
+       }
+    }
+
+    const char * value_for(const char * key) const
+        { return find_key_cstr(m_properties, key); }
+
+private:
+    std::map<std::string, const char *> m_properties;
+};
+
+// std::distance requires using the same iterator type
+template <typename IterBeg, typename IterEnd>
+int distance(IterBeg beg, IterEnd end) {
+    int i = 0;
+    for (; beg != end; ++beg)
+        { ++i; }
+    return i;
+};
+
+inline bool is_dash(char c) { return c == '-'; }
+static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
+
+TileRange to_range
+    (const TileRange & range, const cul::View<const char *> & arg_)
+{
+    constexpr const auto k_not_num = "must be numeric, and ";
+    if (std::equal(arg_.begin(), arg_.end(), "whole")) {
+        return range;
+    }
+
+    auto args = split_range_with_index(arg_.begin(), arg_.end(), is_dash, k_whitespace_trimmer);
+    constexpr const int k_uninit = -1;
+    int start = k_uninit;
+    int end = k_uninit;
+    for (auto [arg, idx] : args) {
+        switch (idx) {
+        case 0: case 1: {
+            // I will have to fix cul
+            auto enditr = arg.begin();
+            for (; enditr != arg.end(); ++enditr) {}
+            int & out = idx == 0 ? start : end;
+            if (!cul::string_to_number(arg.begin(), enditr, out)) {
+                throw RtError{k_not_num};
+            }
+            }
+            break;
+        default: throw RtError{"must be exactly two"};
+        }
+    }
+    auto dir = normalize(range.end_location() - range.begin_location());
+    return TileRange{ range.begin_location() + dir*start,
+                      range.begin_location() + dir*end  };
+}
+
+bool is_colon(char c) { return c == ':'; }
+
 /* private */ void MapLoader::do_content_load(std::string && contents) {
     XMLDocument document;
     if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
@@ -132,18 +244,85 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     }
 
     auto * root = document.RootElement();
-    for (auto itr = root->FirstChildElement("tileset"); itr;
-         itr = itr->NextSiblingElement("tileset"))
+
+    int width  = root->IntAttribute("width");
+    int height = root->IntAttribute("height");
+
+    XmlPropertiesReader propreader;
+    propreader.load(root);
+
+    std::vector<MapEdgeLinks::MapLinks> links;
+
+    const auto k_link_ranges = {
+        // mmm... will I also need to capture how each side will displace
+        // the map?
+        make_tuple("loader:north", TileRange{Vector2I{}, Vector2I{width, 0}}, MapSide::north),
+        make_tuple("loader:south", TileRange{Vector2I{0, height}, Vector2I{width, height}}, MapSide::south),
+        make_tuple("loader:east" , TileRange{Vector2I{width, 0}, Vector2I{width, height}}, MapSide::east),
+        make_tuple("loader:west" , TileRange{Vector2I{0, 0}, Vector2I{0, height}}, MapSide::west),
+    };
+
+    static auto add_tile_range = []
+        (std::vector<MapEdgeLinks::MapLinks> & links, const cul::View<const char *> & arg, const TileRange & original_range)
     {
-        add_tileset(itr);
+        auto args = split_range(arg.begin(), arg.end(), is_comma, make_trim_whitespace<const char *>());
+        auto count = distance(args.begin(), args.end());
+        links.reserve(count);
+        if (count == 0) {
+            throw RtError{"must be at least one tile range"};
+        }
+        for (auto trange_str : args) {
+            links.emplace_back();
+            links.back().range = to_range(original_range, trange_str);
+        }
+    };
+
+    static auto add_filenames = []
+        (std::vector<MapEdgeLinks::MapLinks> & links, const cul::View<const char *> & arg)
+    {
+        auto args = split_range(arg.begin(), arg.end(), is_comma, k_whitespace_trimmer);
+        auto count = distance(args.begin(), args.end());
+        if (count == 1) {
+            auto fn = view_to_string(*args.begin());
+            for (auto & link : links) {
+                link.filename = fn;
+            }
+        } else if (count == int(links.size())) {
+            auto arg_itr = args.begin();
+            for (auto & link : links) {
+                link.filename = view_to_string(*arg_itr);
+                ++arg_itr;
+            }
+        } else {
+            throw RtError{"number of filenames must be either one, or number of ranges"};
+        }
+    };
+
+    for (auto [link_name, range, side] : k_link_ranges) {
+        if (const char * value = propreader.value_for(link_name)) {
+            for (auto [arg, arg_num] : split_range_with_index(value, value + ::strlen(value),
+                                        is_colon, k_whitespace_trimmer))
+            {
+                switch (arg_num) {
+                // tile range(s)
+                case 0: add_tile_range(links, arg, range); break;
+                // filename(s)
+                case 1: add_filenames(links, arg); break;
+                default: throw RtError{"only two arguments permitted"};
+                }
+            }
+            m_links.set_side(side, links);
+            links.clear();
+        }
     }
 
+    for (auto & tileset : XmlRange{root, "tileset"}) {
+        add_tileset(tileset);
+    }
+
+    m_layer.set_size(width, height);
     auto * layer = root->FirstChildElement("layer");
     assert(layer);
-
-    int width = layer->IntAttribute("width");
-    int height = layer->IntAttribute("height");
-    m_layer.set_size(width, height);
     auto * data = layer->FirstChildElement("data");
     assert(data);
     assert(!::strcmp(data->Attribute( "encoding" ), "csv"));
@@ -152,7 +331,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     ; // and now I need a parsing helper for CSV strings
     Vector2I r;
     for (auto value_str : split_range(data_text, data_text + ::strlen(data_text),
-                                      make_is_comma(), make_trim_whitespace()))
+                                      is_comma, k_whitespace_trimmer))
     {
         int tile_id = 0;
         bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), tile_id);

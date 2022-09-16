@@ -29,17 +29,15 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 
-using ConstTileSetPtr = TileSet::ConstTileSetPtr;
-using TileSetPtr      = TileSet::TileSetPtr;
-
-enum class CardinalDirections {
-    n, s, e, w,
-    nw, sw, se, ne
-};
-
+using ConstTileSetPtr    = TileSet::ConstTileSetPtr;
+using TileSetPtr         = TileSet::TileSetPtr;
+using Triangle           = TriangleSegment;
+#if 0
+using CardinalDirections = TileFactory::CardinalDirections;
+#endif
 class TranslatableTileFactory : public TileFactory {
 public:
-    void setup(Vector2I, tinyxml2::XMLElement * properties, Platform::ForLoaders &) override;
+    void setup(Vector2I, const tinyxml2::XMLElement * properties, Platform::ForLoaders &) override;
 
 protected:
     Vector translation() const { return m_translation; }
@@ -67,13 +65,145 @@ CardinalDirections cardinal_direction_from(const char * str) {
 
 // ------------------------------- <! messy !> --------------------------------
 
+bool is_solution(Real);
+
+enum SplitOpt {
+    k_flats_only = 1,
+    k_wall_only  = 1 >> 1,
+    k_both_flats_and_wall = k_flats_only | k_wall_only
+};
+
+// should handle division == 0, == 1
+// everything around
+// {-0.5, x,  0.5}, {0.5, x,  0.5}
+// {-0.5, x, -0.5}, {0.5, x, -0.5}
+template <SplitOpt k_opt, typename Func>
+void north_south_split
+    (Real north_east_y, Real north_west_y,
+     Real south_east_y, Real south_west_y,
+     Real division_z, Func && f);
+
+template <SplitOpt k_opt, typename Func>
+void east_west_split
+    (Real north_east_y, Real north_west_y,
+     Real south_east_y, Real south_west_y,
+     Real division_z, Func && f);
+
+auto make_get_next_for_dir_split(Vector end, Real dir) {
+    return [end, dir] (Vector east_itr) {
+        auto cand_next = east_itr + dir*Vector{0, 1, 0};
+        if (are_very_close(cand_next, end)) return cand_next;
+
+        if (are_very_close(normalize(end - east_itr ),
+                           normalize(end - cand_next)))
+        { return cand_next; }
+        return end;
+    };
+};
+
+
+template <SplitOpt k_opt, typename Func>
+void north_south_split
+    (Real north_east_y, Real north_west_y,
+     Real south_east_y, Real south_west_y,
+     Real division_z, Func && f)
+{
+    // it really doesn't have to be "elegant"
+    // division z must make sense
+    assert(division_z >= -0.5 && division_z <= 0.5);
+
+    // both sets of y values' directions must be the same
+    assert((north_east_y - north_west_y)*(south_east_y - south_west_y) >= 0);
+
+    const Vector div_nw{-0.5, north_west_y, division_z};
+    const Vector div_ne{ 0.5, north_east_y, division_z};
+
+    const Vector div_sw{-0.5, south_west_y, division_z};
+    const Vector div_se{ 0.5, south_east_y, division_z};
+    // We must handle division_z being 0.5
+    if constexpr (k_opt & k_flats_only) {
+        if (!are_very_close(division_z, 0.5)) {
+            Vector nw{-0.5, north_west_y, 0.5};
+            Vector ne{ 0.5, north_east_y, 0.5};
+            f(Triangle{nw, ne    , div_nw});
+            f(Triangle{nw, div_nw, div_ne});
+
+            Vector sw{-0.5, south_west_y, 0.5};
+            Vector se{ 0.5, south_east_y, 0.5};
+            f(Triangle{sw, se    , div_sw});
+            f(Triangle{sw, div_sw, div_se});
+        }
+    }
+    // We should only skip triangles along the wall if
+    // there's no elevation difference to cover
+    if constexpr (k_opt & k_wall_only) {
+        // it doesn't matter so much where I start, so long as
+        // 1ue steps are used
+        // must accept that one direction or both maybe "0"
+        const auto east_dir = normalize(north_east_y - north_west_y);
+        const auto west_dir = normalize(south_east_y - south_west_y);
+        if (are_very_close(east_dir, 0) && are_very_close(west_dir, 0))
+            return;
+
+        auto east_itr = div_ne;
+        const auto & east_end = div_se;
+
+        auto west_itr = div_nw;
+        const auto & west_end = div_sw;
+
+        auto get_east_next = make_get_next_for_dir_split(east_end, east_dir);
+        auto get_west_next = make_get_next_for_dir_split(west_end, west_dir);
+
+        while (   !are_very_close(east_itr, east_end)
+               || !are_very_close(west_itr, west_end))
+        {
+            auto east_next = get_east_next(east_itr);
+            auto west_next = get_west_next(west_itr);
+
+            if (!are_very_close(east_itr, east_end)) {
+                f(Triangle{east_itr, west_itr, east_next});
+            }
+            if (!are_very_close(west_itr, west_end)) {
+                f(Triangle{west_itr, east_itr, west_next});
+            }
+
+            east_itr = east_next;
+            west_itr = west_next;
+        }
+    }
+}
+
+template <SplitOpt k_opt, typename Func>
+void east_west_split
+    (Real east_north_y, Real east_south_y,
+     Real west_north_y, Real west_south_y,
+     Real division_x, Func && f)
+{
+    // simply switch roles
+    // east <-> north
+    // west <-> south
+    auto remap_vector = [] (const Vector & r) { return Vector{r.z, r.y, r.x}; };
+    north_south_split<k_opt>(
+        east_north_y, east_south_y, west_north_y, west_south_y,
+        division_x,
+        [f = std::move(f), remap_vector] (const Triangle & tri)
+    {
+        f(Triangle{
+            remap_vector(tri.point_a()),
+            remap_vector(tri.point_b()),
+            remap_vector(tri.point_c())
+        });
+    });
+}
+
 class WallTileFactory final : public TranslatableTileFactory {
 public:
-
-    static void set_shared_texture_coordinates(const std::array<Vector2, 4> & coords)
-        { s_wall_texture_coords = coords; }
+    void assign_render_model_wall_cache(WallRenderModelCache & cache) final
+        { m_render_model_cache = &cache; }
 
 private:
+    static constexpr const Real k_visual_dip_thershold = 0.5;
+    static constexpr const Real k_physical_dip_thershold = 1;
 
     template <typename Iter>
     static void translate_points(Vector r, Iter beg, Iter end) {
@@ -97,55 +227,174 @@ private:
     }
 
     void setup
-        (Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders &) final
+        (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) final
     {
+        TranslatableTileFactory::setup(loc_in_ts, properties, platform);
         m_dir = cardinal_direction_from(find_property("direction", properties));
-        // visually factory wide: two render models...
-        auto mk_base_pts = [] { return TileGraphicGenerator::get_points_for(Slopes{0, 0, 0, 0, 0}); };
-        auto txposs = common_texture_positions_from(loc_in_ts);
-        // ^ want to split that in half
-        using Cd = CardinalDirections;
-        switch (m_dir) {
-        case Cd::n: case Cd::s: {
-            // horizontal split
-            auto arr = mk_base_pts();
-            translate_points(Vector{0, 0, 0.5}, arr.begin(), arr.end());
-            scale_points_z(0.5, arr.begin(), arr.end());
-            ;
-            }
-            break;
-        case Cd::w: case Cd::e:
-            break;
-        default: break;
-        }
+        m_tileset_location = loc_in_ts;
     }
 
     Slopes tile_elevations() const final {
         // it is possible that some elevations are indeterminent...
     }
 
+    // a wall has at least one elevation that's known
+    // a wall only generates if it's dip sides connect to tiles whose elevations
+    // are lower than the known elevation
+
     void operator ()
         (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
          Platform::ForLoaders & platform) const final
-    {
-        // it would be nice if I could share render models between similar walls
-        // saves on models, and time building them
-        // physical triangles wise:
-        // the ledge extends *all* the to the end of the time, with no flooring
-        // on the bottom
-        // visually:
-        // there appears to be a wall half-way through the tile
+    { make_tile(adder, ninfo, platform); }
 
-        // wall tiles may add multiple entities
-        // one for the flat
-        // wall needs to know something about its neighbors
-        ninfo.tile_location();
+    void make_tile
+        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
+         Platform::ForLoaders & platform) const
+    {
+        auto wed = elevations_and_direction(ninfo);
+        if (m_render_model_cache) {
+            auto itr = m_render_model_cache->find(wed);
+            if (itr != m_render_model_cache->end()) {
+                const auto & [render_model, triangles] = itr->second; {}
+                return make_entities_and_triangles(adder, platform, ninfo, render_model, triangles);
+            }
+        }
+        auto [render_model, triangles] = make_render_model_and_triangles(wed, platform); {}
+        if (m_render_model_cache) {
+            m_render_model_cache->insert(std::make_pair(
+                wed,
+                make_tuple(std::move(render_model), std::move(triangles))
+            ));
+            assert(m_render_model_cache->find(wed) != m_render_model_cache->end());
+            return make_tile(adder, ninfo, platform);
+        }
+        // in case there's no cache...
+        make_entities_and_triangles(adder, platform, ninfo, render_model, triangles);
     }
 
-    SharedCPtr<RenderModel> m_bottom, m_top;
-    CardinalDirections m_dir = CardinalDirections::ne;
+    void make_entities_and_triangles(
+        EntityAndTrianglesAdder & adder,
+        Platform::ForLoaders & platform,
+        const NeighborInfo & ninfo,
+        const SharedPtr<const RenderModel> & render_model,
+        const std::vector<Triangle> & triangles) const
+    {
+        for (auto & triangle : triangles) {
+#           if 0
+            // | there's *got* to be a way to generate this stuff using a
+            // v "shared" deletor
 
-    static std::array<Vector2, 4> s_wall_texture_coords;
+            auto triangle_vec = new std::vector<Triangle>{triangles};
+            auto del = [triangle_vec] (Triangle *) { delete triangle_vec; };
+            for (auto & triangle : *triangle_vec) {
+                SharedPtr<const Triangle>{&triangle, del};
+            }
+            //SharedPtr
+#           endif
+            adder.add_triangle(make_shared<Triangle>(triangle.move(translation())));
+        }
+        // mmm
+        // make_entity(platform, ninfo.tile_location(), render_model);
+    }
+
+    static int corner_index(CardinalDirections dir) {
+        using Cd = CardinalDirections;
+        switch (dir) {
+        case Cd::nw: return 0;
+        case Cd::sw: return 1;
+        case Cd::se: return 2;
+        case Cd::ne: return 3;
+        default: break;
+        }
+        throw RtError{""};
+    }
+
+    static std::array<bool, 4> make_known_corners(CardinalDirections dir) {
+        using Cd = CardinalDirections;
+        auto mk_rv = [](bool nw, bool sw, bool se, bool ne) {
+            std::array<bool, 4> rv;
+            const std::array k_corners = {
+                make_tuple(Cd::nw, nw), make_tuple(Cd::ne, ne),
+                make_tuple(Cd::sw, sw), make_tuple(Cd::se, se),
+            };
+            for (auto [corner, val] : k_corners)
+                rv[corner_index(corner)] = val;
+            return rv;
+        };
+        switch (dir) {
+        // a north wall, all point on the north are known
+        case Cd::n : return mk_rv(true , false, false, true );
+        case Cd::s : return mk_rv(false, true , true , false);
+        case Cd::e : return mk_rv(false, false, true , true );
+        case Cd::w : return mk_rv(true , true , false, false);
+        case Cd::nw: return mk_rv(true , false, false, false);
+        case Cd::sw: return mk_rv(false, true , false, false);
+        case Cd::se: return mk_rv(false, false, true , false);
+        case Cd::ne: return mk_rv(false, false, false, true );
+        default: break;
+        }
+        throw BadBranchException{__LINE__, __FILE__};
+    }
+
+    WallElevationAndDirection elevations_and_direction
+        (const NeighborInfo & ninfo) const
+    {
+        WallElevationAndDirection rv;
+        // I need a way to address each corner...
+        using Cd = CardinalDirections;
+        // elevations for knowns for this tile
+        auto known_elevation = translation().y + 1;
+
+        rv.direction = m_dir;
+        rv.tileset_location = m_tileset_location;
+        auto known_corners = make_known_corners(m_dir);
+        for (auto corner : { Cd::nw, Cd::sw, Cd::se, Cd::ne }) {
+            // walls are only generated for dips on "unknown corners"
+            // if a neighbor elevation is unknown, then no wall it created for that
+            // corner (which can very easily mean no wall are generated on any "dip"
+            // corner
+            Real neighbor_elevation = ninfo.neighbor_elevation(corner);
+            Real diff   = known_elevation - neighbor_elevation;
+            bool is_dip =    is_solution(neighbor_elevation)
+                          && known_elevation > neighbor_elevation
+                          && !known_corners[corner_index(corner)];
+            // must be finite for our purposes
+            rv.dip_heights[corner_index(corner)] = is_dip ? diff : 0;
+        }
+
+        return rv;
+    }
+
+    Tuple<SharedPtr<const RenderModel>, std::vector<Triangle>>
+        make_render_model_and_triangles(
+        const WallElevationAndDirection & wed,
+        Platform::ForLoaders & platform) const
+    {
+        // we have cases depending on the number of dips
+        // okay, I should like to handle only two (adjacent) and three dips
+        using Cd = CardinalDirections;
+        // nvm, direction describes which case
+        switch (m_dir) {
+        // a north wall, all point on the north are known
+        case Cd::n : ;
+        case Cd::s : ;
+        case Cd::e : ;
+        case Cd::w : ;
+        // maybe have seperate divider functions for these cases?
+        case Cd::nw: ;
+        case Cd::sw: ;
+        case Cd::se: ;
+        case Cd::ne: ;
+        default: break;
+        }
+        throw BadBranchException{__LINE__, __FILE__};
+    }
+
+    CardinalDirections m_dir = CardinalDirections::ne;
+    WallRenderModelCache * m_render_model_cache = nullptr;
+    Vector2I m_tileset_location;
+
+    // I still need to known the wall texture coords
 };
 
 // ----------------------------------------------------------------------------
@@ -166,7 +415,7 @@ protected:
 
     virtual Slopes model_tile_elevations() const = 0;
 
-    void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) override;
+    void setup(Vector2I loc_in_ts, const tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) override;
 
     Slopes tile_elevations() const final
         { return translate_y(model_tile_elevations(), translation().y); }
@@ -184,7 +433,7 @@ public:
 protected:
     virtual void set_direction(const char *) = 0;
 
-    void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties,
+    void setup(Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
                Platform::ForLoaders & platform) final;
 };
 
@@ -249,16 +498,18 @@ TileFactory & TileSet::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
     return factory;
 }
 
-void TileSet::load_information(Platform::ForLoaders & platform, tinyxml2::XMLElement * tileset) {
-    int tile_width = tileset->IntAttribute("tilewidth");
-    int tile_height = tileset->IntAttribute("tileheight");
-    int tile_count = tileset->IntAttribute("tilecount");
-    auto to_ts_loc = [tileset] {
-        int columns = tileset->IntAttribute("columns");
+void TileSet::load_information(Platform::ForLoaders & platform,
+                               const tinyxml2::XMLElement & tileset)
+{
+    int tile_width = tileset.IntAttribute("tilewidth");
+    int tile_height = tileset.IntAttribute("tileheight");
+    int tile_count = tileset.IntAttribute("tilecount");
+    auto to_ts_loc = [&tileset] {
+        int columns = tileset.IntAttribute("columns");
         return [columns] (int n) { return Vector2I{n % columns, n / columns}; };
     } ();
 
-    auto image_el = tileset->FirstChildElement("image");
+    auto image_el = tileset.FirstChildElement("image");
     int tx_width = image_el->IntAttribute("width");
     int tx_height = image_el->IntAttribute("height");
 
@@ -267,7 +518,7 @@ void TileSet::load_information(Platform::ForLoaders & platform, tinyxml2::XMLEle
 
     set_texture_information(tx, Size2{tile_width, tile_height}, Size2{tx_width, tx_height});
     m_tile_count = tile_count;
-    for (auto itr = tileset->FirstChildElement("tile"); itr;
+    for (auto itr = tileset.FirstChildElement("tile"); itr;
          itr = itr->NextSiblingElement("tile"))
     {
         int id = itr->IntAttribute("id");
@@ -421,7 +672,7 @@ void TileFactory::set_shared_texture_information
 }
 
 /* protected static */ const char * TileFactory::find_property
-    (const char * name_, tinyxml2::XMLElement * properties)
+    (const char * name_, const tinyxml2::XMLElement * properties)
 {
     for (auto itr = properties; itr; itr = itr->NextSiblingElement("property")) {
         auto name = itr->Attribute("name");
@@ -485,7 +736,7 @@ void TileFactory::set_shared_texture_information
 namespace { // ----------------------------------------------------------------
 
 void TranslatableTileFactory::setup
-    (Vector2I, tinyxml2::XMLElement * properties, Platform::ForLoaders &)
+    (Vector2I, const tinyxml2::XMLElement * properties, Platform::ForLoaders &)
 {
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
@@ -493,7 +744,7 @@ void TranslatableTileFactory::setup
         auto list = { &m_translation.x, &m_translation.y, &m_translation.z };
         auto itr = list.begin();
         for (auto value_str : split_range(val, val + ::strlen(val),
-                                          make_is_comma(), make_trim_whitespace()))
+                                          is_comma, make_trim_whitespace<const char *>()))
         {
             bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), **itr);
             assert(is_num);
@@ -530,7 +781,7 @@ void SlopesBasedModelTile::operator ()
 }
 
 /* protected */ void SlopesBasedModelTile::setup
-    (Vector2I loc_in_ts, tinyxml2::XMLElement * properties,
+    (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
      Platform::ForLoaders & platform)
 {
     TranslatableTileFactory::setup(loc_in_ts, properties, platform);
@@ -556,7 +807,7 @@ template <typename T>
 }
 
 /* protected */ void Ramp::setup
-    (Vector2I loc_in_ts, tinyxml2::XMLElement * properties,
+    (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
      Platform::ForLoaders & platform)
 {
     if (const auto * val = find_property("direction", properties)) {

@@ -187,9 +187,11 @@ public:
     virtual Platform::ForLoaders & platform() = 0;
 };
 
-// EveryFrameTasks are retained and ran every frame
-// when the scheduler/driver becomes the sole owner, it removes the task
-// without any further calls
+/** @brief An every frame task is retained and ran every frame.
+ *
+ * When the scheduler/driver becomes the sole owner, it removes the task
+ * without any further calls.
+ */
 class EveryFrameTask {
 public:
     using Callbacks = TaskCallbacks;
@@ -199,19 +201,7 @@ public:
     virtual void on_every_frame(Callbacks &, Real et) = 0;
 
     template <typename Func>
-    static SharedPtr<EveryFrameTask> make(Func && f_) {
-        class Impl final : public EveryFrameTask {
-        public:
-            Impl(Func && f_): m_f(std::move(f_)) {}
-
-            void on_every_frame(Callbacks & callbacks, Real et) final
-                { m_f(callbacks, et); }
-
-        private:
-            Func m_f;
-        };
-        return make_shared<Impl>(std::move(f_));
-    }
+    static SharedPtr<EveryFrameTask> make(Func && f_);
 };
 
 // An occasional task, is called only once, before being removed by the
@@ -225,22 +215,9 @@ public:
     virtual ~OccasionalTask() {}
 
     virtual void on_occasion(Callbacks &) = 0;
+
     template <typename Func>
-
-    static SharedPtr<OccasionalTask> make(Func && f_) {
-        class Impl final : public OccasionalTask {
-        public:
-            Impl(Func && f_): m_f(std::move(f_)) {}
-
-            void on_occasion(Callbacks & callbacks) final
-                { m_f(callbacks); }
-
-        private:
-            Func m_f;
-        };
-        return make_shared<Impl>(std::move(f_));
-    }
-
+    static SharedPtr<OccasionalTask> make(Func && f_);
 };
 
 class LoaderTask {
@@ -284,17 +261,50 @@ public:
     virtual void operator () (Callbacks &) const = 0;
 
     template <typename Func>
-    static SharedPtr<LoaderTask> make(Func && f_) {
-        class Impl final : public LoaderTask {
-        public:
-            explicit Impl(Func && f_): m_f(std::move(f_)) {}
-
-            void operator () (Callbacks & callbacks) const final
-                { m_f(callbacks); }
-
-        private:
-            Func m_f;
-        };
-        return make_shared<Impl>(std::move(f_));
-    }
+    static SharedPtr<LoaderTask> make(Func && f_);
 };
+
+template <typename Func>
+/* static */ SharedPtr<EveryFrameTask> EveryFrameTask::make(Func && f_) {
+    class Impl final : public EveryFrameTask {
+    public:
+        Impl(Func && f_): m_f(std::move(f_)) {}
+
+        void on_every_frame(Callbacks & callbacks, Real et) final
+            { m_f(callbacks, et); }
+
+    private:
+        Func m_f;
+    };
+    return make_shared<Impl>(std::move(f_));
+}
+
+template <typename Func>
+/* static */ SharedPtr<OccasionalTask> OccasionalTask::make(Func && f_) {
+    class Impl final : public OccasionalTask {
+    public:
+        Impl(Func && f_): m_f(std::move(f_)) {}
+
+        void on_occasion(Callbacks & callbacks) final
+            { m_f(callbacks); }
+
+    private:
+        Func m_f;
+    };
+    return make_shared<Impl>(std::move(f_));
+}
+
+template <typename Func>
+/* static */ SharedPtr<LoaderTask> LoaderTask::make(Func && f_) {
+    class Impl final : public LoaderTask {
+    public:
+        explicit Impl(Func && f_): m_f(std::move(f_)) {}
+
+        void operator () (Callbacks & callbacks) const final
+            { m_f(callbacks); }
+
+    private:
+        Func m_f;
+    };
+    return make_shared<Impl>(std::move(f_));
+}

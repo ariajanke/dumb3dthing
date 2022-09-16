@@ -211,6 +211,12 @@ Vector next_in_direction(Vector r, Vector dir);
 /** @copydoc next_in_direction(Vector,Vector) */
 Vector2 next_in_direction(Vector2 r, Vector2 dir);
 
+template <typename T>
+using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
+// didn't need to move this...
+template <typename Vec>
+EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b);
+
 // ----------------------------- Global Constants -----------------------------
 
 constexpr const Real k_pi  = cul::k_pi_for_type<Real>;
@@ -224,6 +230,28 @@ constexpr const Real k_inf = std::numeric_limits<Real>::infinity();
 constexpr const Vector k_east {1, 0, 0};
 constexpr const Vector k_up   {0, 1, 0};
 constexpr const Vector k_north{0, 0, 1};
+
+// ----------------------------------------------------------------------------
+
+template <typename Vec>
+EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
+#   if 0 // gdb *really* doesn't like me short circutting functions :c
+    auto mag = magnitude(normalize(a) + normalize(b));
+    return are_very_close(mag, 0) || are_very_close(mag, 2);
+#   elif 1
+    auto mk_zero = [] {
+        constexpr auto k_dim = cul::VectorTraits<Vec>::k_dimension_count;
+        static_assert(k_dim == 2 || k_dim == 3,
+            "<anonymous>::are_parallel: must be used only with 2 or 3 dimensions.");
+        if constexpr (k_dim == 2) return 0;
+        else return cul::make_zero_vector<Vec>();
+    };
+    return are_very_close(mk_zero(), cross(a, b));
+#   else
+    auto frac = (dot(a, b)*dot(a, b)) / (sum_of_squares(a)*sum_of_squares(b));
+    return are_very_close(magnitude(frac), 1);
+#   endif
+}
 
 // ------------------------------ prototype stuff -----------------------------
 

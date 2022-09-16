@@ -43,7 +43,7 @@ public:
 
     TileFactory & insert_factory(UniquePtr<TileFactory> uptr, int tid);
 
-    void load_information(Platform::ForLoaders &, tinyxml2::XMLElement * tileset);
+    void load_information(Platform::ForLoaders &, const tinyxml2::XMLElement & tileset);
 
     void set_texture_information
         (const SharedPtr<const Texture> & texture, const Size2 & tile_size,
@@ -115,9 +115,55 @@ private:
     std::vector<Entity> & m_entities;
 };
 
+enum class CardinalDirections {
+    n, s, e, w,
+    nw, sw, se, ne
+};
+
+struct WallElevationAndDirection final {
+    CardinalDirections direction;
+    Vector2I tileset_location;
+    std::array<Real, 4> dip_heights;
+};
+
+class WallElevationAndDirectionComparator final {
+    static auto tileset_location_list(const Vector2I & v)
+        { return std::array { v.x, v.y }; };
+
+    template <typename T, std::size_t kt_size>
+    static T difference_between
+        (const std::array<T, kt_size> & lhs, const std::array<T, kt_size> & rhs)
+    {
+        for (int i = 0; i != int(lhs.size()); ++i) {
+            auto diff = lhs[i] - rhs[i];
+            if (!are_very_close(diff, 0)) // <- should be okay for both fp & int
+                return diff;
+        }
+        return 0;
+    }
+
+public:
+    using Wed = WallElevationAndDirection;
+    bool operator () (const Wed & lhs, const Wed & rhs) const {
+        auto diff = static_cast<int>(lhs.direction) - static_cast<int>(rhs.direction);
+        if (diff) return diff < 0;
+
+        auto slopes_diff = difference_between(lhs.dip_heights, rhs.dip_heights);
+        if (!are_very_close(slopes_diff, 0)) return slopes_diff < 0;
+        auto tileset_location_diff = difference_between(
+            tileset_location_list(lhs.tileset_location),
+            tileset_location_list(rhs.tileset_location));
+        return tileset_location_diff < 0;
+    }
+};
+
+using WallRenderModelCache = std::map<
+    WallElevationAndDirection,
+    Tuple<SharedPtr<const RenderModel>, std::vector<TriangleSegment>>,
+    WallElevationAndDirectionComparator>;
+
 class TileFactory {
 public:
-
     class NeighborInfo final {
     public:
 
@@ -139,8 +185,12 @@ public:
         // <!undefined!>
         Tuple<Real, Real> west_elevations() const;
 
+        // <!undefined!>
+        Real neighbor_elevation(CardinalDirections) const;
+
         Vector2I tile_location() const { return m_loc + m_offset; }
 
+        // bad name: is actually more local
         Vector2I tile_location_in_map() const { return m_loc; }
     private:
         const TileSet & m_tileset;
@@ -160,8 +210,10 @@ public:
         (const SharedCPtr<Texture> & texture_ptr_, const Size2 & texture_size_,
          const Size2 & tile_size_);
 
-    virtual void setup(Vector2I loc_in_ts, tinyxml2::XMLElement * properties,
+    virtual void setup(Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
                        Platform::ForLoaders &) = 0;
+
+    virtual void assign_render_model_wall_cache(WallRenderModelCache &) {}
 
     virtual Slopes tile_elevations() const = 0;
 protected:
@@ -170,7 +222,7 @@ protected:
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
          EntityAndTrianglesAdder & adder);
 
-    static const char * find_property(const char * name_, tinyxml2::XMLElement * properties);
+    static const char * find_property(const char * name_, const tinyxml2::XMLElement * properties);
 
     static Vector grid_position_to_v3(Vector2I r)
         { return Vector{r.x, 0, -r.y}; }
@@ -193,3 +245,4 @@ private:
     Size2 m_texture_size;
     Size2 m_tile_size;
 };
+

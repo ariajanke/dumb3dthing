@@ -331,6 +331,8 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
+    // This sort of is "temporary" code.
+    // So not subjecting to testing.
     {
 
     using TeardownTask = MapLoader::TeardownTask;
