@@ -70,6 +70,57 @@ CardinalDirections cardinal_direction_from(const char * str) {
 #if 0
 bool is_solution(Real);
 #endif
+
+auto make_get_next_for_dir_split_v(Vector end, Vector step) {
+    return [end, step] (Vector east_itr) {
+        auto cand_next = east_itr + step;
+        if (are_very_close(cand_next, end)) return cand_next;
+
+        if (are_very_close(normalize(end - east_itr ),
+                           normalize(end - cand_next)))
+        { return cand_next; }
+        return end;
+    };
+};
+
+template <typename Func>
+void make_linear_triangle_strip
+    (const Vector & a_start, const Vector & a_last,
+     const Vector & b_start, const Vector & b_last,
+     Real step, Func && f)
+{
+    const auto make_step = [step](const Vector & start, const Vector & last) {
+        auto diff = last - start;
+        if (are_very_close(diff, Vector{})) return Vector{};
+        return step*normalize(diff);
+    };
+
+    auto itr_a = a_start;
+    const auto next_a = make_get_next_for_dir_split_v(
+        a_last, make_step(a_start, a_last));
+
+    auto itr_b = b_start;
+    const auto next_b = make_get_next_for_dir_split_v(
+        b_last, make_step(b_start, b_last));
+
+    while (   !are_very_close(itr_a, a_last)
+           && !are_very_close(itr_b, b_last))
+    {
+        const auto new_a = next_a(itr_a);
+        const auto new_b = next_b(itr_b);
+        f(Triangle{itr_a, itr_b, new_a});
+        f(Triangle{itr_a, new_a, new_b});
+        itr_a = new_a;
+        itr_b = new_b;
+    }
+
+    if (!are_very_close(itr_a, a_last)) {
+        f(Triangle{itr_a, b_last, a_last});
+    } else if (!are_very_close(itr_b, b_last)) {
+        f(Triangle{itr_b, itr_a, b_last});
+    }
+}
+
 enum SplitOpt {
     k_flats_only = 1 << 0,
     k_wall_only  = 1 << 1,
@@ -125,6 +176,7 @@ void north_south_split
     const Vector div_se{ 0.5, south_east_y, division_z};
     // We must handle division_z being 0.5
     if constexpr ((k_opt & k_flats_only) && false) {
+#       if 0
         if (!are_very_close(division_z, 0.5)) {
             Vector nw{-0.5, north_west_y, 0.5};
             Vector ne{ 0.5, north_east_y, 0.5};
@@ -137,10 +189,19 @@ void north_south_split
             f(Triangle{sw, se    , div_sw});
             f(Triangle{sw, div_sw, div_se});
         }
+#       endif
+        Vector nw{-0.5, north_west_y, 0.5};
+        Vector ne{ 0.5, north_east_y, 0.5};
+        make_linear_triangle_strip(nw, div_nw, ne, div_ne, 1, f);
+        Vector sw{-0.5, south_west_y, 0.5};
+        Vector se{ 0.5, south_east_y, 0.5};
+        make_linear_triangle_strip(div_sw, sw, div_se, se, 1, f);
     }
     // We should only skip triangles along the wall if
     // there's no elevation difference to cover
     if constexpr (k_opt & k_wall_only) {
+        make_linear_triangle_strip(div_nw, div_sw, div_ne, div_se, 1, f);
+#       if 0
         // it doesn't matter so much where I start, so long as
         // 1ue steps are used
         auto normalize_or_zero = [] (Real x) { return are_very_close(x, 0) ? 0 : normalize(x); };
@@ -175,6 +236,7 @@ void north_south_split
             east_itr = east_next;
             west_itr = west_next;
         }
+#   endif
     }
 }
 
@@ -205,6 +267,45 @@ class WallTileFactory final : public TranslatableTileFactory {
 public:
     void assign_render_model_wall_cache(WallRenderModelCache & cache) final
         { m_render_model_cache = &cache; }
+
+    static WallElevationAndDirection elevations_and_direction
+        (const NeighborInfo & ninfo, Real known_elevation,
+         CardinalDirections dir, Vector2I tile_loc)
+    {
+        WallElevationAndDirection rv;
+        // I need a way to address each corner...
+        using Cd = CardinalDirections;
+        rv.direction = dir;
+        rv.tileset_location = tile_loc;
+        auto known_corners = make_known_corners(rv.direction);
+        for (auto corner : { Cd::nw, Cd::sw, Cd::se, Cd::ne }) {
+            // walls are only generated for dips on "unknown corners"
+            // if a neighbor elevation is unknown, then no wall it created for that
+            // corner (which can very easily mean no wall are generated on any "dip"
+            // corner
+            Real neighbor_elevation = ninfo.neighbor_elevation(corner);
+            Real diff   = known_elevation - neighbor_elevation;
+            bool is_dip =    cul::is_real(neighbor_elevation)
+                          && known_elevation > neighbor_elevation
+                          && !known_corners[corner_index(corner)];
+            // must be finite for our purposes
+            rv.dip_heights[corner_index(corner)] = is_dip ? diff : 0;
+        }
+
+        return rv;
+    }
+
+    static int corner_index(CardinalDirections dir) {
+        using Cd = CardinalDirections;
+        switch (dir) {
+        case Cd::nw: return 0;
+        case Cd::sw: return 1;
+        case Cd::se: return 2;
+        case Cd::ne: return 3;
+        default: break;
+        }
+        throw InvArg{""};
+    }
 
 private:
     static constexpr const Real k_visual_dip_thershold = 0.5;
@@ -298,22 +399,10 @@ private:
             }
             //SharedPtr
 #           endif
-            adder.add_triangle(make_shared<Triangle>(triangle.move(translation())));
+            adder.add_triangle(Triangle{triangle.move(translation())});
         }
         // mmm
         // make_entity(platform, ninfo.tile_location(), render_model);
-    }
-
-    static int corner_index(CardinalDirections dir) {
-        using Cd = CardinalDirections;
-        switch (dir) {
-        case Cd::nw: return 0;
-        case Cd::sw: return 1;
-        case Cd::se: return 2;
-        case Cd::ne: return 3;
-        default: break;
-        }
-        throw RtError{""};
     }
 
     static std::array<bool, 4> make_known_corners(CardinalDirections dir) {
@@ -325,7 +414,7 @@ private:
                 make_tuple(Cd::sw, sw), make_tuple(Cd::se, se),
             };
             for (auto [corner, val] : k_corners)
-                rv[corner_index(corner)] = val;
+                rv[corner_index(corner)] = !val;
             return rv;
         };
         switch (dir) {
@@ -346,30 +435,8 @@ private:
     WallElevationAndDirection elevations_and_direction
         (const NeighborInfo & ninfo) const
     {
-        WallElevationAndDirection rv;
-        // I need a way to address each corner...
-        using Cd = CardinalDirections;
-        // elevations for knowns for this tile
-        auto known_elevation = translation().y + 1;
-
-        rv.direction = m_dir;
-        rv.tileset_location = m_tileset_location;
-        auto known_corners = make_known_corners(m_dir);
-        for (auto corner : { Cd::nw, Cd::sw, Cd::se, Cd::ne }) {
-            // walls are only generated for dips on "unknown corners"
-            // if a neighbor elevation is unknown, then no wall it created for that
-            // corner (which can very easily mean no wall are generated on any "dip"
-            // corner
-            Real neighbor_elevation = ninfo.neighbor_elevation(corner);
-            Real diff   = known_elevation - neighbor_elevation;
-            bool is_dip =    cul::is_real(neighbor_elevation)
-                          && known_elevation > neighbor_elevation
-                          && !known_corners[corner_index(corner)];
-            // must be finite for our purposes
-            rv.dip_heights[corner_index(corner)] = is_dip ? diff : 0;
-        }
-
-        return rv;
+        return WallTileFactory::elevations_and_direction
+            (ninfo, translation().y + 1, m_dir, m_tileset_location);
     }
 
     Tuple<SharedPtr<const RenderModel>, std::vector<Triangle>>
@@ -692,10 +759,11 @@ TileFactory::NeighborInfo::NeighborInfo
     m_offset(spawner_offset) {}
 
 /* static */ TileFactory::NeighborInfo
-    TileFactory::NeighborInfo::make_no_neighbor(const TileSet & tileset)
+    TileFactory::NeighborInfo::make_no_neighbor()
 {
     static Grid<int> s_layer;
-    return NeighborInfo{tileset, s_layer, Vector2I{}, Vector2I{}};
+    static TileSet s_tileset;
+    return NeighborInfo{s_tileset, s_layer, Vector2I{}, Vector2I{}};
 }
 
 Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirections dir) const {
@@ -707,7 +775,7 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirections dir) const
         std::array<Real, 2> vals;
         std::transform(arr.begin(), arr.end(), vals.begin(), [this] (const VecCdTup & tup) {
             auto [r, d] = tup; {}
-            return cul::is_real(neighbor_elevation(r, d));
+            return neighbor_elevation(r, d);
         });
         auto itr = std::find_if(vals.begin(), vals.end(),
             [] (Real x) { return cul::is_real(x); });
@@ -746,8 +814,8 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirections dir) const
     (const Vector2I & r, CardinalDirections dir) const
 {
     using Cd = CardinalDirections;
-    if (!m_layer.has_position(r)) return k_inf;
-    const auto * ts = m_tileset(m_layer(r));
+    if (!m_layer.has_position(r + m_loc)) return k_inf;
+    const auto * ts = m_tileset(m_layer(r + m_loc));
     switch (dir) {
     case Cd::n: case Cd::s: case Cd::e: case Cd::w:
         throw InvArg{"Not a corner"};
@@ -780,43 +848,145 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirections dir) const
     return (*itr->second)();
 }
 
+class TestTrianglesAdder final : public EntityAndTrianglesAdder {
+public:
+    void add_triangle(const TriangleSegment & triangle) final
+        { triangles.push_back(triangle); }
+
+    void add_entity(const Entity &) final {}
+
+    std::vector<Triangle> triangles;
+};
+
 /* static */ bool TileFactory::test_wall_factory() {
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
     using namespace cul::ts;
     TestSuite suite;
-    suite.start_series("Wall Tile Factory");
+
     constexpr const auto k_tileset_fn = "test-tileset.tsx";
-    mark(suite).test([] {
+    static auto load_tileset = [](const char * fn, TileSet & tileset) {
         TiXmlDocument document;
-        document.LoadFile(k_tileset_fn);
-        TileSet tileset;
+        document.LoadFile(fn);
         auto & platform = Platform::null_callbacks();
         tileset.load_information(platform, *document.RootElement());
-        constexpr const int k_north_wall_no_translation = 34;
-        auto * wall_tile_factory = tileset(k_north_wall_no_translation);
-        if (!wall_tile_factory) {
-            throw RtError{"uh oh, no wall factory!"};
-        }
+    };
+    static constexpr const int k_connecting_tile = 16;
+    static constexpr const int k_north_wall_no_translation = 34;
+    static const auto k_sample_layer = [] {
+        Grid<int> layer;
+        layer.set_size(1, 2);
+        layer(0, 0) = k_connecting_tile;
+        layer(0, 1) = k_north_wall_no_translation;
+        return layer;
+    } ();
+    static const auto make_sample_neighbor_info = [] (const TileSet & tileset) {
+        return NeighborInfo{tileset, k_sample_layer, Vector2I{0, 1}, Vector2I{}};
+    };
+    static const auto verify_tile_factory = [] (const TileFactory * fact) {
+        if (fact) return fact;
+        throw RtError{"Uh Oh, no tile factory"};
+    };
 
-        class Impl final : public EntityAndTrianglesAdder {
-        public:
-            void add_triangle(const SharedPtr<TriangleSegment> & ptr) {
-                triangles.push_back(*ptr);
-            }
+    suite.start_series("TileFactory::NeighborInfo");
+    // no neighbor, no real number is returned
+    mark(suite).test([] {
+        auto res = NeighborInfo::make_no_neighbor()
+            .neighbor_elevation(CardinalDirections::nw);
+        return test(!cul::is_real(res));
+    });
+    // yes neighbor, return real number
+    mark(suite).test([] {
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+        auto ninfo = make_sample_neighbor_info(tileset);
+        auto res = ninfo.neighbor_elevation(CardinalDirections::nw);
+        return test(cul::is_real(res));
+    });
+    // against another wall, no real return
+    mark(suite).test([] {
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+        Grid<int> layer;
+        layer.set_size(1, 2);
+        layer(0, 0) = k_north_wall_no_translation;
+        layer(0, 1) = k_north_wall_no_translation;
+        NeighborInfo ninfo{tileset, layer, Vector2I{0, 1}, Vector2I{}};
+        auto res = ninfo.neighbor_elevation(CardinalDirections::nw);
+        return test(cul::is_real(res));
+    });
 
-            void add_entity(const Entity &) final {}
+    suite.start_series("Wall Tile Factory");
+    mark(suite).test([] {
+        // not possible without neighbors!
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+        using Wtf = WallTileFactory;
+        using Cd = CardinalDirections;
 
-            std::vector<Triangle> triangles;
-        };
+        auto wed = Wtf::elevations_and_direction
+            (make_sample_neighbor_info(tileset), 1, Cd::n, Vector2I{});
+        // both dip heights should be 2 in this case
+        auto nw = wed.dip_heights[Wtf::corner_index(Cd::nw)];
+        auto ne = wed.dip_heights[Wtf::corner_index(Cd::ne)];
+        auto sw = wed.dip_heights[Wtf::corner_index(Cd::sw)];
+        auto se = wed.dip_heights[Wtf::corner_index(Cd::se)];
+        return test(   are_very_close(ne, 1) && are_very_close(nw, 1)
+                    && are_very_close(sw, 0) && are_very_close(se, 0));
+    });
 
-        Impl adder;
+    // if there are no neighbors, then no walls should be generated!
+    mark(suite).test([] {
+        using Wtf = WallTileFactory;
+        using Cd = CardinalDirections;
+
+        auto wed = Wtf::elevations_and_direction
+            (NeighborInfo::make_no_neighbor(), 1, Cd::n, Vector2I{});
+        auto nw = wed.dip_heights[Wtf::corner_index(Cd::nw)];
+        auto ne = wed.dip_heights[Wtf::corner_index(Cd::ne)];
+        auto sw = wed.dip_heights[Wtf::corner_index(Cd::sw)];
+        auto se = wed.dip_heights[Wtf::corner_index(Cd::se)];
+        return test(   are_very_close(ne, 0) && are_very_close(nw, 0)
+                    && are_very_close(sw, 0) && are_very_close(se, 0));
+    });
+    mark(suite).test([] {
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+        auto * wall_tile_factory = verify_tile_factory(tileset(k_north_wall_no_translation));
+
+        TestTrianglesAdder adder;
         // what the tile is, appears through the adder
 
-        auto no_neighbor = NeighborInfo::make_no_neighbor(tileset);
-        (*wall_tile_factory)(adder, no_neighbor, platform);
-        return test(false);
+        auto sample_neighbor = make_sample_neighbor_info(tileset);
+        (*wall_tile_factory)(adder, sample_neighbor, Platform::null_callbacks());
+        bool wall_found = std::any_of(adder.triangles.begin(), adder.triangles.end(),
+            [](const Triangle & tptr)
+        {
+            return    are_very_close(tptr.point_a().z, tptr.point_b().z)
+                   && are_very_close(tptr.point_b().z, tptr.point_c().z);
+        });
+        return test(wall_found);
+    });
+    // it *is* correct behavior to not generate walls when there is no neighbor
+    mark(suite).test([] {
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+        auto * wall_tile_factory = verify_tile_factory(tileset(k_north_wall_no_translation));
+
+        TestTrianglesAdder adder;
+        // what the tile is, appears through the adder
+
+        auto sample_neighbor = NeighborInfo::make_no_neighbor();
+        (*wall_tile_factory)(adder, sample_neighbor, Platform::null_callbacks());
+        bool wall_not_found = std::none_of(adder.triangles.begin(), adder.triangles.end(),
+            [](const Triangle & tptr)
+        {
+            return    are_very_close(tptr.point_a().z, tptr.point_b().z)
+                   && are_very_close(tptr.point_b().z, tptr.point_c().z);
+        });
+        return test(wall_not_found);
     });
 #   undef mark
+    return suite.has_successes_only();
 }
 
 void TileFactory::set_shared_texture_information
@@ -835,10 +1005,10 @@ void TileFactory::set_shared_texture_information
     const auto & els = TileGraphicGenerator::get_common_elements();
     const auto pos = TileGraphicGenerator::get_points_for(slopes);
     auto offset = grid_position_to_v3(gridloc) + translation;
-    adder.add_triangle(make_shared<TriangleSegment>(
-        pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset));
-    adder.add_triangle(make_shared<TriangleSegment>(
-        pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset));
+    adder.add_triangle(TriangleSegment{
+        pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset});
+    adder.add_triangle(TriangleSegment{
+        pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset});
 }
 
 /* protected static */ const char * TileFactory::find_property

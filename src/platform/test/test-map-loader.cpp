@@ -350,33 +350,32 @@ bool run_tiled_map_loader_tests() {
 
     // bin/test-walls-elevations.tmx
     constexpr const auto k_walls_elv_map = "test-walls-elevations.tmx";
-    // is a (specific) wall generated?
+
+    // check for flat in map (and that it's correct)
     mark(suite).test([] {
         auto loader = get_preparing_loader(k_walls_elv_map);
         auto entities = do_load_task_get_entities(loader, Vector2I{});
         // everything that grid points to should be owned by that last entity
         const auto & grid = entities.back().get<TrianglePtrsViewGrid>();
-        // doesn't really figure out appearance, but I don't know if I want to
-        // even test that
-
-        // | need to find a wall in here
-        // v that is looking for specific triangles
         grid(Vector2I{1, 1});
         bool floor_tile_at_3 = elevation_for_all(grid(Vector2I{1, 1}), 3);
+        return test(floor_tile_at_3);
+    });
+
+    // is a (specific) wall generated?
+    mark(suite).test([] {
+        auto loader = get_preparing_loader(k_walls_elv_map);
+        auto entities = do_load_task_get_entities(loader, Vector2I{});
+
+        // everything that grid points to should be owned by that last entity
+        const auto & grid = entities.back().get<TrianglePtrsViewGrid>();
         auto wall_tile = grid(Vector2I{0, 1});
         bool wall_found = std::any_of(wall_tile.begin(), wall_tile.end(), [](const SharedPtr<const Triangle> & tptr) {
             // all the same x, where x == 1
             return    are_very_close(tptr->point_a().x, tptr->point_b().x)
-                   && are_very_close(tptr->point_b().x, tptr->point_c().x)
-                   && are_very_close(tptr->point_a().x, 1);
+                   && are_very_close(tptr->point_b().x, tptr->point_c().x);
         });
-        bool zwall_found = std::any_of(wall_tile.begin(), wall_tile.end(), [](const SharedPtr<const Triangle> & tptr) {
-            // all the same x, where x == 1
-            return    are_very_close(tptr->point_a().z, tptr->point_b().z)
-                   && are_very_close(tptr->point_b().z, tptr->point_c().z)
-                   && are_very_close(tptr->point_a().z, 1);
-        });
-        return test(floor_tile_at_3 && wall_found);
+        return test(wall_found);
     });
 
     // do walls of different elevation work?

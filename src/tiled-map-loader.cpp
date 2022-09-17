@@ -101,14 +101,14 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                      TrianglesAdder & triangles_):
                     m_tri_adder(triangles_), m_entities(entities) {}
 
-                void add_triangle(const SharedPtr<TriangleSegment> & ptr) final
-                    { m_tri_adder.add_triangle(ptr); }
+                void add_triangle(const TriangleSegment & triangle) final
+                    { m_tri_adder.add_triangle( make_shared<TriangleSegment>(triangle) ); }
 
                 void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
 
             private:
                 TrianglesAdder & m_tri_adder;
-                    std::vector<Entity> & m_entities;
+                std::vector<Entity> & m_entities;
             };
 
             Impl etadder{entities, adder};

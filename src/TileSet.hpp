@@ -117,9 +117,9 @@ private:
 #   endif
     virtual ~EntityAndTrianglesAdder() {}
 
-    virtual void add_triangle(const SharedPtr<TriangleSegment> & ptr) = 0;
+    virtual void add_triangle(const TriangleSegment &) = 0;
 
-    virtual void add_entity(const Entity & ent) = 0;
+    virtual void add_entity(const Entity &) = 0;
 };
 
 enum class CardinalDirections {
@@ -182,7 +182,7 @@ public:
             (const TileSet & ts, const Grid<int> & layer,
              Vector2I tilelocmap, Vector2I spawner_offset);
 
-        static NeighborInfo make_no_neighbor(const TileSet &);
+        static NeighborInfo make_no_neighbor();
 
         Real neighbor_elevation(CardinalDirections) const;
 
