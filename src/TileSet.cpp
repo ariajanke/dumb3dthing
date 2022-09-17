@@ -23,6 +23,9 @@
 #include "RenderModel.hpp"
 #include "tiled-map-loader.hpp"
 
+// can always clean up embedded testing later
+#include <common/TestSuite.hpp>
+
 #include <tinyxml2.h>
 
 namespace {
@@ -64,12 +67,12 @@ CardinalDirections cardinal_direction_from(const char * str) {
 }
 
 // ------------------------------- <! messy !> --------------------------------
-
+#if 0
 bool is_solution(Real);
-
+#endif
 enum SplitOpt {
-    k_flats_only = 1,
-    k_wall_only  = 1 >> 1,
+    k_flats_only = 1 << 0,
+    k_wall_only  = 1 << 1,
     k_both_flats_and_wall = k_flats_only | k_wall_only
 };
 
@@ -121,13 +124,14 @@ void north_south_split
     const Vector div_sw{-0.5, south_west_y, division_z};
     const Vector div_se{ 0.5, south_east_y, division_z};
     // We must handle division_z being 0.5
-    if constexpr (k_opt & k_flats_only) {
+    if constexpr ((k_opt & k_flats_only) && false) {
         if (!are_very_close(division_z, 0.5)) {
             Vector nw{-0.5, north_west_y, 0.5};
             Vector ne{ 0.5, north_east_y, 0.5};
             f(Triangle{nw, ne    , div_nw});
             f(Triangle{nw, div_nw, div_ne});
-
+        }
+        if (!are_very_close(division_z, -0.5)) {
             Vector sw{-0.5, south_west_y, 0.5};
             Vector se{ 0.5, south_east_y, 0.5};
             f(Triangle{sw, se    , div_sw});
@@ -139,9 +143,10 @@ void north_south_split
     if constexpr (k_opt & k_wall_only) {
         // it doesn't matter so much where I start, so long as
         // 1ue steps are used
+        auto normalize_or_zero = [] (Real x) { return are_very_close(x, 0) ? 0 : normalize(x); };
         // must accept that one direction or both maybe "0"
-        const auto east_dir = normalize(north_east_y - north_west_y);
-        const auto west_dir = normalize(south_east_y - south_west_y);
+        const auto east_dir = normalize_or_zero(north_east_y - north_west_y);
+        const auto west_dir = normalize_or_zero(south_east_y - south_west_y);
         if (are_very_close(east_dir, 0) && are_very_close(west_dir, 0))
             return;
 
@@ -236,6 +241,8 @@ private:
 
     Slopes tile_elevations() const final {
         // it is possible that some elevations are indeterminent...
+        Real y = translation().y + 1;
+        return Slopes{0, y, y, y, y};
     }
 
     // a wall has at least one elevation that's known
@@ -259,7 +266,7 @@ private:
                 return make_entities_and_triangles(adder, platform, ninfo, render_model, triangles);
             }
         }
-        auto [render_model, triangles] = make_render_model_and_triangles(wed, platform); {}
+        auto [render_model, triangles] = make_render_model_and_triangles(wed, ninfo, platform); {}
         if (m_render_model_cache) {
             m_render_model_cache->insert(std::make_pair(
                 wed,
@@ -355,7 +362,7 @@ private:
             // corner
             Real neighbor_elevation = ninfo.neighbor_elevation(corner);
             Real diff   = known_elevation - neighbor_elevation;
-            bool is_dip =    is_solution(neighbor_elevation)
+            bool is_dip =    cul::is_real(neighbor_elevation)
                           && known_elevation > neighbor_elevation
                           && !known_corners[corner_index(corner)];
             // must be finite for our purposes
@@ -368,26 +375,74 @@ private:
     Tuple<SharedPtr<const RenderModel>, std::vector<Triangle>>
         make_render_model_and_triangles(
         const WallElevationAndDirection & wed,
-        Platform::ForLoaders & platform) const
+        const NeighborInfo & ninfo,
+        Platform::ForLoaders &) const
     {
+        auto offset = grid_position_to_v3(ninfo.tile_location())
+            + translation() + Vector{0, 1, 0};
+        std::vector<Triangle> triangles;
+        struct Impl final {
+            Impl(std::vector<Triangle> & triangles_):
+                triangles(triangles_)
+            {}
+
+            void operator () (const Triangle & triangle) const {
+                triangles.push_back(triangle);
+            }
+
+            std::vector<Triangle> & triangles;
+        };
+        Impl add_triangle_{triangles};
+        auto & add_triangle = add_triangle_;
+#       if 0
+        auto add_triangle = [&triangles] (const Triangle & triangle) {
+            triangles.push_back(triangle);
+        };
+#       endif
         // we have cases depending on the number of dips
         // okay, I should like to handle only two (adjacent) and three dips
         using Cd = CardinalDirections;
+        auto adjusted_thershold = k_physical_dip_thershold - 0.5;
         // nvm, direction describes which case
         switch (m_dir) {
         // a north wall, all point on the north are known
-        case Cd::n : ;
-        case Cd::s : ;
-        case Cd::e : ;
-        case Cd::w : ;
+        case Cd::n :
+            north_south_split<k_both_flats_and_wall>(
+                offset.y - wed.dip_heights[corner_index(Cd::ne)], // ne
+                offset.y - wed.dip_heights[corner_index(Cd::nw)],
+                offset.y, offset.y,
+                adjusted_thershold, add_triangle);
+            break;
+        case Cd::s :
+            north_south_split<k_both_flats_and_wall>(
+                offset.y, offset.y,
+                offset.y - wed.dip_heights[corner_index(Cd::se)], // se
+                offset.y - wed.dip_heights[corner_index(Cd::sw)],
+                1 - adjusted_thershold, add_triangle);
+            break;
+        case Cd::e :
+            east_west_split<k_both_flats_and_wall>(
+                offset.y - wed.dip_heights[corner_index(Cd::ne)], // ne
+                offset.y - wed.dip_heights[corner_index(Cd::se)],
+                offset.y, offset.y,
+                adjusted_thershold, add_triangle);
+            break;
+        case Cd::w :
+            east_west_split<k_both_flats_and_wall>(
+                offset.y, offset.y,
+                offset.y - wed.dip_heights[corner_index(Cd::nw)], // ne
+                offset.y - wed.dip_heights[corner_index(Cd::sw)],
+                1 - adjusted_thershold, add_triangle);
+            break;
         // maybe have seperate divider functions for these cases?
         case Cd::nw: ;
         case Cd::sw: ;
         case Cd::se: ;
         case Cd::ne: ;
+            throw RtError{"unimplemented"};
         default: break;
         }
-        throw BadBranchException{__LINE__, __FILE__};
+        return make_tuple(nullptr, std::move(triangles));
     }
 
     CardinalDirections m_dir = CardinalDirections::ne;
@@ -627,8 +682,83 @@ int GidTidTranslator::tid_to_gid(int tid, ConstTileSetPtr tileset) const {
 TileFactory::NeighborInfo::NeighborInfo(
     const SharedPtr<const TileSet> & ts, const Grid<int> & layer,
     Vector2I tilelocmap, Vector2I spawner_offset):
-    m_tileset(*ts), m_layer(layer), m_loc(tilelocmap),
+    NeighborInfo(*ts, layer, tilelocmap, spawner_offset)
+{}
+
+TileFactory::NeighborInfo::NeighborInfo
+    (const TileSet & ts, const Grid<int> & layer,
+     Vector2I tilelocmap, Vector2I spawner_offset):
+    m_tileset(ts), m_layer(layer), m_loc(tilelocmap),
     m_offset(spawner_offset) {}
+
+/* static */ TileFactory::NeighborInfo
+    TileFactory::NeighborInfo::make_no_neighbor(const TileSet & tileset)
+{
+    static Grid<int> s_layer;
+    return NeighborInfo{tileset, s_layer, Vector2I{}, Vector2I{}};
+}
+
+Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirections dir) const {
+    using Cd = CardinalDirections;
+
+    using VecCdTup = Tuple<Vector2I, Cd>;
+    auto select_el = [this] (const std::array<VecCdTup, 2> & arr) {
+        // I miss map, transform sucks :c
+        std::array<Real, 2> vals;
+        std::transform(arr.begin(), arr.end(), vals.begin(), [this] (const VecCdTup & tup) {
+            auto [r, d] = tup; {}
+            return cul::is_real(neighbor_elevation(r, d));
+        });
+        auto itr = std::find_if(vals.begin(), vals.end(),
+            [] (Real x) { return cul::is_real(x); });
+        return itr == vals.end() ? k_inf : *itr;
+    };
+
+    switch (dir) {
+    case Cd::n: case Cd::s: case Cd::e: case Cd::w:
+        throw InvArg{"Not a corner"};
+    case Cd::nw:
+        return select_el(std::array{
+            make_tuple(Vector2I{ 0, -1}, Cd::sw),
+            make_tuple(Vector2I{-1 , 0}, Cd::ne)
+        });
+    case Cd::sw:
+        return select_el(std::array{
+            make_tuple(Vector2I{ 0, -1}, Cd::sw),
+            make_tuple(Vector2I{-1 , 0}, Cd::ne)
+        });
+    case Cd::se:
+        return select_el(std::array{
+            make_tuple(Vector2I{ 0, -1}, Cd::sw),
+            make_tuple(Vector2I{-1 , 0}, Cd::ne)
+        });
+    case Cd::ne:
+        return select_el(std::array{
+            make_tuple(Vector2I{ 0, -1}, Cd::sw),
+            make_tuple(Vector2I{-1 , 0}, Cd::ne)
+        });
+    default: break;
+    }
+    throw BadBranchException{__LINE__, __FILE__};
+}
+
+/* private */ Real TileFactory::NeighborInfo::neighbor_elevation
+    (const Vector2I & r, CardinalDirections dir) const
+{
+    using Cd = CardinalDirections;
+    if (!m_layer.has_position(r)) return k_inf;
+    const auto * ts = m_tileset(m_layer(r));
+    switch (dir) {
+    case Cd::n: case Cd::s: case Cd::e: case Cd::w:
+        throw InvArg{"Not a corner"};
+    case Cd::nw: return ts ? ts->tile_elevations().nw : k_inf;
+    case Cd::sw: return ts ? ts->tile_elevations().sw : k_inf;
+    case Cd::se: return ts ? ts->tile_elevations().se : k_inf;
+    case Cd::ne: return ts ? ts->tile_elevations().ne : k_inf;
+    default: break;
+    }
+    throw BadBranchException{__LINE__, __FILE__};
+}
 
 // ----------------------------------------------------------------------------
 
@@ -643,10 +773,50 @@ TileFactory::NeighborInfo::NeighborInfo(
         make_pair("ramp"    , [] { return TlPtr{make_unique<TwoRampTileFactory >()}; }),
         make_pair("in-ramp" , [] { return TlPtr{make_unique<InRampTileFactory  >()}; }),
         make_pair("out-ramp", [] { return TlPtr{make_unique<OutRampTileFactory >()}; }),
+        make_pair("wall"    , [] { return TlPtr{make_unique<WallTileFactory    >()}; })
     };
     auto itr = k_factory_map.find(type);
     if (itr == k_factory_map.end()) return nullptr;
     return (*itr->second)();
+}
+
+/* static */ bool TileFactory::test_wall_factory() {
+#   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
+    using namespace cul::ts;
+    TestSuite suite;
+    suite.start_series("Wall Tile Factory");
+    constexpr const auto k_tileset_fn = "test-tileset.tsx";
+    mark(suite).test([] {
+        TiXmlDocument document;
+        document.LoadFile(k_tileset_fn);
+        TileSet tileset;
+        auto & platform = Platform::null_callbacks();
+        tileset.load_information(platform, *document.RootElement());
+        constexpr const int k_north_wall_no_translation = 34;
+        auto * wall_tile_factory = tileset(k_north_wall_no_translation);
+        if (!wall_tile_factory) {
+            throw RtError{"uh oh, no wall factory!"};
+        }
+
+        class Impl final : public EntityAndTrianglesAdder {
+        public:
+            void add_triangle(const SharedPtr<TriangleSegment> & ptr) {
+                triangles.push_back(*ptr);
+            }
+
+            void add_entity(const Entity &) final {}
+
+            std::vector<Triangle> triangles;
+        };
+
+        Impl adder;
+        // what the tile is, appears through the adder
+
+        auto no_neighbor = NeighborInfo::make_no_neighbor(tileset);
+        (*wall_tile_factory)(adder, no_neighbor, platform);
+        return test(false);
+    });
+#   undef mark
 }
 
 void TileFactory::set_shared_texture_information

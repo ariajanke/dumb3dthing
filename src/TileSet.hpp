@@ -99,8 +99,9 @@ private:
     int m_gid_end = 0;
 };
 
-class EntityAndTrianglesAdder final {
+class EntityAndTrianglesAdder {
 public:
+#   if 0
     EntityAndTrianglesAdder(std::vector<Entity> & entities,
                             TrianglesAdder & triangles_):
         m_tri_adder(triangles_), m_entities(entities) {}
@@ -113,6 +114,12 @@ public:
 private:
     TrianglesAdder & m_tri_adder;
     std::vector<Entity> & m_entities;
+#   endif
+    virtual ~EntityAndTrianglesAdder() {}
+
+    virtual void add_triangle(const SharedPtr<TriangleSegment> & ptr) = 0;
+
+    virtual void add_entity(const Entity & ent) = 0;
 };
 
 enum class CardinalDirections {
@@ -171,28 +178,22 @@ public:
             (const SharedPtr<const TileSet> & ts, const Grid<int> & layer,
              Vector2I tilelocmap, Vector2I spawner_offset);
 
-        // +x second (east)
-        // <!undefined!>
-        Tuple<Real, Real> north_elevations() const;
+        NeighborInfo
+            (const TileSet & ts, const Grid<int> & layer,
+             Vector2I tilelocmap, Vector2I spawner_offset);
 
-        // <!undefined!>
-        Tuple<Real, Real> south_elevations() const;
+        static NeighborInfo make_no_neighbor(const TileSet &);
 
-        // +z second (north)
-        // <!undefined!>
-        Tuple<Real, Real> east_elevations() const;
-
-        // <!undefined!>
-        Tuple<Real, Real> west_elevations() const;
-
-        // <!undefined!>
         Real neighbor_elevation(CardinalDirections) const;
 
         Vector2I tile_location() const { return m_loc + m_offset; }
 
         // bad name: is actually more local
         Vector2I tile_location_in_map() const { return m_loc; }
+
     private:
+        Real neighbor_elevation(const Vector2I &, CardinalDirections) const;
+
         const TileSet & m_tileset;
         const Grid<int> & m_layer;
         Vector2I m_loc;
@@ -200,6 +201,8 @@ public:
     };
 
     static UniquePtr<TileFactory> make_tileset_factory(const char * type);
+
+    static bool test_wall_factory();
 
     virtual ~TileFactory() {}
 

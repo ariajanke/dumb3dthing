@@ -230,8 +230,9 @@ StringSplitterView<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>
     split_range(CharIter beg, EndIter end, SplitterFunc && splitter_,
                 WithAdditionalFunc && with_ = [](CharIter &, CharIter &){})
 {
-    return StringSplitterView<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>{
-        StringSplitterIterator{beg, end, std::move(splitter_), std::move(with_)},
+    using Iterator = StringSplitterIterator<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>;
+    return cul::View<Iterator, StringSplitterIteratorEnd>{
+        Iterator{beg, end, std::move(splitter_), std::move(with_)},
         StringSplitterIteratorEnd{}};
 }
 

@@ -366,9 +366,15 @@ bool run_tiled_map_loader_tests() {
         auto wall_tile = grid(Vector2I{0, 1});
         bool wall_found = std::any_of(wall_tile.begin(), wall_tile.end(), [](const SharedPtr<const Triangle> & tptr) {
             // all the same x, where x == 1
-            return    tptr->point_a().x == tptr->point_b().x
-                   && tptr->point_b().x == tptr->point_c().x
-                   && tptr->point_a().x == 1;
+            return    are_very_close(tptr->point_a().x, tptr->point_b().x)
+                   && are_very_close(tptr->point_b().x, tptr->point_c().x)
+                   && are_very_close(tptr->point_a().x, 1);
+        });
+        bool zwall_found = std::any_of(wall_tile.begin(), wall_tile.end(), [](const SharedPtr<const Triangle> & tptr) {
+            // all the same x, where x == 1
+            return    are_very_close(tptr->point_a().z, tptr->point_b().z)
+                   && are_very_close(tptr->point_b().z, tptr->point_c().z)
+                   && are_very_close(tptr->point_a().z, 1);
         });
         return test(floor_tile_at_3 && wall_found);
     });
@@ -395,6 +401,8 @@ bool run_tiled_map_loader_tests() {
     mark(suite).test([] {
         return test(false);
     });
+
+    return TileFactory::test_wall_factory() && suite.has_successes_only();
 }
 
 } // end of <anonymous> namespace

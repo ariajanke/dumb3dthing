@@ -95,7 +95,23 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
             auto * factory = (*tileset)(tid);
             if (!factory) return;
 
-            EntityAndTrianglesAdder etadder{entities, adder};
+            class Impl final : public EntityAndTrianglesAdder {
+            public:
+                Impl(std::vector<Entity> & entities,
+                     TrianglesAdder & triangles_):
+                    m_tri_adder(triangles_), m_entities(entities) {}
+
+                void add_triangle(const SharedPtr<TriangleSegment> & ptr) final
+                    { m_tri_adder.add_triangle(ptr); }
+
+                void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
+
+            private:
+                TrianglesAdder & m_tri_adder;
+                    std::vector<Entity> & m_entities;
+            };
+
+            Impl etadder{entities, adder};
             (*factory)(etadder,
                     TileFactory::NeighborInfo{tileset, m_layer, r, map_offset},
                     callbacks.platform());
