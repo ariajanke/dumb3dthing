@@ -202,8 +202,6 @@ public:
 
     static UniquePtr<TileFactory> make_tileset_factory(const char * type);
 
-    static bool test_wall_factory();
-
     virtual ~TileFactory() {}
 
     virtual void operator ()

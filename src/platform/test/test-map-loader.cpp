@@ -357,10 +357,27 @@ bool run_tiled_map_loader_tests() {
         auto entities = do_load_task_get_entities(loader, Vector2I{});
         // everything that grid points to should be owned by that last entity
         const auto & grid = entities.back().get<TrianglePtrsViewGrid>();
-        grid(Vector2I{1, 1});
-        bool floor_tile_at_3 = elevation_for_all(grid(Vector2I{1, 1}), 3);
+        bool floor_tile_at_3 = elevation_for_all(grid(Vector2I{1, 1}), 2);
         return test(floor_tile_at_3);
     });
+
+    // search for flats that fills a whole square's worth
+    mark(suite).test([] {
+        auto loader = get_preparing_loader(k_walls_elv_map);
+        auto entities = do_load_task_get_entities(loader, Vector2I{});
+        // everything that grid points to should be owned by that last entity
+        const auto & grid = entities.back().get<TrianglePtrsViewGrid>();
+
+        Real sum = 0;
+        for (auto & triptr : grid(Vector2I{0, 1})) {
+            if (!triptr->can_be_projected_onto(k_up))
+                continue;
+            sum += triptr->project_onto_plane(k_up).area_of_triangle();
+        }
+
+        return test(are_very_close(sum, 1));
+    });
+
 
     // is a (specific) wall generated?
     mark(suite).test([] {
@@ -401,7 +418,7 @@ bool run_tiled_map_loader_tests() {
         return test(false);
     });
 
-    return TileFactory::test_wall_factory() && suite.has_successes_only();
+    return suite.has_successes_only();
 }
 
 } // end of <anonymous> namespace

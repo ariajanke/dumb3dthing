@@ -70,6 +70,23 @@ public:
         Vector2 outside;
     };
 
+    /** @brief Represents how a displacement is limited by an intersection
+     *         with a triangle.
+     */
+    struct LimitIntersection final {
+
+        /** Point of intersection, describe by a point on the triangle's
+         *  plane; is not a real vector if no such intersection exists
+         */
+        Vector2 intersection;
+
+        /** The last 3D position of a displacement before that displacement
+         *  hits the triangle; the limit vector is the same as the
+         *  displacement's end point, if no intersection has occured
+         */
+        Vector limit;
+    };
+
     /** The default triangle, have well defined locations for points a, b, and
      *  c. They are (1, 0, 0), (0, 1, 0), (0, 0, 1) respectively.
      */
@@ -85,6 +102,9 @@ public:
      */
     TriangleSegment(const Vector & a, const Vector & b, const Vector & c);
 
+    /** @returns the area of the triangle */
+    Real area_of_triangle() const;
+
     /** This defines a basis vector for the plane on which this TriangleSegment
      *  exists.
      *
@@ -98,6 +118,14 @@ public:
      *  @note essentially the "y" component on the triangle's plane
      */
     Vector basis_j() const;
+
+    /** @brief Check if this triangle can be projected onto a plane
+     *  @param n vector, maybe the plane's normal, or simply orthogonal to the
+     *         plane
+     *  @returns true if this triangle can be projected onto a plane by the
+     *           vector n
+     */
+    bool can_be_projected_onto(const Vector & n) const noexcept;
 
     /** @returns center of the triangle in three dimensions */
     Vector center() const noexcept;
@@ -120,20 +148,20 @@ public:
     /** @returns the closest point on the triangle's plane that is also inside
      *           the triangle
      */
-    Vector2 closest_contained_point(Vector) const;
+    Vector2 closest_contained_point(const Vector &) const;
 
     /** @returns the closest point on the triangle's plane to the given vector
      *           this is essentially a projection of a point onto the plane
      *           describe by the triangle's points
      *  @throw throws when a vector with any non-real component
      */
-    Vector2 closest_point(Vector) const;
+    Vector2 closest_point(const Vector &) const;
 
     /** @return true if the given 2d point is found inside the three points
      *          defining the triangle surface, false otherwise. Always returns
      *          false for the default triangle surface.
      */
-    bool contains_point(Vector2) const noexcept;
+    bool contains_point(const Vector2 &) const noexcept;
 
     /** @returns new instance whose normal vector is anti-parallel to this
      *           triangle's normal
@@ -145,13 +173,15 @@ public:
      *           k_non_intersection is returned.
      *  @throw throws when a vector with any non-real component
      */
-    Vector2 intersection(Vector a, Vector b) const;
+    Vector2 intersection(const Vector & a, const Vector & b) const;
 
-    struct LimitIntersection final {
-        Vector2 intersection;
-        Vector limit;
-    };
-
+    /** @brief Finds how a displacement is limited by the triangle
+     *  @param a first point of the displacement
+     *  @param b end point of the displacement
+     *  @see TriangleSegment::LimitIntersection
+     *  @return a structure that describes how the displacement's been limited
+     *          (or not) by the triangle
+     */
     LimitIntersection limit_with_intersection
         (const Vector & a, const Vector & b) const;
 
@@ -160,7 +190,7 @@ public:
      *  @param r a real vector offset to "move" the segment
      *  @returns new moved segment, this segment is unaffected
      */
-    TriangleSegment move(Vector r) const
+    TriangleSegment move(const Vector & r) const
         { return TriangleSegment{point_a() + r, point_b() + r, point_c() + r}; }
 
     /** Each triangle segment, has a normal vector. The normal vector can be
@@ -203,7 +233,16 @@ public:
      *  @param vector describing a position on the plane
      *  @throw throws when a vector with any non-real component
      */
-    Vector point_at(Vector2) const;
+    Vector point_at(const Vector2 &) const;
+
+    /** @brief Makes a new triangle with all points projected onto a plane
+     *         described by a vector orthogonal to that plane.
+     *
+     *  @param n vector, maybe the plane's normal, or simply orthogonal to the
+     *         plane
+     *  @returns new projected triangle
+     */
+    TriangleSegment project_onto_plane(const Vector & n) const;
 
     /** @returns points belonging to a side in the order specified,
      *           e.g. k_side_ab returns point a as the first element, then
@@ -211,6 +250,11 @@ public:
      */
     Tuple<Vector, Vector> side_points(Side) const;
 
+    /** @returns points belonging to a side in the order specified
+     *           unlike its sister method, this method returns points as they
+     *           exist on the triangle's plane
+     *  @see TriangleSegment::side_points(TriangleSegment::Side)
+     */
     Tuple<Vector2, Vector2> side_points_in_2d(Side) const;
 
 private:
@@ -222,6 +266,8 @@ private:
 
     /** @throws if non-real vector */
     Side point_region(const Vector2 &) const;
+
+    Tuple<Vector, Vector, Vector> project_onto_plane_(const Vector &) const noexcept;
 
     Vector m_a, m_b, m_c;
 
@@ -235,4 +281,3 @@ using TriangleSide = TriangleSegment::Side;
  *  @return c-string representation of the side
  */
 const char * to_string(TriangleSide);
-
