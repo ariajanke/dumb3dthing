@@ -35,6 +35,8 @@ namespace {
 
 using PlayerEntities = LoaderTask::PlayerEntities;
 using namespace cul::exceptions_abbr;
+using cul::is_real;
+using LinksGrid = Grid<cul::View<std::vector<TriangleLinks>::const_iterator>>;
 
 class TestLoaderTaskCallbacks final : public LoaderTask::Callbacks {
 public:
@@ -72,15 +74,12 @@ bool run_map_loader_tests() {
             "xxx\n"
             "xx \n"
             "x  \n";
-
-        std::vector<SharedPtr<TriangleSegment>> triangles;
         TestLoaderTaskCallbacks impl;
-        TileGraphicGenerator tgg{triangles, impl};
+        TileGraphicGenerator tgg{impl};
         tgg.setup();
-
+        // triangles aren't getting linked up :c
         auto grid = load_map_cell(k_layout, CharToCell::default_instance());
-        auto gv = load_map_graphics(tgg, grid);
-        return std::get<0>(gv);
+        return load_map_graphics(tgg, grid);
     };
 
     using std::any_of, std::get;
@@ -99,6 +98,10 @@ bool run_map_loader_tests() {
 
     static auto make_driver_for_test_layout = [] {
         auto links = load_test_layout();
+        for (const auto & link : links) {
+            std::cout << link.sides_attached_count() << ", ";
+        }
+        std::cout << std::endl;
         auto ppdriver = point_and_plane::Driver::make_driver();
         ppdriver->add_triangles(links);
         ppdriver->update();
@@ -260,9 +263,10 @@ bool run_tiled_map_loader_tests() {
         return test_callbacks.entities;
     };
 
-    static auto elevation_for_all = [](const TrianglePtrsViewGrid::Element & el, Real y) {
-        return std::all_of(el.begin(), el.end(), [y](const SharedPtr<const Triangle> & tptr) {
-            auto list = { tptr->point_a().y, tptr->point_b().y, tptr->point_c().y };
+    static auto elevation_for_all = [](const LinksGrid::Element & el, Real y) {
+        return std::all_of(el.begin(), el.end(), [y](const TriangleLinks & links) {
+            const auto & tri = links.segment();
+            auto list = { tri.point_a().y, tri.point_b().y, tri.point_c().y };
             return std::all_of(list.begin(), list.end(),
                                [y](Real x) { return are_very_close(x, y); });
         });
@@ -356,7 +360,7 @@ bool run_tiled_map_loader_tests() {
         auto loader = get_preparing_loader(k_walls_elv_map);
         auto entities = do_load_task_get_entities(loader, Vector2I{});
         // everything that grid points to should be owned by that last entity
-        const auto & grid = entities.back().get<TrianglePtrsViewGrid>();
+        const auto & grid = entities.back().get<LinksGrid>();
         bool floor_tile_at_3 = elevation_for_all(grid(Vector2I{1, 1}), 2);
         return test(floor_tile_at_3);
     });
@@ -366,13 +370,14 @@ bool run_tiled_map_loader_tests() {
         auto loader = get_preparing_loader(k_walls_elv_map);
         auto entities = do_load_task_get_entities(loader, Vector2I{});
         // everything that grid points to should be owned by that last entity
-        const auto & grid = entities.back().get<TrianglePtrsViewGrid>();
+        const auto & grid = entities.back().get<LinksGrid>();
 
         Real sum = 0;
-        for (auto & triptr : grid(Vector2I{0, 1})) {
-            if (!triptr->can_be_projected_onto(k_up))
+        for (auto & link : grid(Vector2I{0, 1})) {
+            auto & tri = link.segment();
+            if (!tri.can_be_projected_onto(k_up))
                 continue;
-            sum += triptr->project_onto_plane(k_up).area_of_triangle();
+            sum += tri.project_onto_plane(k_up).area_of_triangle();
         }
 
         return test(are_very_close(sum, 1));
@@ -385,20 +390,45 @@ bool run_tiled_map_loader_tests() {
         auto entities = do_load_task_get_entities(loader, Vector2I{});
 
         // everything that grid points to should be owned by that last entity
-        const auto & grid = entities.back().get<TrianglePtrsViewGrid>();
+        const auto & grid = entities.back().get<LinksGrid>();
         auto wall_tile = grid(Vector2I{0, 1});
-        bool wall_found = std::any_of(wall_tile.begin(), wall_tile.end(), [](const SharedPtr<const Triangle> & tptr) {
+        bool wall_found = std::any_of(wall_tile.begin(), wall_tile.end(),
+            [](const TriangleLinks & links)
+        {
             // all the same x, where x == 1
-            return    are_very_close(tptr->point_a().x, tptr->point_b().x)
-                   && are_very_close(tptr->point_b().x, tptr->point_c().x);
+            auto tri = links.segment();
+            return    are_very_close(tri.point_a().x, tri.point_b().x)
+                   && are_very_close(tri.point_b().x, tri.point_c().x);
         });
         return test(wall_found);
     });
 
     // do walls of different elevation work?
     mark(suite).test([] {
+        auto loader = get_preparing_loader(k_walls_elv_map);
+        auto entities = do_load_task_get_entities(loader, Vector2I{});
 
-        return test(false);
+        // everything that grid points to should be owned by that last entity
+        // pointers go bad?!
+        const auto & grid = entities.back().get<LinksGrid>();
+        auto wall_tile = grid(Vector2I{0, 0});
+
+        Real high_y = -k_inf;
+        Real low_y = k_inf;
+        // get the greatest height difference, expect it to be about 2
+        for (auto & links : wall_tile) {
+            auto & tri = links.segment();
+            if (   are_very_close(tri.point_a().x, tri.point_b().x)
+                && are_very_close(tri.point_b().x, tri.point_c().x))
+            {
+                for (auto y : { tri.point_a().y, tri.point_b().y, tri.point_c().y }) {
+                    high_y = std::max(high_y, y);
+                    low_y  = std::min(low_y , y);
+                }
+            }
+        }
+        return test(   is_real(high_y) && is_real(low_y)
+                    && are_very_close(high_y - low_y, 2));
     });
     // special case, other tile's elevation is the same
     mark(suite).test([] {

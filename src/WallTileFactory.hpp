@@ -47,9 +47,9 @@ public:
 
     static WallElevationAndDirection elevations_and_direction
         (const NeighborInfo & ninfo, Real known_elevation,
-         CardinalDirections dir, Vector2I tile_loc);
+         CardinalDirection dir, Vector2I tile_loc);
 
-    static int corner_index(CardinalDirections dir);
+    static int corner_index(CardinalDirection dir);
 
 private:
     using Triangle = TriangleSegment;
@@ -103,7 +103,7 @@ private:
         const SharedPtr<const RenderModel> & render_model,
         const std::vector<Triangle> & triangles) const;
 
-    static std::array<bool, 4> make_known_corners(CardinalDirections dir);
+    static std::array<bool, 4> make_known_corners(CardinalDirection dir);
 
     WallElevationAndDirection elevations_and_direction
         (const NeighborInfo & ninfo) const;
@@ -114,11 +114,11 @@ private:
         const NeighborInfo & ninfo,
         Platform::ForLoaders &) const;
 
-    CardinalDirections m_dir = CardinalDirections::ne;
+    CardinalDirection m_dir = CardinalDirection::ne;
     WallRenderModelCache * m_render_model_cache = nullptr;
     Vector2I m_tileset_location;
 
     // I still need to known the wall texture coords
 };
 
-CardinalDirections cardinal_direction_from(const char * str);
+CardinalDirection cardinal_direction_from(const char * str);

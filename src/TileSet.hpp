@@ -101,20 +101,6 @@ private:
 
 class EntityAndTrianglesAdder {
 public:
-#   if 0
-    EntityAndTrianglesAdder(std::vector<Entity> & entities,
-                            TrianglesAdder & triangles_):
-        m_tri_adder(triangles_), m_entities(entities) {}
-
-    void add_triangle(const SharedPtr<TriangleSegment> & ptr)
-        { m_tri_adder.add_triangle(ptr); }
-
-    void add_entity(const Entity & ent)  { m_entities.push_back(ent); }
-
-private:
-    TrianglesAdder & m_tri_adder;
-    std::vector<Entity> & m_entities;
-#   endif
     virtual ~EntityAndTrianglesAdder() {}
 
     virtual void add_triangle(const TriangleSegment &) = 0;
@@ -122,13 +108,13 @@ private:
     virtual void add_entity(const Entity &) = 0;
 };
 
-enum class CardinalDirections {
+enum class CardinalDirection {
     n, s, e, w,
     nw, sw, se, ne
 };
 
 struct WallElevationAndDirection final {
-    CardinalDirections direction;
+    CardinalDirection direction;
     Vector2I tileset_location;
     std::array<Real, 4> dip_heights;
 };
@@ -184,7 +170,7 @@ public:
 
         static NeighborInfo make_no_neighbor();
 
-        Real neighbor_elevation(CardinalDirections) const;
+        Real neighbor_elevation(CardinalDirection) const;
 
         Vector2I tile_location() const { return m_loc + m_offset; }
 
@@ -192,7 +178,7 @@ public:
         Vector2I tile_location_in_map() const { return m_loc; }
 
     private:
-        Real neighbor_elevation(const Vector2I &, CardinalDirections) const;
+        Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
 
         const TileSet & m_tileset;
         const Grid<int> & m_layer;
@@ -246,4 +232,3 @@ private:
     Size2 m_texture_size;
     Size2 m_tile_size;
 };
-

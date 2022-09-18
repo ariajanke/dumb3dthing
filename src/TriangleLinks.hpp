@@ -34,12 +34,12 @@ public:
         bool flips = false; // true -> (1 - t)
     };
 
-    explicit TriangleLinks(SharedCPtr<Triangle>);
+    explicit TriangleLinks(const SharedCPtr<Triangle> &);
 
     // atempts all sides
-    TriangleLinks & attempt_attachment_to(SharedCPtr<Triangle>);
+    TriangleLinks & attempt_attachment_to(const SharedCPtr<Triangle> &);
 
-    TriangleLinks & attempt_attachment_to(SharedCPtr<Triangle>, Side);
+    TriangleLinks & attempt_attachment_to(const SharedCPtr<Triangle> &, Side);
 
     bool has_side_attached(Side) const;
 
@@ -53,11 +53,7 @@ public:
 
     Transfer transfers_to(Side) const;
 
-    int sides_attached_count() const {
-        auto list = { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca };
-        return std::count_if(list.begin(), list.end(), [this](Side side)
-            { return has_side_attached(side); });
-    }
+    int sides_attached_count() const;
 
     bool is_sole_owner() const noexcept
         { return m_segment.use_count() == 1; }

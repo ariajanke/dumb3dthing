@@ -285,8 +285,8 @@ TileFactory::NeighborInfo::NeighborInfo
     return NeighborInfo{s_tileset, s_layer, Vector2I{}, Vector2I{}};
 }
 
-Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirections dir) const {
-    using Cd = CardinalDirections;
+Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const {
+    using Cd = CardinalDirection;
 
     using VecCdTup = Tuple<Vector2I, Cd>;
     auto select_el = [this] (const std::array<VecCdTup, 2> & arr) {
@@ -330,9 +330,9 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirections dir) const
 }
 
 /* private */ Real TileFactory::NeighborInfo::neighbor_elevation
-    (const Vector2I & r, CardinalDirections dir) const
+    (const Vector2I & r, CardinalDirection dir) const
 {
-    using Cd = CardinalDirections;
+    using Cd = CardinalDirection;
     if (!m_layer.has_position(r + m_loc)) return k_inf;
     const auto * ts = m_tileset(m_layer(r + m_loc));
     switch (dir) {
@@ -508,7 +508,7 @@ template <typename T>
 // --------------------------- <anonymous> namespace --------------------------
 
 /* protected */ void CornerRamp::set_direction(const char * dir) {
-    using Cd = CardinalDirections;
+    using Cd = CardinalDirection;
     int n = [dir] {
         switch (cardinal_direction_from(dir)) {
         case Cd::nw: return 0;
@@ -525,7 +525,7 @@ template <typename T>
 
 /* private */ void TwoRampTileFactory::set_direction(const char * dir) {
     static const Slopes k_non_rotated_slopes{0, 1, 1, 0, 0};
-    using Cd = CardinalDirections;
+    using Cd = CardinalDirection;
     int n = [dir] {
         switch (cardinal_direction_from(dir)) {
         case Cd::n: return 0;

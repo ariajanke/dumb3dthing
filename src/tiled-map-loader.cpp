@@ -88,7 +88,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     {
         std::vector<Entity> entities;
         auto triangles_and_grid =
-            add_triangles_and_link(m_layer.width(), m_layer.height(),
+            add_triangles_and_link_(m_layer.width(), m_layer.height(),
             [&] (Vector2I r, TrianglesAdder adder)
         {
             auto [tid, tileset] = m_tidgid_translator.gid_to_tid(m_layer(r)); {}
@@ -117,7 +117,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                     callbacks.platform());
         });
         entities.back().add<
-            std::vector<TriangleLinks>, TrianglePtrsViewGrid>()
+            std::vector<TriangleLinks>, Grid<cul::View<std::vector<TriangleLinks>::const_iterator>>>()
             = std::move(triangles_and_grid);
         for (auto & ent : entities)
             callbacks.add(ent);

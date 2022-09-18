@@ -62,6 +62,12 @@ void west_east_split
      Real east_south_y, Real east_north_y,
      Real division_x, Func && f);
 
+template <SplitOpt k_opt, typename Func>
+void nw_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, Func && f);
+
 } // end of <anonymous> namespace
 
 void TranslatableTileFactory::setup
@@ -95,11 +101,11 @@ void TranslatableTileFactory::setup
 
 /* static */ WallElevationAndDirection WallTileFactory::elevations_and_direction
     (const NeighborInfo & ninfo, Real known_elevation,
-     CardinalDirections dir, Vector2I tile_loc)
+     CardinalDirection dir, Vector2I tile_loc)
 {
     WallElevationAndDirection rv;
     // I need a way to address each corner...
-    using Cd = CardinalDirections;
+    using Cd = CardinalDirection;
     rv.direction = dir;
     rv.tileset_location = tile_loc;
     auto known_corners = make_known_corners(rv.direction);
@@ -120,8 +126,8 @@ void TranslatableTileFactory::setup
     return rv;
 }
 
-/* static */ int WallTileFactory::corner_index(CardinalDirections dir) {
-    using Cd = CardinalDirections;
+/* static */ int WallTileFactory::corner_index(CardinalDirection dir) {
+    using Cd = CardinalDirection;
     switch (dir) {
     case Cd::nw: return 0;
     case Cd::sw: return 1;
@@ -196,8 +202,8 @@ void TranslatableTileFactory::setup
     // make_entity(platform, ninfo.tile_location(), render_model);
 }
 
-/* private static */ std::array<bool, 4> WallTileFactory::make_known_corners(CardinalDirections dir) {
-    using Cd = CardinalDirections;
+/* private static */ std::array<bool, 4> WallTileFactory::make_known_corners(CardinalDirection dir) {
+    using Cd = CardinalDirection;
     auto mk_rv = [](bool nw, bool sw, bool se, bool ne) {
         std::array<bool, 4> rv;
         const std::array k_corners = {
@@ -245,7 +251,7 @@ void TranslatableTileFactory::setup
 
     // we have cases depending on the number of dips
     // okay, I should like to handle only two (adjacent) and three dips
-    using Cd = CardinalDirections;
+    using Cd = CardinalDirection;
     static constexpr const auto k_adjusted_thershold =
         k_physical_dip_thershold - 0.5;
 
@@ -279,9 +285,13 @@ void TranslatableTileFactory::setup
             sw, nw, se, ne, k_adjusted_thershold, add_triangle);
         break;
     // maybe have seperate divider functions for these cases?
-    case Cd::nw: ;
+    case Cd::nw:
         // corners are pretty interesting, and they're already half way
         // solved
+        //
+        // north west corner
+        // we can still frame this with four corners
+        break;
     case Cd::sw: ;
     case Cd::se: ;
     case Cd::ne: ;
@@ -291,9 +301,9 @@ void TranslatableTileFactory::setup
     return make_tuple(nullptr, std::move(triangles));
 }
 
-CardinalDirections cardinal_direction_from(const char * str) {
+CardinalDirection cardinal_direction_from(const char * str) {
     auto seq = [str](const char * s) { return !::strcmp(str, s); };
-    using Cd = CardinalDirections;
+    using Cd = CardinalDirection;
     if (seq("n" )) return Cd::n;
     if (seq("s" )) return Cd::s;
     if (seq("e" )) return Cd::e;
@@ -392,6 +402,12 @@ void west_east_split
         east_north_y, east_south_y, west_north_y, west_south_y, x,
         std::move(f));
 }
+
+template <SplitOpt k_opt, typename Func>
+void northwest_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, Func && f);
 
 // ----------------------------------------------------------------------------
 

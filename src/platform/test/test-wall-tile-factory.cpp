@@ -76,7 +76,7 @@ bool run_wall_tile_factory_tests() {
     // no neighbor, no real number is returned
     mark(suite).test([] {
         auto res = NeighborInfo::make_no_neighbor()
-            .neighbor_elevation(CardinalDirections::nw);
+            .neighbor_elevation(CardinalDirection::nw);
         return test(!cul::is_real(res));
     });
     // yes neighbor, return real number
@@ -84,7 +84,7 @@ bool run_wall_tile_factory_tests() {
         TileSet tileset;
         load_tileset(k_tileset_fn, tileset);
         auto ninfo = make_sample_neighbor_info(tileset);
-        auto res = ninfo.neighbor_elevation(CardinalDirections::nw);
+        auto res = ninfo.neighbor_elevation(CardinalDirection::nw);
         return test(cul::is_real(res));
     });
     // against another wall, no real return
@@ -96,7 +96,7 @@ bool run_wall_tile_factory_tests() {
         layer(0, 0) = k_north_wall_no_translation;
         layer(0, 1) = k_north_wall_no_translation;
         NeighborInfo ninfo{tileset, layer, Vector2I{0, 1}, Vector2I{}};
-        auto res = ninfo.neighbor_elevation(CardinalDirections::nw);
+        auto res = ninfo.neighbor_elevation(CardinalDirection::nw);
         return test(cul::is_real(res));
     });
 
@@ -106,7 +106,7 @@ bool run_wall_tile_factory_tests() {
         TileSet tileset;
         load_tileset(k_tileset_fn, tileset);
         using Wtf = WallTileFactory;
-        using Cd = CardinalDirections;
+        using Cd = CardinalDirection;
 
         auto wed = Wtf::elevations_and_direction
             (make_sample_neighbor_info(tileset), 1, Cd::n, Vector2I{});
@@ -122,7 +122,7 @@ bool run_wall_tile_factory_tests() {
     // if there are no neighbors, then no walls should be generated!
     mark(suite).test([] {
         using Wtf = WallTileFactory;
-        using Cd = CardinalDirections;
+        using Cd = CardinalDirection;
 
         auto wed = Wtf::elevations_and_direction
             (NeighborInfo::make_no_neighbor(), 1, Cd::n, Vector2I{});
