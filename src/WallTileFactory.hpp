@@ -39,17 +39,47 @@ private:
 
 // ----------------------------------------------------------------------------
 
-
 class WallTileFactory final : public TranslatableTileFactory {
 public:
-    void assign_render_model_wall_cache(WallRenderModelCache & cache) final
-        { m_render_model_cache = &cache; }
+    class TriangleAdder {
+    public:
+        virtual ~TriangleAdder() {}
+
+        virtual void operator ()(const TriangleSegment &) const = 0;
+
+        template <typename Func>
+        static auto make(Func && f) {
+            class Impl final : public TriangleAdder {
+            public:
+                explicit Impl(Func && f_): m_f(std::move(f_)) {}
+
+                void operator () (const TriangleSegment & tri) const final
+                    { m_f(tri); }
+            private:
+                Func m_f;
+            };
+            return Impl{std::move(f)};
+        }
+    };
+
+    enum SplitOpt {
+        k_flats_only = 1 << 0,
+        k_wall_only  = 1 << 1,
+        k_both_flats_and_wall = k_flats_only | k_wall_only
+    };
+
+    static void add_wall_triangles_to
+        (CardinalDirection dir, Real nw, Real sw, Real se, Real ne, SplitOpt,
+         Real division, const TriangleAdder &);
+
+    static int corner_index(CardinalDirection dir);
 
     static WallElevationAndDirection elevations_and_direction
         (const NeighborInfo & ninfo, Real known_elevation,
          CardinalDirection dir, Vector2I tile_loc);
 
-    static int corner_index(CardinalDirection dir);
+    void assign_render_model_wall_cache(WallRenderModelCache & cache) final
+        { m_render_model_cache = &cache; }
 
 private:
     using Triangle = TriangleSegment;
