@@ -69,6 +69,24 @@ auto make_array_of_components_getter(Func && f) {
     };
 }
 
+Real sum_of_areas_on_up(const std::vector<Triangle> & triangles) {
+    Real sum = 0;
+    for (auto & triangle : triangles) {
+        if (!triangle.can_be_projected_onto(k_up)) continue;
+        sum += triangle.project_onto_plane(k_up).area_of_triangle();
+    }
+    return sum;
+}
+
+void remove_non_top_flats(std::vector<Triangle> & triangles) {
+    static auto get_ys = make_array_of_components_getter([] (const Vector & r) { return r.y; });
+    auto tend = std::remove_if(triangles.begin(), triangles.end(), [](const Triangle & tri) {
+        auto ys = get_ys(tri);
+        return std::any_of(ys.begin(), ys.end(), [](Real y) { return !are_very_close(y, 1); });
+    });
+    triangles.erase(tend, triangles.end());
+}
+
 } // end of <anonymous> namespace
 
 bool run_wall_tile_factory_tests() {
@@ -136,12 +154,7 @@ bool run_wall_tile_factory_tests() {
             (CardinalDirection::n, 0, 1, 1, 0, k_both_flats_and_wall, 0, adder);
 
         unit.start(mark(suite), [&adder] {
-            Real sum = 0;
-            for (auto & triangle : adder.triangles) {
-                if (!triangle.can_be_projected_onto(k_up)) continue;
-                sum += triangle.project_onto_plane(k_up).area_of_triangle();
-            }
-            return test(are_very_close(1, sum));
+            return test(are_very_close(1, sum_of_areas_on_up(adder.triangles)));
         });
         unit.start(mark(suite), [&adder] {
             // I need to look for walls in the middle of the tile
@@ -158,73 +171,75 @@ bool run_wall_tile_factory_tests() {
             return test(are_very_close(itr->point_a().z, 0));
         });
         unit.start(mark(suite), [&adder] {
-            static auto get_ys = make_array_of_components_getter([] (const Vector & r) { return r.y; });
-            auto tend = std::remove_if(adder.triangles.begin(), adder.triangles.end(), [](const Triangle & tri) {
-                auto ys = get_ys(tri);
-                return std::any_of(ys.begin(), ys.end(), [](Real y) { return !are_very_close(y, 1); });
-            });
-            adder.triangles.erase(tend, adder.triangles.end());
-            Real sum = 0;
-            for (auto & triangle : adder.triangles) {
-                if (!triangle.can_be_projected_onto(k_up)) continue;
-                sum += triangle.project_onto_plane(k_up).area_of_triangle();
-            }
-            return test(are_very_close(0.5, sum));
+            remove_non_top_flats(adder.triangles);
+            return test(are_very_close(0.5, sum_of_areas_on_up(adder.triangles)));
         });
     });
-#   if 0
-    mark(suite).test([] {
-        WedTriangleTestAdder adder;
-        WallTileFactory::add_wall_triangles_to
-            (CardinalDirection::n, 0, 1, 1, 0, k_both_flats_and_wall, 0, adder);
-        Real sum = 0;
-        for (auto & triangle : adder.triangles) {
-            if (!triangle.can_be_projected_onto(k_up)) continue;
-            sum += triangle.project_onto_plane(k_up).area_of_triangle();
-        }
-        return test(are_very_close(1, sum));
-    });
-    mark(suite).test([] {
-        WedTriangleTestAdder adder;
-        WallTileFactory::add_wall_triangles_to
-            (CardinalDirection::n, 0, 1, 1, 0, k_both_flats_and_wall, 0, adder);
-        // I need to look for walls in the middle of the tile
-        // (wall in the right spot?)
-        // x ~= 0.5
-        // I need something more exact...
-        auto has_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
-        auto itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_z);
-        if (itr == adder.triangles.end()) {
-            // can't find wall
-            return test(false);
-        }
 
-        return test(are_very_close(itr->point_a().z, 0));
-    });
-    // same deal, find all triangles whose y is nearly 1, sum area should be ~0.5
-    mark(suite).test([] {
+    // next, corner wall tiles
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
         WedTriangleTestAdder adder;
         WallTileFactory::add_wall_triangles_to
-            (CardinalDirection::n, 0, 1, 1, 0, k_both_flats_and_wall, 0, adder);
-        static auto get_ys = make_array_of_components_getter([] (const Vector & r) { return r.y; });
-        auto tend = std::remove_if(adder.triangles.begin(), adder.triangles.end(), [](const Triangle & tri) {
-            auto ys = get_ys(tri);
-            return std::any_of(ys.begin(), ys.end(), [](Real y) { return !are_very_close(y, 1); });
+            (CardinalDirection::nw, 0, 0, 1, 0, k_both_flats_and_wall, 0.25, adder);
+        // total area okay
+        unit.start(mark(suite), [&adder] {
+            return test(are_very_close(1, sum_of_areas_on_up(adder.triangles)));
         });
-        adder.triangles.erase(tend, adder.triangles.end());
-        Real sum = 0;
-        for (auto & triangle : adder.triangles) {
-            if (!triangle.can_be_projected_onto(k_up)) continue;
-            sum += triangle.project_onto_plane(k_up).area_of_triangle();
-        }
-        return test(are_very_close(0.5, sum));
+        // walls, along both axises
+        unit.start(mark(suite), [&adder] {
+            auto has_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
+            auto ew_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_z);
+            auto has_wall_on_x = make_has_wall_on_axis([](const Vector & r) { return r.x; });
+            auto ns_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_x);
+            return test(   ew_itr != adder.triangles.end()
+                        && ns_itr != adder.triangles.end());
+        });
+        // walls, in the right place
+        unit.start(mark(suite), [&adder] {
+            auto has_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
+            auto ew_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_z);
+            auto has_wall_on_x = make_has_wall_on_axis([](const Vector & r) { return r.x; });
+            auto ns_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_x);
+            if (   ew_itr == adder.triangles.end()
+                || ns_itr == adder.triangles.end())
+            { return test(false); }
+            // mmm gonna have to think about what values I'm plugging in here
+            return test(   are_very_close(ew_itr->point_a().z, k_inf)
+                        && are_very_close(ns_itr->point_a().x, k_inf));
+        });
+        // total area of top okay
+        unit.start(mark(suite), [&adder] {
+            remove_non_top_flats(adder.triangles);
+            // v area depends on where I actually put divisions
+            return test(are_very_close(k_inf, sum_of_areas_on_up(adder.triangles)));
+        });
     });
-#   endif
-    // next, corner wall tiles
     // test if symmetry of imlpementation is okay
-    // one for wall, make sure wall is there, flat is correct location, wall
-    // is in the right spot
-    // symmetry of corners, walls there, flat area okay, (and also right place)
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        WedTriangleTestAdder adder;
+        WallTileFactory::add_wall_triangles_to
+            (CardinalDirection::se, 1, 0, 0, 0, k_both_flats_and_wall, 0.25, adder);
+        // total area okay
+        unit.start(mark(suite), [&adder] {
+            (void)adder;
+            return test(false);
+        });
+        // walls, in the right place
+        unit.start(mark(suite), [&adder] {
+            (void)adder;
+            return test(false);
+        });
+        // location of top okay
+        unit.start(mark(suite), [&adder] {
+            (void)adder;
+            return test(false);
+        });
+        // total area of top okay
+        unit.start(mark(suite), [&adder] {
+            (void)adder;
+            return test(false);
+        });
+    });
 
     suite.start_series("Wall Tile Factory");
     mark(suite).test([] {
