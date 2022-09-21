@@ -34,19 +34,19 @@ using cul::find_smallest_diff, cul::make_nonsolution_sentinel,
       cul::make_zero_vector;
 using std::min_element;
 
-template <typename T>
-using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
-
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
      Vector2 second_line_a, Vector2 second_line_b);
 
 bool is_solution(Real x);
 
-template <typename Vec>
-EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b);
-
 Real get_component_for_basis(const Vector & pt_on_place, const Vector & basis);
+
+Vector2 find_point_c_in_2d(const Vector & a, const Vector & b, const Vector & c);
+
+Real find_point_b_x_in_2d(const Vector & a, const Vector & b);
+
+inline bool within_01(Real x) { return x >= 0 && x <= 1; }
 
 } // end of <anonymous> namespace
 
@@ -58,7 +58,9 @@ TriangleSegment::SideCrossing::SideCrossing
 TriangleSegment::TriangleSegment():
     m_a(Vector{1, 0, 0}),
     m_b(Vector{0, 1, 0}),
-    m_c(Vector{0, 0, 1})
+    m_c(Vector{0, 0, 1}),
+    m_bx_2d(find_point_b_x_in_2d(m_a, m_b)),
+    m_c_2d(find_point_c_in_2d(m_a, m_b, m_c))
     { check_invarients(); }
 
 TriangleSegment::TriangleSegment
@@ -73,8 +75,12 @@ TriangleSegment::TriangleSegment
         throw InvArg{"TriangleSegment::TriangleSegment: points must not be "
                      "co-linear."};
     }
+    // early exceptions should catch bad a, b, c values
+    m_bx_2d = find_point_b_x_in_2d(a, b);
+    m_c_2d  = find_point_c_in_2d(a, b, c);
     assert(!are_parallel(point_b_in_2d() - point_a_in_2d(),
                          point_b_in_2d() - point_c_in_2d()));
+
     if (are_very_close(a, b) || are_very_close(b, c) || are_very_close(c, a)) {
         throw InvArg{"TriangleSegment::TriangleSegment: all three points must "
                      "be far enough apart, as to be recognized as a triangle."};
@@ -82,6 +88,9 @@ TriangleSegment::TriangleSegment
 
     check_invarients();
 }
+
+Real TriangleSegment::area_of_triangle() const
+    { return cul::area_of_triangle(point_a(), point_b(), point_c()); }
 
 Vector TriangleSegment::basis_i() const
     { return normalize(point_b() - point_a()); }
@@ -92,6 +101,11 @@ Vector TriangleSegment::basis_j() const {
     auto rv = cross(normal(), basis_i());
     assert(are_very_close(magnitude(rv), 1.));
     return rv;
+}
+
+bool TriangleSegment::can_be_projected_onto(const Vector & n) const noexcept {
+    auto [a, b, c] = project_onto_plane_(n);
+    return !are_parallel(b - a, b - c);
 }
 
 Vector TriangleSegment::center() const noexcept
@@ -138,7 +152,7 @@ SideCrossing TriangleSegment::check_for_side_crossing
         old + new_);
 }
 
-Vector2 TriangleSegment::closest_contained_point(Vector p) const {
+Vector2 TriangleSegment::closest_contained_point(const Vector & p) const {
     check_invarients();
     auto r = closest_point(p);
     // do something to r...
@@ -148,7 +162,7 @@ Vector2 TriangleSegment::closest_contained_point(Vector p) const {
     return check_for_side_crossing(center_in_2d(), r).inside;
 }
 
-Vector2 TriangleSegment::closest_point(Vector p) const {
+Vector2 TriangleSegment::closest_point(const Vector & p) const {
     check_invarients();
     // find via projection
     // https://math.stackexchange.com/questions/633181/formula-to-project-a-vector-onto-a-plane
@@ -160,7 +174,7 @@ Vector2 TriangleSegment::closest_point(Vector p) const {
                    get_component_for_basis(pa_on_plane, basis_j())};
 }
 
-bool TriangleSegment::contains_point(Vector2 r) const noexcept
+bool TriangleSegment::contains_point(const Vector2 & r) const noexcept
     { return is_real(r) ? point_region(r) == k_inside : false; }
 
 TriangleSegment TriangleSegment::flip() const noexcept {
@@ -171,36 +185,8 @@ TriangleSegment TriangleSegment::flip() const noexcept {
     return rv;
 }
 
-Vector2 TriangleSegment::intersection(Vector a, Vector b) const {
-    return limit_with_intersection(a, b).intersection;
-#   if 0
-    check_invarients();
-    // multiple sources on this
-    // from stackoverflow (multiple posts), blender, rosetta code, and on, and on
-    // again, maintaining that simple geometic formulae as uncopyrightable
-    constexpr const auto k_no_sol = make_nonsolution_sentinel<Vector2>();
-
-    auto norm = normal();
-    auto ba = b - a;
-    auto denom = dot(norm, ba);
-    if (are_very_close(denom, 0)) return k_no_sol;
-
-    auto back_from_head = dot(norm, b - point_a()) / denom;
-    // 0 at head, 1 at tail
-    if (back_from_head < 0 || back_from_head > 1)
-        { return k_no_sol; }
-
-    // [NTS] back_from_head > 1 will be before the intersection
-    //       I will need to find a value s.t. it's not counted as being on the
-    //       plane (that is intersecting)
-    auto on_plane = b - ba*back_from_head;
-    auto r = closest_point(on_plane);
-    // it's possible to hit the plane, but not be inside the triangle segment
-    return contains_point(r) ? r : k_no_sol;
-#   endif
-}
-
-inline bool within_01(Real x) { return x >= 0 && x <= 1; }
+Vector2 TriangleSegment::intersection(const Vector & a, const Vector & b) const
+    { return limit_with_intersection(a, b).intersection; }
 
 LimitIntersection TriangleSegment::limit_with_intersection
     (const Vector & a, const Vector & b) const
@@ -230,10 +216,9 @@ LimitIntersection TriangleSegment::limit_with_intersection
     // this branch catches if back_from_head is infinity
     if (!within_01(back_from_head))
         { return make_never_intersects(); }
-    // v this algebra is wrong!!
-    auto on_plane2 = a*back_from_head;
+
     auto on_plane = b - (b - a)*back_from_head;
-    //assert(are_very_close(b - (b - a)*back_from_head, on_plane2));
+
     auto r = closest_point(on_plane);
     // it's possible to hit the plane, but not be inside the triangle segment
     if (!contains_point(r)) return make_never_intersects();
@@ -269,22 +254,24 @@ Vector2 TriangleSegment::point_a_in_2d() const noexcept
 Vector TriangleSegment::point_b() const noexcept { return m_b; }
 
 Vector2 TriangleSegment::point_b_in_2d() const noexcept
-    { return Vector2{magnitude(point_b() - point_a()), 0.}; }
+    { return Vector2{m_bx_2d, 0.}; }
 
 Vector TriangleSegment::point_c() const noexcept { return m_c; }
 
-Vector2 TriangleSegment::point_c_in_2d() const noexcept {
-    auto i_proj = project_onto(point_c() - point_a(), point_b() - point_a());
-    return Vector2{magnitude(i_proj),
-                   magnitude((point_c() - point_a()) - i_proj)};
-}
+Vector2 TriangleSegment::point_c_in_2d() const noexcept
+    { return m_c_2d; }
 
-Vector TriangleSegment::point_at(Vector2 r) const {
+Vector TriangleSegment::point_at(const Vector2 & r) const {
     if (!is_real(r)) {
          throw InvArg{"TriangleSurface::point_at: given point must have all "
                       "real number components."};
     }
     return point_a() + basis_i()*r.x + basis_j()*r.y;
+}
+
+TriangleSegment TriangleSegment::project_onto_plane(const Vector & n) const {
+    auto [a, b, c] = project_onto_plane_(n); {}
+    return TriangleSegment{a, b, c};
 }
 
 Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
@@ -293,12 +280,24 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     case Side::k_side_bc: return make_tuple(point_b(), point_c());
     case Side::k_side_ca: return make_tuple(point_c(), point_a());
     default:
-        throw InvArg{"TriangleSegment::get_side_points: given side must "
+        throw InvArg{"TriangleSegment::side_points: given side must "
+                     "represent a side of the triangle (and not the inside)."};
+    }
+}
+
+Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
+    switch (side) {
+    case Side::k_side_ab: return make_tuple(point_a_in_2d(), point_b_in_2d());
+    case Side::k_side_bc: return make_tuple(point_b_in_2d(), point_c_in_2d());
+    case Side::k_side_ca: return make_tuple(point_c_in_2d(), point_a_in_2d());
+    default:
+        throw InvArg{"TriangleSegment::side_points_in_2d: given side must "
                      "represent a side of the triangle (and not the inside)."};
     }
 }
 
 /* private */ void TriangleSegment::check_invarients() const noexcept {
+#   ifdef MACRO_DEBUG
     assert(is_real(m_a));
     assert(is_real(m_b));
     assert(is_real(m_c));
@@ -310,6 +309,7 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     assert(are_very_close(point_at(point_c_in_2d()), point_c()));
     assert(!are_very_close(normal(), Vector{}));
     assert(contains_point(center_in_2d()));
+#   endif
 }
 
 /* private */ Tuple<Vector2, Vector2>
@@ -347,8 +347,6 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     auto center = center_in_2d();
     auto is_crossed_line = [r, center] (const Vector2 & a, const Vector2 & b)
         { return is_solution(find_intersecting_position_for_first(a, b, center, r)); };
-    auto intersecting_pt = [center, r](const Vector2 & a, const Vector2 & b)
-        { return find_intersecting_position_for_first(a, b, center, r); };
 
     auto a = point_a_in_2d();
     auto b = point_b_in_2d();
@@ -361,6 +359,14 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     if (is_crossed_line(b, c)) return k_side_bc;
     if (is_crossed_line(c, a)) return k_side_ca;
     return k_inside;
+}
+
+/* private */ Tuple<Vector, Vector, Vector>
+    TriangleSegment::project_onto_plane_(const Vector & n) const noexcept
+{
+    return make_tuple(cul::project_onto_plane(point_a(), n),
+                      cul::project_onto_plane(point_b(), n),
+                      cul::project_onto_plane(point_c(), n));
 }
 
 const char * to_string(TriangleSide side) {
@@ -407,26 +413,6 @@ Real find_intersecting_position_for_first
 bool is_solution(Real x)
     { return !std::equal_to<Real>{}(x, k_no_intersection_2d); }
 
-template <typename Vec>
-EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
-#   if 0 // gdb *really* doesn't like me short circutting functions :c
-    auto mag = magnitude(normalize(a) + normalize(b));
-    return are_very_close(mag, 0) || are_very_close(mag, 2);
-#   elif 1
-    auto mk_zero = [] {
-        constexpr auto k_dim = cul::VectorTraits<Vec>::k_dimension_count;
-        static_assert(k_dim == 2 || k_dim == 3,
-            "<anonymous>::are_parallel: must be used only with 2 or 3 dimensions.");
-        if constexpr (k_dim == 2) return 0;
-        else return make_zero_vector<Vec>();
-    };
-    return are_very_close(mk_zero(), cross(a, b));
-#   else
-    auto frac = (dot(a, b)*dot(a, b)) / (sum_of_squares(a)*sum_of_squares(b));
-    return are_very_close(magnitude(frac), 1);
-#   endif
-}
-
 Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
     // basis is assumed to be a normal vector
     assert(are_very_close(magnitude(basis), 1.));
@@ -437,5 +423,16 @@ Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
     bool is_antipara = dot(proj, basis) / (magnitude(proj) * 1.) < 0.;
     return (is_antipara ? -1. : 1.)*magnitude(proj);
 }
+
+Vector2 find_point_c_in_2d
+    (const Vector & a, const Vector & b, const Vector & c)
+{
+    auto i_proj = project_onto(c - a, b - a);
+    return Vector2{magnitude(i_proj), magnitude((c - a) - i_proj)};
+}
+
+Real find_point_b_x_in_2d
+    (const Vector & a, const Vector & b)
+{ return magnitude(b - a); }
 
 } // end of <anonymous> namespace

@@ -22,6 +22,7 @@
 
 #include "Defs.hpp"
 #include "PointAndPlaneDriver.hpp"
+#include "Components.hpp"
 
 #include "platform/platform.hpp"
 
@@ -85,23 +86,32 @@ using Cell = Variant<VoidSpace, Pit, Slopes, Flat>;
 
 using CellSubGrid = ConstSubGrid<Cell>;
 
+class TrianglesAdder final {
+public:
+    using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
+
+    TrianglesAdder(TriangleVec & vec): m_vec(vec) {}
+
+    void add_triangle(SharedPtr<TriangleSegment> ptr)
+        { m_vec.push_back(ptr); }
+
+private:
+    TriangleVec & m_vec;
+};
 
 class TileGraphicGenerator {
 public:
-    using LoaderCallbacks = Loader::Callbacks;
+    using LoaderCallbacks = LoaderTask::Callbacks;
     using WallDips = std::array<float, 4>;
-    using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
     using EntityVec = std::vector<Entity>;
 
-    TileGraphicGenerator(TriangleVec &, LoaderCallbacks &);
-#   if 0
-    TileGraphicGenerator(EntityVec &, TriangleVec &, Platform::ForLoaders &);
-#   endif
+    explicit TileGraphicGenerator(LoaderCallbacks &);
+
     void setup();
 
-    void create_slope(Vector2I, const Slopes &);
+    void create_slope(TrianglesAdder &, Vector2I, const Slopes &);
 
-    void create_flat(Vector2I, const Flat &, const WallDips &);
+    void create_flat(TrianglesAdder &, Vector2I, const Flat &, const WallDips &);
 
     // Can't think of a method fast than O(n^2), though n is always 4 in this
     // case
@@ -109,18 +119,6 @@ public:
     static Real rotation_between(const Slopes & rhs, const Slopes & lhs);
 
     static Slopes sub_minimum_value(const Slopes &);
-
-    std::size_t triangle_count() const noexcept
-        { return m_triangles_out.size(); }
-
-    cul::View<TriangleVec::iterator> triangles_view()
-        { return cul::View{ m_triangles_out.begin(), m_triangles_out.end() }; }
-
-    TriangleVec & full_triangles_vec() { return m_triangles_out; }
-#   if 0
-    std::vector<Entity> give_entities()
-        { return std::move(m_entities_out); }
-#   endif
 
     static std::array<Vector, 4> get_points_for(const Slopes &);
 
@@ -146,12 +144,6 @@ private:
           SharedPtr<TriangleSegment>, SharedPtr<TriangleSegment>>
         get_slope_model_(const Slopes & slopes, const Vector & translation);
 
-
-    TriangleVec & m_triangles_out;
-#   if 0
-    EntityVec & m_entities_out;
-    Platform::ForLoaders & m_platform;
-#   endif
     LoaderCallbacks & m_callbacks;
 
     SharedPtr<Texture> m_ground_texture, m_tileset4;
@@ -179,70 +171,65 @@ protected:
     virtual Cell to_cell(char) const = 0;
 };
 
-Tuple<std::vector<TriangleLinks>/*,
-      std::vector<Entity>       */> load_map_graphics
+std::vector<TriangleLinks> load_map_graphics
     (TileGraphicGenerator &, CellSubGrid);
-
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell &);
 
-class TrianglesAdder final {
-public:
-    using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
-
-    TrianglesAdder(TriangleVec & vec): m_vec(vec) {}
-
-    void add_triangle(SharedPtr<TriangleSegment> ptr)
-        { m_vec.push_back(ptr); }
-
-private:
-    TriangleVec & m_vec;
-};
-
 template <typename Func>
-std::vector<TriangleLinks> add_triangles_and_link
-    (int width, int height, Func && on_add_tile,
-     TrianglesAdder::TriangleVec * outvec = nullptr)
+Tuple<std::vector<TriangleLinks>, Grid<cul::View<std::vector<TriangleLinks>::const_iterator>>>
+    add_triangles_and_link_
+    (int width, int height, Func && on_add_tile)
 {
     using TriangleVec = TrianglesAdder::TriangleVec;
     using std::get;
     Grid<std::pair<std::size_t, std::size_t>> links_grid;
     links_grid.set_size(width, height);
-    TriangleVec infn_vec;
-    TriangleVec & vec = outvec ? *outvec : infn_vec;
+    TriangleVec vec;
+    TrianglesAdder adder{vec};
     for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
         links_grid(r).first = vec.size();
-        on_add_tile(r, TrianglesAdder{vec});
+        on_add_tile(r, adder);
         links_grid(r).second = vec.size();
     }
 
-    using TrisItr = TileGraphicGenerator::TriangleVec::const_iterator;
-    using TrisView = cul::View<TrisItr>;
-    Grid<TrisView> triangles_grid;
-    triangles_grid.set_size(links_grid.width(), links_grid.height(),
-                            TrisView{vec.end(), vec.end()});
+    std::vector<TriangleLinks> rv1;
+    rv1.reserve(vec.size());
+    for (auto & triptr : vec)
+        { rv1.emplace_back(triptr); }
+
+    Grid<cul::View<std::vector<TriangleLinks>::iterator>> link_grid;
+    link_grid.set_size(links_grid.width(), links_grid.height(),
+                       cul::View<std::vector<TriangleLinks>::iterator>{ rv1.end(), rv1.end() });
     {
-    auto beg = vec.begin();
+    auto beg = rv1.begin();
     for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
-        triangles_grid(r) = TrisView{beg + links_grid(r).first, beg + links_grid(r).second};
+        link_grid(r) = cul::View<std::vector<TriangleLinks>::iterator>{
+            beg + links_grid(r).first, beg + links_grid(r).second};
     }
     }
-    using Links = TriangleLinks;
-    std::vector<Links> links;
+
     // now link them together
-    for (Vector2I r; r != triangles_grid.end_position(); r = triangles_grid.next(r)) {
-    for (auto this_tri : triangles_grid(r)) {
-        if (!this_tri) continue;
-        links.emplace_back(this_tri);
+    for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
+    for (auto & this_tri : link_grid(r)) {
+        assert(this_tri.segment_ptr());
         for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
 /*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
         if (!links_grid.has_position(v)) continue;
-        for (auto other_tri : triangles_grid(v)) {
-            if (!other_tri) continue;
-            if (this_tri == other_tri) continue;
-            auto & link = links.back();
-            link.attempt_attachment_to(other_tri);
+        for (auto & other_tri : link_grid(v)) {
+            assert(other_tri.segment_ptr());
+
+            if (this_tri.segment_ptr() == other_tri.segment_ptr()) continue;
+            this_tri.attempt_attachment_to(other_tri.segment_ptr());
         }}
     }}
-    return links;
+    Grid<cul::View<std::vector<TriangleLinks>::const_iterator>> rv2;
+    rv2.set_size(links_grid.width(), links_grid.height(),
+                 cul::View<std::vector<TriangleLinks>::const_iterator>{ rv1.end(), rv1.end() });
+    for (Vector2I r; r != rv2.end_position(); r = rv2.next(r)) {
+        rv2(r) = cul::View<std::vector<TriangleLinks>::const_iterator>{
+                link_grid(r).begin(), link_grid(r).end() };
+    }
+
+    return make_tuple(std::move(rv1), std::move(rv2));
 }

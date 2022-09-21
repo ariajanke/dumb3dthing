@@ -51,26 +51,18 @@ TileGraphicGenerator::WallDips get_dips(CellSubGrid, Vector2I);
 // ----------------------------------------------------------------------------
 
 TileGraphicGenerator::TileGraphicGenerator
-    (TriangleVec & tris, LoaderCallbacks & callbacks):
-    m_triangles_out(tris),
+    (LoaderCallbacks & callbacks):
     m_callbacks(callbacks)
 {}
-#if 0
-TileGraphicGenerator::TileGraphicGenerator
-    (EntityVec & ents, TriangleVec & tris, Platform::ForLoaders & platform):
-    m_entities_out(ents),
-    m_triangles_out(tris),
-    m_platform(platform)
-{}
-#endif
+
 void TileGraphicGenerator::setup() {
     get_slope_model_(Slopes{0, 1, 1, 0, 0}, Vector{});
     get_slope_model_(Slopes{0, 1, 0, 0, 0}, Vector{});
 }
 
-void TileGraphicGenerator::create_slope(Vector2I loc, const Slopes & slopes) {
-    auto e = m_callbacks.platform().make_renderable_entity();// m_platform.make_renderable_entity();
-    m_callbacks.add_to_scene(e); //m_entities_out.push_back(e);
+void TileGraphicGenerator::create_slope(TrianglesAdder & adder, Vector2I loc, const Slopes & slopes) {
+    auto e = m_callbacks.platform().make_renderable_entity();
+    m_callbacks.add(e);
     Translation translation{grid_location_to_v3(loc, 0)};
     auto [key_slopes, model, segment_a, segment_b] =
         get_slope_model_(sub_minimum_value(slopes), translation.value); {}
@@ -116,18 +108,18 @@ void TileGraphicGenerator::create_slope(Vector2I loc, const Slopes & slopes) {
         model, translation,
         YRotation{rot_}, ensure_texture(m_tileset4, "tileset4.png"),
         TextureTranslation{txr});
-    m_triangles_out.push_back(segment_a);
-    m_triangles_out.push_back(segment_b);
+    adder.add_triangle(segment_a);
+    adder.add_triangle(segment_b);
 }
 
 void TileGraphicGenerator::create_flat
-    (Vector2I loc, const Flat & flat, const WallDips & dips)
+    (TrianglesAdder & adder, Vector2I loc, const Flat & flat, const WallDips & dips)
 {
     if (m_flat_model) {
         using std::get, std::tuple_cat;
         assert(m_wall_model);
         auto e = m_callbacks.platform().make_renderable_entity();// m_platform.make_renderable_entity();
-        m_callbacks.add_to_scene(e);// m_entities_out.push_back(e);
+        m_callbacks.add(e);// m_entities_out.push_back(e);
         Translation flat_transl{grid_location_to_v3(loc, flat.y)};
         auto ground_tex = ensure_texture(m_ground_texture, "ground.png");
         e.add<SharedCPtr<RenderModel>, Translation, SharedCPtr<Texture>>() =
@@ -160,11 +152,7 @@ void TileGraphicGenerator::create_flat
         for (const auto & val : dips) {
             assert(titr != transf.end());
             if (val != 0.f) {
-                m_callbacks.add_to_scene(
-#               if 0
-                m_entities_out.push_back(
-#               endif
-                                add_wall(Entity::make_sceneless_entity(),
+                m_callbacks.add(add_wall(Entity::make_sceneless_entity(),
                     flat_transl.value + get<Vector>(*titr),
                     get<YRotation>(*titr)));
             }
@@ -172,12 +160,12 @@ void TileGraphicGenerator::create_flat
         }
         {
         auto [tria, trib] = make_flat_segments(loc, flat.y); {}
-        m_triangles_out.push_back(tria);
-        m_triangles_out.push_back(trib);
+        adder.add_triangle(tria);
+        adder.add_triangle(trib);
         }
         return;
     }
-    m_flat_model = m_callbacks.platform().make_render_model();// m_platform.make_render_model();
+    m_flat_model = m_callbacks.platform().make_render_model();
     m_flat_model->load(
     { // +x is east, +z is north
         Vertex{k_flat_points[0], Vector2{ 0      , 0       }},
@@ -185,7 +173,7 @@ void TileGraphicGenerator::create_flat
         Vertex{k_flat_points[2], Vector2{ 1. / 3., 1. / 3. }},
         Vertex{k_flat_points[3], Vector2{ 0      , 1. / 3. }},
     }, get_common_elements());
-    m_wall_model = m_callbacks.platform().make_render_model();// m_platform.make_render_model();
+    m_wall_model = m_callbacks.platform().make_render_model();
     m_wall_model->load(
     { // +x is east, +z is north
       // wall runs east to west
@@ -196,7 +184,7 @@ void TileGraphicGenerator::create_flat
     }, get_common_elements());
     assert(*m_flat_model);
     assert(*m_wall_model);
-    return create_flat(loc, flat, dips);
+    return create_flat(adder, loc, flat, dips);
 }
 
 /* static */ Real TileGraphicGenerator::rotation_between
@@ -253,9 +241,9 @@ void TileGraphicGenerator::create_flat
     TileGraphicGenerator::get_common_elements()
 {
     static constexpr const std::array<unsigned, 6> arr = {
-            0, 1, 2,
-            0, 2, 3
-        };
+        0, 1, 2,
+        0, 2, 3
+    };
     static const std::vector<unsigned> s_rv{arr.begin(), arr.end()};
     return s_rv;
 }
@@ -333,7 +321,6 @@ MaybeCell CharToCell::operator () (char c) const {
     throw InvArg{""};
 }
 
-
 /* static */ const CharToCell & CharToCell::default_instance() {
     class Impl final : public CharToCell {
         Cell to_cell(char c) const final {
@@ -361,64 +348,20 @@ MaybeCell CharToCell::operator () (char c) const {
 
 // ----------------------------------------------------------------------------
 
-Tuple<std::vector<TriangleLinks>/*,
-      std::vector<Entity>       */>
+std::vector<TriangleLinks>
     load_map_graphics
     (TileGraphicGenerator & tileset, CellSubGrid grid)
 {
     using std::get;
-    auto links = add_triangles_and_link(grid.width(), grid.height(),
-        [&tileset, &grid](Vector2I r, const TrianglesAdder &) {
+    auto links = add_triangles_and_link_(grid.width(), grid.height(),
+        [&tileset, &grid](Vector2I r, TrianglesAdder & adder) {
         if (get_if<Slopes>(&grid(r))) {
-            tileset.create_slope(r, get<Slopes>(grid(r)));
+            tileset.create_slope(adder, r, get<Slopes>(grid(r)));
         } else if (get_if<Flat>(&grid(r))) {
-            tileset.create_flat(r, get<Flat>(grid(r)), get_dips(grid, r));
+            tileset.create_flat(adder, r, get<Flat>(grid(r)), get_dips(grid, r));
         }
-    }, &tileset.full_triangles_vec());
-#   if 0
-    using std::get;
-    Grid<std::pair<std::size_t, std::size_t>> links_grid;
-    links_grid.set_size(grid.width(), grid.height());
-    for (Vector2I r; r != grid.end_position(); r = grid.next(r)) {
-        links_grid(r).first = tileset.triangle_count();
-        if (get_if<Slopes>(&grid(r))) {
-            tileset.create_slope(r, get<Slopes>(grid(r)));
-        } else if (get_if<Flat>(&grid(r))) {
-            tileset.create_flat(r, get<Flat>(grid(r)), get_dips(grid, r));
-        }
-        links_grid(r).second = tileset.triangle_count();
-    }
-
-    using TrisItr = TileGraphicGenerator::TriangleVec::const_iterator;
-    using TrisView = cul::View<TrisItr>;
-    Grid<TrisView> triangles_grid;
-    triangles_grid.set_size(links_grid.width(), links_grid.height(),
-                            TrisView{tileset.triangles_view().end(), tileset.triangles_view().end()});
-    {
-    auto beg = tileset.triangles_view().begin();
-    for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
-        triangles_grid(r) = TrisView{beg + links_grid(r).first, beg + links_grid(r).second};
-    }
-    }
-    using Links = point_and_plane::TriangleLinks;
-    std::vector<Links> links;
-    // now link them together
-    for (Vector2I r; r != triangles_grid.end_position(); r = triangles_grid.next(r)) {
-    for (auto this_tri : triangles_grid(r)) {
-        if (!this_tri) continue;
-        links.emplace_back(this_tri);
-        for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
-/*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
-        if (!links_grid.has_position(v)) continue;
-        for (auto other_tri : triangles_grid(v)) {
-            if (!other_tri) continue;
-            if (this_tri == other_tri) continue;
-            auto & link = links.back();
-            link.attempt_attachment_to(other_tri);
-        }}
-    }}
-#   endif
-    return make_tuple(links/*, tileset.give_entities()*/);
+    });
+    return std::get<0>(links);
 }
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell & char_to_cell) {

@@ -186,7 +186,7 @@ bool run_triangle_links_tests() {
         left_links.attempt_attachment_to(rhs);
         return test(left_links.has_side_attached(Side::k_side_ca));
     });
-#   endif
+#   endif    
 #   undef mark
     return suite.has_successes_only();
 }

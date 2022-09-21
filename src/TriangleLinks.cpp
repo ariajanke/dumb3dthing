@@ -36,21 +36,21 @@ Vector project_onto_line_segment
 
 } // end of <anonymous> namespace
 
-TriangleLinks::TriangleLinks(SharedCPtr<Triangle> tptr):
+TriangleLinks::TriangleLinks(const SharedCPtr<Triangle> & tptr):
     m_segment(tptr)
 {
     if (tptr) return;
     throw InvArg{"TriangleLinks::TriangleLinks: must own a triangle."};
 }
 
-TriangleLinks & TriangleLinks::attempt_attachment_to(SharedCPtr<Triangle> tptr) {
+TriangleLinks & TriangleLinks::attempt_attachment_to(const SharedCPtr<Triangle> & tptr) {
     return  attempt_attachment_to(tptr, Side::k_side_ab)
            .attempt_attachment_to(tptr, Side::k_side_bc)
            .attempt_attachment_to(tptr, Side::k_side_ca);
 }
 
 TriangleLinks & TriangleLinks::attempt_attachment_to
-    (SharedCPtr<Triangle> other, Side other_side)
+    (const SharedCPtr<Triangle> & other, Side other_side)
 {
     if (other == m_segment) {
         throw InvArg{"TriangleLinks::attempt_attachment_to: attempted to "
@@ -94,6 +94,12 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
     rv.side = info.side;
     rv.target = info.target.lock();
     return rv;
+}
+
+int TriangleLinks::sides_attached_count() const {
+    auto list = { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca };
+    return std::count_if(list.begin(), list.end(), [this](Side side)
+        { return has_side_attached(side); });
 }
 
 /* private static */ bool TriangleLinks::has_opposing_normals

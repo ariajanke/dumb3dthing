@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="40" height="40" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
+ <properties>
+  <property name="loader:east" value="whole:test-map2.tmx"/>
+  <property name="loader:north" value="whole:test-map2.tmx"/>
+  <property name="loader:south" value="whole:test-map2.tmx"/>
+  <property name="loader:west" value="whole:test-map2.tmx"/>
+ </properties>
  <tileset firstgid="1" source="test-tileset.tsx"/>
  <layer id="1" name="Tile Layer 1" width="40" height="40">
   <data encoding="csv">

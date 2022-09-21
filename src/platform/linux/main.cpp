@@ -178,8 +178,8 @@ public:
         }
     #   endif
 #       if 1
-        ,[] (/*Opt<VisibilityChain> vis,*/ SharedCPtr<Texture> & texture) {
-            //if (!is_visible(vis)) return;
+        ,[] (Opt<Visible> vis, SharedCPtr<Texture> & texture) {
+            if (!should_be_visible(vis)) return;
             texture->bind_texture();
         }
 #       endif
@@ -188,8 +188,8 @@ public:
             m_shader.set_vec2("tex_offset", convert_to<glm::vec2>(translation ? translation->value : Vector2{}));
         }
 #       endif
-        , [this] (/*Opt<VisibilityChain> vis, */glm::mat4 & model, SharedCPtr<RenderModel> mod_) {
-            //if (!is_visible(vis)) return;
+        , [this] (Opt<Visible> vis, glm::mat4 & model, SharedCPtr<RenderModel> mod_) {
+            if (!should_be_visible(vis)) return;
             m_shader.set_mat4("model", model);
             mod_->render();
         }
@@ -223,7 +223,7 @@ public:
         }
     }
 
-    FutureString promise_file_contents(const char * filename) {
+    FutureStringPtr promise_file_contents(const char * filename) {
         class Impl final : public Future<std::string> {
         public:
             Impl(const char * filename):

@@ -30,8 +30,6 @@ class Driver;
 
 class Driver {
 public:
-    using LoaderVec = std::vector<UniquePtr<Loader>>;
-
     static UniquePtr<Driver> make_instance();
 
     virtual ~Driver() {}
@@ -41,28 +39,17 @@ public:
 
     virtual void release_key(KeyControl) = 0;
 
-    void setup(Platform::ForLoaders & forloaders) {
-        LoaderCallbacks loadercallbacks{ forloaders, player_entities(), m_single_systems, m_scene };
-#       if 0
-        handle_loader_tuple(initial_load(forloaders));
-#       endif
-        initial_load(loadercallbacks);
-        m_player_entities = loadercallbacks.player_entites();
-    }
+    void setup(Platform::ForLoaders & forloaders);
 
     void update(Real seconds, Platform::Callbacks &);
 
 protected:
-    using PlayerEntities = Loader::PlayerEntities;
-    using SinglesSystemPtr = Loader::SinglesSystemPtr;
-    using LoaderCallbacks = Loader::Callbacks;
-#   if 0
-    using EntityVec = Loader::EntityVec;
-    using SingleSysVec = Loader::SingleSysVec;
-#   if 0
-    using TriggerSysVec = Loader::TriggerSysVec;
-#   endif
-#   endif
+    using PlayerEntities = LoaderTask::PlayerEntities;
+    using LoaderCallbacks   = LoaderTask::Callbacks;
+    using EveryFrameTaskPtr = SharedPtr<EveryFrameTask>;
+    using OccasionalTaskPtr = SharedPtr<OccasionalTask>;
+    using LoaderTaskPtr     = SharedPtr<LoaderTask>;
+
     virtual void initial_load(LoaderCallbacks &) = 0;
 
     PlayerEntities & player_entities() { return m_player_entities; }
@@ -71,35 +58,82 @@ protected:
 
     virtual void update_(Real seconds) = 0;
 
-    auto get_preload_checker() {
-        class Impl final : public PreloadSpawner::Adder {
+    auto get_callbacks(Platform::ForLoaders & platform, std::vector<Entity> & entities) {
+        class Impl final : public LoaderCallbacks {
         public:
-            explicit Impl(std::vector<UniquePtr<Preloader>> & preloaders):
-                m_preloaders(preloaders) {}
+            Impl(std::vector<Entity> & entities_,
+                 PlayerEntities & player_entities_,
+                 std::vector<EveryFrameTaskPtr> & every_frame_tasks_,
+                 std::vector<OccasionalTaskPtr> & occasional_tasks_,
+                 std::vector<LoaderTaskPtr> & loader_tasks_,
+                 Platform::ForLoaders & platform_):
+                m_entities(entities_),
+                m_player_entities(player_entities_),
+                m_every_frame_tasks(every_frame_tasks_),
+                m_occasional_tasks(occasional_tasks_),
+                m_loader_tasks(loader_tasks_),
+                m_platform(platform_)
+            {}
 
-            void add_preloader(UniquePtr<Preloader> && uptr) const final {
-                if (!uptr) return;
-                m_preloaders.emplace_back(std::move(uptr));
-            }
+            void add(const SharedPtr<EveryFrameTask> & ptr) final
+                { m_every_frame_tasks.push_back(ptr); }
 
+            void add(const SharedPtr<OccasionalTask> & ptr) final
+                { m_occasional_tasks.push_back(ptr); }
+
+            void add(const SharedPtr<LoaderTask> & ptr) final
+                { m_loader_tasks.push_back(ptr); }
+
+            void add(const Entity & ent) final
+                { m_entities.push_back(ent); }
+
+            Platform::ForLoaders & platform() final { return m_platform; }
+
+            PlayerEntities player_entites() const final
+                { return m_player_entities; }
+
+            void set_player_entities(const PlayerEntities & entities) final
+                { m_player_entities = entities; }
         private:
-            std::vector<UniquePtr<Preloader>> & m_preloaders;
+            std::vector<Entity> & m_entities;
+            PlayerEntities & m_player_entities;
+            std::vector<EveryFrameTaskPtr> & m_every_frame_tasks;
+            std::vector<OccasionalTaskPtr> & m_occasional_tasks;
+            std::vector<LoaderTaskPtr> & m_loader_tasks;
+            Platform::ForLoaders & m_platform;
         };
-
-        return Impl{m_preloaders};
+        return Impl{entities, m_player_entities, m_every_frame_tasks,
+                    m_occasional_tasks, m_loader_tasks, platform};
     }
 
     // have to break design a little here for this iteration
     virtual point_and_plane::Driver & ppdriver() = 0;
 
+    void on_entities_changed(std::vector<Entity> &);
+
 private:
-    //void handle_loader_tuple(Loader::LoaderTuple &&);
+
+    // architectural changes:
+    // concepts:
+    // + occasional tasks
+    // + every frame tasks
+    // = loaders
+    // - preloaders
+
+    // how do I get loaders into...?
+    // should they come from everyframes?
 
     Scene m_scene;
     PlayerEntities m_player_entities;
-    std::vector<SinglesSystemPtr> m_single_systems;
-#   if 0
-    TriggerSysVec m_triggers;
-#   endif
-    std::vector<UniquePtr<Preloader>> m_preloaders;
+    std::vector<EveryFrameTaskPtr> m_every_frame_tasks;
+    std::vector<OccasionalTaskPtr> m_occasional_tasks;
+    std::vector<LoaderTaskPtr> m_loader_tasks;
 };
+
+inline void Driver::setup(Platform::ForLoaders & forloaders) {
+    std::vector<Entity> entities;
+    auto callbacks = get_callbacks(forloaders, entities);
+    initial_load(callbacks);
+    on_entities_changed(entities);
+    m_scene.add_entities(entities);
+}

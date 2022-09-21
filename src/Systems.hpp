@@ -132,16 +132,8 @@ public:
     explicit UpdatePpState(point_and_plane::Driver & driver):
         m_driver(driver) {}
 
-    void operator () (PpState & state, Opt<Velocity> vel) const {
-#       if 0
-        // more likely to flip flop
-        (void)vel;
-        static auto evnhandler = point_and_plane::EventHandler::make_test_handler();
-        state = m_driver(state, *evnhandler);
-#       else
-        state = m_driver(state, EventHandler{vel, Opt<JumpVelocity>{}});
-#       endif
-    }
+    void operator () (PpState & state, Opt<Velocity> vel) const
+        { state = m_driver(state, EventHandler{vel, Opt<JumpVelocity>{}}); }
 
     class EventHandler final : public point_and_plane::EventHandler {
     public:
@@ -165,17 +157,6 @@ public:
             (const Triangle &, const Triangle::SideCrossing &,
              const Triangle &, const Vector &) const final;
 
-#       if 0
-        Variant<Vector2, Vector> displacement_after_triangle_hit
-            (const TriangleSegment & triangle, const Vector & /*location*/,
-             const Vector & new_, const Vector & intersection) const final;
-
-        Variant<SegmentTransfer, Vector> pass_triangle_side
-            (const TriangleSegment &, const TriangleSegment * to,
-             const Vector &, const Vector &) const final;
-
-        bool cling_to_edge(const TriangleSegment & triangle, TriangleSide side) const final;
-#       endif
     private:
         Opt<Velocity> m_vel;
         Opt<JumpVelocity> m_jumpvel;
