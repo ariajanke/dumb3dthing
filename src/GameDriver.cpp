@@ -340,7 +340,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
 
-    static constexpr const auto k_testmap_filename = "demo-map.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
     static constexpr const auto k_load_limit = 3;
 
     physics_ent.add<SharedPtr<EveryFrameTask>>() =
@@ -350,11 +350,12 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
          physics_ent]
         (TaskCallbacks & callbacks, Real) mutable
     {
+        static constexpr const auto k_base_map_size = 40;
         // if there's no teardown task... then it's pending
         for (auto & [gpos, loader, teardown] : loaded_maps) {
             if (teardown) continue;
 
-            auto [task_ptr, teardown_ptr] = (*loader)(gpos*20); {}
+            auto [task_ptr, teardown_ptr] = (*loader)(gpos*k_base_map_size); {}
             if (!task_ptr) continue;
             callbacks.add(task_ptr);
             teardown = teardown_ptr;
@@ -365,7 +366,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
         auto player_loc = location_of(physics_ent.get<PpState>());
         auto gposv3 =
             (Vector{0.5, 0, -0.5} + player_loc)*
-            ( 1. / 20. );
+            ( 1. / k_base_map_size );
         Vector2I gpos{ int(std::floor(gposv3.x)), int(std::floor(-gposv3.z)) };
 
         bool current_posisition_loaded = std::any_of(

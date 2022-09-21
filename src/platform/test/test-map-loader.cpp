@@ -37,6 +37,7 @@ using PlayerEntities = LoaderTask::PlayerEntities;
 using namespace cul::exceptions_abbr;
 using cul::is_real;
 using LinksGrid = Grid<cul::View<std::vector<TriangleLinks>::const_iterator>>;
+using Triangle = TriangleSegment;
 
 class TestLoaderTaskCallbacks final : public LoaderTask::Callbacks {
 public:
@@ -61,11 +62,23 @@ public:
 
 bool run_tiled_map_loader_tests();
 
+bool any_point_arrangement_of
+    (const Triangle & tri, const std::array<Vector, 3> & pts)
+{
+    using std::any_of;
+    auto make_pred = [] (const Vector & tri_pt) {
+        return [tri_pt](const Vector & r)
+            { return are_very_close(tri_pt, r); };
+    };
+    return    any_of(pts.begin(), pts.end(), make_pred(tri.point_a()))
+           && any_of(pts.begin(), pts.end(), make_pred(tri.point_b()))
+           && any_of(pts.begin(), pts.end(), make_pred(tri.point_c()));
+}
+
 } // end of <anonymous> namespace
 
 bool run_map_loader_tests() {
     // test movements in each cardinal direction
-    using Triangle = point_and_plane::Triangle;
     using namespace cul::ts;
     TestSuite suite;
     suite.start_series("Map Loader");
@@ -83,7 +96,7 @@ bool run_map_loader_tests() {
     };
 
     using std::any_of, std::get;
-
+#   if 0
     static auto any_point_arrangement_of = []
         (const Triangle & tri, const std::array<Vector, 3> & pts)
     {
@@ -95,7 +108,7 @@ bool run_map_loader_tests() {
                && any_of(pts.begin(), pts.end(), make_pred(tri.point_b()))
                && any_of(pts.begin(), pts.end(), make_pred(tri.point_c()));
     };
-
+#   endif
     static auto make_driver_for_test_layout = [] {
         auto links = load_test_layout();
         for (const auto & link : links) {

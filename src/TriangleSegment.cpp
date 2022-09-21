@@ -65,9 +65,7 @@ TriangleSegment::TriangleSegment():
 
 TriangleSegment::TriangleSegment
     (const Vector & a, const Vector & b, const Vector & c):
-    m_a(a), m_b(b), m_c(c),
-    m_bx_2d(find_point_b_x_in_2d(a, b)),
-    m_c_2d(find_point_c_in_2d(a, b, c))
+    m_a(a), m_b(b), m_c(c)
 {
     if (!is_real(a) || !is_real(b) || !is_real(c)) {
         throw InvArg{"TriangleSegment::TriangleSegment: points a, b, and c must "
@@ -77,8 +75,12 @@ TriangleSegment::TriangleSegment
         throw InvArg{"TriangleSegment::TriangleSegment: points must not be "
                      "co-linear."};
     }
+    // early exceptions should catch bad a, b, c values
+    m_bx_2d = find_point_b_x_in_2d(a, b);
+    m_c_2d  = find_point_c_in_2d(a, b, c);
     assert(!are_parallel(point_b_in_2d() - point_a_in_2d(),
                          point_b_in_2d() - point_c_in_2d()));
+
     if (are_very_close(a, b) || are_very_close(b, c) || are_very_close(c, a)) {
         throw InvArg{"TriangleSegment::TriangleSegment: all three points must "
                      "be far enough apart, as to be recognized as a triangle."};

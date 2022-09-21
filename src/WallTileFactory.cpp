@@ -459,8 +459,13 @@ void northwest_corner_split
 
     // some of these triangles are fixed (flats)
     if (opt & k_flats_only) {
-        if (!are_very_close(nw_top, se)) {
+        if (!are_very_close(ne_top, se)) {
             f(Triangle{nw_top, ne_top, se});
+        }
+        if (   !are_very_close(nw_top, sw_top)
+            && !are_very_close(nw_top, se)
+            && !are_very_close(sw_top, se))
+        {
             f(Triangle{nw_top, sw_top, se});
         }
         // four triangles for the bottom
@@ -495,7 +500,7 @@ void southwest_corner_split
     auto invert_z = [](const Vector & r) { return Vector{r.x, r.y, -r.z}; };
     northwest_corner_split
         (north_west_y, north_east_y, south_west_y, south_east_y, division_xz,
-         opt, make_triangle_transformer(invert_z, std::move(f)));
+         opt, make_triangle_transformer(invert_z, f));
 }
 
 void northeast_corner_split
@@ -506,19 +511,18 @@ void northeast_corner_split
     auto invert_x = [](const Vector & r) { return Vector{-r.x, r.y, r.z}; };
     northwest_corner_split
         (north_west_y, north_east_y, south_west_y, south_east_y, division_xz,
-         opt, make_triangle_transformer(invert_x, std::move(f)));
+         opt, make_triangle_transformer(invert_x, f));
 }
 
-template <typename Func>
 void southeast_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
-     Real division_xz, SplitOpt opt, Func && f)
+     Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
     auto invert_xz = [](const Vector & r) { return Vector{-r.x, r.y, -r.z}; };
     northwest_corner_split
         (north_west_y, north_east_y, south_west_y, south_east_y, division_xz,
-         opt, make_triangle_transformer(invert_xz, std::move(f)));
+         opt, make_triangle_transformer(invert_xz, f));
 }
 
 // ----------------------------------------------------------------------------
@@ -567,13 +571,16 @@ void make_linear_triangle_strip
     {
         const auto new_a = next_a(itr_a);
         const auto new_b = next_b(itr_b);
-        f(Triangle{itr_a, itr_b, new_a});
-        f(Triangle{itr_a, new_a, new_b});
+        if (!are_very_close(itr_a, itr_b))
+            f(Triangle{itr_a, itr_b, new_a});
+        if (!are_very_close(new_a, new_b))
+            f(Triangle{itr_a, new_a, new_b});
         itr_a = new_a;
         itr_b = new_b;
     }
 
-    if (!are_very_close(itr_a, a_last)) {
+    if (!are_very_close(itr_a, a_last)
+        && !are_very_close(    itr_a, b_last )) {
         f(Triangle{itr_a, b_last, a_last});
     } else if (!are_very_close(itr_b, b_last)) {
         f(Triangle{itr_b, itr_a, b_last});

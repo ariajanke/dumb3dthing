@@ -292,6 +292,19 @@ const mkJsPlatform = () => {
     setContextForAllRenderModels, setContextForAllTextures,
     viewMatrix.setContext, modelMatrix.setContext];
 
+  const promiseFileContents = (url, cpphandle) => {
+    // promise response needs to respond to the module...
+    fetch(url)
+      .then(response => response.text())
+      .then(text =>
+    {
+      // Have a freaking "loadModule" in jsPlatform? idfk
+      const ptr = Module.cwrap('to_js_prepare_content_buffer', 'number', ['number', 'number'])(cpphandle, text.length);
+      Module.HEAPU8.set(new TextEncoder().encode(text), ptr);
+      Module.cwrap('to_js_mark_fulfilled', 'null', ['number'])(cpphandle);
+    }).catch(console.log);
+  };
+
   let mTextureUnitHandlerFactory = () => { throw ''; };
   return Object.freeze({
     // the idea is, you set this function per context restoration...
@@ -318,18 +331,7 @@ const mkJsPlatform = () => {
     // provide me with an fn, that takes another fn, which itself takes the attrs
     setRenderModelAttributesNeederFactory: factory => 
       blockReturn( mRenderModelAttributesAccepterFactory = factory ),
-    promiseFileContents: (url, cpphandle) => {
-      // promise response needs to respond to the module...
-      fetch(url)
-        .then(response => response.text())
-        .then(text =>
-      {
-        // Module code here u.u
-        const ptr = Module.cwrap('to_js_prepare_content_buffer', 'number', ['number', 'number'])(cpphandle, text.length);
-        Module.HEAPU8.set(new TextEncoder().encode(text), ptr);
-        Module.cwrap('to_js_mark_fulfilled', 'null', ['number'])(cpphandle);
-      }).catch(console.log);
-    }
+    promiseFileContents
   });
 };
 
