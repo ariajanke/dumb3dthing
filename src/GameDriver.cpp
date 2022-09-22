@@ -340,7 +340,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
 
-    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map.tmx";
     static constexpr const auto k_load_limit = 3;
 
     physics_ent.add<SharedPtr<EveryFrameTask>>() =
@@ -350,7 +350,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
          physics_ent]
         (TaskCallbacks & callbacks, Real) mutable
     {
-        static constexpr const auto k_base_map_size = 40;
+        static constexpr const auto k_base_map_size = 20;
         // if there's no teardown task... then it's pending
         for (auto & [gpos, loader, teardown] : loaded_maps) {
             if (teardown) continue;

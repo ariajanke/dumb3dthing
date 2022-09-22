@@ -159,6 +159,7 @@ void TranslatableTileFactory::setup
         // if a neighbor elevation is unknown, then no wall it created for that
         // corner (which can very easily mean no wall are generated on any "dip"
         // corner
+        bool is_known = known_corners[corner_index(corner)];
         Real neighbor_elevation = ninfo.neighbor_elevation(corner);
         Real diff   = known_elevation - neighbor_elevation;
         bool is_dip =    cul::is_real(neighbor_elevation)
@@ -183,13 +184,25 @@ void TranslatableTileFactory::setup
 /* private */ Slopes WallTileFactory::tile_elevations() const {
     // it is possible that some elevations are indeterminent...
     Real y = translation().y + 1;
-    return Slopes{0, y, y, y, y};
+    // first implementation should fail the "three corners facing each other"
+    // test
+    using Cd = CardinalDirection;
+    auto knowns = make_known_corners(m_dir);
+    return Slopes{0,
+        knowns[corner_index(Cd::ne)] ? y : k_inf,
+        knowns[corner_index(Cd::nw)] ? y : k_inf,
+        knowns[corner_index(Cd::sw)] ? y : k_inf,
+        knowns[corner_index(Cd::se)] ? y : k_inf};
 }
 
 /* private */ void WallTileFactory::make_tile
     (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
      Platform::ForLoaders & platform) const
 {
+    if (ninfo.tile_location_in_map() == Vector2I{16, 0}) {
+        int j = 0, i = 0;
+        ++j;
+    }
     auto wed = elevations_and_direction(ninfo);
     if (m_render_model_cache) {
         auto itr = m_render_model_cache->find(wed);
@@ -245,19 +258,19 @@ void TranslatableTileFactory::setup
             make_tuple(Cd::sw, sw), make_tuple(Cd::se, se),
         };
         for (auto [corner, val] : k_corners)
-            rv[corner_index(corner)] = !val;
+            rv[corner_index(corner)] = val;
         return rv;
     };
     switch (dir) {
-    // a north wall, all point on the north are known
-    case Cd::n : return mk_rv(true , false, false, true );
-    case Cd::s : return mk_rv(false, true , true , false);
-    case Cd::e : return mk_rv(false, false, true , true );
-    case Cd::w : return mk_rv(true , true , false, false);
-    case Cd::nw: return mk_rv(true , false, false, false);
-    case Cd::sw: return mk_rv(false, true , false, false);
-    case Cd::se: return mk_rv(false, false, true , false);
-    case Cd::ne: return mk_rv(false, false, false, true );
+    // a north wall, all point on the south are known
+    case Cd::n : return mk_rv(false, true , true , false);
+    case Cd::s : return mk_rv(true , false, false, true );
+    case Cd::e : return mk_rv(true , true , false, false);
+    case Cd::w : return mk_rv(false, false, true , true );
+    case Cd::nw: return mk_rv(false, false, true , false);
+    case Cd::sw: return mk_rv(false, false, false, true );
+    case Cd::se: return mk_rv(true , false, false, false);
+    case Cd::ne: return mk_rv(false, true , false, false);
     default: break;
     }
     throw BadBranchException{__LINE__, __FILE__};
@@ -299,6 +312,9 @@ void TranslatableTileFactory::setup
         { *ptr = offset.y - wed.dip_heights[corner_index(dir)]; }
 
     // how will I do texture coords?
+    WallTileFactory::add_wall_triangles_to
+        (m_dir, nw, sw, se, ne, k_both_flats_and_wall, k_adjusted_thershold, add_triangle);
+#   if 0
     switch (m_dir) {
     case Cd::n:
         north_south_split
@@ -334,6 +350,7 @@ void TranslatableTileFactory::setup
         break;
     default: break;
     }
+#   endif
     return make_tuple(nullptr, std::move(triangles));
 }
 
@@ -470,10 +487,13 @@ void northwest_corner_split
         // all triangles should come together, or not at all
         if (!are_very_close(division_xz, -0.5)) {
             f(Triangle{nw_corner, ne_corner, ne_floor});
-            f(Triangle{nw_corner, nw_floor , ne_floor});
+            // this constructor should be throwing when div ~= 0.5
+            if (!are_very_close(division_xz, 0.5)) {
+                f(Triangle{nw_corner, nw_floor , ne_floor});
 
+                f(Triangle{nw_corner, nw_floor , sw_floor});
+            }
             f(Triangle{nw_corner, sw_corner, sw_floor});
-            f(Triangle{nw_corner, nw_floor , sw_floor});
         }
     }
     if (opt & k_wall_only) {

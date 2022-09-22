@@ -105,6 +105,10 @@ bool run_wall_tile_factory_tests() {
     };
     static constexpr const int k_connecting_tile = 16;
     static constexpr const int k_north_wall_no_translation = 34;
+    static constexpr const int k_east_wall_no_translation  = 44;
+    static constexpr const int k_nw_wall = 33;
+    static constexpr const int k_ne_wall = 35;
+    static constexpr const int k_se_wall = 53;
     static const auto k_sample_layer = [] {
         Grid<int> layer;
         layer.set_size(1, 2);
@@ -120,7 +124,7 @@ bool run_wall_tile_factory_tests() {
         throw RtError{"Uh Oh, no tile factory"};
     };
 
-    suite.start_series("TileFactory::NeighborInfo");
+    suite.start_series("TileFactory :: NeighborInfo");
     // no neighbor, no real number is returned
     mark(suite).test([] {
         auto res = NeighborInfo::make_no_neighbor()
@@ -147,7 +151,45 @@ bool run_wall_tile_factory_tests() {
         auto res = ninfo.neighbor_elevation(CardinalDirection::nw);
         return test(cul::is_real(res));
     });
+    // elevations (dip heights) are okay for sample neighbor
+    mark(suite).test([] {
+        using Wtf = WallTileFactory;
+        using Cd = CardinalDirection;
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+        auto ninfo = make_sample_neighbor_info(tileset);
 
+        auto wed = Wtf::elevations_and_direction(ninfo, 1, CardinalDirection::n, Vector2I{0, 1});
+        auto nw = wed.dip_heights[Wtf::corner_index(Cd::nw)];
+        auto ne = wed.dip_heights[Wtf::corner_index(Cd::ne)];
+        auto sw = wed.dip_heights[Wtf::corner_index(Cd::sw)];
+        auto se = wed.dip_heights[Wtf::corner_index(Cd::se)];
+        return test(   are_very_close(nw, 1) && are_very_close(ne, 1)
+                    && are_very_close(sw, 0) && are_very_close(se, 0));
+    });
+
+    // elevations and dips for an east wall
+    mark(suite).test([] {
+        using Wtf = WallTileFactory;
+        using Cd = CardinalDirection;
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+
+        Grid<int> layer;
+        layer.set_size(2, 1);
+        layer(0, 0) = k_east_wall_no_translation;
+        layer(1, 0) = k_connecting_tile;
+        auto ninfo = TileFactory::NeighborInfo{tileset, layer, Vector2I{}, Vector2I{}};
+
+        auto wed = Wtf::elevations_and_direction(ninfo, 1, CardinalDirection::e, Vector2I{0, 1});
+        auto nw = wed.dip_heights[Wtf::corner_index(Cd::nw)];
+        auto ne = wed.dip_heights[Wtf::corner_index(Cd::ne)];
+        auto sw = wed.dip_heights[Wtf::corner_index(Cd::sw)];
+        auto se = wed.dip_heights[Wtf::corner_index(Cd::se)];
+        return test(   are_very_close(nw, 0) && are_very_close(ne, 1)
+                    && are_very_close(sw, 0) && are_very_close(se, 1));
+
+    });
     suite.start_series("Wall Tile Factory :: Triangle Generation");
     // I'd like to test different divisions here
     set_context(suite, [] (TestSuite & suite, Unit & unit) {
@@ -356,6 +398,24 @@ bool run_wall_tile_factory_tests() {
         return test(wall_not_found);
     });
 
+    // three corners face each other, elevation becomes unknown
+    mark(suite).test([] {
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+        Grid<int> layer;
+        layer.set_size(2, 2);
+        layer(0, 0) = k_se_wall;
+        layer(1, 1) = k_nw_wall;
+        layer(0, 1) = k_ne_wall; // <- target
+        NeighborInfo ninfo{tileset, layer, Vector2I{0, 1}, Vector2I{}};
+        auto * ne_factory = tileset(k_ne_wall);
+        if (!ne_factory) {
+            throw RtError{"No tile factory?"};
+        }
+        // need neighbor elevations
+        auto res = ninfo.neighbor_elevation(CardinalDirection::ne);
+        return test(!cul::is_real(res));
+    });
     // I'd like test cases for...
     // corners
     // mid splits (where the wall is in the middle of the tile)
