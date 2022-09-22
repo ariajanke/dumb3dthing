@@ -71,9 +71,11 @@ auto make_array_of_components_getter(Func && f) {
 
 Real sum_of_areas_on_up(const std::vector<Triangle> & triangles) {
     Real sum = 0;
+    std::vector<Triangle> projected_triangles;
     for (auto & triangle : triangles) {
         if (!triangle.can_be_projected_onto(k_up)) continue;
         sum += triangle.project_onto_plane(k_up).area_of_triangle();
+        projected_triangles.push_back(triangle.project_onto_plane(k_up));
     }
     return sum;
 }
@@ -179,8 +181,9 @@ bool run_wall_tile_factory_tests() {
     // next, corner wall tiles
     set_context(suite, [] (TestSuite & suite, Unit & unit) {
         WedTriangleTestAdder adder;
+        // the one goes in the opposite corner of the corner given
         WallTileFactory::add_wall_triangles_to
-            (CardinalDirection::nw, 0, 0, 1, 0, k_both_flats_and_wall, 0.25, adder);
+            (CardinalDirection::nw, 0, 0, 1, 0, k_both_flats_and_wall, -0.25, adder);
         // total area okay
         unit.start(mark(suite), [&adder] {
             return test(are_very_close(1, sum_of_areas_on_up(adder.triangles)));
@@ -203,15 +206,13 @@ bool run_wall_tile_factory_tests() {
             if (   ew_itr == adder.triangles.end()
                 || ns_itr == adder.triangles.end())
             { return test(false); }
-            // mmm gonna have to think about what values I'm plugging in here
-            return test(   are_very_close(ew_itr->point_a().z, k_inf)
-                        && are_very_close(ns_itr->point_a().x, k_inf));
+            return test(   are_very_close(ew_itr->point_a().z,  0.25)
+                        && are_very_close(ns_itr->point_a().x, -0.25));
         });
         // total area of top okay
         unit.start(mark(suite), [&adder] {
             remove_non_top_flats(adder.triangles);
-            // v area depends on where I actually put divisions
-            return test(are_very_close(k_inf, sum_of_areas_on_up(adder.triangles)));
+            return test(are_very_close(0.75*0.75, sum_of_areas_on_up(adder.triangles)));
         });
     });
     // test if symmetry of imlpementation is okay
@@ -221,26 +222,73 @@ bool run_wall_tile_factory_tests() {
             (CardinalDirection::se, 1, 0, 0, 0, k_both_flats_and_wall, 0.25, adder);
         // total area okay
         unit.start(mark(suite), [&adder] {
-            (void)adder;
-            return test(false);
+            return test(are_very_close(1, sum_of_areas_on_up(adder.triangles)));
         });
         // walls, in the right place
         unit.start(mark(suite), [&adder] {
-            (void)adder;
-            return test(false);
-        });
-        // location of top okay
-        unit.start(mark(suite), [&adder] {
-            (void)adder;
-            return test(false);
+            auto has_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
+            auto ew_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_z);
+            auto has_wall_on_x = make_has_wall_on_axis([](const Vector & r) { return r.x; });
+            auto ns_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_x);
+            if (   ew_itr == adder.triangles.end()
+                || ns_itr == adder.triangles.end())
+            { return test(false); }
+            return test(   are_very_close(ew_itr->point_a().z,  0.25)
+                        && are_very_close(ns_itr->point_a().x, -0.25));
         });
         // total area of top okay
         unit.start(mark(suite), [&adder] {
-            (void)adder;
-            return test(false);
+            remove_non_top_flats(adder.triangles);
+            return test(are_very_close(0.25*0.25, sum_of_areas_on_up(adder.triangles)));
         });
     });
 
+    // ahhh ne, and sw now
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        WedTriangleTestAdder adder;
+        WallTileFactory::add_wall_triangles_to
+            (CardinalDirection::ne, 0, 1, 0, 0, k_both_flats_and_wall, 0.25, adder);
+        // walls, in the right place
+        unit.start(mark(suite), [&adder] {
+            auto has_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
+            auto ew_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_z);
+            auto has_wall_on_x = make_has_wall_on_axis([](const Vector & r) { return r.x; });
+            auto ns_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_x);
+            if (   ew_itr == adder.triangles.end()
+                || ns_itr == adder.triangles.end())
+            { return test(false); }
+            return test(   are_very_close(ew_itr->point_a().z, -0.25)
+                        && are_very_close(ns_itr->point_a().x, -0.25));
+        });
+        // total area of top okay
+        unit.start(mark(suite), [&adder] {
+            remove_non_top_flats(adder.triangles);
+            return test(are_very_close(0.25*0.25, sum_of_areas_on_up(adder.triangles)));
+        });
+    });
+
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        WedTriangleTestAdder adder;
+        WallTileFactory::add_wall_triangles_to
+            (CardinalDirection::sw, 0, 0, 0, 1, k_both_flats_and_wall, -0.25, adder);
+        // walls, in the right place
+        unit.start(mark(suite), [&adder] {
+            auto has_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
+            auto ew_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_z);
+            auto has_wall_on_x = make_has_wall_on_axis([](const Vector & r) { return r.x; });
+            auto ns_itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_x);
+            if (   ew_itr == adder.triangles.end()
+                || ns_itr == adder.triangles.end())
+            { return test(false); }
+            return test(   are_very_close(ew_itr->point_a().z, -0.25)
+                        && are_very_close(ns_itr->point_a().x, -0.25));
+        });
+        // total area of top okay
+        unit.start(mark(suite), [&adder] {
+            remove_non_top_flats(adder.triangles);
+            return test(are_very_close(0.75*0.75, sum_of_areas_on_up(adder.triangles)));
+        });
+    });
     suite.start_series("Wall Tile Factory");
     mark(suite).test([] {
         // not possible without neighbors!

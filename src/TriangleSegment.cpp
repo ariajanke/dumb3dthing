@@ -71,6 +71,10 @@ TriangleSegment::TriangleSegment
         throw InvArg{"TriangleSegment::TriangleSegment: points a, b, and c must "
                      "have all real components."};
     }
+    if (are_very_close(a, b) || are_very_close(b, c) || are_very_close(c, a)) {
+        throw InvArg{"TriangleSegment::TriangleSegment: all three points must "
+                     "be far enough apart, as to be recognized as a triangle."};
+    }
     if (are_parallel(b - a, b - c)) {
         throw InvArg{"TriangleSegment::TriangleSegment: points must not be "
                      "co-linear."};
@@ -80,11 +84,6 @@ TriangleSegment::TriangleSegment
     m_c_2d  = find_point_c_in_2d(a, b, c);
     assert(!are_parallel(point_b_in_2d() - point_a_in_2d(),
                          point_b_in_2d() - point_c_in_2d()));
-
-    if (are_very_close(a, b) || are_very_close(b, c) || are_very_close(c, a)) {
-        throw InvArg{"TriangleSegment::TriangleSegment: all three points must "
-                     "be far enough apart, as to be recognized as a triangle."};
-    }
 
     check_invarients();
 }
@@ -384,6 +383,8 @@ namespace {
 static const constexpr Real k_no_intersection_2d =
     std::numeric_limits<Real>::infinity();
 
+bool angle_between_is_obtuse(const Vector &, const Vector &);
+
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
      Vector2 second_line_a, Vector2 second_line_b)
@@ -427,12 +428,24 @@ Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
 Vector2 find_point_c_in_2d
     (const Vector & a, const Vector & b, const Vector & c)
 {
-    auto i_proj = project_onto(c - a, b - a);
-    return Vector2{magnitude(i_proj), magnitude((c - a) - i_proj)};
+    auto ca = c - a;
+    auto ba = b - a;
+    auto i_proj = project_onto(ca, ba);
+
+    return Vector2{
+        (angle_between_is_obtuse(ca, ba) ? -1 : 1)*magnitude(i_proj),
+        magnitude(ca - i_proj)};
 }
 
 Real find_point_b_x_in_2d
     (const Vector & a, const Vector & b)
 { return magnitude(b - a); }
+
+// ----------------------------------------------------------------------------
+
+bool angle_between_is_obtuse(const Vector & a, const Vector & b) {
+    auto res = dot(a, b);
+    return res < 0;
+}
 
 } // end of <anonymous> namespace

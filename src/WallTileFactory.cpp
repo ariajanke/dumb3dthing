@@ -124,9 +124,9 @@ void TranslatableTileFactory::setup
     case Cd::e : east_west_split       (ne, se, nw, sw, div, opt, add_f); return;
     case Cd::w : west_east_split       (sw, nw, se, ne, div, opt, add_f); return;
     case Cd::nw: northwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::sw: northwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::se: northwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::ne: northwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
+    case Cd::sw: southwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
+    case Cd::se: southeast_corner_split(nw, ne, sw, se, div, opt, add_f); return;
+    case Cd::ne: northeast_corner_split(nw, ne, sw, se, div, opt, add_f); return;
     default: break;
     }
     throw InvArg{"WallTileFactory::add_wall_triangles_to: direction is not a valid value."};
@@ -438,38 +438,37 @@ void northwest_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    // yes, a little more complicated
-    // 10 Vectors... yuck, but hopefully never more complicated than this
-    // other tiles I'll relagate to another file based factory
+    // late division, less top space, early division... more
+    // the top "flat's" depth/width remain equal regardless where the division
+    // is placed
     // the "control" points are:
     // nw corner, floor, top
-    Vector nw_corner{        -0.5, north_west_y,         0.5};
-    Vector nw_floor {-division_xz, north_west_y, division_xz};
-    Vector nw_top   {-division_xz, south_east_y, division_xz};
+    Vector nw_corner{       -0.5, north_west_y,          0.5};
+    Vector nw_floor {division_xz, north_west_y, -division_xz};
+    Vector nw_top   {division_xz, south_east_y, -division_xz};
     // se
     Vector se       {        0.5, south_east_y,         -0.5};
     // ne corner, floor, top
-    Vector ne_corner{        0.5, north_east_y,         -0.5};
-    Vector ne_floor {division_xz, north_east_y, -division_xz};
-    Vector ne_top   {division_xz, south_east_y, -division_xz};
+    Vector ne_corner{        0.5, north_east_y,          0.5};
+    Vector ne_floor {        0.5, north_east_y, -division_xz};
+    Vector ne_top   {        0.5, south_east_y, -division_xz};
     // sw corner, floor, top
-    Vector sw_corner{        -0.5, south_west_y,         0.5};
-    Vector sw_floor {-division_xz, south_west_y, division_xz};
-    Vector sw_top   {-division_xz, south_east_y, division_xz};
+    Vector sw_corner{       -0.5, south_west_y,         -0.5};
+    Vector sw_floor {division_xz, south_west_y,         -0.5};
+    Vector sw_top   {division_xz, south_east_y,         -0.5};
 
     // some of these triangles are fixed (flats)
     if (opt & k_flats_only) {
-        if (!are_very_close(ne_top, se)) {
+        // both top triangles should come together or not at all
+        // there is only one condition where no tops are generated:
+        // - division is ~0.5
+        if (!are_very_close(division_xz, 0.5)) {
             f(Triangle{nw_top, ne_top, se});
-        }
-        if (   !are_very_close(nw_top, sw_top)
-            && !are_very_close(nw_top, se)
-            && !are_very_close(sw_top, se))
-        {
             f(Triangle{nw_top, sw_top, se});
         }
-        // four triangles for the bottom
-        if (!are_very_close(nw_floor, nw_corner)) {
+        // four triangles for the bottom,
+        // all triangles should come together, or not at all
+        if (!are_very_close(division_xz, -0.5)) {
             f(Triangle{nw_corner, ne_corner, ne_floor});
             f(Triangle{nw_corner, nw_floor , ne_floor});
 
@@ -499,7 +498,7 @@ void southwest_corner_split
 {
     auto invert_z = [](const Vector & r) { return Vector{r.x, r.y, -r.z}; };
     northwest_corner_split
-        (north_west_y, north_east_y, south_west_y, south_east_y, division_xz,
+        (south_west_y, south_east_y, north_west_y, north_east_y, division_xz,
          opt, make_triangle_transformer(invert_z, f));
 }
 
@@ -510,7 +509,7 @@ void northeast_corner_split
 {
     auto invert_x = [](const Vector & r) { return Vector{-r.x, r.y, r.z}; };
     northwest_corner_split
-        (north_west_y, north_east_y, south_west_y, south_east_y, division_xz,
+        (north_east_y, north_west_y, south_east_y, south_west_y, division_xz,
          opt, make_triangle_transformer(invert_x, f));
 }
 
@@ -521,7 +520,7 @@ void southeast_corner_split
 {
     auto invert_xz = [](const Vector & r) { return Vector{-r.x, r.y, -r.z}; };
     northwest_corner_split
-        (north_west_y, north_east_y, south_west_y, south_east_y, division_xz,
+        (south_east_y, south_west_y, north_east_y, north_west_y, division_xz,
          opt, make_triangle_transformer(invert_xz, f));
 }
 
