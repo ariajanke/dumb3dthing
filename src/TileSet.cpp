@@ -317,7 +317,7 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const 
     case Cd::se:
         return select_el(std::array{
             make_tuple(Vector2I{ 1,  0}, Cd::sw),
-            make_tuple(Vector2I{ 0 ,-1}, Cd::ne)
+            make_tuple(Vector2I{ 0 , 1}, Cd::ne)
         });
     case Cd::ne:
         return select_el(std::array{

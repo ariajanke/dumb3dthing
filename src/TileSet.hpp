@@ -159,7 +159,6 @@ class TileFactory {
 public:
     class NeighborInfo final {
     public:
-
         NeighborInfo
             (const SharedPtr<const TileSet> & ts, const Grid<int> & layer,
              Vector2I tilelocmap, Vector2I spawner_offset);
@@ -203,8 +202,8 @@ public:
     virtual void assign_render_model_wall_cache(WallRenderModelCache &) {}
 
     virtual Slopes tile_elevations() const = 0;
-protected:
 
+protected:
     static void add_triangles_based_on_model_details
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
          EntityAndTrianglesAdder & adder);

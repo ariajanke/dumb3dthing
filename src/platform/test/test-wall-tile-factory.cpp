@@ -50,6 +50,10 @@ public:
     void operator ()(const Triangle & triangle) const final
         { triangles.push_back(triangle); }
 
+    auto begin() { return triangles.begin(); }
+
+    auto end() { return triangles.end(); }
+
     // I prefer this over reference
     mutable std::vector<Triangle> triangles;
 };
@@ -105,6 +109,7 @@ bool run_wall_tile_factory_tests() {
     };
     static constexpr const int k_connecting_tile = 16;
     static constexpr const int k_north_wall_no_translation = 34;
+    static constexpr const int k_south_wall_no_translation = 52;
     static constexpr const int k_east_wall_no_translation  = 44;
     static constexpr const int k_nw_wall = 33;
     static constexpr const int k_ne_wall = 35;
@@ -188,37 +193,106 @@ bool run_wall_tile_factory_tests() {
         auto se = wed.dip_heights[Wtf::corner_index(Cd::se)];
         return test(   are_very_close(nw, 0) && are_very_close(ne, 1)
                     && are_very_close(sw, 0) && are_very_close(se, 1));
-
     });
+
+    // catch bug in neighbor elevations
+    mark(suite).test([] {
+        using Cd = CardinalDirection;
+        TileSet tileset;
+        load_tileset(k_tileset_fn, tileset);
+
+        Grid<int> layer;
+        layer.set_size(1, 2);
+        layer(0, 0) = k_south_wall_no_translation;
+        layer(0, 1) = k_connecting_tile;
+
+        auto ninfo = TileFactory::NeighborInfo{tileset, layer, Vector2I{}, Vector2I{}};
+        return test(cul::is_real(ninfo.neighbor_elevation(Cd::se)));
+    });
+
     suite.start_series("Wall Tile Factory :: Triangle Generation");
     // I'd like to test different divisions here
     set_context(suite, [] (TestSuite & suite, Unit & unit) {
-        WedTriangleTestAdder adder;
+        WedTriangleTestAdder triangles;
         WallTileFactory::add_wall_triangles_to
-            (CardinalDirection::n, 0, 1, 1, 0, k_both_flats_and_wall, 0, adder);
+            (CardinalDirection::n, 0, 1, 1, 0, k_both_flats_and_wall, 0, triangles);
 
-        unit.start(mark(suite), [&adder] {
-            return test(are_very_close(1, sum_of_areas_on_up(adder.triangles)));
+        // sum of flats ~1
+        unit.start(mark(suite), [&triangles] {
+            return test(are_very_close(1, sum_of_areas_on_up(triangles.triangles)));
         });
-        unit.start(mark(suite), [&adder] {
+        unit.start(mark(suite), [&triangles] {
             // I need to look for walls in the middle of the tile
             // (wall in the right spot?)
             // x ~= 0.5
             // I need something more exact...
-            auto has_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
-            auto itr = std::find_if(adder.triangles.begin(), adder.triangles.end(), has_wall_on_z);
-            if (itr == adder.triangles.end()) {
+            auto is_wall_on_z = make_has_wall_on_axis([](const Vector & r) { return r.z; });
+            auto itr = std::find_if(triangles.begin(), triangles.end(), is_wall_on_z);
+            if (itr == triangles.end()) {
                 // can't find wall
                 return test(false);
             }
 
             return test(are_very_close(itr->point_a().z, 0));
         });
-        unit.start(mark(suite), [&adder] {
-            remove_non_top_flats(adder.triangles);
-            return test(are_very_close(0.5, sum_of_areas_on_up(adder.triangles)));
+        unit.start(mark(suite), [&triangles] {
+            remove_non_top_flats(triangles.triangles);
+            return test(are_very_close(0.5, sum_of_areas_on_up(triangles.triangles)));
         });
     });
+
+    mark(suite).test([] {
+        WedTriangleTestAdder triangles;
+        WallTileFactory::add_wall_triangles_to
+            (CardinalDirection::n, 0, 1, 1, 0, k_both_flats_and_wall, 0.25, triangles);
+        remove_non_top_flats(triangles.triangles);
+        return test(are_very_close(0.25, sum_of_areas_on_up(triangles.triangles)));
+    });
+
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        WedTriangleTestAdder triangles;
+        WallTileFactory::add_wall_triangles_to
+            (CardinalDirection::e, 1, 1, 0, 0, k_both_flats_and_wall, 0.25, triangles);
+
+        // sum of flats ~1
+        unit.start(mark(suite), [&triangles] {
+            return test(are_very_close(1, sum_of_areas_on_up(triangles.triangles)));
+        });
+        unit.start(mark(suite), [&triangles] {
+            auto is_wall_on_x = make_has_wall_on_axis([](const Vector & r)
+                { return r.x; });
+            auto itr = std::find_if(triangles.triangles.begin(), triangles.triangles.end(), is_wall_on_x);
+            if (itr == triangles.triangles.end()) {
+                // can't find wall
+                return test(false);
+            }
+
+            return test(are_very_close(itr->point_a().x, -0.25));
+        });
+        unit.start(mark(suite), [&triangles] {
+            remove_non_top_flats(triangles.triangles);
+            return test(are_very_close(0.25, sum_of_areas_on_up(triangles.triangles)));
+        });
+        // is a top generally in the right place?
+        unit.start(mark(suite), [&triangles] {
+            remove_non_top_flats(triangles.triangles);
+            static constexpr const Real k_eastmost = -0.5;
+            static constexpr const Real k_westmost = -0.25;
+            bool eastmost_found = false;
+            bool westmost_found = false;
+            for (const auto & triangle : triangles) {
+                auto xs = { triangle.point_a().x, triangle.point_b().x, triangle.point_c().x };
+                auto make_very_close_to = [](Real xt) {
+                    return [xt](Real x) { return are_very_close(xt, x); };
+                };
+
+                eastmost_found |= std::any_of(xs.begin(), xs.end(), make_very_close_to(k_eastmost));
+                westmost_found |= std::any_of(xs.begin(), xs.end(), make_very_close_to(k_westmost));
+            }
+            return test(eastmost_found && westmost_found);
+        });
+    });
+
 
     // next, corner wall tiles
     set_context(suite, [] (TestSuite & suite, Unit & unit) {

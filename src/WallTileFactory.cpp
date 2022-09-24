@@ -45,21 +45,19 @@ void east_west_split
 // {-0.5, x,  0.5}, {0.5, x,  0.5}
 // {-0.5, x, -0.5}, {0.5, x, -0.5}
 void north_south_split
-    (Real north_east_y, Real north_west_y,
-     Real south_east_y, Real south_west_y,
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
      Real division_z, SplitOpt opt, const TriangleAdder & f);
 
 void south_north_split
-    (Real south_west_y, Real south_east_y,
-     Real north_west_y, Real north_east_y,
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
      Real division_z, SplitOpt opt, const TriangleAdder & f);
 
 void west_east_split
-    (Real west_south_y, Real west_north_y,
-     Real east_south_y, Real east_north_y,
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
      Real division_x, SplitOpt opt, const TriangleAdder & f);
-
-// rearranging parameter order: big mistake
 
 void northwest_corner_split
     (Real north_west_y, Real north_east_y,
@@ -119,10 +117,10 @@ void TranslatableTileFactory::setup
     // how will I do texture coords?
     using Cd = CardinalDirection;
     switch (dir) {
-    case Cd::n : north_south_split     (ne, nw, se, sw, div, opt, add_f); return;
-    case Cd::s : south_north_split     (sw, se, nw, ne, div, opt, add_f); return;
-    case Cd::e : east_west_split       (ne, se, nw, sw, div, opt, add_f); return;
-    case Cd::w : west_east_split       (sw, nw, se, ne, div, opt, add_f); return;
+    case Cd::n : north_south_split     (nw, ne, sw, se, div, opt, add_f); return;
+    case Cd::s : south_north_split     (nw, ne, sw, se, div, opt, add_f); return;
+    case Cd::e : east_west_split       (nw, ne, sw, se, div, opt, add_f); return;
+    case Cd::w : west_east_split       (nw, ne, sw, se, div, opt, add_f); return;
     case Cd::nw: northwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
     case Cd::sw: southwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
     case Cd::se: southeast_corner_split(nw, ne, sw, se, div, opt, add_f); return;
@@ -314,43 +312,7 @@ void TranslatableTileFactory::setup
     // how will I do texture coords?
     WallTileFactory::add_wall_triangles_to
         (m_dir, nw, sw, se, ne, k_both_flats_and_wall, k_adjusted_thershold, add_triangle);
-#   if 0
-    switch (m_dir) {
-    case Cd::n:
-        north_south_split
-            (ne, nw, se, sw, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    case Cd::s:
-        south_north_split
-            (sw, se, nw, ne, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    case Cd::e:
-        east_west_split
-            (ne, se, nw, sw, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    case Cd::w:
-        west_east_split
-            (sw, nw, se, ne, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    case Cd::nw:
-        northwest_corner_split
-            (nw, ne, sw, se, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    case Cd::sw:
-        northwest_corner_split
-            (nw, ne, sw, se, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    case Cd::se:
-        northwest_corner_split
-            (nw, ne, sw, se, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    case Cd::ne:
-        northwest_corner_split
-            (nw, ne, sw, se, k_adjusted_thershold, k_both_flats_and_wall, add_triangle);
-        break;
-    default: break;
-    }
-#   endif
+
     return make_tuple(nullptr, std::move(triangles));
 }
 
@@ -376,44 +338,55 @@ void make_linear_triangle_strip
      const Vector & b_start, const Vector & b_last,
      Real step, Func && f);
 
+template <typename TransformingFunc, typename PassOnFunc>
+/* <! auto breaks BFS ordering !> */ auto make_triangle_transformer
+    (TransformingFunc && tf, const PassOnFunc & pf)
+{
+    return WallTileFactory::TriangleAdder::make([tf = std::move(tf), &pf](const Triangle & tri)
+        { pf(Triangle{tf(tri.point_a()), tf(tri.point_b()), tf(tri.point_c())}); });
+}
+
 void east_west_split
-    (Real east_north_y, Real east_south_y,
-     Real west_north_y, Real west_south_y,
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
      Real division_x, SplitOpt opt, const TriangleAdder & f)
 {
     // simply switch roles
     // east <-> north
     // west <-> south
-    auto remap_vector = [] (const Vector & r) { return Vector{r.z, r.y, r.x}; };
-    north_south_split(
-        east_north_y, east_south_y, west_north_y, west_south_y,
-        division_x, opt,
-        WallTileFactory::TriangleAdder::make([&f, remap_vector] (const Triangle & tri)
-    {
-        f(Triangle{
-            remap_vector(tri.point_a()),
-            remap_vector(tri.point_b()),
-            remap_vector(tri.point_c())
-        });
-    }));
+    auto xz_swap_roles = [] (const Vector & r)
+        { return Vector{r.z, r.y, r.x}; };
+    north_south_split
+        (south_east_y, north_east_y, south_west_y, north_west_y,
+         division_x, opt,
+         make_triangle_transformer(xz_swap_roles, f));
 }
 
+// this is a bit different, presently it makes no assumption on which is the
+// floor, and which is the top
+// I think I may make this function more specialized
 void north_south_split
-    (Real north_east_y, Real north_west_y,
-     Real south_east_y, Real south_west_y,
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
      Real division_z, SplitOpt opt, const TriangleAdder & f)
 {
-    // division z must make sense
-    assert(division_z >= -0.5 && division_z <= 0.5);
+    // late division, less top space, early division... more
+
+    if (division_z < -0.5 || division_z > 0.5) {
+        throw InvArg{"north_south_split: division must be in [0.5 0.5]"};
+    } else if (south_west_y < north_west_y || south_east_y < north_east_y) {
+        throw InvArg{"north_south_split: method was designed assuming south is "
+                     "the top"};
+    }
 
     // both sets of y values' directions must be the same
     assert((north_east_y - north_west_y)*(south_east_y - south_west_y) >= 0);
 
-    const Vector div_nw{-0.5, north_west_y, division_z};
-    const Vector div_ne{ 0.5, north_east_y, division_z};
+    const Vector div_nw{-0.5, north_west_y, -division_z};
+    const Vector div_sw{-0.5, south_west_y, -division_z};
 
-    const Vector div_sw{-0.5, south_west_y, division_z};
-    const Vector div_se{ 0.5, south_east_y, division_z};
+    const Vector div_ne{ 0.5, north_east_y, -division_z};
+    const Vector div_se{ 0.5, south_east_y, -division_z};
     // We must handle division_z being 0.5
     if (opt & k_flats_only) {
         Vector nw{-0.5, north_west_y, 0.5};
@@ -431,23 +404,27 @@ void north_south_split
 }
 
 void south_north_split
-    (Real south_west_y, Real south_east_y,
-     Real north_west_y, Real north_east_y,
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
      Real division_z, SplitOpt opt, const TriangleAdder & f)
 {
-    auto z = 1 - (division_z + 0.5);
+    auto invert_z = [] (const Vector & r)
+        { return Vector{r.x, r.y, -r.z}; };
     north_south_split
-        (north_east_y, north_west_y, south_east_y, south_west_y, z, opt, f);
+        (south_west_y, south_east_y, north_west_y, north_east_y, division_z, opt,
+         make_triangle_transformer(invert_z, f));
 }
 
 void west_east_split
-    (Real west_south_y, Real west_north_y,
-     Real east_south_y, Real east_north_y,
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
      Real division_x, SplitOpt opt, const TriangleAdder & f)
 {
-    auto x = 1 - (division_x + 0.5);
-    north_south_split
-        (east_north_y, east_south_y, west_north_y, west_south_y, x, opt, f);
+    auto invert_x = [] (const Vector & r)
+        { return Vector{-r.x, r.y, r.z}; };
+    east_west_split
+        (north_east_y, north_west_y, south_east_y, south_west_y, division_x, opt,
+         make_triangle_transformer(invert_x, f));
 }
 
 void northwest_corner_split
@@ -455,6 +432,13 @@ void northwest_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
+    if (   south_east_y < north_west_y || south_east_y < north_east_y
+        || south_east_y < south_west_y)
+    {
+        throw InvArg{"northwest_corner_split: south_east_y is assumed to be "
+                     "the top's elevation, method not explicitly written to "
+                     "handle south east *not* being the top"};
+    }
     // late division, less top space, early division... more
     // the top "flat's" depth/width remain equal regardless where the division
     // is placed
@@ -502,21 +486,14 @@ void northwest_corner_split
     }
 }
 
-template <typename TransformingFunc, typename PassOnFunc>
-/* <! auto breaks BFS ordering !> */ auto make_triangle_transformer
-    (TransformingFunc && tf, const PassOnFunc & pf)
-{
-    return WallTileFactory::TriangleAdder::make([tf = std::move(tf), &pf](const Triangle & tri)
-        { pf(Triangle{tf(tri.point_a()), tf(tri.point_b()), tf(tri.point_c())}); });
-}
-
 // can just exploit symmetry to implement the rest
 void southwest_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_z = [](const Vector & r) { return Vector{r.x, r.y, -r.z}; };
+    auto invert_z = [](const Vector & r)
+        { return Vector{r.x, r.y, -r.z}; };
     northwest_corner_split
         (south_west_y, south_east_y, north_west_y, north_east_y, division_xz,
          opt, make_triangle_transformer(invert_z, f));
@@ -527,7 +504,8 @@ void northeast_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_x = [](const Vector & r) { return Vector{-r.x, r.y, r.z}; };
+    auto invert_x = [](const Vector & r)
+        { return Vector{-r.x, r.y, r.z}; };
     northwest_corner_split
         (north_east_y, north_west_y, south_east_y, south_west_y, division_xz,
          opt, make_triangle_transformer(invert_x, f));
@@ -538,7 +516,8 @@ void southeast_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_xz = [](const Vector & r) { return Vector{-r.x, r.y, -r.z}; };
+    auto invert_xz = [](const Vector & r)
+        { return Vector{-r.x, r.y, -r.z}; };
     northwest_corner_split
         (south_east_y, south_west_y, north_east_y, north_west_y, division_xz,
          opt, make_triangle_transformer(invert_xz, f));
@@ -575,6 +554,10 @@ void make_linear_triangle_strip
      const Vector & b_start, const Vector & b_last,
      Real step, Func && f)
 {
+    if (   are_very_close(a_start, a_last)
+        && are_very_close(b_start, b_last))
+    { return; }
+
     const auto make_step = make_step_factory(step);
 
     auto itr_a = a_start;
@@ -598,12 +581,43 @@ void make_linear_triangle_strip
         itr_b = new_b;
     }
 
-    if (!are_very_close(itr_a, a_last)
-        && !are_very_close(    itr_a, b_last )) {
-        f(Triangle{itr_a, b_last, a_last});
-    } else if (!are_very_close(itr_b, b_last)) {
-        f(Triangle{itr_b, itr_a, b_last});
+    // at this point we are going to generate at most one triangle
+    if (are_very_close(b_last, a_last)) {
+        // here we're down to three points
+        // there is only one possible triangle
+        if (   are_very_close(itr_a, a_last)
+            || are_very_close(itr_a, itr_b))
+        {
+            // take either being true:
+            // in the best case: a line, so nothing
+            return;
+        }
+
+        f(Triangle{itr_a, itr_b, a_last});
+        return;
+    } else {
+        // a reminder from above
+        assert(   are_very_close(itr_a, a_last)
+               || are_very_close(itr_b, b_last));
+
+        // here we still haven't ruled any points out
+        if (   are_very_close(itr_a, itr_b)
+            || (   are_very_close(itr_a, a_last)
+                && are_very_close(itr_b, b_last)))
+        {
+            // either are okay, as they are "the same" pt
+            return;
+        } else if (!are_very_close(itr_a, a_last)) {
+            // must exclude itr_b
+            f(Triangle{itr_a, b_last, a_last});
+            return;
+        } else if (!are_very_close(itr_b, b_last)) {
+            // must exclude itr_a
+            f(Triangle{itr_b, a_last, b_last});
+            return;
+        }
     }
+    throw BadBranchException{__LINE__, __FILE__};
 }
 
 } // end of <anonymous> namespace

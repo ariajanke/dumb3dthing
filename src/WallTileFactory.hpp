@@ -39,6 +39,8 @@ private:
 
 // ----------------------------------------------------------------------------
 
+CardinalDirection cardinal_direction_from(const char * str);
+
 class WallTileFactory final : public TranslatableTileFactory {
 public:
     class TriangleAdder {
@@ -68,6 +70,7 @@ public:
         k_both_flats_and_wall = k_flats_only | k_wall_only
     };
 
+    // design flaw? too many parameters?
     static void add_wall_triangles_to
         (CardinalDirection dir, Real nw, Real sw, Real se, Real ne, SplitOpt,
          Real division, const TriangleAdder &);
@@ -78,8 +81,19 @@ public:
         (const NeighborInfo & ninfo, Real known_elevation,
          CardinalDirection dir, Vector2I tile_loc);
 
+    void operator ()
+        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
+         Platform::ForLoaders & platform) const final
+    { make_tile(adder, ninfo, platform); }
+
+
     void assign_render_model_wall_cache(WallRenderModelCache & cache) final
         { m_render_model_cache = &cache; }
+
+    void setup
+        (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) final;
+
+    Slopes tile_elevations() const final;
 
 private:
     using Triangle = TriangleSegment;
@@ -107,20 +121,6 @@ private:
             itr->z *= x;
         }
     }
-
-    void setup
-        (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) final;
-
-    Slopes tile_elevations() const final;
-
-    // a wall has at least one elevation that's known
-    // a wall only generates if it's dip sides connect to tiles whose elevations
-    // are lower than the known elevation
-
-    void operator ()
-        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-         Platform::ForLoaders & platform) const final
-    { make_tile(adder, ninfo, platform); }
 
     void make_tile
         (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
@@ -150,5 +150,3 @@ private:
 
     // I still need to known the wall texture coords
 };
-
-CardinalDirection cardinal_direction_from(const char * str);
