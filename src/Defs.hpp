@@ -23,6 +23,7 @@
 #include <common/Grid.hpp>
 #include <common/VectorUtils.hpp>
 #include <common/Vector3.hpp>
+#include <common/Util.hpp>
 
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
 #include <ariajanke/ecs3/HashTableEntity.hpp>
@@ -76,6 +77,8 @@ template <typename T>
 using Opt = ecs::Optional<T>;
 
 using cul::Grid;
+
+using cul::View;
 
 class TriangleSegment;
 class Texture;

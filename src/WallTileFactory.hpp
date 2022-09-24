@@ -21,6 +21,7 @@
 #pragma once
 
 #include "TileSet.hpp"
+#include "TileFactory.hpp"
 
 class TranslatableTileFactory : public TileFactory {
 public:
