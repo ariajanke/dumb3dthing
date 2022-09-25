@@ -32,6 +32,9 @@ class TileSet final {
 public:
     using ConstTileSetPtr = std::shared_ptr<const TileSet>;
     using TileSetPtr      = std::shared_ptr<TileSet>;
+    struct TileTexture final {
+        Vector2 nw, sw, se, ne;
+    };
 
     // there may, or may not be a factory for a particular id
     TileFactory * operator () (int tid) const;
@@ -47,7 +50,40 @@ public:
     int total_tile_count() const { return m_tile_count; }
 
 private:
+    using TileTextureMap = std::map<std::string, TileTexture>;
+    struct TileParams final {
+        TileParams(Size2 tile_size_,
+                   Platform::ForLoaders & platform_):
+            tile_size(tile_size_),
+            platform(platform_) {}
+        Size2 tile_size;
+        Platform::ForLoaders & platform;
+    };
+    // still really airy
+    using LoadTileTypeFunc = void (TileSet::*)
+        (const TiXmlElement &, int, Vector2I, TileParams &);
+    using TileTypeFuncMap = std::map<std::string, LoadTileTypeFunc>;
+
+    static const TileTypeFuncMap & tiletype_handlers();
+
+    void load_pure_texture(const TiXmlElement &, int, Vector2I, TileParams &);
+
+    void load_wall_factory(const TiXmlElement &, int, Vector2I, TileParams &);
+
+    void load_factory
+        (const TiXmlElement &, UniquePtr<TileFactory> factory, int, Vector2I,
+         Platform::ForLoaders &);
+
+    template <typename T>
+    void load_usual_factory
+        (const TiXmlElement & el, int id, Vector2I r, TileParams & tp)
+    {
+        static_assert(std::is_base_of_v<TileFactory, T>);
+        load_factory(el, make_unique<T>(), id, r, tp.platform);
+    }
+
     std::map<int, UniquePtr<TileFactory>> m_factory_map;
+    TileTextureMap m_tile_texture_map;
 
     SharedPtr<const Texture> m_texture;
     Size2 m_texture_size;

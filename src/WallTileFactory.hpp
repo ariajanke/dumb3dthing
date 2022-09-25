@@ -70,6 +70,7 @@ public:
         k_wall_only  = 1 << 1,
         k_both_flats_and_wall = k_flats_only | k_wall_only
     };
+    using TileTexture = TileSet::TileTexture;
 
     // design flaw? too many parameters?
     static void add_wall_triangles_to
@@ -87,8 +88,7 @@ public:
          Platform::ForLoaders & platform) const final
     { make_tile(adder, ninfo, platform); }
 
-
-    void assign_render_model_wall_cache(WallRenderModelCache & cache) final
+    void assign_render_model_wall_cache(WallRenderModelCache & cache)
         { m_render_model_cache = &cache; }
 
     void setup
@@ -96,10 +96,13 @@ public:
 
     Slopes tile_elevations() const final;
 
+    void assign_wall_texture(const TileTexture & tt)
+        { m_wall_texture_coords = &tt; }
+
 private:
     using Triangle = TriangleSegment;
 
-    static constexpr const Real k_visual_dip_thershold = 0.5;
+    static constexpr const Real k_visual_dip_thershold = 0;
     static constexpr const Real k_physical_dip_thershold = 1;
 
     template <typename Iter>
@@ -150,4 +153,5 @@ private:
     Vector2I m_tileset_location;
 
     // I still need to known the wall texture coords
+    const TileTexture * m_wall_texture_coords = nullptr;
 };

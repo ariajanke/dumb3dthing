@@ -36,6 +36,12 @@ using TiXmlDocument = tinyxml2::XMLDocument;
 
 class TiXmlIter final {
 public:
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type = int;
+    using value_type = const TiXmlElement &;
+    using reference = const TiXmlElement &;
+    using pointer = const TiXmlElement *;
+
     TiXmlIter();
     TiXmlIter(const TiXmlElement * el_, const char * name_);
 

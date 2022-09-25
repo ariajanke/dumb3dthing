@@ -25,6 +25,7 @@
 
 #include "WallTileFactory.hpp"
 #include "TileFactory.hpp"
+#include "RampTileFactory.hpp"
 
 // can always clean up embedded testing later
 #include <common/TestSuite.hpp>
@@ -39,6 +40,11 @@ using ConstTileSetPtr = TileSet::ConstTileSetPtr;
 using TileSetPtr      = TileSet::TileSetPtr;
 using Triangle        = TriangleSegment;
 
+const TiXmlElement * get_first_property(const TiXmlElement & el) {
+    auto props = el.FirstChildElement("properties");
+    return props ? props->FirstChildElement("property") : props;
+}
+
 } // end of <anonymous> namespace
 
 // there may, or may not be a factory for a particular id
@@ -47,7 +53,6 @@ TileFactory * TileSet::operator () (int tid) const {
     if (itr == m_factory_map.end()) return nullptr;
     return itr->second.get();
 }
-
 
 TileFactory & TileSet::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
     auto itr = m_factory_map.find(tid);
@@ -60,8 +65,8 @@ TileFactory & TileSet::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
     return factory;
 }
 
-void TileSet::load_information(Platform::ForLoaders & platform,
-                               const tinyxml2::XMLElement & tileset)
+void TileSet::load_information
+    (Platform::ForLoaders & platform, const TiXmlElement & tileset)
 {
     int tile_width = tileset.IntAttribute("tilewidth");
     int tile_height = tileset.IntAttribute("tileheight");
@@ -81,15 +86,15 @@ void TileSet::load_information(Platform::ForLoaders & platform,
     set_texture_information(tx, Size2{tile_width, tile_height}, Size2{tx_width, tx_height});
     m_tile_count = tile_count;
 
+    TileParams tparams{Size2(tile_width, tile_height), platform};
     for (auto & el : XmlRange{tileset, "tile"}) {
+        auto * type = el.Attribute("type");
+        if (!type) continue;
+        auto itr = tiletype_handlers().find(type);
+        if (itr == tiletype_handlers().end()) continue;
+
         int id = el.IntAttribute("id");
-        auto tileset_factory = TileFactory::make_tileset_factory(el.Attribute("type"));
-        if (!tileset_factory)
-            continue;
-        insert_factory(std::move(tileset_factory), id)
-            .setup(to_ts_loc(id),
-                   el.FirstChildElement("properties")->FirstChildElement("property"),
-                   platform);
+        (this->*itr->second)(el, id, to_ts_loc(id), tparams);
     }
 }
 
@@ -102,14 +107,68 @@ void TileSet::set_texture_information
     m_tile_size = tile_size;
 }
 
+/* private static */ const TileSet::TileTypeFuncMap &
+    TileSet::tiletype_handlers()
+{
+    static TileTypeFuncMap s_map;
+    if (!s_map.empty()) return s_map;
+    s_map["pure-texture"] = &TileSet::load_pure_texture;
+    s_map["wall"        ] = &TileSet::load_wall_factory;
+    s_map["in-ramp"     ] = &TileSet::load_usual_factory<InRampTileFactory>;
+    s_map["out-ramp"    ] = &TileSet::load_usual_factory<OutRampTileFactory>;
+    s_map["ramp"        ] = &TileSet::load_usual_factory<TwoRampTileFactory>;
+    s_map["flat"        ] = &TileSet::load_usual_factory<FlatTileFactory>;
+    return s_map;
+}
+
+/* private */ void TileSet::load_pure_texture
+    (const TiXmlElement & el, int, Vector2I r, TileParams & tp)
+{
+    TiXmlIter itr{get_first_property(el), "property"};
+    itr = std::find_if(itr, TiXmlIter{}, [](const TiXmlElement & el) {
+        auto attr = el.Attribute("name");
+        return attr ? std::strcmp(attr, "assignment") == 0 : false;
+    });
+    if (!(itr != TiXmlIter{})) return;
+
+    auto * assignment = (*itr).Attribute("value");
+    if (!assignment) return;
+
+    TileTexture tx;
+    tx.nw = Vector2{r.x*tp.tile_size.width, r.y*tp.tile_size.height};
+    tx.ne = tx.nw + Vector2{tp.tile_size.width, 0};
+    tx.se = tx.ne + Vector2{0, tp.tile_size.height};
+    tx.sw = tx.nw + Vector2{0, tp.tile_size.height};
+    m_tile_texture_map[assignment] = tx;
+}
+
+/* private */ void TileSet::load_wall_factory
+    (const TiXmlElement & el, int id, Vector2I r, TileParams & tp)
+{
+    auto wall_factory = make_unique<WallTileFactory>();
+    wall_factory->assign_wall_texture(m_tile_texture_map["wall"]);
+    insert_factory(std::move(wall_factory), id)
+        .setup(r, get_first_property(el), tp.platform);
+}
+
+/* private */ void TileSet::load_factory
+    (const TiXmlElement & el, UniquePtr<TileFactory> factory,
+     int id, Vector2I r, Platform::ForLoaders & platform)
+{
+    if (!factory)
+        return;
+    insert_factory(std::move(factory), id)
+        .setup(r, get_first_property(el), platform);
+}
+
 // ----------------------------------------------------------------------------
 
 GidTidTranslator::GidTidTranslator
     (const std::vector<TileSetPtr> & tilesets, const std::vector<int> & startgids)
 {
     if (tilesets.size() != startgids.size()) {
-        throw RtError("Bug in library, GidTidTranslator constructor expects "
-                      "both passed containers to be equal in size.");
+        throw RtError{"Bug in library, GidTidTranslator constructor expects "
+                      "both passed containers to be equal in size."};
     }
     m_gid_map.reserve(tilesets.size());
     for (std::size_t i = 0; i != tilesets.size(); ++i) {

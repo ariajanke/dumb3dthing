@@ -114,8 +114,6 @@ public:
         Vector2I m_offset;
     };
 
-    static UniquePtr<TileFactory> make_tileset_factory(const char * type);
-
     virtual ~TileFactory() {}
 
     virtual void operator ()
@@ -127,8 +125,6 @@ public:
 
     virtual void setup(Vector2I loc_in_ts, const TiXmlElement * properties,
                        Platform::ForLoaders &) = 0;
-
-    virtual void assign_render_model_wall_cache(WallRenderModelCache &) {}
 
     virtual Slopes tile_elevations() const = 0;
 
@@ -154,6 +150,10 @@ protected:
         (Platform::ForLoaders & platform,
          const Slopes & slopes,
          Vector2I loc_in_ts) const;
+
+    Size2 common_texture_tile_size() const;
+
+    Vector2 common_texture_origin(Vector2I ts_r) const;
 
 private:
     SharedCPtr<Texture> m_texture_ptr;

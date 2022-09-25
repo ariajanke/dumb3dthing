@@ -20,6 +20,9 @@
 
 #include "WallTileFactory.hpp"
 #include "tiled-map-loader.hpp"
+#include "RenderModel.hpp"
+
+#include <numeric>
 
 #include <cstring>
 
@@ -243,8 +246,12 @@ void TranslatableTileFactory::setup
 #           endif
         adder.add_triangle(Triangle{triangle.move(translation())});
     }
-    // mmm
-    // make_entity(platform, ninfo.tile_location(), render_model);
+    auto e = platform.make_renderable_entity();
+    common_texture();
+    Translation trans{translation() + grid_position_to_v3(ninfo.tile_location())};
+    e.add<SharedPtr<const RenderModel>, SharedPtr<const Texture>, Translation, Visible>() =
+        make_tuple(render_model, common_texture(), trans, true);
+    adder.add_entity(e);
 }
 
 /* private static */ std::array<bool, 4> WallTileFactory::make_known_corners(CardinalDirection dir) {
@@ -285,7 +292,7 @@ void TranslatableTileFactory::setup
     WallTileFactory::make_render_model_and_triangles(
     const WallElevationAndDirection & wed,
     const NeighborInfo & ninfo,
-    Platform::ForLoaders &) const
+    Platform::ForLoaders & platform) const
 {
     auto offset = grid_position_to_v3(ninfo.tile_location())
         + translation() + Vector{0, 1, 0};
@@ -299,21 +306,53 @@ void TranslatableTileFactory::setup
     static constexpr const auto k_adjusted_thershold =
         k_physical_dip_thershold - 0.5;
 
-    // wall dips on cases where no dips occur, will be zero, and therefore
-    // quite usable despite the use of subtraction here
-    Real ne, nw, se, sw;
-    const auto corner_pairs = {
-        make_tuple(Cd::ne, &ne), make_tuple(Cd::nw, &nw),
-        make_tuple(Cd::se, &se), make_tuple(Cd::sw, &sw)
-    };
-    for (auto [dir, ptr] : corner_pairs)
-        { *ptr = offset.y - wed.dip_heights[corner_index(dir)]; }
+    auto add_wall_triangles_to_ = [this, &wed, offset] {
+        // wall dips on cases where no dips occur, will be zero, and therefore
+        // quite usable despite the use of subtraction here
+        Real ne, nw, se, sw;
+        const auto corner_pairs = {
+            make_tuple(Cd::ne, &ne), make_tuple(Cd::nw, &nw),
+            make_tuple(Cd::se, &se), make_tuple(Cd::sw, &sw)
+        };
+        for (auto [dir, ptr] : corner_pairs)
+            { *ptr = offset.y - wed.dip_heights[corner_index(dir)]; }
+
+        return [nw, sw, se, ne, this]
+               (SplitOpt opt, Real div, const TriangleAdder & adder)
+        {
+            WallTileFactory::add_wall_triangles_to
+                (m_dir, nw, sw, se, ne, opt, div, adder);
+        };
+    } ();
 
     // how will I do texture coords?
-    WallTileFactory::add_wall_triangles_to
-        (m_dir, nw, sw, se, ne, k_both_flats_and_wall, k_adjusted_thershold, add_triangle);
+    add_wall_triangles_to_(k_both_flats_and_wall, k_adjusted_thershold, add_triangle);
 
-    return make_tuple(nullptr, std::move(triangles));
+    std::vector<Vertex> verticies;
+    std::vector<unsigned> elements;
+
+    auto to_tx_coord = [this](Vector pos) {
+        return Vector2{pos.x + 0.5, -pos.z + 0.5}
+            + TileFactory::common_texture_origin(m_tileset_location);
+    };
+    auto to_vtx = [&to_tx_coord](Vector pos) {
+        return Vertex{pos, to_tx_coord(pos)};
+    };
+    add_wall_triangles_to_(k_flats_only, k_visual_dip_thershold,
+        TriangleAdder::make([&verticies, to_vtx]
+        (const Triangle & triangle)
+    {
+        // triangle x-zs correspond pretty closely to texture
+        verticies.push_back(to_vtx(triangle.point_a()));
+        verticies.push_back(to_vtx(triangle.point_b()));
+        verticies.push_back(to_vtx(triangle.point_c()));
+    }));
+    elements.resize(verticies.size());
+    std::iota(elements.begin(), elements.end(), 0);
+    auto model = platform.make_render_model();
+    model->load(verticies, elements);
+
+    return make_tuple(model, std::move(triangles));
 }
 
 CardinalDirection cardinal_direction_from(const char * str) {
