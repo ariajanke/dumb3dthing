@@ -84,17 +84,30 @@ using WallRenderModelCache = std::map<
     Tuple<SharedPtr<const RenderModel>, std::vector<TriangleSegment>>,
     WallElevationAndDirectionComparator>;
 
+class SlopesGridInterface {
+public:
+    virtual ~SlopesGridInterface() {}
+
+    virtual Slopes operator () (Vector2I) const = 0;
+
+    static const SlopesGridInterface & null_instance() {
+        class Impl final : public SlopesGridInterface {
+        public:
+            Slopes operator () (Vector2I) const final
+                { return Slopes{0, k_inf, k_inf, k_inf, k_inf}; }
+        };
+        static Impl impl;
+        return impl;
+    }
+};
+
 class TileFactory {
 public:
     class NeighborInfo final {
     public:
         NeighborInfo
-            (const SharedPtr<const TileSet> & ts, const Grid<int> & layer,
-             Vector2I tilelocmap, Vector2I spawner_offset);
-
-        NeighborInfo
-            (const TileSet & ts, const Grid<int> & layer,
-             Vector2I tilelocmap, Vector2I spawner_offset);
+            (const SlopesGridInterface &, Vector2I tilelocmap,
+             Vector2I spawner_offset);
 
         static NeighborInfo make_no_neighbor();
 
@@ -108,8 +121,7 @@ public:
     private:
         Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
 
-        const TileSet & m_tileset;
-        const Grid<int> & m_layer;
+        const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
         Vector2I m_loc;
         Vector2I m_offset;
     };

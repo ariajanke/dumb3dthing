@@ -200,10 +200,6 @@ void TranslatableTileFactory::setup
     (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
      Platform::ForLoaders & platform) const
 {
-    if (ninfo.tile_location_in_map() == Vector2I{16, 0}) {
-        int j = 0, i = 0;
-        ++j;
-    }
     auto wed = elevations_and_direction(ninfo);
     if (m_render_model_cache) {
         auto itr = m_render_model_cache->find(wed);
@@ -289,22 +285,18 @@ void TranslatableTileFactory::setup
 }
 
 /* private */ Tuple<SharedPtr<const RenderModel>, std::vector<Triangle>>
-    WallTileFactory::make_render_model_and_triangles(
-    const WallElevationAndDirection & wed,
-    const NeighborInfo & ninfo,
-    Platform::ForLoaders & platform) const
+    WallTileFactory::make_render_model_and_triangles
+    (const WallElevationAndDirection & wed, const NeighborInfo & ninfo,
+     Platform::ForLoaders & platform) const
 {
+    using Cd = CardinalDirection;
+    if (wed.direction == Cd::s) {
+        int k = 0;
+        ++k;
+        elevations_and_direction(ninfo);
+    }
     auto offset = grid_position_to_v3(ninfo.tile_location())
         + translation() + Vector{0, 1, 0};
-
-    std::vector<Triangle> triangles;
-    auto add_triangle = TriangleAdder::make(
-        [&triangles, offset] (const Triangle & triangle)
-        { triangles.push_back(triangle.move(offset)); });
-
-    using Cd = CardinalDirection;
-    static constexpr const auto k_adjusted_thershold =
-        k_physical_dip_thershold - 0.5;
 
     auto add_wall_triangles_to_ = [this, &wed, offset] {
         // wall dips on cases where no dips occur, will be zero, and therefore
@@ -326,18 +318,26 @@ void TranslatableTileFactory::setup
     } ();
 
     // how will I do texture coords?
-    add_wall_triangles_to_(k_both_flats_and_wall, k_adjusted_thershold, add_triangle);
+    std::vector<Triangle> triangles;
+    add_wall_triangles_to_(k_both_flats_and_wall, k_physical_dip_thershold,
+        TriangleAdder::make(
+            [&triangles, offset] (const Triangle & triangle)
+            { triangles.push_back(triangle.move(offset)); }));
 
     std::vector<Vertex> verticies;
     std::vector<unsigned> elements;
 
-    auto to_tx_coord = [this](Vector pos) {
-        return Vector2{pos.x + 0.5, -pos.z + 0.5}
-            + TileFactory::common_texture_origin(m_tileset_location);
-    };
-    auto to_vtx = [&to_tx_coord](Vector pos) {
-        return Vertex{pos, to_tx_coord(pos)};
-    };
+    auto to_tx_coord = [this] {
+        auto origin = common_texture_origin(m_tileset_location);
+        auto scale  = common_texture_tile_size();
+        return [origin, scale](Vector pos) {
+            auto local_pos = Vector2{pos.x + 0.5, -pos.z + 0.5};
+            Vector2 scaled_pos{local_pos.x*scale.width, local_pos.y*scale.height};
+            return origin + scaled_pos;
+        };
+    } ();
+    auto to_vtx = [&to_tx_coord](Vector pos)
+        { return Vertex{pos, to_tx_coord(pos)}; };
     add_wall_triangles_to_(k_flats_only, k_visual_dip_thershold,
         TriangleAdder::make([&verticies, to_vtx]
         (const Triangle & triangle)
@@ -346,6 +346,31 @@ void TranslatableTileFactory::setup
         verticies.push_back(to_vtx(triangle.point_a()));
         verticies.push_back(to_vtx(triangle.point_b()));
         verticies.push_back(to_vtx(triangle.point_c()));
+    }));
+    // x or z, it depends
+    // v assumes is wall already (and co-planar)
+    static auto is_x_axis_aligned = [](const Triangle & triangle) {
+        return are_very_close(triangle.point_a().z, triangle.point_b().z);
+    };
+    auto to_wall_tx_coord = [] (const TileTexture & tile_texture) {
+        return [&tile_texture] (Vector pos, bool use_x_axis) {
+            // how do I want to restrict the texture rectangle?
+            Vector2 txr{std::fmod(use_x_axis ? pos.x : pos.z, Real(1)),
+                        std::fmod(pos.y, Real(1))};
+            auto x = tile_texture.sw.x*txr.x + tile_texture.ne.x*(1 - txr.x);
+            auto y = tile_texture.sw.y*txr.y + tile_texture.ne.y*(1 - txr.y);
+            return Vertex{pos, Vector2{x, y}};
+        };
+    } (*m_wall_texture_coords);
+    // walls are a bit trickier
+    add_wall_triangles_to_(k_wall_only, k_visual_dip_thershold,
+        TriangleAdder::make([&verticies, to_wall_tx_coord]
+        (const Triangle & triangle)
+    {
+        bool use_x_axis = is_x_axis_aligned(triangle);
+        verticies.push_back(to_wall_tx_coord(triangle.point_a(), use_x_axis));
+        verticies.push_back(to_wall_tx_coord(triangle.point_b(), use_x_axis));
+        verticies.push_back(to_wall_tx_coord(triangle.point_c(), use_x_axis));
     }));
     elements.resize(verticies.size());
     std::iota(elements.begin(), elements.end(), 0);
@@ -615,7 +640,7 @@ void make_linear_triangle_strip
         if (!are_very_close(itr_a, itr_b))
             f(Triangle{itr_a, itr_b, new_a});
         if (!are_very_close(new_a, new_b))
-            f(Triangle{itr_a, new_a, new_b});
+            f(Triangle{itr_b, new_a, new_b});
         itr_a = new_a;
         itr_b = new_b;
     }

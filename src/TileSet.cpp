@@ -122,7 +122,7 @@ void TileSet::set_texture_information
 }
 
 /* private */ void TileSet::load_pure_texture
-    (const TiXmlElement & el, int, Vector2I r, TileParams & tp)
+    (const TiXmlElement & el, int, Vector2I r, TileParams &)
 {
     TiXmlIter itr{get_first_property(el), "property"};
     itr = std::find_if(itr, TiXmlIter{}, [](const TiXmlElement & el) {
@@ -135,10 +135,12 @@ void TileSet::set_texture_information
     if (!assignment) return;
 
     TileTexture tx;
-    tx.nw = Vector2{r.x*tp.tile_size.width, r.y*tp.tile_size.height};
-    tx.ne = tx.nw + Vector2{tp.tile_size.width, 0};
-    tx.se = tx.ne + Vector2{0, tp.tile_size.height};
-    tx.sw = tx.nw + Vector2{0, tp.tile_size.height};
+    Size2 scale{m_tile_size.width  / m_texture_size.width ,
+                m_tile_size.height / m_texture_size.height};
+    tx.nw = Vector2{r.x*scale.width, r.y*scale.height};
+    tx.ne = tx.nw + Vector2{scale.width, 0};
+    tx.se = tx.ne + Vector2{0, scale.height};
+    tx.sw = tx.nw + Vector2{0, scale.height};
     m_tile_texture_map[assignment] = tx;
 }
 

@@ -63,7 +63,6 @@ class CornerRampTileFactory : public RampTileFactory {
 protected:
     CornerRampTileFactory() {}
 
-
     Slopes model_tile_elevations() const final
         { return m_slopes; }
 

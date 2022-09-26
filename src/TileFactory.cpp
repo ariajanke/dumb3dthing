@@ -32,24 +32,20 @@ using Triangle = TriangleSegment;
 
 } // end of <anonymous> namespace
 
-TileFactory::NeighborInfo::NeighborInfo(
-    const SharedPtr<const TileSet> & ts, const Grid<int> & layer,
-    Vector2I tilelocmap, Vector2I spawner_offset):
-    NeighborInfo(*ts, layer, tilelocmap, spawner_offset)
-{}
-
 TileFactory::NeighborInfo::NeighborInfo
-    (const TileSet & ts, const Grid<int> & layer,
-     Vector2I tilelocmap, Vector2I spawner_offset):
-    m_tileset(ts), m_layer(layer), m_loc(tilelocmap),
-    m_offset(spawner_offset) {}
+    (const SlopesGridInterface & slopesintf, Vector2I tilelocmap,
+     Vector2I spawner_offset):
+    m_grid(&slopesintf),
+    m_loc(tilelocmap),
+    m_offset(spawner_offset)
+{}
 
 /* static */ TileFactory::NeighborInfo
     TileFactory::NeighborInfo::make_no_neighbor()
 {
-    static Grid<int> s_layer;
-    static TileSet s_tileset;
-    return NeighborInfo{s_tileset, s_layer, Vector2I{}, Vector2I{}};
+    return NeighborInfo{
+        SlopesGridInterface::null_instance(),
+        Vector2I{}, Vector2I{}};
 }
 
 Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const {
@@ -100,15 +96,14 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const 
     (const Vector2I & r, CardinalDirection dir) const
 {
     using Cd = CardinalDirection;
-    if (!m_layer.has_position(r + m_loc)) return k_inf;
-    const auto * ts = m_tileset(m_layer(r + m_loc));
+    auto get_slopes = [this, r] { return (*m_grid)(m_loc + r); };
     switch (dir) {
     case Cd::n: case Cd::s: case Cd::e: case Cd::w:
         throw InvArg{"Not a corner"};
-    case Cd::nw: return ts ? ts->tile_elevations().nw : k_inf;
-    case Cd::sw: return ts ? ts->tile_elevations().sw : k_inf;
-    case Cd::se: return ts ? ts->tile_elevations().se : k_inf;
-    case Cd::ne: return ts ? ts->tile_elevations().ne : k_inf;
+    case Cd::nw: return get_slopes().nw;
+    case Cd::sw: return get_slopes().sw;
+    case Cd::se: return get_slopes().se;
+    case Cd::ne: return get_slopes().ne;
     default: break;
     }
     throw BadBranchException{__LINE__, __FILE__};

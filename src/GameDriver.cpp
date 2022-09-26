@@ -340,7 +340,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
 
-    static constexpr const auto k_testmap_filename = "demo-map3.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map.tmx";
     static constexpr const auto k_load_limit = 3;
 
     physics_ent.add<SharedPtr<EveryFrameTask>>() =

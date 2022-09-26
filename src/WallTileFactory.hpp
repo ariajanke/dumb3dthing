@@ -102,8 +102,8 @@ public:
 private:
     using Triangle = TriangleSegment;
 
-    static constexpr const Real k_visual_dip_thershold = 0;
-    static constexpr const Real k_physical_dip_thershold = 1;
+    static constexpr const Real k_visual_dip_thershold   = 0;
+    static constexpr const Real k_physical_dip_thershold = 0.5;
 
     template <typename Iter>
     static void translate_points(Vector r, Iter beg, Iter end) {

@@ -85,9 +85,29 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                 std::vector<Entity> & m_entities;
             };
 
+            class GridIntfImpl final : public SlopesGridInterface {
+            public:
+                GridIntfImpl(const GidTidTranslator & translator, const Grid<int> & grid):
+                    m_translator(translator), m_grid(grid) {}
+
+                Slopes operator () (Vector2I r) const {
+                    static const Slopes k_all_inf{0, k_inf, k_inf, k_inf, k_inf};
+                    if (!m_grid.has_position(r)) return k_all_inf;
+                    auto [tid, tileset] = m_translator.gid_to_tid(m_grid(r));
+                    auto factory = (*tileset)(tid);
+                    if (!factory) return k_all_inf;
+                    return factory->tile_elevations();
+                }
+
+            private:
+                const GidTidTranslator & m_translator;
+                const Grid<int> & m_grid;
+            };
+
+            GridIntfImpl gridintf{m_tidgid_translator, m_layer};
             Impl etadder{entities, adder};
-            (*factory)(etadder,
-                    TileFactory::NeighborInfo{tileset, m_layer, r, map_offset},
+            (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, map_offset},
+                    // TileFactory::NeighborInfo{tileset, m_layer, r, map_offset},
                     callbacks.platform());
         });
         entities.back().add<
