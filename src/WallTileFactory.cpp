@@ -228,6 +228,8 @@ void TranslatableTileFactory::setup
     const SharedPtr<const RenderModel> & render_model,
     const std::vector<Triangle> & triangles) const
 {
+    auto spawn_offset = translation() + Vector{0, 1, 0}
+        + grid_position_to_v3(ninfo.tile_location());
     for (auto & triangle : triangles) {
 #           if 0
         // | there's *got* to be a way to generate this stuff using a
@@ -240,11 +242,11 @@ void TranslatableTileFactory::setup
         }
         //SharedPtr
 #           endif
-        adder.add_triangle(Triangle{triangle.move(translation())});
+        adder.add_triangle(triangle.move(spawn_offset));
     }
     auto e = platform.make_renderable_entity();
     common_texture();
-    Translation trans{translation() + grid_position_to_v3(ninfo.tile_location())};
+    Translation trans{spawn_offset};
     e.add<SharedPtr<const RenderModel>, SharedPtr<const Texture>, Translation, Visible>() =
         make_tuple(render_model, common_texture(), trans, true);
     adder.add_entity(e);
@@ -290,15 +292,10 @@ void TranslatableTileFactory::setup
      Platform::ForLoaders & platform) const
 {
     using Cd = CardinalDirection;
-    if (wed.direction == Cd::s) {
-        int k = 0;
-        ++k;
-        elevations_and_direction(ninfo);
-    }
-    auto offset = grid_position_to_v3(ninfo.tile_location())
-        + translation() + Vector{0, 1, 0};
 
-    auto add_wall_triangles_to_ = [this, &wed, offset] {
+    // nothing here should move to their final position
+
+    auto add_wall_triangles_to_ = [this, &wed] {
         // wall dips on cases where no dips occur, will be zero, and therefore
         // quite usable despite the use of subtraction here
         Real ne, nw, se, sw;
@@ -306,8 +303,9 @@ void TranslatableTileFactory::setup
             make_tuple(Cd::ne, &ne), make_tuple(Cd::nw, &nw),
             make_tuple(Cd::se, &se), make_tuple(Cd::sw, &sw)
         };
+        auto offset = translation().y;
         for (auto [dir, ptr] : corner_pairs)
-            { *ptr = offset.y - wed.dip_heights[corner_index(dir)]; }
+            { *ptr = offset - wed.dip_heights[corner_index(dir)]; }
 
         return [nw, sw, se, ne, this]
                (SplitOpt opt, Real div, const TriangleAdder & adder)
@@ -321,8 +319,8 @@ void TranslatableTileFactory::setup
     std::vector<Triangle> triangles;
     add_wall_triangles_to_(k_both_flats_and_wall, k_physical_dip_thershold,
         TriangleAdder::make(
-            [&triangles, offset] (const Triangle & triangle)
-            { triangles.push_back(triangle.move(offset)); }));
+            [&triangles] (const Triangle & triangle)
+            { triangles.push_back(triangle); }));
 
     std::vector<Vertex> verticies;
     std::vector<unsigned> elements;
@@ -355,8 +353,11 @@ void TranslatableTileFactory::setup
     auto to_wall_tx_coord = [] (const TileTexture & tile_texture) {
         return [&tile_texture] (Vector pos, bool use_x_axis) {
             // how do I want to restrict the texture rectangle?
-            Vector2 txr{std::fmod(use_x_axis ? pos.x : pos.z, Real(1)),
-                        std::fmod(pos.y, Real(1))};
+            using std::fmod;
+            // why isn't nextafter constexpr?!
+            static const Real k_after_one = std::nextafter(Real(1), Real(2));
+            Vector2 txr{fmod(magnitude((use_x_axis ? pos.x : pos.z) - Real(0.5)), k_after_one),
+                        fmod(magnitude(pos.y), k_after_one)};
             auto x = tile_texture.sw.x*txr.x + tile_texture.ne.x*(1 - txr.x);
             auto y = tile_texture.sw.y*txr.y + tile_texture.ne.y*(1 - txr.y);
             return Vertex{pos, Vector2{x, y}};
