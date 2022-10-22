@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 #include "../../WallTileFactory.hpp"
 #include "../../tiled-map-loader.hpp"

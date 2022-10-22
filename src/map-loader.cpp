@@ -23,7 +23,7 @@
 #include "Texture.hpp"
 #include "Components.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 namespace {
 

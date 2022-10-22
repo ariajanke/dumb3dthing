@@ -47,7 +47,7 @@
 
 #include <glad/glad.h>
 
-#include <common/Util.hpp>
+#include <ariajanke/cul/Util.hpp>
 
 namespace {
 

@@ -22,7 +22,7 @@
 
 #include "Defs.hpp"
 
-#include <common/StringUtil.hpp>
+#include <ariajanke/cul/StringUtil.hpp>
 
 namespace tinyxml2 {
 

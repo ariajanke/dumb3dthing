@@ -26,7 +26,7 @@
 
 #include "platform/platform.hpp"
 
-#include <common/SubGrid.hpp>
+#include <ariajanke/cul/SubGrid.hpp>
 
 #include <unordered_map>
 

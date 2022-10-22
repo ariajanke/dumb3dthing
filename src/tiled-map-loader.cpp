@@ -26,7 +26,7 @@
 #include "TileSet.hpp"
 #include "TileFactory.hpp"
 
-#include <common/StringUtil.hpp>
+#include <ariajanke/cul/StringUtil.hpp>
 
 #include <map>
 #include <unordered_map>

@@ -25,7 +25,7 @@
 #include "TileSet.hpp"
 #include "ParseHelpers.hpp"
 
-#include <common/StringUtil.hpp>
+#include <ariajanke/cul/StringUtil.hpp>
 
 class MapEdgeLinks final {
 public:

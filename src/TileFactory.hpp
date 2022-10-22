@@ -44,6 +44,9 @@ enum class CardinalDirection {
 
 struct WallElevationAndDirection final {
     CardinalDirection direction;
+    // | I don't think I like there being a location to it
+    // | but if I remove it, I break the old implementation
+    // v and I don't want to do that right now, so soon
     Vector2I tileset_location;
     std::array<Real, 4> dip_heights;
 };

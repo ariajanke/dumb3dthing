@@ -26,8 +26,8 @@
 #include "Systems.hpp"
 #include "tiled-map-loader.hpp"
 
-#include <common/BezierCurves.hpp>
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/BezierCurves.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 #include <iostream>
 
@@ -324,7 +324,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
         SharedCPtr<Texture>, SharedCPtr<RenderModel>, Translation,
         TranslationFromParent
     >() = make_tuple(
-        tx, model, Translation{},
+        tx, model, Translation{k_player_start},
         TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}
     );
 

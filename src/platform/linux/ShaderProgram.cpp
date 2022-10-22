@@ -36,7 +36,7 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <common/Util.hpp>
+#include <ariajanke/cul/Util.hpp>
 
 #include <array>
 #include <sstream>

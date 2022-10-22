@@ -31,6 +31,7 @@
 struct Translation final : public VectorLike<Translation> {
     using LikeBase::LikeBase;
     using LikeBase::operator=;
+    using LikeBase::operator+=;
 };
 
 struct YRotation final : public ScalarLike<YRotation> {

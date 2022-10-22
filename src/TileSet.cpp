@@ -28,7 +28,7 @@
 #include "RampTileFactory.hpp"
 
 // can always clean up embedded testing later
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 #include <tinyxml2.h>
 
@@ -113,7 +113,8 @@ void TileSet::set_texture_information
     static TileTypeFuncMap s_map;
     if (!s_map.empty()) return s_map;
     s_map["pure-texture"] = &TileSet::load_pure_texture;
-    s_map["wall"        ] = &TileSet::load_wall_factory;
+    s_map["out-wall"    ] = &TileSet::load_wall_factory;
+    s_map["wall"        ] = &TileSet::load_usual_factory<TwoWayWallTileFactory>;
     s_map["in-ramp"     ] = &TileSet::load_usual_factory<InRampTileFactory>;
     s_map["out-ramp"    ] = &TileSet::load_usual_factory<OutRampTileFactory>;
     s_map["ramp"        ] = &TileSet::load_usual_factory<TwoRampTileFactory>;

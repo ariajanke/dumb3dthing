@@ -20,7 +20,7 @@
 
 #include "Systems.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 void PlayerControlToVelocity::operator ()
     (PpState & state, Velocity & velocity, PlayerControl & control,

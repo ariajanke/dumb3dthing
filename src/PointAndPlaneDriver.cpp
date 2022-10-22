@@ -20,7 +20,7 @@
 
 #include "PointAndPlaneDriver.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 #include <unordered_map>
 #include <iostream>

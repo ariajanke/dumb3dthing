@@ -21,7 +21,7 @@
 #include "test-functions.hpp"
 #include "../../TriangleSegment.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 namespace {
 

@@ -22,7 +22,7 @@
 #include "../../map-loader.hpp"
 #include "../../tiled-map-loader.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 #include <cstring>
 

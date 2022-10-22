@@ -20,7 +20,7 @@
 
 #include "Texture.hpp"
 
-#include <common/Util.hpp>
+#include <ariajanke/cul/Util.hpp>
 
 #include <string>
 

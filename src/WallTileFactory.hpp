@@ -42,7 +42,9 @@ private:
 
 CardinalDirection cardinal_direction_from(const char * str);
 
-class WallTileFactory final : public TranslatableTileFactory {
+// ramps are split into three classes, why not walls?
+
+class WallTileFactoryBase : public TranslatableTileFactory {
 public:
     class TriangleAdder {
     public:
@@ -66,9 +68,10 @@ public:
     };
 
     enum SplitOpt {
-        k_flats_only = 1 << 0,
-        k_wall_only  = 1 << 1,
-        k_both_flats_and_wall = k_flats_only | k_wall_only
+        k_bottom_only         = 1 << 0,
+        k_top_only            = 1 << 1,
+        k_wall_only           = 1 << 2,
+        k_both_flats_and_wall = k_bottom_only | k_top_only | k_wall_only
     };
     using TileTexture = TileSet::TileTexture;
 
@@ -102,7 +105,7 @@ public:
 private:
     using Triangle = TriangleSegment;
 
-    static constexpr const Real k_visual_dip_thershold   = -0.5;
+    static constexpr const Real k_visual_dip_thershold   = -0.25;
     static constexpr const Real k_physical_dip_thershold = -0.5;
 
     template <typename Iter>
@@ -145,7 +148,6 @@ private:
     Tuple<SharedPtr<const RenderModel>, std::vector<Triangle>>
         make_render_model_and_triangles(
         const WallElevationAndDirection & wed,
-        const NeighborInfo & ninfo,
         Platform::ForLoaders &) const;
 
     CardinalDirection m_dir = CardinalDirection::ne;
@@ -154,4 +156,503 @@ private:
 
     // I still need to known the wall texture coords
     const TileTexture * m_wall_texture_coords = nullptr;
+};
+
+class WallTileFactory final : public WallTileFactoryBase {};
+
+// want to "cache" graphics
+// graphics are created as needed
+// physical triangles need not be reused
+
+class WallTileGraphicKey final {
+public:
+    CardinalDirection direction;
+    std::array<Real, 4> dip_heights;
+
+    bool operator == (const WallTileGraphicKey & rhs) const noexcept
+        { return compare(rhs) == 0; }
+
+    bool operator != (const WallTileGraphicKey & rhs) const noexcept
+        { return compare(rhs) != 0; }
+
+    bool operator < (const WallTileGraphicKey & rhs) const noexcept
+        { return compare(rhs) < 0; }
+
+private:
+    template <typename T, std::size_t kt_size>
+    static T difference_between
+        (const std::array<T, kt_size> & lhs, const std::array<T, kt_size> & rhs)
+    {
+        for (int i = 0; i != int(lhs.size()); ++i) {
+            auto diff = lhs[i] - rhs[i];
+            if (!are_very_close(diff, 0)) // <- should be okay for both fp & int
+                return diff;
+        }
+        return 0;
+    }
+
+    int compare(const WallTileGraphicKey & rhs) const noexcept {
+        auto diff = static_cast<int>(direction) - static_cast<int>(rhs.direction);
+        if (diff) return diff;
+
+        auto slopes_diff = difference_between(dip_heights, rhs.dip_heights);
+        if (are_very_close(slopes_diff, 0))
+            return 0;
+
+        // do not truncate to zero
+        return slopes_diff < 0 ? -1 : 1;
+    }
+};
+
+class WallTileFactoryBaseN : public TranslatableTileFactory {
+public:
+#   if 0
+    // each graphic starts at the origin and "reaches" out along it's axis
+    // it has a "near" and "far" dip, these describe how far down y-wise the
+    // wall goes down
+    struct WallGraphic final {
+        enum Orientation { x_ways, z_ways, neither };
+        Orientation orientation = neither;
+        Real length = 0;
+        Real near_dip = 0;
+        Real far_dip = 0;
+
+        WallGraphic() {}
+
+        WallGraphic(Orientation orientation_, Real length_, Real near_dip_,
+                    Real far_dip_):
+            orientation(orientation_),
+            length(length_),
+            near_dip(near_dip_),
+            far_dip(far_dip_)
+        {}
+
+        bool operator < (const WallGraphic & rhs) const noexcept
+            { return compare(rhs) < 0; }
+
+        bool operator != (const WallGraphic & rhs) const noexcept
+            { return compare(rhs) != 0; }
+
+        bool operator == (const WallGraphic & rhs) const noexcept
+            { return compare(rhs) == 0; }
+
+        int compare(const WallGraphic & rhs) const noexcept {
+            // true if lhs < rhs
+            if (orientation != rhs.orientation) {
+                return orientation - rhs.orientation;
+            }
+            const std::array list {
+                length   - rhs.length,
+                near_dip - rhs.near_dip,
+                far_dip  - rhs.far_dip
+            };
+            for (auto val : list) {
+                if (are_very_close(val, 0))
+                    continue;
+                return val < 0 ? -1 : 1;
+            }
+            return 0;
+        }
+    };
+#   endif
+    using Triangle = TriangleSegment;
+
+    void operator ()
+        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
+         Platform::ForLoaders & platform) const final
+    {
+        // physical triangles
+        make_physical_triangles(ninfo, adder);
+
+#       if 0
+        // top
+        auto tile_loc = ninfo.tile_location();
+        adder.add_entity(make_entity(platform, tile_loc, get_top_model()));
+#       endif
+        // wall graphics
+#       if 0
+        for (auto & wall_ : get_wall_graphics(ninfo)) {
+            if (wall_.graphic == WallGraphic{})
+                continue;
+            auto e = make_entity(
+                platform, tile_loc,
+                ensure_wall_graphic_model(wall_.graphic, platform));
+            e.get<Translation>() += wall_.translation;
+            adder.add_entity(e);
+        }
+#       endif
+        adder.add_entity(make_entity(
+            platform, ninfo.tile_location(), ensure_wall_graphics(ninfo, platform)));
+
+        // bottom
+#       if 0
+        adder.add_entity(make_entity(
+            platform, tile_loc, ensure_bottom_model(ninfo, platform)));
+#       endif
+    }
+
+    static SharedPtr<const RenderModel> make_wall_graphic_model
+        (const NeighborInfo &, const Platform::ForLoaders & platform);
+#   if 0
+    SharedPtr<const RenderModel> ensure_wall_graphic_model
+        (const Platform::ForLoaders & platform) const;
+#   endif
+    // should have translations and all
+    virtual void make_physical_triangles
+        (const NeighborInfo &, EntityAndTrianglesAdder &) const = 0;
+
+    void setup
+        (Vector2I loc_in_ts, const TiXmlElement * properties, Platform::ForLoaders & platform) final
+    {
+        TranslatableTileFactory::setup(loc_in_ts, properties, platform);
+        auto prop = find_property("direction", properties);
+        m_dir = verify_okay_wall_direction(cardinal_direction_from(find_property("direction", properties)));
+        m_tileset_location = loc_in_ts;
+    }
+
+    Slopes tile_elevations() const final {
+        using Cd = CardinalDirection;
+        auto is_known_corner = [this] {
+            auto knowns = make_known_corners(m_dir);
+            return [knowns] (Cd dir)
+                { return knowns[corner_index(dir)]; };
+        } ();
+
+        auto elevation_for_corner = [this, &is_known_corner] {
+            Real y = translation().y + 1;
+            return [y, &is_known_corner] (Cd dir) {
+                return is_known_corner(dir) ? y : k_inf;
+            };
+        } ();
+
+        return Slopes{0,
+            elevation_for_corner(Cd::ne), elevation_for_corner(Cd::nw),
+            elevation_for_corner(Cd::sw), elevation_for_corner(Cd::se)};
+    }
+
+    Slopes computed_tile_elevations(const NeighborInfo & ninfo) const {
+        using Cd = CardinalDirection;
+        auto slopes = tile_elevations();
+        auto update_corner = [&ninfo] (Real & x, Cd dir) {
+            if (cul::is_real(x)) return;
+            x = ninfo.neighbor_elevation(dir);
+        };
+        update_corner(slopes.nw, Cd::nw);
+        update_corner(slopes.ne, Cd::ne);
+        update_corner(slopes.se, Cd::se);
+        update_corner(slopes.sw, Cd::sw);
+        return slopes;
+    }
+
+    // to make a tile:
+    // cache each "type" of graphic
+    // - graphics
+    //   - top
+    //     - always the same between tiles
+    //   - bottom
+    //     - maybe different per tile
+    //   - walls
+    //     - maybe different per tile
+    //     - one, at most two
+    // - physics (easy)
+    //   - triangles
+    // - entities
+    //   - contain graphics
+
+protected:
+#   if 0
+    struct WallGraphicWithTranslation final {
+        WallGraphic graphic;
+        Vector translation;
+    };
+    using WallGraphicsArray = std::array<WallGraphicWithTranslation, 2>;
+#   endif
+    static constexpr const Real k_visual_dip_thershold   = -0.25;
+    static constexpr const Real k_physical_dip_thershold = -0.5;
+
+    virtual void add_top_model() = 0;
+
+    // no need to cache
+    virtual SharedPtr<const RenderModel> get_top_model() const = 0;
+
+    // is/maybe cached
+    // bottom model elevations are determined by sub class's method:
+    // tile_elevations
+    virtual SharedPtr<const RenderModel> ensure_bottom_model
+        (const NeighborInfo &, Platform::ForLoaders &) const = 0;
+
+    // ensure relates to: whether it's in the cache, or not
+    virtual SharedPtr<const RenderModel> ensure_wall_graphics
+        (const NeighborInfo &, Platform::ForLoaders &) const = 0;
+
+    // each subtype seems to have their own wall segments for graphics,
+    // though shared between instances (no statics please)
+
+    CardinalDirection direction() const noexcept
+        { return m_dir; }
+
+    static int corner_index(CardinalDirection dir) {
+        using Cd = CardinalDirection;
+        switch (dir) {
+        case Cd::nw: return 0;
+        case Cd::sw: return 1;
+        case Cd::se: return 2;
+        case Cd::ne: return 3;
+        default: break;
+        }
+        throw BadBranchException{__LINE__, __FILE__};
+    }
+
+    static std::array<bool, 4> make_known_corners(CardinalDirection dir) {
+        using Cd = CardinalDirection;
+        auto mk_rv = [](bool nw, bool sw, bool se, bool ne) {
+            std::array<bool, 4> rv;
+            auto set_corner = [&rv] (Cd dir, bool val)
+                { rv[corner_index(dir)] = val; };
+            set_corner(Cd::nw, nw);
+            set_corner(Cd::ne, ne);
+            set_corner(Cd::sw, sw);
+            set_corner(Cd::se, se);
+            return rv;
+        };
+        switch (dir) {
+        // a north wall, all point on the south are known
+        case Cd::n : return mk_rv(false, true , true , false);
+        case Cd::s : return mk_rv(true , false, false, true );
+        case Cd::e : return mk_rv(true , true , false, false);
+        case Cd::w : return mk_rv(false, false, true , true );
+        case Cd::nw: return mk_rv(false, false, true , false);
+        case Cd::sw: return mk_rv(false, false, false, true );
+        case Cd::se: return mk_rv(true , false, false, false);
+        case Cd::ne: return mk_rv(false, true , false, false);
+        default: break;
+        }
+        throw BadBranchException{__LINE__, __FILE__};
+    }
+
+    static std::array<Tuple<bool, CardinalDirection>, 4>
+        make_known_corners_with_preposition(CardinalDirection dir)
+    {
+        using Cd = CardinalDirection;
+        auto knowns = make_known_corners(dir);
+        return {
+            make_tuple(knowns[corner_index(Cd::ne)], Cd::ne),
+            make_tuple(knowns[corner_index(Cd::nw)], Cd::nw),
+            make_tuple(knowns[corner_index(Cd::sw)], Cd::sw),
+            make_tuple(knowns[corner_index(Cd::se)], Cd::se),
+        };
+    }
+
+    WallTileGraphicKey graphic_key(const NeighborInfo & ninfo) const {
+        WallTileGraphicKey key;
+        key.direction = m_dir;
+
+        const auto known_elevation = translation().y + 1;
+        for (auto [known, corner] : make_known_corners_with_preposition(m_dir)) {
+            // walls are only generated for dips on "unknown corners"
+            // if a neighbor elevation is unknown, then no wall it created for that
+            // corner (which can very easily mean no wall are generated on any "dip"
+            // corner
+            Real neighbor_elevation = ninfo.neighbor_elevation(corner);
+            Real diff   = known_elevation - neighbor_elevation;
+            bool is_dip =    cul::is_real(neighbor_elevation)
+                          && known_elevation > neighbor_elevation
+                          && !known;
+            // must be finite for our purposes
+            key.dip_heights[corner_index(corner)] = is_dip ? diff : 0;
+        }
+        return key;
+    }
+
+    using GraphicMap = std::map<WallTileGraphicKey, WeakPtr<const RenderModel>>;
+
+    template <typename MakerFunc>
+    SharedPtr<const RenderModel> ensure_model
+        (const NeighborInfo & neighborhood, GraphicMap & graphic_map,
+         MakerFunc && make_model) const
+    {
+        auto key = graphic_key(neighborhood);
+        auto itr = graphic_map.find(key);
+        if (itr == graphic_map.end()) {
+            auto new_pair = std::make_pair(key, WeakPtr<const RenderModel>{});
+            itr = std::get<0>(graphic_map.insert(new_pair));
+        }
+
+        if (auto rv = itr->second.lock())
+            return rv;
+
+        SharedPtr<const RenderModel> rv = make_model();
+        itr->second = rv;
+        return rv;
+    }
+
+    virtual bool is_okay_wall_direction(CardinalDirection) const noexcept = 0;
+
+private:
+    CardinalDirection verify_okay_wall_direction(CardinalDirection dir) const {
+        if (!is_okay_wall_direction(dir)) {
+            throw std::invalid_argument{"bad wall"};
+        }
+        return dir;
+    }
+
+    CardinalDirection m_dir = CardinalDirection::ne;
+    Vector2I m_tileset_location;
+};
+
+class TwoWayWallTileFactory final : public WallTileFactoryBaseN {
+public:
+    // two known corners
+    // two unknown corners
+    // bottom:
+    // - rectangle whose sides may have different elevations
+    // top:
+    // - both elevations are fixed
+    // wall:
+    // - single flat wall
+    // if I use a common key, that should simplify things
+
+    void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
+#   if 0
+    Slopes tile_elevations() const final;
+#   endif
+private:
+#   if 0
+    using Orientation = WallGraphic::Orientation;
+#   endif
+    void add_top_model() final {}
+
+    SharedPtr<const RenderModel> ensure_bottom_model
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
+    {
+        return ensure_model
+            (neighborhood, s_bottom_cache,
+             [&] { return make_bottom_graphics(neighborhood, platform); });
+    }
+
+    SharedPtr<const RenderModel> get_top_model() const final
+        { return m_top_model; }
+
+    SharedPtr<const RenderModel>
+        ensure_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
+    {
+        return ensure_model
+            (neighborhood, s_wall_cache,
+             [&] { return make_wall_graphics(neighborhood, platform); });
+    }
+
+    bool is_okay_wall_direction(CardinalDirection dir) const noexcept final {
+        using Cd = CardinalDirection;
+        constexpr static std::array k_list = { Cd::n, Cd::e, Cd::s, Cd::w };
+        return std::find(k_list.begin(), k_list.end(), dir) != k_list.end();
+    }
+
+    SharedPtr<const RenderModel>
+        make_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+
+    static SharedPtr<const RenderModel>
+        make_bottom_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform);
+
+    static GraphicMap s_bottom_cache;
+    static GraphicMap s_wall_cache;
+
+    SharedPtr<const RenderModel> m_top_model;
+
+#   if 0
+    WallGraphicsArray get_wall_graphics(const NeighborInfo & ninfo) const final {
+        k_visual_dip_thershold;
+        WallGraphicWithTranslation rv;
+
+        rv.graphic = WallGraphic{orientation(), 1, far_dip(ninfo), near_dip()};
+        return std::array { rv, WallGraphicWithTranslation{} };
+    }
+
+    Orientation orientation() const {
+        using Cd = CardinalDirection;
+        switch (direction()) {
+        case Cd::n: case Cd::s: return Orientation::x_ways;
+        case Cd::e: case Cd::w: return Orientation::z_ways;
+        default: break;
+        }
+        // bad branch
+        throw BadBranchException{__LINE__, __FILE__};
+    }
+    Real far_dip(const NeighborInfo & ninfo) const {
+        using Cd = CardinalDirection;
+        switch (direction()) {
+        case Cd::n: return zero_if_non_real(ninfo.neighbor_elevation(Cd::nw));
+        case Cd::s: return zero_if_non_real(ninfo.neighbor_elevation(Cd::sw));
+        case Cd::e: return zero_if_non_real(ninfo.neighbor_elevation(Cd::ne));
+        case Cd::w: return zero_if_non_real(ninfo.neighbor_elevation(Cd::ne));
+        default: break;
+        }
+        throw BadBranchException{__LINE__, __FILE__};
+    }
+
+    Real near_dip() const {
+
+    }
+
+    Vector wall_gfx_translation(const NeighborInfo & ninfo) const {
+
+    }
+
+    static Real zero_if_non_real(Real x)
+        { return cul::is_real(x) ? x : 0; }
+#   endif
+};
+
+// in wall
+// top: flat is always true flat
+// bottom: not so, variable elevations
+// wall "elements": can be shared between instances
+// - whole squares
+// - triangle peices
+//
+// both in and out walls split at the same place
+//
+// ensure top
+// ensure bottom
+// ensure wall(s)
+// in and out have two
+// two-way has only one
+class InWallTileFactory final : public WallTileFactoryBaseN {
+public:
+    // three known corners
+    // one unknown corner
+
+    void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
+#   if 0
+    Slopes tile_elevations() const final;
+#   endif
+private:
+    SharedPtr<const RenderModel> ensure_bottom_model
+        (const NeighborInfo &, Platform::ForLoaders &) const final;
+
+    SharedPtr<const RenderModel> get_top_model() const final;
+
+    SharedPtr<const RenderModel> ensure_wall_graphics(const NeighborInfo &, Platform::ForLoaders &) const final;
+};
+
+class OutWallTileFactory final : public WallTileFactoryBaseN {
+public:
+    // one known corner
+    // three unknown corners
+
+    void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
+#   if 0
+    Slopes tile_elevations() const final;
+#   endif
+private:
+    SharedPtr<const RenderModel> ensure_bottom_model
+        (const NeighborInfo &, Platform::ForLoaders &) const final;
+
+    SharedPtr<const RenderModel> get_top_model() const final;
+
+    SharedPtr<const RenderModel> ensure_wall_graphics(const NeighborInfo &, Platform::ForLoaders &) const final;
+
+
 };
