@@ -22,6 +22,9 @@
 
 #include "TileSet.hpp"
 #include "TileFactory.hpp"
+#include "RenderModel.hpp"
+
+#include <iostream>
 
 class TranslatableTileFactory : public TileFactory {
 public:
@@ -208,6 +211,7 @@ class WallTileFactoryBaseN : public TranslatableTileFactory {
 public:
     using Triangle = TriangleSegment;
     using TileTexture = TileSet::TileTexture;
+    using SplitOpt = WallTileFactory::SplitOpt;
 
     void operator ()
         (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
@@ -218,7 +222,7 @@ public:
 
         // top
         auto tile_loc = ninfo.tile_location();
-        adder.add_entity(make_entity(platform, tile_loc, get_top_model()));
+        adder.add_entity(make_entity(platform, tile_loc, m_top_model));
 
         // wall graphics
         adder.add_entity(make_entity(
@@ -242,7 +246,7 @@ public:
         TranslatableTileFactory::setup(loc_in_ts, properties, platform);
         m_dir = verify_okay_wall_direction(cardinal_direction_from(find_property("direction", properties)));
         m_tileset_location = loc_in_ts;
-        add_top_model(platform);
+        m_top_model = make_top_model(platform);
     }
 
     Slopes tile_elevations() const final {
@@ -300,11 +304,6 @@ public:
 protected:
     static constexpr const Real k_visual_dip_thershold   = -0.25;
     static constexpr const Real k_physical_dip_thershold = -0.5;
-
-    virtual void add_top_model(Platform::ForLoaders &) = 0;
-
-    // no need to cache
-    virtual SharedPtr<const RenderModel> get_top_model() const = 0;
 
     // is/maybe cached
     // bottom model elevations are determined by sub class's method:
@@ -410,6 +409,7 @@ protected:
         if (itr == graphic_map.end()) {
             auto new_pair = std::make_pair(key, WeakPtr<const RenderModel>{});
             itr = std::get<0>(graphic_map.insert(new_pair));
+            std::cout << graphic_map.size() << std::endl;
         }
 
         if (auto rv = itr->second.lock())
@@ -422,8 +422,66 @@ protected:
 
     virtual bool is_okay_wall_direction(CardinalDirection) const noexcept = 0;
 
-    TileTexture tile_texture() const
+    virtual SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const = 0;
+
+    TileTexture wall_texture() const
         { return *m_wall_texture_coords; }
+
+    TileTexture floor_texture() const;
+
+    using TriangleAdder = WallTileFactory::TriangleAdder;
+    class TriangleToVerticies {
+    public:
+        virtual ~TriangleToVerticies() {}
+
+        virtual std::array<Vertex, 3> operator () (const Triangle &) const = 0;
+    };
+
+    class TriangleToFloorVerticies final : public TriangleToVerticies {
+    public:
+        TriangleToFloorVerticies(const TileTexture & ttex_, Real ytrans):
+            m_ttex(ttex_), m_ytrans(ytrans) {}
+
+        std::array<Vertex, 3> operator () (const Triangle & triangle) const final {
+            auto to_vtx = [this] (const Vector & r) {
+                Vector2 tx{r.x + 0.5, -r.z + 0.5};
+                return Vertex{r, Vector2{
+                    tx.x*m_ttex.se.x + m_ttex.nw.x*(1 - tx.x),
+                    tx.y*m_ttex.se.y + m_ttex.nw.y*(1 - tx.y)
+                }};
+            };
+            const auto tri_ = triangle.move(Vector{0, m_ytrans, 0});
+            return std::array<Vertex, 3>{
+                to_vtx(tri_.point_a()),
+                to_vtx(tri_.point_b()),
+                to_vtx(tri_.point_c()),
+            };
+        }
+
+    private:
+        TileTexture m_ttex;
+        Real m_ytrans;
+    };
+
+    template <typename Func>
+    static auto make_triangle_to_verticies(Func && f) {
+        class Impl final : public TriangleToVerticies {
+        public:
+            explicit Impl(Func && f_):
+                m_f(std::move(f_)) {}
+
+            std::array<Vertex, 3> operator () (const Triangle & tri) const final
+                { return m_f(tri); }
+
+        private:
+            Func m_f;
+        };
+
+        return Impl{std::move(f)};
+    }
+
+    auto make_triangle_to_floor_verticies() const
+        { return TriangleToFloorVerticies{floor_texture(), -translation().y}; }
 
 private:
     CardinalDirection verify_okay_wall_direction(CardinalDirection dir) const {
@@ -436,6 +494,7 @@ private:
     CardinalDirection m_dir = CardinalDirection::ne;
     Vector2I m_tileset_location;
     const TileTexture * m_wall_texture_coords = &s_default_texture;
+    SharedPtr<const RenderModel> m_top_model;
 
     static const TileTexture s_default_texture;
 };
@@ -455,12 +514,6 @@ public:
     void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
 
 private:
-    void add_top_model(Platform::ForLoaders & platform) final {
-        m_top_model = make_top_model(platform);
-    }
-
-    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const;
-
     SharedPtr<const RenderModel> ensure_bottom_model
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
     {
@@ -469,15 +522,12 @@ private:
              [&] { return make_bottom_graphics(neighborhood, platform); });
     }
 
-    SharedPtr<const RenderModel> get_top_model() const final
-        { return m_top_model; }
-
     SharedPtr<const RenderModel>
         ensure_wall_graphics
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
     {
         return ensure_model
-            (neighborhood, s_wall_cache,
+            (neighborhood, s_cache,
              [&] { return make_wall_graphics(neighborhood, platform); });
     }
 
@@ -487,6 +537,8 @@ private:
         return std::find(k_list.begin(), k_list.end(), dir) != k_list.end();
     }
 
+    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
+
     SharedPtr<const RenderModel>
         make_wall_graphics
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
@@ -495,10 +547,15 @@ private:
         make_bottom_graphics
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
 
-    static GraphicMap s_bottom_cache;
-    static GraphicMap s_wall_cache;
+    SharedPtr<const RenderModel>
+        make_model_graphics
+        (const Slopes & elevations, SplitOpt,
+         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
 
-    SharedPtr<const RenderModel> m_top_model;
+    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
+
+    static GraphicMap s_cache;
+    static GraphicMap s_bottom_cache;
 };
 
 // in wall
@@ -515,40 +572,104 @@ private:
 // ensure wall(s)
 // in and out have two
 // two-way has only one
-class InWallTileFactory final : public WallTileFactoryBaseN {
+
+class CornerWallTileFactory : public WallTileFactoryBaseN {
+protected:
+    bool is_okay_wall_direction(CardinalDirection dir) const noexcept final {
+        using Cd = CardinalDirection;
+        constexpr static std::array k_list = { Cd::ne, Cd::nw, Cd::se, Cd::sw };
+        return std::find(k_list.begin(), k_list.end(), dir) != k_list.end();
+    }
+};
+
+class InWallTileFactory final : public CornerWallTileFactory {
 public:
     // three known corners
     // one unknown corner
 
     void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
-#   if 0
-    Slopes tile_elevations() const final;
-#   endif
+
 private:
     SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo &, Platform::ForLoaders &) const final;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
+    {
+        return ensure_model
+            (neighborhood, s_bottom_cache,
+             [&] { return make_bottom_graphics(neighborhood, platform); });
+    }
 
-    SharedPtr<const RenderModel> get_top_model() const final;
+    SharedPtr<const RenderModel>
+        ensure_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
+    {
+        return ensure_model
+            (neighborhood, s_cache,
+             [&] { return make_wall_graphics(neighborhood, platform); });
+    }
 
-    SharedPtr<const RenderModel> ensure_wall_graphics(const NeighborInfo &, Platform::ForLoaders &) const final;
+    SharedPtr<const RenderModel>
+        make_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+
+    SharedPtr<const RenderModel>
+        make_bottom_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+
+    SharedPtr<const RenderModel>
+        make_model_graphics
+        (const Slopes & elevations, SplitOpt,
+         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
+
+    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
+
+    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
+
+    static GraphicMap s_cache;
+    static GraphicMap s_bottom_cache;
 };
 
-class OutWallTileFactory final : public WallTileFactoryBaseN {
+class OutWallTileFactory final : public CornerWallTileFactory {
 public:
     // one known corner
     // three unknown corners
 
     void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
-#   if 0
-    Slopes tile_elevations() const final;
-#   endif
+
 private:
     SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo &, Platform::ForLoaders &) const final;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
+    {
+        return ensure_model
+            (neighborhood, s_bottom_cache,
+             [&] { return make_bottom_graphics(neighborhood, platform); });
+    }
 
-    SharedPtr<const RenderModel> get_top_model() const final;
+    SharedPtr<const RenderModel>
+        ensure_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
+    {
+        return ensure_model
+            (neighborhood, s_cache,
+             [&] { return make_wall_graphics(neighborhood, platform); });
+    }
 
-    SharedPtr<const RenderModel> ensure_wall_graphics(const NeighborInfo &, Platform::ForLoaders &) const final;
+    SharedPtr<const RenderModel>
+        make_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
 
+    SharedPtr<const RenderModel>
+        make_bottom_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
 
+    SharedPtr<const RenderModel>
+        make_model_graphics
+        (const Slopes & elevations, SplitOpt,
+         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
+
+    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
+
+    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
+
+    static GraphicMap s_cache;
+    static GraphicMap s_bottom_cache;
 };

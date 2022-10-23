@@ -416,9 +416,6 @@ CardinalDirection cardinal_direction_from(const char * str) {
 
 // ------------------------------- <! messy !> --------------------------------
 
-/* private static */ TwoWayWallTileFactory::GraphicMap TwoWayWallTileFactory::s_bottom_cache;
-/* private static */ TwoWayWallTileFactory::GraphicMap TwoWayWallTileFactory::s_wall_cache;
-
 /* private static */ const TileSet::TileTexture WallTileFactoryBaseN::s_default_texture = [] {
     Size2 scale{1. / 9., 1. / 8.};
     Vector2 offset{2*scale.width, 6*scale.height};
@@ -429,29 +426,6 @@ CardinalDirection cardinal_direction_from(const char * str) {
     tx.se = offset + Vector2{scale.width, scale.height};
     return tx;
 } ();
-
-void TwoWayWallTileFactory::make_physical_triangles
-    (const NeighborInfo & neighborhood, EntityAndTrianglesAdder & adder) const
-{
-    auto make_triangles = [this] {
-        using Cd = CardinalDirection;
-        switch (direction()) {
-        case Cd::n : return north_south_split;
-        case Cd::s : return south_north_split;
-        case Cd::e : return east_west_split  ;
-        case Cd::w : return west_east_split  ;
-        default: break;
-        }
-        throw BadBranchException{__LINE__, __FILE__};
-    } ();
-    auto elvs = computed_tile_elevations(neighborhood);
-    auto offset = grid_position_to_v3(neighborhood.tile_location());
-    make_triangles(elvs.nw, elvs.ne, elvs.sw, elvs.se, k_physical_dip_thershold,
-                   k_both_flats_and_wall,
-                   TriangleAdder::make([&adder, offset] (const Triangle & triangle)
-    { adder.add_triangle(triangle.move(offset)); }));
-
-}
 
 namespace wall {
 
@@ -498,84 +472,89 @@ std::array<Vertex, 3> to_verticies(const Triangle & triangle) {
     };
 }
 
+Vertex map_to_texture(const Vertex & vtx, const TileTexture & txt) {
+    auto tx = vtx.texture_position;
+    return Vertex{vtx.position, Vector2{
+        tx.x*txt.se.x + txt.nw.x*(1 - tx.x),
+        tx.y*txt.se.y + txt.nw.y*(1 - tx.y)
+    }};
+}
+
 std::array<Vertex, 3> map_to_texture(std::array<Vertex, 3> arr, const TileTexture & txt) {
-    auto tf = [&txt](const Vertex & vtx) {
-        auto tx = vtx.texture_position;
-        return Vertex{vtx.position, Vector2{
-            tx.x*txt.sw.x + txt.ne.x*(1 - tx.x),
-            tx.y*txt.sw.y + txt.ne.y*(1 - tx.y)
-        }};
-    };
+    auto tf = [&txt](const Vertex & vtx)
+        { return map_to_texture(vtx, txt); };
     std::transform(arr.begin(), arr.end(), arr.begin(), tf);
     return arr;
 }
 
 }
 
+WallTileFactoryBaseN::TileTexture WallTileFactoryBaseN::floor_texture() const {
+    static constexpr Size2 k_scale{1. / 9., 1. / 8.};
+    TileTexture rv;
+    rv.nw = Vector2(m_tileset_location.x*k_scale.width,
+                    m_tileset_location.y*k_scale.height);
+    rv.se = rv.nw + Vector2{k_scale.width, k_scale.height};
+    rv.ne = rv.nw + Vector2{k_scale.width, 0};
+    rv.sw = rv.nw + Vector2{0, k_scale.height};
+    return rv;
+}
+
+/* private static */ TwoWayWallTileFactory::GraphicMap TwoWayWallTileFactory::s_cache;
+/* private static */ TwoWayWallTileFactory::GraphicMap TwoWayWallTileFactory::s_bottom_cache;
+
 SharedPtr<const RenderModel>
     TwoWayWallTileFactory::make_top_model(Platform::ForLoaders & platform) const
 {
-    auto make_triangles = [this] {
-        using Cd = CardinalDirection;
-        switch (direction()) {
-        case Cd::n : return north_south_split;
-        case Cd::s : return south_north_split;
-        case Cd::e : return east_west_split  ;
-        case Cd::w : return west_east_split  ;
-        default: break;
-        }
-        throw BadBranchException{__LINE__, __FILE__};
-    } ();
-    auto elvs = tile_elevations();
-
-    auto mod_ptr = platform.make_render_model();
-    std::vector<Vertex> verticies;
-    make_triangles(elvs.nw, elvs.ne, elvs.sw, elvs.se, k_visual_dip_thershold,
-                   k_top_only,
-                   TriangleAdder::make([&verticies, this] (const Triangle & triangle)
-    {
-        auto vtxs = wall::to_verticies(triangle);
-        vtxs = wall::map_to_texture(vtxs, tile_texture());
-        verticies.insert(verticies.end(), vtxs.begin(), vtxs.end());
-    }));
-    std::vector<unsigned> elements;
-    elements.resize(verticies.size());
-    std::iota(elements.begin(), elements.end(), 0);
-    mod_ptr->load(verticies, elements);
-    return mod_ptr;
+    return make_model_graphics(
+        tile_elevations(), k_top_only,
+        make_triangle_to_floor_verticies(), platform);
 }
 
 SharedPtr<const RenderModel>
     TwoWayWallTileFactory::make_wall_graphics
     (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
 {
-    // there are four functions which generate graphics/stuff in general
-    // mmm much maybe reused for bottom graphics
-    ;
-    // elevations on each corner, gen opts, divider, adder
-    auto make_triangles = [this] {
-        using Cd = CardinalDirection;
-        switch (direction()) {
-        case Cd::n : return north_south_split;
-        case Cd::s : return south_north_split;
-        case Cd::e : return east_west_split  ;
-        case Cd::w : return west_east_split  ;
-        default: break;
-        }
-        throw BadBranchException{__LINE__, __FILE__};
-    } ();
+    const auto elvs = computed_tile_elevations(neighborhood);
+    auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {
+        auto vtxs = wall::to_verticies(triangle.move(Vector{0, -translation().y, 0}));
+        return wall::map_to_texture(vtxs, wall_texture());
+    });
+    return make_model_graphics(elvs, k_wall_only, to_verticies, platform);
+}
+
+/* private */ SharedPtr<const RenderModel>
+    TwoWayWallTileFactory::make_bottom_graphics
+    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+{
+    return make_model_graphics(
+        computed_tile_elevations(neighborhood), k_bottom_only,
+        make_triangle_to_floor_verticies(), platform);
+}
+
+void TwoWayWallTileFactory::make_physical_triangles
+    (const NeighborInfo & neighborhood, EntityAndTrianglesAdder & adder) const
+{
     auto elvs = computed_tile_elevations(neighborhood);
-#   if 0
-    Translation trans{Vector{0, 1, 0} + grid_position_to_v3(neighborhood.tile_location())};
-#   endif
+    auto offset = grid_position_to_v3(neighborhood.tile_location());
+    make_triangles(elvs, k_physical_dip_thershold,
+                   k_both_flats_and_wall,
+                   TriangleAdder::make([&adder, offset] (const Triangle & triangle)
+    { adder.add_triangle(triangle.move(offset)); }));
+}
+
+/* private */ SharedPtr<const RenderModel>
+    TwoWayWallTileFactory::make_model_graphics
+    (const Slopes & elvs, SplitOpt split_opt,
+     const TriangleToVerticies & to_verticies, Platform::ForLoaders & platform) const
+{
     auto mod_ptr = platform.make_render_model();
     std::vector<Vertex> verticies;
-    make_triangles(elvs.nw, elvs.ne, elvs.sw, elvs.se, k_visual_dip_thershold,
-                   k_wall_only,
-                   TriangleAdder::make([&verticies, this] (const Triangle & triangle)
+    make_triangles(elvs, k_visual_dip_thershold,
+                   split_opt,
+                   TriangleAdder::make([&verticies, &to_verticies] (const Triangle & triangle)
     {
-        auto vtxs = wall::to_verticies(triangle);
-        vtxs = wall::map_to_texture(vtxs, tile_texture());
+        auto vtxs = to_verticies(triangle);
         verticies.insert(verticies.end(), vtxs.begin(), vtxs.end());
     }));
     std::vector<unsigned> elements;
@@ -585,9 +564,9 @@ SharedPtr<const RenderModel>
     return mod_ptr;
 }
 
-/* private */ SharedPtr<const RenderModel>
-    TwoWayWallTileFactory::make_bottom_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+/* private */ void TwoWayWallTileFactory::make_triangles
+    (const Slopes & elvs, Real thershold, SplitOpt split_opt,
+     const TriangleAdder & add_triangle) const
 {
     auto make_triangles = [this] {
         using Cd = CardinalDirection;
@@ -600,15 +579,66 @@ SharedPtr<const RenderModel>
         }
         throw BadBranchException{__LINE__, __FILE__};
     } ();
+
+    make_triangles(elvs.nw, elvs.ne, elvs.sw, elvs.se, thershold,
+                   split_opt, add_triangle);
+}
+
+/* private static */ OutWallTileFactory::GraphicMap OutWallTileFactory::s_cache;
+/* private static */ OutWallTileFactory::GraphicMap OutWallTileFactory::s_bottom_cache;
+
+SharedPtr<const RenderModel>
+    OutWallTileFactory::make_top_model(Platform::ForLoaders & platform) const
+{
+    return make_model_graphics(
+        tile_elevations(), k_top_only,
+        make_triangle_to_floor_verticies(), platform);
+}
+
+SharedPtr<const RenderModel>
+    OutWallTileFactory::make_wall_graphics
+    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+{
+    const auto elvs = computed_tile_elevations(neighborhood);
+    auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {
+        auto vtxs = wall::to_verticies(triangle.move(Vector{0, -translation().y, 0}));
+        return wall::map_to_texture(vtxs, wall_texture());
+    });
+    return make_model_graphics(elvs, k_wall_only, to_verticies, platform);
+}
+
+/* private */ SharedPtr<const RenderModel>
+    OutWallTileFactory::make_bottom_graphics
+    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+{
+    return make_model_graphics(
+        computed_tile_elevations(neighborhood), k_bottom_only,
+        make_triangle_to_floor_verticies(), platform);
+}
+
+void OutWallTileFactory::make_physical_triangles
+    (const NeighborInfo & neighborhood, EntityAndTrianglesAdder & adder) const
+{
     auto elvs = computed_tile_elevations(neighborhood);
+    auto offset = grid_position_to_v3(neighborhood.tile_location());
+    make_triangles(elvs, k_physical_dip_thershold,
+                   k_both_flats_and_wall,
+                   TriangleAdder::make([&adder, offset] (const Triangle & triangle)
+    { adder.add_triangle(triangle.move(offset)); }));
+}
+
+/* private */ SharedPtr<const RenderModel>
+    OutWallTileFactory::make_model_graphics
+    (const Slopes & elvs, SplitOpt split_opt,
+     const TriangleToVerticies & to_verticies, Platform::ForLoaders & platform) const
+{
     auto mod_ptr = platform.make_render_model();
     std::vector<Vertex> verticies;
-    make_triangles(elvs.nw, elvs.ne, elvs.sw, elvs.se, k_visual_dip_thershold,
-                   k_bottom_only,
-                   TriangleAdder::make([&verticies, this] (const Triangle & triangle)
+    make_triangles(elvs, k_visual_dip_thershold,
+                   split_opt,
+                   TriangleAdder::make([&verticies, &to_verticies] (const Triangle & triangle)
     {
-        auto vtxs = wall::to_verticies(triangle);
-        vtxs = wall::map_to_texture(vtxs, tile_texture());
+        auto vtxs = to_verticies(triangle);
         verticies.insert(verticies.end(), vtxs.begin(), vtxs.end());
     }));
     std::vector<unsigned> elements;
@@ -616,6 +646,26 @@ SharedPtr<const RenderModel>
     std::iota(elements.begin(), elements.end(), 0);
     mod_ptr->load(verticies, elements);
     return mod_ptr;
+}
+
+/* private */ void OutWallTileFactory::make_triangles
+    (const Slopes & elvs, Real thershold, SplitOpt split_opt,
+     const TriangleAdder & add_triangle) const
+{
+    auto make_triangles = [this] {
+        using Cd = CardinalDirection;
+        switch (direction()) {
+        case Cd::ne: return northeast_corner_split;
+        case Cd::nw: return northwest_corner_split;
+        case Cd::se: return southeast_corner_split;
+        case Cd::sw: return southwest_corner_split;
+        default: break;
+        }
+        throw BadBranchException{__LINE__, __FILE__};
+    } ();
+
+    make_triangles(elvs.nw, elvs.ne, elvs.sw, elvs.se, thershold,
+                   split_opt, add_triangle);
 }
 
 namespace { // ----------------------------------------------------------------
@@ -737,8 +787,22 @@ void northwest_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    if (   south_east_y < north_west_y || south_east_y < north_east_y
-        || south_east_y < south_west_y)
+    // se as only Real...
+    using cul::is_real;
+    bool can_only_do_top =
+           !is_real(north_east_y) && !is_real(north_west_y)
+        && !is_real(south_west_y) &&  is_real(south_east_y);
+    bool are_all_real =
+           is_real(north_east_y) && is_real(north_west_y)
+        && is_real(south_west_y) && is_real(south_east_y);
+    if (   (opt & ~k_top_only)
+        && can_only_do_top)
+    {
+        throw InvArg{"northwest_corner_split: "};
+    }
+    if (   are_all_real
+        && (   south_east_y < north_west_y || south_east_y < north_east_y
+            || south_east_y < south_west_y))
     {
         throw InvArg{"northwest_corner_split: south_east_y is assumed to be "
                      "the top's elevation, method not explicitly written to "
