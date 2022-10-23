@@ -206,56 +206,8 @@ private:
 
 class WallTileFactoryBaseN : public TranslatableTileFactory {
 public:
-#   if 0
-    // each graphic starts at the origin and "reaches" out along it's axis
-    // it has a "near" and "far" dip, these describe how far down y-wise the
-    // wall goes down
-    struct WallGraphic final {
-        enum Orientation { x_ways, z_ways, neither };
-        Orientation orientation = neither;
-        Real length = 0;
-        Real near_dip = 0;
-        Real far_dip = 0;
-
-        WallGraphic() {}
-
-        WallGraphic(Orientation orientation_, Real length_, Real near_dip_,
-                    Real far_dip_):
-            orientation(orientation_),
-            length(length_),
-            near_dip(near_dip_),
-            far_dip(far_dip_)
-        {}
-
-        bool operator < (const WallGraphic & rhs) const noexcept
-            { return compare(rhs) < 0; }
-
-        bool operator != (const WallGraphic & rhs) const noexcept
-            { return compare(rhs) != 0; }
-
-        bool operator == (const WallGraphic & rhs) const noexcept
-            { return compare(rhs) == 0; }
-
-        int compare(const WallGraphic & rhs) const noexcept {
-            // true if lhs < rhs
-            if (orientation != rhs.orientation) {
-                return orientation - rhs.orientation;
-            }
-            const std::array list {
-                length   - rhs.length,
-                near_dip - rhs.near_dip,
-                far_dip  - rhs.far_dip
-            };
-            for (auto val : list) {
-                if (are_very_close(val, 0))
-                    continue;
-                return val < 0 ? -1 : 1;
-            }
-            return 0;
-        }
-    };
-#   endif
     using Triangle = TriangleSegment;
+    using TileTexture = TileSet::TileTexture;
 
     void operator ()
         (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
@@ -264,39 +216,22 @@ public:
         // physical triangles
         make_physical_triangles(ninfo, adder);
 
-#       if 0
         // top
         auto tile_loc = ninfo.tile_location();
         adder.add_entity(make_entity(platform, tile_loc, get_top_model()));
-#       endif
+
         // wall graphics
-#       if 0
-        for (auto & wall_ : get_wall_graphics(ninfo)) {
-            if (wall_.graphic == WallGraphic{})
-                continue;
-            auto e = make_entity(
-                platform, tile_loc,
-                ensure_wall_graphic_model(wall_.graphic, platform));
-            e.get<Translation>() += wall_.translation;
-            adder.add_entity(e);
-        }
-#       endif
         adder.add_entity(make_entity(
-            platform, ninfo.tile_location(), ensure_wall_graphics(ninfo, platform)));
+            platform, tile_loc, ensure_wall_graphics(ninfo, platform)));
 
         // bottom
-#       if 0
         adder.add_entity(make_entity(
             platform, tile_loc, ensure_bottom_model(ninfo, platform)));
-#       endif
     }
 
     static SharedPtr<const RenderModel> make_wall_graphic_model
         (const NeighborInfo &, const Platform::ForLoaders & platform);
-#   if 0
-    SharedPtr<const RenderModel> ensure_wall_graphic_model
-        (const Platform::ForLoaders & platform) const;
-#   endif
+
     // should have translations and all
     virtual void make_physical_triangles
         (const NeighborInfo &, EntityAndTrianglesAdder &) const = 0;
@@ -305,9 +240,9 @@ public:
         (Vector2I loc_in_ts, const TiXmlElement * properties, Platform::ForLoaders & platform) final
     {
         TranslatableTileFactory::setup(loc_in_ts, properties, platform);
-        auto prop = find_property("direction", properties);
         m_dir = verify_okay_wall_direction(cardinal_direction_from(find_property("direction", properties)));
         m_tileset_location = loc_in_ts;
+        add_top_model(platform);
     }
 
     Slopes tile_elevations() const final {
@@ -319,7 +254,7 @@ public:
         } ();
 
         auto elevation_for_corner = [this, &is_known_corner] {
-            Real y = translation().y + 1;
+            Real y = known_elevation();
             return [y, &is_known_corner] (Cd dir) {
                 return is_known_corner(dir) ? y : k_inf;
             };
@@ -359,18 +294,14 @@ public:
     // - entities
     //   - contain graphics
 
+    void assign_wall_texture(const TileTexture & tt)
+        { m_wall_texture_coords = &tt; }
+
 protected:
-#   if 0
-    struct WallGraphicWithTranslation final {
-        WallGraphic graphic;
-        Vector translation;
-    };
-    using WallGraphicsArray = std::array<WallGraphicWithTranslation, 2>;
-#   endif
     static constexpr const Real k_visual_dip_thershold   = -0.25;
     static constexpr const Real k_physical_dip_thershold = -0.5;
 
-    virtual void add_top_model() = 0;
+    virtual void add_top_model(Platform::ForLoaders &) = 0;
 
     // no need to cache
     virtual SharedPtr<const RenderModel> get_top_model() const = 0;
@@ -443,6 +374,9 @@ protected:
         };
     }
 
+    Real known_elevation() const
+        { return translation().y + 1; }
+
     WallTileGraphicKey graphic_key(const NeighborInfo & ninfo) const {
         WallTileGraphicKey key;
         key.direction = m_dir;
@@ -488,6 +422,9 @@ protected:
 
     virtual bool is_okay_wall_direction(CardinalDirection) const noexcept = 0;
 
+    TileTexture tile_texture() const
+        { return *m_wall_texture_coords; }
+
 private:
     CardinalDirection verify_okay_wall_direction(CardinalDirection dir) const {
         if (!is_okay_wall_direction(dir)) {
@@ -498,6 +435,9 @@ private:
 
     CardinalDirection m_dir = CardinalDirection::ne;
     Vector2I m_tileset_location;
+    const TileTexture * m_wall_texture_coords = &s_default_texture;
+
+    static const TileTexture s_default_texture;
 };
 
 class TwoWayWallTileFactory final : public WallTileFactoryBaseN {
@@ -513,14 +453,13 @@ public:
     // if I use a common key, that should simplify things
 
     void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
-#   if 0
-    Slopes tile_elevations() const final;
-#   endif
+
 private:
-#   if 0
-    using Orientation = WallGraphic::Orientation;
-#   endif
-    void add_top_model() final {}
+    void add_top_model(Platform::ForLoaders & platform) final {
+        m_top_model = make_top_model(platform);
+    }
+
+    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const;
 
     SharedPtr<const RenderModel> ensure_bottom_model
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
@@ -552,57 +491,14 @@ private:
         make_wall_graphics
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
 
-    static SharedPtr<const RenderModel>
+    SharedPtr<const RenderModel>
         make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform);
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
 
     static GraphicMap s_bottom_cache;
     static GraphicMap s_wall_cache;
 
     SharedPtr<const RenderModel> m_top_model;
-
-#   if 0
-    WallGraphicsArray get_wall_graphics(const NeighborInfo & ninfo) const final {
-        k_visual_dip_thershold;
-        WallGraphicWithTranslation rv;
-
-        rv.graphic = WallGraphic{orientation(), 1, far_dip(ninfo), near_dip()};
-        return std::array { rv, WallGraphicWithTranslation{} };
-    }
-
-    Orientation orientation() const {
-        using Cd = CardinalDirection;
-        switch (direction()) {
-        case Cd::n: case Cd::s: return Orientation::x_ways;
-        case Cd::e: case Cd::w: return Orientation::z_ways;
-        default: break;
-        }
-        // bad branch
-        throw BadBranchException{__LINE__, __FILE__};
-    }
-    Real far_dip(const NeighborInfo & ninfo) const {
-        using Cd = CardinalDirection;
-        switch (direction()) {
-        case Cd::n: return zero_if_non_real(ninfo.neighbor_elevation(Cd::nw));
-        case Cd::s: return zero_if_non_real(ninfo.neighbor_elevation(Cd::sw));
-        case Cd::e: return zero_if_non_real(ninfo.neighbor_elevation(Cd::ne));
-        case Cd::w: return zero_if_non_real(ninfo.neighbor_elevation(Cd::ne));
-        default: break;
-        }
-        throw BadBranchException{__LINE__, __FILE__};
-    }
-
-    Real near_dip() const {
-
-    }
-
-    Vector wall_gfx_translation(const NeighborInfo & ninfo) const {
-
-    }
-
-    static Real zero_if_non_real(Real x)
-        { return cul::is_real(x) ? x : 0; }
-#   endif
 };
 
 // in wall
