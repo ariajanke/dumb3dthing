@@ -328,18 +328,70 @@ public:
         { m_wall_texture_coords = &tt; }
 
 protected:
+    class TriangleToVerticies {
+    public:
+        virtual ~TriangleToVerticies() {}
+
+        virtual std::array<Vertex, 3> operator () (const Triangle &) const = 0;
+    };
+
+    class TriangleToFloorVerticies final : public TriangleToVerticies {
+    public:
+        TriangleToFloorVerticies(const TileTexture & ttex_, Real ytrans):
+            m_ttex(ttex_), m_ytrans(ytrans) {}
+
+        std::array<Vertex, 3> operator () (const Triangle & triangle) const final {
+            auto to_vtx = [this] (const Vector & r) {
+                auto tx = m_ttex.texture_position_for(Vector2{ r.x + 0.5, -r.z + 0.5 });
+                return Vertex{r, tx};
+            };
+            const auto tri_ = triangle.move(Vector{0, m_ytrans, 0});
+            return std::array<Vertex, 3>{
+                to_vtx(tri_.point_a()),
+                to_vtx(tri_.point_b()),
+                to_vtx(tri_.point_c()),
+            };
+        }
+
+    private:
+        TileTexture m_ttex;
+        Real m_ytrans;
+    };
+
     static constexpr const Real k_visual_dip_thershold   = -0.25;
     static constexpr const Real k_physical_dip_thershold = -0.5;
 
-    // is/maybe cached
-    // bottom model elevations are determined by sub class's method:
-    // tile_elevations
-    virtual SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo &, Platform::ForLoaders &) const = 0;
+    SharedPtr<const RenderModel> ensure_bottom_model
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+    {
+        return ensure_model
+            (neighborhood, s_bottom_graphics_cache,
+             [&] { return make_bottom_graphics(neighborhood, platform); });
+    }
 
-    // ensure relates to: whether it's in the cache, or not
-    virtual SharedPtr<const RenderModel> ensure_wall_graphics
-        (const NeighborInfo &, Platform::ForLoaders &) const = 0;
+    SharedPtr<const RenderModel>
+        ensure_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+    {
+        return ensure_model
+            (neighborhood, s_wall_graphics_cache,
+             [&] { return make_wall_graphics(neighborhood, platform); });
+    }
+
+    SharedPtr<const RenderModel>
+        make_wall_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+
+    SharedPtr<const RenderModel>
+        make_bottom_graphics
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+
+    SharedPtr<const RenderModel>
+        make_model_graphics
+        (const Slopes & elevations, SplitOpt,
+         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
+
+    virtual void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const = 0;
 
     // each subtype seems to have their own wall segments for graphics,
     // though shared between instances (no statics please)
@@ -455,42 +507,6 @@ protected:
 
     TileTexture floor_texture() const;
 
-    class TriangleToVerticies {
-    public:
-        virtual ~TriangleToVerticies() {}
-
-        virtual std::array<Vertex, 3> operator () (const Triangle &) const = 0;
-    };
-
-    class TriangleToFloorVerticies final : public TriangleToVerticies {
-    public:
-        TriangleToFloorVerticies(const TileTexture & ttex_, Real ytrans):
-            m_ttex(ttex_), m_ytrans(ytrans) {}
-
-        std::array<Vertex, 3> operator () (const Triangle & triangle) const final {
-            auto to_vtx = [this] (const Vector & r) {
-                //Vector2 tx{r.x + 0.5, -r.z + 0.5};
-                auto tx = m_ttex.texture_position_for(Vector2{ r.x + 0.5, -r.z + 0.5 });
-                return Vertex{r, tx};
-#               if 0
-                return Vertex{r, Vector2{
-                    tx.x*m_ttex.se.x + m_ttex.nw.x*(1 - tx.x),
-                    tx.y*m_ttex.se.y + m_ttex.nw.y*(1 - tx.y)
-                }};
-#               endif
-            };
-            const auto tri_ = triangle.move(Vector{0, m_ytrans, 0});
-            return std::array<Vertex, 3>{
-                to_vtx(tri_.point_a()),
-                to_vtx(tri_.point_b()),
-                to_vtx(tri_.point_c()),
-            };
-        }
-
-    private:
-        TileTexture m_ttex;
-        Real m_ytrans;
-    };
 
     template <typename Func>
     static auto make_triangle_to_verticies(Func && f) {
@@ -525,6 +541,8 @@ private:
     const TileTexture * m_wall_texture_coords = &s_default_texture;
     SharedPtr<const RenderModel> m_top_model;
 
+    static GraphicMap s_wall_graphics_cache;
+    static GraphicMap s_bottom_graphics_cache;
     static const TileTexture s_default_texture;
 };
 
@@ -543,23 +561,6 @@ public:
     void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
 
 private:
-    SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
-    {
-        return ensure_model
-            (neighborhood, s_bottom_cache,
-             [&] { return make_bottom_graphics(neighborhood, platform); });
-    }
-
-    SharedPtr<const RenderModel>
-        ensure_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
-    {
-        return ensure_model
-            (neighborhood, s_cache,
-             [&] { return make_wall_graphics(neighborhood, platform); });
-    }
-
     bool is_okay_wall_direction(CardinalDirection dir) const noexcept final {
         using Cd = CardinalDirection;
         constexpr static std::array k_list = { Cd::n, Cd::e, Cd::s, Cd::w };
@@ -567,24 +568,21 @@ private:
     }
 
     SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
-
+#   if 0
     SharedPtr<const RenderModel>
         make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
 
     SharedPtr<const RenderModel>
         make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
 
     SharedPtr<const RenderModel>
         make_model_graphics
         (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
-
-    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
-
-    static GraphicMap s_cache;
-    static GraphicMap s_bottom_cache;
+         const TriangleToVerticies &, Platform::ForLoaders & platform) const final;
+#   endif
+    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
 };
 
 // in wall
@@ -619,42 +617,23 @@ public:
     void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
 
 private:
-    SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
-    {
-        return ensure_model
-            (neighborhood, s_bottom_cache,
-             [&] { return make_bottom_graphics(neighborhood, platform); });
-    }
-
-    SharedPtr<const RenderModel>
-        ensure_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
-    {
-        return ensure_model
-            (neighborhood, s_cache,
-             [&] { return make_wall_graphics(neighborhood, platform); });
-    }
-
+#   if 0
     SharedPtr<const RenderModel>
         make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
 
     SharedPtr<const RenderModel>
         make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
 
     SharedPtr<const RenderModel>
         make_model_graphics
         (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
-
-    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
+         const TriangleToVerticies &, Platform::ForLoaders & platform) const final;
+#   endif
+    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
 
     SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
-
-    static GraphicMap s_cache;
-    static GraphicMap s_bottom_cache;
 };
 
 class OutWallTileFactory final : public CornerWallTileFactory {
@@ -665,40 +644,21 @@ public:
     void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
 
 private:
-    SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
-    {
-        return ensure_model
-            (neighborhood, s_bottom_cache,
-             [&] { return make_bottom_graphics(neighborhood, platform); });
-    }
-
-    SharedPtr<const RenderModel>
-        ensure_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final
-    {
-        return ensure_model
-            (neighborhood, s_cache,
-             [&] { return make_wall_graphics(neighborhood, platform); });
-    }
-
+#   if 0
     SharedPtr<const RenderModel>
         make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
 
     SharedPtr<const RenderModel>
         make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
 
     SharedPtr<const RenderModel>
         make_model_graphics
         (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
-
+         const TriangleToVerticies &, Platform::ForLoaders & platform) const final;
+#   endif
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
 
     SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
-
-    static GraphicMap s_cache;
-    static GraphicMap s_bottom_cache;
 };
