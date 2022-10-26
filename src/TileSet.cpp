@@ -113,8 +113,8 @@ void TileSet::set_texture_information
     static TileTypeFuncMap s_map;
     if (!s_map.empty()) return s_map;
     s_map["pure-texture"] = &TileSet::load_pure_texture;
-    s_map["out-wall"    ] = &TileSet::load_usual_factory<OutWallTileFactory>; //load_wall_factory;
-    s_map["wall"        ] = &TileSet::load_usual_factory<TwoWayWallTileFactory>;
+    s_map["out-wall"    ] = &TileSet::load_usual_wall_factory<OutWallTileFactory>; //load_wall_factory;
+    s_map["wall"        ] = &TileSet::load_usual_wall_factory<TwoWayWallTileFactory>;
     s_map["in-ramp"     ] = &TileSet::load_usual_factory<InRampTileFactory>;
     s_map["out-ramp"    ] = &TileSet::load_usual_factory<OutRampTileFactory>;
     s_map["ramp"        ] = &TileSet::load_usual_factory<TwoRampTileFactory>;
@@ -134,34 +134,14 @@ void TileSet::set_texture_information
 
     auto * assignment = (*itr).Attribute("value");
     if (!assignment) return;
-#   if 0
-    TileTexture tx;
-    Size2 scale{m_tile_size.width  / m_texture_size.width ,
-                m_tile_size.height / m_texture_size.height};
-    tx.nw = Vector2{r.x*scale.width, r.y*scale.height};
-    tx.ne = tx.nw + Vector2{scale.width, 0};
-    tx.se = tx.ne + Vector2{0, scale.height};
-    tx.sw = tx.nw + Vector2{0, scale.height};
-    m_tile_texture_map[assignment] = tx;
-#   else
     using cul::convert_to;
     Size2 scale{m_tile_size.width  / m_texture_size.width ,
                 m_tile_size.height / m_texture_size.height};
     Vector2 pos{r.x*scale.width, r.y*scale.height};
     m_tile_texture_map[assignment] =
         TileTextureN{pos, pos + convert_to<Vector2>(scale)};
-#   endif
 }
-#if 0
-/* private */ void TileSet::load_wall_factory
-    (const TiXmlElement & el, int id, Vector2I r, TileParams & tp)
-{
-    auto wall_factory = make_unique<WallTileFactory>();
-    wall_factory->assign_wall_texture(m_tile_texture_map["wall"]);
-    insert_factory(std::move(wall_factory), id)
-        .setup(r, get_first_property(el), tp.platform);
-}
-#endif
+
 /* private */ void TileSet::load_factory
     (const TiXmlElement & el, UniquePtr<TileFactory> factory,
      int id, Vector2I r, Platform::ForLoaders & platform)

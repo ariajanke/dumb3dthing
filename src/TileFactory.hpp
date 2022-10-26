@@ -23,6 +23,7 @@
 #include "Defs.hpp"
 #include "map-loader.hpp"
 #include "ParseHelpers.hpp"
+#include "TileTexture.hpp"
 
 #include <map>
 
@@ -169,6 +170,8 @@ protected:
     Size2 common_texture_tile_size() const;
 
     Vector2 common_texture_origin(Vector2I ts_r) const;
+
+    TileTextureN floor_texture_at(Vector2I) const;
 
 private:
     SharedCPtr<Texture> m_texture_ptr;

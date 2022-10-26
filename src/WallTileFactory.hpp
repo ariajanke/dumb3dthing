@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "TileSet.hpp"
+// #include "TileSet.hpp"
 #include "TileFactory.hpp"
 #include "RenderModel.hpp"
 
@@ -207,6 +207,7 @@ private:
     }
 };
 
+// class is too god like
 class WallTileFactoryBaseN : public TranslatableTileFactory {
 public:
     using Triangle = TriangleSegment;
@@ -507,7 +508,6 @@ protected:
 
     TileTexture floor_texture() const;
 
-
     template <typename Func>
     static auto make_triangle_to_verticies(Func && f) {
         class Impl final : public TriangleToVerticies {
@@ -601,5 +601,5 @@ class InWallTileFactory final : public CornerWallTileFactory {
 class OutWallTileFactory final : public CornerWallTileFactory {
     // one known corner
     // three unknown corners
-    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
+    void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
 };

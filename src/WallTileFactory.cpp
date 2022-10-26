@@ -417,12 +417,8 @@ CardinalDirection cardinal_direction_from(const char * str) {
 
 // ------------------------------- <! messy !> --------------------------------
 
-/* private static */ const TileTextureN WallTileFactoryBaseN::s_default_texture = [] {
-    Size2 scale{1. / 9., 1. / 8.};
-    Vector2 offset{2*scale.width, 6*scale.height};
-    using cul::convert_to;
-    return TileTextureN{offset, offset + convert_to<Vector2>(scale)};
-} ();
+/* private static */ const TileTextureN WallTileFactoryBaseN::s_default_texture =
+    TileTextureN{Vector2{}, Vector2{1, 1}};
 /* private static */ WallTileFactoryBaseN::GraphicMap WallTileFactoryBaseN::s_wall_graphics_cache;
 /* private static */ WallTileFactoryBaseN::GraphicMap WallTileFactoryBaseN::s_bottom_graphics_cache;
 
@@ -485,11 +481,7 @@ std::array<Vertex, 3> map_to_texture(std::array<Vertex, 3> arr, const TileTextur
 }
 
 WallTileFactoryBaseN::TileTexture WallTileFactoryBaseN::floor_texture() const {
-    using cul::convert_to;
-    static constexpr Size2 k_scale{1. / 9., 1. / 8.};
-    Vector2 offset{m_tileset_location.x*k_scale.width,
-                   m_tileset_location.y*k_scale.height};
-    return TileTexture{offset, offset + convert_to<Vector2>(k_scale)};
+    return floor_texture_at(m_tileset_location);
 }
 
 SharedPtr<const RenderModel>

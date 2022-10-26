@@ -154,6 +154,14 @@ void TileFactory::set_shared_texture_information
     return Vector2{ts_r.x*scale.width, ts_r.y*scale.height};
 }
 
+/* protected */ TileTextureN TileFactory::floor_texture_at(Vector2I r) const {
+    using cul::convert_to;
+    Size2 scale{m_tile_size.width  / m_texture_size.width ,
+                m_tile_size.height / m_texture_size.height};
+    Vector2 offset{r.x*scale.width, r.y*scale.height};
+    return TileTextureN{offset, offset + convert_to<Vector2>(scale)};
+}
+
 /* protected */ std::array<Vector2, 4> TileFactory::common_texture_positions_from
     (Vector2I ts_r) const
 {
