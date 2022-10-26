@@ -46,7 +46,7 @@ private:
 CardinalDirection cardinal_direction_from(const char * str);
 
 // ramps are split into three classes, why not walls?
-
+#if 0
 class WallTileFactoryBase : public TranslatableTileFactory {
 public:
     class TriangleAdder {
@@ -162,7 +162,7 @@ private:
 };
 
 class WallTileFactory final : public WallTileFactoryBase {};
-
+#endif
 // want to "cache" graphics
 // graphics are created as needed
 // physical triangles need not be reused
@@ -210,8 +210,34 @@ private:
 class WallTileFactoryBaseN : public TranslatableTileFactory {
 public:
     using Triangle = TriangleSegment;
-    using TileTexture = TileSet::TileTexture;
-    using SplitOpt = WallTileFactory::SplitOpt;
+    using TileTexture = TileTextureN;
+    enum SplitOpt {
+        k_bottom_only         = 1 << 0,
+        k_top_only            = 1 << 1,
+        k_wall_only           = 1 << 2,
+        k_both_flats_and_wall = k_bottom_only | k_top_only | k_wall_only
+    };
+    class TriangleAdder {
+    public:
+        virtual ~TriangleAdder() {}
+
+        virtual void operator ()(const TriangleSegment &) const = 0;
+
+        template <typename Func>
+        static auto make(Func && f) {
+            class Impl final : public TriangleAdder {
+            public:
+                explicit Impl(Func && f_): m_f(std::move(f_)) {}
+
+                void operator () (const TriangleSegment & tri) const final
+                    { m_f(tri); }
+            private:
+                Func m_f;
+            };
+            return Impl{std::move(f)};
+        }
+    };
+
 
     void operator ()
         (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
@@ -429,7 +455,6 @@ protected:
 
     TileTexture floor_texture() const;
 
-    using TriangleAdder = WallTileFactory::TriangleAdder;
     class TriangleToVerticies {
     public:
         virtual ~TriangleToVerticies() {}
@@ -444,11 +469,15 @@ protected:
 
         std::array<Vertex, 3> operator () (const Triangle & triangle) const final {
             auto to_vtx = [this] (const Vector & r) {
-                Vector2 tx{r.x + 0.5, -r.z + 0.5};
+                //Vector2 tx{r.x + 0.5, -r.z + 0.5};
+                auto tx = m_ttex.texture_position_for(Vector2{ r.x + 0.5, -r.z + 0.5 });
+                return Vertex{r, tx};
+#               if 0
                 return Vertex{r, Vector2{
                     tx.x*m_ttex.se.x + m_ttex.nw.x*(1 - tx.x),
                     tx.y*m_ttex.se.y + m_ttex.nw.y*(1 - tx.y)
                 }};
+#               endif
             };
             const auto tri_ = triangle.move(Vector{0, m_ytrans, 0});
             return std::array<Vertex, 3>{

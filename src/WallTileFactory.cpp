@@ -30,16 +30,17 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 using Triangle = TriangleSegment;
-using TriangleAdder = WallTileFactory::TriangleAdder;
 
-using SplitOpt = WallTileFactory::SplitOpt;
+using TriangleAdder = WallTileFactoryBaseN::TriangleAdder;
+
+using SplitOpt = WallTileFactoryBaseN::SplitOpt;
 
 constexpr const auto k_flats_only          =
-    static_cast<SplitOpt>(WallTileFactory::k_bottom_only | WallTileFactory::k_top_only);
-constexpr const auto k_bottom_only         = WallTileFactory::k_bottom_only;
-constexpr const auto k_top_only            = WallTileFactory::k_top_only;
-constexpr const auto k_wall_only           = WallTileFactory::k_wall_only;
-constexpr const auto k_both_flats_and_wall = WallTileFactory::k_both_flats_and_wall;
+    static_cast<SplitOpt>(SplitOpt::k_bottom_only | SplitOpt::k_top_only);
+constexpr const auto k_bottom_only         = SplitOpt::k_bottom_only;
+constexpr const auto k_top_only            = SplitOpt::k_top_only;
+constexpr const auto k_wall_only           = SplitOpt::k_wall_only;
+constexpr const auto k_both_flats_and_wall = SplitOpt::k_both_flats_and_wall;
 
 void east_west_split
     (Real north_east_y, Real north_west_y,
@@ -115,7 +116,7 @@ void TranslatableTileFactory::setup
 }
 
 // ----------------------------------------------------------------------------
-
+#if 0
 /* static */ void WallTileFactoryBase::add_wall_triangles_to
     (CardinalDirection dir, Real nw, Real sw, Real se, Real ne, SplitOpt opt,
      Real div, const TriangleAdder & add_f)
@@ -399,7 +400,7 @@ void TranslatableTileFactory::setup
 
     return make_tuple(model, std::move(triangles));
 }
-
+#endif
 CardinalDirection cardinal_direction_from(const char * str) {
     auto seq = [str](const char * s) { return !::strcmp(str, s); };
     using Cd = CardinalDirection;
@@ -416,20 +417,23 @@ CardinalDirection cardinal_direction_from(const char * str) {
 
 // ------------------------------- <! messy !> --------------------------------
 
-/* private static */ const TileSet::TileTexture WallTileFactoryBaseN::s_default_texture = [] {
+/* private static */ const TileTextureN WallTileFactoryBaseN::s_default_texture = [] {
     Size2 scale{1. / 9., 1. / 8.};
     Vector2 offset{2*scale.width, 6*scale.height};
-    TileSet::TileTexture tx;
+    using cul::convert_to;
+    return TileTextureN{offset, offset + convert_to<Vector2>(scale)};
+#   if 0
     tx.nw = offset;
     tx.ne = offset + Vector2{scale.width, 0};
     tx.sw = offset + Vector2{0, scale.height};
     tx.se = offset + Vector2{scale.width, scale.height};
     return tx;
+#   endif
 } ();
 
 namespace wall {
 
-using TileTexture = TileSet::TileTexture;
+using TileTexture = TileTextureN;
 
 static const Real k_after_one = std::nextafter(Real(1), Real(2));
 
@@ -473,11 +477,14 @@ std::array<Vertex, 3> to_verticies(const Triangle & triangle) {
 }
 
 Vertex map_to_texture(const Vertex & vtx, const TileTexture & txt) {
+    return Vertex{vtx.position, txt.texture_position_for(vtx.texture_position)};
+#   if 0
     auto tx = vtx.texture_position;
     return Vertex{vtx.position, Vector2{
         tx.x*txt.se.x + txt.nw.x*(1 - tx.x),
         tx.y*txt.se.y + txt.nw.y*(1 - tx.y)
     }};
+#   endif
 }
 
 std::array<Vertex, 3> map_to_texture(std::array<Vertex, 3> arr, const TileTexture & txt) {
@@ -490,7 +497,12 @@ std::array<Vertex, 3> map_to_texture(std::array<Vertex, 3> arr, const TileTextur
 }
 
 WallTileFactoryBaseN::TileTexture WallTileFactoryBaseN::floor_texture() const {
+    using cul::convert_to;
     static constexpr Size2 k_scale{1. / 9., 1. / 8.};
+    Vector2 offset{m_tileset_location.x*k_scale.width,
+                   m_tileset_location.y*k_scale.height};
+    return TileTexture{offset, offset + convert_to<Vector2>(k_scale)};
+#   if 0
     TileTexture rv;
     rv.nw = Vector2(m_tileset_location.x*k_scale.width,
                     m_tileset_location.y*k_scale.height);
@@ -498,6 +510,7 @@ WallTileFactoryBaseN::TileTexture WallTileFactoryBaseN::floor_texture() const {
     rv.ne = rv.nw + Vector2{k_scale.width, 0};
     rv.sw = rv.nw + Vector2{0, k_scale.height};
     return rv;
+#   endif
 }
 
 /* private static */ TwoWayWallTileFactory::GraphicMap TwoWayWallTileFactory::s_cache;
@@ -624,7 +637,9 @@ void OutWallTileFactory::make_physical_triangles
     make_triangles(elvs, k_physical_dip_thershold,
                    k_both_flats_and_wall,
                    TriangleAdder::make([&adder, offset] (const Triangle & triangle)
-    { adder.add_triangle(triangle.move(offset)); }));
+    {
+        adder.add_triangle(triangle.move(offset));
+    }));
 }
 
 /* private */ SharedPtr<const RenderModel>
@@ -680,7 +695,7 @@ template <typename TransformingFunc, typename PassOnFunc>
 /* <! auto breaks BFS ordering !> */ auto make_triangle_transformer
     (TransformingFunc && tf, const PassOnFunc & pf)
 {
-    return WallTileFactory::TriangleAdder::make([tf = std::move(tf), &pf](const Triangle & tri)
+    return TriangleAdder::make([tf = std::move(tf), &pf](const Triangle & tri)
         { pf(Triangle{tf(tri.point_a()), tf(tri.point_b()), tf(tri.point_c())}); });
 }
 

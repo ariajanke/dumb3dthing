@@ -28,29 +28,68 @@
 
 class TileFactory;
 
+class TileTextureN final {
+public:
+    TileTextureN();
+
+    TileTextureN(Vector2 nw, Vector2 se);
+
+    TileTextureN(Vector2I tileset_loc, const Size2 & tile_size);
+
+    Vector2 texture_position_for(const Vector2 & tile_normalized_location) const;
+
+private:
+    Vector2 m_nw, m_se;
+};
+
+inline TileTextureN::TileTextureN() {}
+
+inline TileTextureN::TileTextureN
+    (Vector2 nw, Vector2 se):
+    m_nw(nw),
+    m_se(se)
+{}
+
+inline TileTextureN::TileTextureN(Vector2I tileset_loc, const Size2 & tile_size) {
+    using cul::convert_to;
+    Vector2 offset{tileset_loc.x*tile_size.width, tileset_loc.y*tile_size.height};
+    m_nw = offset;
+    m_se = offset + convert_to<Vector2>(tile_size);
+}
+
+inline Vector2 TileTextureN::texture_position_for
+    (const Vector2 & tile_normalized_location) const
+{
+    auto r = tile_normalized_location;
+    return Vector2{r.x*m_se.x + m_nw.x*(1 - r.x),
+                   r.y*m_se.y + m_nw.y*(1 - r.y)};
+}
+
 class TileSet final {
 public:
     using ConstTileSetPtr = std::shared_ptr<const TileSet>;
     using TileSetPtr      = std::shared_ptr<TileSet>;
+#   if 0
     struct TileTexture final {
+
+        Vector2 texture_position_for(const Vector2 & tile_normalized_position) const {
+            auto r = tile_normalized_position + Vector2{0.5, 0.5};
+            return Vector2{r.x*se.x + nw.x*(1 - r.x),
+                           r.y*se.y + nw.y*(1 - r.y)};
+        }
+
         Vector2 nw, sw, se, ne;
     };
-
+#   endif
     // there may, or may not be a factory for a particular id
     TileFactory * operator () (int tid) const;
 
-    TileFactory & insert_factory(UniquePtr<TileFactory> uptr, int tid);
-
     void load_information(Platform::ForLoaders &, const TiXmlElement & tileset);
-
-    void set_texture_information
-        (const SharedPtr<const Texture> & texture, const Size2 & tile_size,
-         const Size2 & texture_size);
 
     int total_tile_count() const { return m_tile_count; }
 
 private:
-    using TileTextureMap = std::map<std::string, TileTexture>;
+    using TileTextureMap = std::map<std::string, TileTextureN>;
     struct TileParams final {
         TileParams(Size2 tile_size_,
                    Platform::ForLoaders & platform_):
@@ -66,10 +105,17 @@ private:
 
     static const TileTypeFuncMap & tiletype_handlers();
 
+    TileFactory & insert_factory(UniquePtr<TileFactory> uptr, int tid);
+
     void load_pure_texture(const TiXmlElement &, int, Vector2I, TileParams &);
 
-    void load_wall_factory(const TiXmlElement &, int, Vector2I, TileParams &);
+    void set_texture_information
+        (const SharedPtr<const Texture> & texture, const Size2 & tile_size,
+         const Size2 & texture_size);
 
+#   if 0
+    void load_wall_factory(const TiXmlElement &, int, Vector2I, TileParams &);
+#   endif
     void load_factory
         (const TiXmlElement &, UniquePtr<TileFactory> factory, int, Vector2I,
          Platform::ForLoaders &);
