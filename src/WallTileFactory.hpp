@@ -263,8 +263,8 @@ public:
         (const NeighborInfo &, const Platform::ForLoaders & platform);
 
     // should have translations and all
-    virtual void make_physical_triangles
-        (const NeighborInfo &, EntityAndTrianglesAdder &) const = 0;
+    void make_physical_triangles
+        (const NeighborInfo &, EntityAndTrianglesAdder &) const;
 
     void setup
         (Vector2I loc_in_ts, const TiXmlElement * properties, Platform::ForLoaders & platform) final
@@ -500,7 +500,7 @@ protected:
 
     virtual bool is_okay_wall_direction(CardinalDirection) const noexcept = 0;
 
-    virtual SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const = 0;
+    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const;
 
     TileTexture wall_texture() const
         { return *m_wall_texture_coords; }
@@ -547,7 +547,6 @@ private:
 };
 
 class TwoWayWallTileFactory final : public WallTileFactoryBaseN {
-public:
     // two known corners
     // two unknown corners
     // bottom:
@@ -558,30 +557,12 @@ public:
     // - single flat wall
     // if I use a common key, that should simplify things
 
-    void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
-
-private:
     bool is_okay_wall_direction(CardinalDirection dir) const noexcept final {
         using Cd = CardinalDirection;
         constexpr static std::array k_list = { Cd::n, Cd::e, Cd::s, Cd::w };
         return std::find(k_list.begin(), k_list.end(), dir) != k_list.end();
     }
 
-    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
-#   if 0
-    SharedPtr<const RenderModel>
-        make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
-
-    SharedPtr<const RenderModel>
-        make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
-
-    SharedPtr<const RenderModel>
-        make_model_graphics
-        (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform::ForLoaders & platform) const final;
-#   endif
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
 };
 
@@ -610,55 +591,15 @@ protected:
 };
 
 class InWallTileFactory final : public CornerWallTileFactory {
-public:
+
     // three known corners
     // one unknown corner
 
-    void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
-
-private:
-#   if 0
-    SharedPtr<const RenderModel>
-        make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
-
-    SharedPtr<const RenderModel>
-        make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
-
-    SharedPtr<const RenderModel>
-        make_model_graphics
-        (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform::ForLoaders & platform) const final;
-#   endif
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
-
-    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
 };
 
 class OutWallTileFactory final : public CornerWallTileFactory {
-public:
     // one known corner
     // three unknown corners
-
-    void make_physical_triangles(const NeighborInfo &, EntityAndTrianglesAdder &) const final;
-
-private:
-#   if 0
-    SharedPtr<const RenderModel>
-        make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
-
-    SharedPtr<const RenderModel>
-        make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const final;
-
-    SharedPtr<const RenderModel>
-        make_model_graphics
-        (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform::ForLoaders & platform) const final;
-#   endif
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const;
-
-    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const final;
 };

@@ -535,63 +535,21 @@ SharedPtr<const RenderModel>
 }
 
 SharedPtr<const RenderModel>
-    TwoWayWallTileFactory::make_top_model(Platform::ForLoaders & platform) const
+    WallTileFactoryBaseN::make_top_model(Platform::ForLoaders & platform) const
 {
     return make_model_graphics(
         tile_elevations(), k_top_only,
         make_triangle_to_floor_verticies(), platform);
 }
-#if 0
-SharedPtr<const RenderModel>
-    TwoWayWallTileFactory::make_wall_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
-{
-    const auto elvs = computed_tile_elevations(neighborhood);
-    auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {
-        auto vtxs = wall::to_verticies(triangle.move(Vector{0, -translation().y, 0}));
-        return wall::map_to_texture(vtxs, wall_texture());
-    });
-    return make_model_graphics(elvs, k_wall_only, to_verticies, platform);
-}
 
-/* private */ SharedPtr<const RenderModel>
-    TwoWayWallTileFactory::make_bottom_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
-{
-    return make_model_graphics(
-        computed_tile_elevations(neighborhood), k_bottom_only,
-        make_triangle_to_floor_verticies(), platform);
-}
-
-/* private */ SharedPtr<const RenderModel>
-    TwoWayWallTileFactory::make_model_graphics
-    (const Slopes & elvs, SplitOpt split_opt,
-     const TriangleToVerticies & to_verticies, Platform::ForLoaders & platform) const
-{
-    auto mod_ptr = platform.make_render_model();
-    std::vector<Vertex> verticies;
-    make_triangles(elvs, k_visual_dip_thershold,
-                   split_opt,
-                   TriangleAdder::make([&verticies, &to_verticies] (const Triangle & triangle)
-    {
-        auto vtxs = to_verticies(triangle);
-        verticies.insert(verticies.end(), vtxs.begin(), vtxs.end());
-    }));
-    std::vector<unsigned> elements;
-    elements.resize(verticies.size());
-    std::iota(elements.begin(), elements.end(), 0);
-    mod_ptr->load(verticies, elements);
-    return mod_ptr;
-}
-#endif
-void TwoWayWallTileFactory::make_physical_triangles
+void WallTileFactoryBaseN::make_physical_triangles
     (const NeighborInfo & neighborhood, EntityAndTrianglesAdder & adder) const
 {
     auto elvs = computed_tile_elevations(neighborhood);
     auto offset = grid_position_to_v3(neighborhood.tile_location());
-    make_triangles(elvs, k_physical_dip_thershold,
-                   k_both_flats_and_wall,
-                   TriangleAdder::make([&adder, offset] (const Triangle & triangle)
+    make_triangles(
+        elvs, k_physical_dip_thershold, k_both_flats_and_wall,
+        TriangleAdder::make([&adder, offset](const Triangle & triangle)
     { adder.add_triangle(triangle.move(offset)); }));
 }
 
@@ -615,69 +573,6 @@ void TwoWayWallTileFactory::make_physical_triangles
                    split_opt, add_triangle);
 }
 
-SharedPtr<const RenderModel>
-    OutWallTileFactory::make_top_model(Platform::ForLoaders & platform) const
-{
-    return make_model_graphics(
-        tile_elevations(), k_top_only,
-        make_triangle_to_floor_verticies(), platform);
-}
-#if 0
-SharedPtr<const RenderModel>
-    OutWallTileFactory::make_wall_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
-{
-    const auto elvs = computed_tile_elevations(neighborhood);
-    auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {
-        auto vtxs = wall::to_verticies(triangle.move(Vector{0, -translation().y, 0}));
-        return wall::map_to_texture(vtxs, wall_texture());
-    });
-    return make_model_graphics(elvs, k_wall_only, to_verticies, platform);
-}
-
-/* private */ SharedPtr<const RenderModel>
-    OutWallTileFactory::make_bottom_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
-{
-    return make_model_graphics(
-        computed_tile_elevations(neighborhood), k_bottom_only,
-        make_triangle_to_floor_verticies(), platform);
-}
-#endif
-void OutWallTileFactory::make_physical_triangles
-    (const NeighborInfo & neighborhood, EntityAndTrianglesAdder & adder) const
-{
-    auto elvs = computed_tile_elevations(neighborhood);
-    auto offset = grid_position_to_v3(neighborhood.tile_location());
-    make_triangles(elvs, k_physical_dip_thershold,
-                   k_both_flats_and_wall,
-                   TriangleAdder::make([&adder, offset] (const Triangle & triangle)
-    {
-        adder.add_triangle(triangle.move(offset));
-    }));
-}
-#if 0
-/* private */ SharedPtr<const RenderModel>
-    OutWallTileFactory::make_model_graphics
-    (const Slopes & elvs, SplitOpt split_opt,
-     const TriangleToVerticies & to_verticies, Platform::ForLoaders & platform) const
-{
-    auto mod_ptr = platform.make_render_model();
-    std::vector<Vertex> verticies;
-    make_triangles(elvs, k_visual_dip_thershold,
-                   split_opt,
-                   TriangleAdder::make([&verticies, &to_verticies] (const Triangle & triangle)
-    {
-        auto vtxs = to_verticies(triangle);
-        verticies.insert(verticies.end(), vtxs.begin(), vtxs.end());
-    }));
-    std::vector<unsigned> elements;
-    elements.resize(verticies.size());
-    std::iota(elements.begin(), elements.end(), 0);
-    mod_ptr->load(verticies, elements);
-    return mod_ptr;
-}
-#endif
 /* private */ void OutWallTileFactory::make_triangles
     (const Slopes & elvs, Real thershold, SplitOpt split_opt,
      const TriangleAdder & add_triangle) const
