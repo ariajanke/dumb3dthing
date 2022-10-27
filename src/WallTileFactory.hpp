@@ -20,7 +20,6 @@
 
 #pragma once
 
-// #include "TileSet.hpp"
 #include "TileFactory.hpp"
 #include "RenderModel.hpp"
 
@@ -45,124 +44,6 @@ private:
 
 CardinalDirection cardinal_direction_from(const char * str);
 
-// ramps are split into three classes, why not walls?
-#if 0
-class WallTileFactoryBase : public TranslatableTileFactory {
-public:
-    class TriangleAdder {
-    public:
-        virtual ~TriangleAdder() {}
-
-        virtual void operator ()(const TriangleSegment &) const = 0;
-
-        template <typename Func>
-        static auto make(Func && f) {
-            class Impl final : public TriangleAdder {
-            public:
-                explicit Impl(Func && f_): m_f(std::move(f_)) {}
-
-                void operator () (const TriangleSegment & tri) const final
-                    { m_f(tri); }
-            private:
-                Func m_f;
-            };
-            return Impl{std::move(f)};
-        }
-    };
-
-    enum SplitOpt {
-        k_bottom_only         = 1 << 0,
-        k_top_only            = 1 << 1,
-        k_wall_only           = 1 << 2,
-        k_both_flats_and_wall = k_bottom_only | k_top_only | k_wall_only
-    };
-    using TileTexture = TileSet::TileTexture;
-
-    // design flaw? too many parameters?
-    static void add_wall_triangles_to
-        (CardinalDirection dir, Real nw, Real sw, Real se, Real ne, SplitOpt,
-         Real division, const TriangleAdder &);
-
-    static int corner_index(CardinalDirection dir);
-
-    static WallElevationAndDirection elevations_and_direction
-        (const NeighborInfo & ninfo, Real known_elevation,
-         CardinalDirection dir, Vector2I tile_loc);
-
-    void operator ()
-        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-         Platform::ForLoaders & platform) const final
-    { make_tile(adder, ninfo, platform); }
-
-    void assign_render_model_wall_cache(WallRenderModelCache & cache)
-        { m_render_model_cache = &cache; }
-
-    void setup
-        (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) final;
-
-    Slopes tile_elevations() const final;
-
-    void assign_wall_texture(const TileTexture & tt)
-        { m_wall_texture_coords = &tt; }
-
-private:
-    using Triangle = TriangleSegment;
-
-    static constexpr const Real k_visual_dip_thershold   = -0.25;
-    static constexpr const Real k_physical_dip_thershold = -0.5;
-
-    template <typename Iter>
-    static void translate_points(Vector r, Iter beg, Iter end) {
-        for (auto itr = beg; itr != end; ++itr) {
-            *itr += r;
-        }
-    }
-
-    template <typename Iter>
-    static void scale_points_x(Real x, Iter beg, Iter end) {
-        for (auto itr = beg; itr != end; ++itr) {
-            itr->x *= x;
-        }
-    }
-
-    template <typename Iter>
-    static void scale_points_z(Real x, Iter beg, Iter end) {
-        for (auto itr = beg; itr != end; ++itr) {
-            itr->z *= x;
-        }
-    }
-
-    void make_tile
-        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-         Platform::ForLoaders & platform) const;
-
-    void make_entities_and_triangles(
-        EntityAndTrianglesAdder & adder,
-        Platform::ForLoaders & platform,
-        const NeighborInfo & ninfo,
-        const SharedPtr<const RenderModel> & render_model,
-        const std::vector<Triangle> & triangles) const;
-
-    static std::array<bool, 4> make_known_corners(CardinalDirection dir);
-
-    WallElevationAndDirection elevations_and_direction
-        (const NeighborInfo & ninfo) const;
-
-    Tuple<SharedPtr<const RenderModel>, std::vector<Triangle>>
-        make_render_model_and_triangles(
-        const WallElevationAndDirection & wed,
-        Platform::ForLoaders &) const;
-
-    CardinalDirection m_dir = CardinalDirection::ne;
-    WallRenderModelCache * m_render_model_cache = nullptr;
-    Vector2I m_tileset_location;
-
-    // I still need to known the wall texture coords
-    const TileTexture * m_wall_texture_coords = nullptr;
-};
-
-class WallTileFactory final : public WallTileFactoryBase {};
-#endif
 // want to "cache" graphics
 // graphics are created as needed
 // physical triangles need not be reused
@@ -411,7 +292,14 @@ protected:
         }
         throw BadBranchException{__LINE__, __FILE__};
     }
+#   if 0 // will be back
+    virtual std::array<bool, 4> make_known_corners_() const = 0;
 
+    std::array<Tuple<bool, CardinalDirection>, 4>
+            make_known_corners_with_preposition_() const;
+#   endif
+    // too inflexible, can I change this to a virtual instance method?
+    // (two call sites, both from instances)
     static std::array<bool, 4> make_known_corners(CardinalDirection dir) {
         using Cd = CardinalDirection;
         auto mk_rv = [](bool nw, bool sw, bool se, bool ne) {
@@ -439,6 +327,7 @@ protected:
         throw BadBranchException{__LINE__, __FILE__};
     }
 
+    // ^ this would follow (one call site)
     static std::array<Tuple<bool, CardinalDirection>, 4>
         make_known_corners_with_preposition(CardinalDirection dir)
     {

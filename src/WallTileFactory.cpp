@@ -66,22 +66,42 @@ void west_east_split
      Real south_west_y, Real south_east_y,
      Real division_x, SplitOpt opt, const TriangleAdder & f);
 
-void northwest_corner_split
+void northwest_in_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f);
 
-void southwest_corner_split
+void southwest_in_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f);
 
-void northeast_corner_split
+void northeast_in_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f);
 
-void southeast_corner_split
+void southeast_in_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f);
+
+void northwest_out_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f);
+
+void southwest_out_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f);
+
+void northeast_out_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f);
+
+void southeast_out_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f);
@@ -116,291 +136,7 @@ void TranslatableTileFactory::setup
 }
 
 // ----------------------------------------------------------------------------
-#if 0
-/* static */ void WallTileFactoryBase::add_wall_triangles_to
-    (CardinalDirection dir, Real nw, Real sw, Real se, Real ne, SplitOpt opt,
-     Real div, const TriangleAdder & add_f)
-{
-    // how will I do texture coords?
-    using Cd = CardinalDirection;
 
-    const auto splitter_func = [dir] {
-        switch (dir) {
-        case Cd::n : return north_south_split     ;
-        case Cd::s : return south_north_split     ;
-        case Cd::e : return east_west_split       ;
-        case Cd::w : return west_east_split       ;
-        case Cd::nw: return northwest_corner_split;
-        case Cd::sw: return southwest_corner_split;
-        case Cd::se: return southeast_corner_split;
-        case Cd::ne: return northeast_corner_split;
-        default: throw InvArg{"WallTileFactory::add_wall_triangles_to: direction is not a valid value."};
-        }
-    } ();
-    splitter_func(nw, ne, sw, se, div, opt, add_f);
-#   if 0
-    switch (dir) {
-    case Cd::n : north_south_split     (nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::s : south_north_split     (nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::e : east_west_split       (nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::w : west_east_split       (nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::nw: northwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::sw: southwest_corner_split(nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::se: southeast_corner_split(nw, ne, sw, se, div, opt, add_f); return;
-    case Cd::ne: northeast_corner_split(nw, ne, sw, se, div, opt, add_f); return;
-    default: break;
-    }
-    throw InvArg{"WallTileFactory::add_wall_triangles_to: direction is not a valid value."};
-#   endif
-}
-
-/* static */ int WallTileFactoryBase::corner_index(CardinalDirection dir) {
-    using Cd = CardinalDirection;
-    switch (dir) {
-    case Cd::nw: return 0;
-    case Cd::sw: return 1;
-    case Cd::se: return 2;
-    case Cd::ne: return 3;
-    default: break;
-    }
-    throw InvArg{""};
-}
-
-/* static */ WallElevationAndDirection WallTileFactoryBase::elevations_and_direction
-    (const NeighborInfo & ninfo, Real known_elevation,
-     CardinalDirection dir, Vector2I tile_loc)
-{
-    WallElevationAndDirection rv;
-    // I need a way to address each corner...
-    using Cd = CardinalDirection;
-    rv.direction = dir;
-    rv.tileset_location = tile_loc;
-    auto known_corners = make_known_corners(rv.direction);
-    for (auto corner : { Cd::nw, Cd::sw, Cd::se, Cd::ne }) {
-        // walls are only generated for dips on "unknown corners"
-        // if a neighbor elevation is unknown, then no wall it created for that
-        // corner (which can very easily mean no wall are generated on any "dip"
-        // corner
-        bool is_known = known_corners[corner_index(corner)];
-        Real neighbor_elevation = ninfo.neighbor_elevation(corner);
-        Real diff   = known_elevation - neighbor_elevation;
-        bool is_dip =    cul::is_real(neighbor_elevation)
-                      && known_elevation > neighbor_elevation
-                      && !known_corners[corner_index(corner)];
-        // must be finite for our purposes
-        rv.dip_heights[corner_index(corner)] = is_dip ? diff : 0;
-    }
-
-    return rv;
-}
-
-
-/* private */ void WallTileFactoryBase::setup
-    (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties, Platform::ForLoaders & platform)
-{
-    TranslatableTileFactory::setup(loc_in_ts, properties, platform);
-    m_dir = cardinal_direction_from(find_property("direction", properties));
-    m_tileset_location = loc_in_ts;
-}
-
-/* private */ Slopes WallTileFactoryBase::tile_elevations() const {
-    // it is possible that some elevations are indeterminent...
-    Real y = translation().y + 1;
-    // first implementation should fail the "three corners facing each other"
-    // test
-    using Cd = CardinalDirection;
-    auto knowns = make_known_corners(m_dir);
-    return Slopes{0,
-        knowns[corner_index(Cd::ne)] ? y : k_inf,
-        knowns[corner_index(Cd::nw)] ? y : k_inf,
-        knowns[corner_index(Cd::sw)] ? y : k_inf,
-        knowns[corner_index(Cd::se)] ? y : k_inf};
-}
-
-/* private */ void WallTileFactoryBase::make_tile
-    (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-     Platform::ForLoaders & platform) const
-{
-    auto wed = elevations_and_direction(ninfo);
-    if (m_render_model_cache) {
-        auto itr = m_render_model_cache->find(wed);
-        if (itr != m_render_model_cache->end()) {
-            const auto & [render_model, triangles] = itr->second; {}
-            return make_entities_and_triangles(adder, platform, ninfo, render_model, triangles);
-        }
-    }
-    auto [render_model, triangles] = make_render_model_and_triangles(wed, platform); {}
-    if (m_render_model_cache) {
-        m_render_model_cache->insert(std::make_pair(
-            wed,
-            make_tuple(std::move(render_model), std::move(triangles))
-        ));
-        assert(m_render_model_cache->find(wed) != m_render_model_cache->end());
-        return make_tile(adder, ninfo, platform);
-    }
-    // in case there's no cache...
-    make_entities_and_triangles(adder, platform, ninfo, render_model, triangles);
-}
-
-/* private */ void WallTileFactoryBase::make_entities_and_triangles(
-    EntityAndTrianglesAdder & adder,
-    Platform::ForLoaders & platform,
-    const NeighborInfo & ninfo,
-    const SharedPtr<const RenderModel> & render_model,
-    const std::vector<Triangle> & triangles) const
-{
-    auto spawn_offset = /*translation() +*/ Vector{0, 1, 0}
-        + grid_position_to_v3(ninfo.tile_location());
-    for (auto & triangle : triangles) {
-#           if 0
-        // | there's *got* to be a way to generate this stuff using a
-        // v "shared" deletor
-
-        auto triangle_vec = new std::vector<Triangle>{triangles};
-        auto del = [triangle_vec] (Triangle *) { delete triangle_vec; };
-        for (auto & triangle : *triangle_vec) {
-            SharedPtr<const Triangle>{&triangle, del};
-        }
-        //SharedPtr
-#           endif
-        adder.add_triangle(triangle.move(spawn_offset));
-    }
-    auto e = platform.make_renderable_entity();
-
-    e.add<SharedPtr<const RenderModel>, SharedPtr<const Texture>, Translation, Visible>() =
-        make_tuple(render_model, common_texture(), Translation{spawn_offset}, true);
-    adder.add_entity(e);
-}
-
-/* private static */ std::array<bool, 4> WallTileFactoryBase::make_known_corners(CardinalDirection dir) {
-    using Cd = CardinalDirection;
-    auto mk_rv = [](bool nw, bool sw, bool se, bool ne) {
-        std::array<bool, 4> rv;
-        const std::array k_corners = {
-            make_tuple(Cd::nw, nw), make_tuple(Cd::ne, ne),
-            make_tuple(Cd::sw, sw), make_tuple(Cd::se, se),
-        };
-        for (auto [corner, val] : k_corners)
-            rv[corner_index(corner)] = val;
-        return rv;
-    };
-    switch (dir) {
-    // a north wall, all point on the south are known
-    case Cd::n : return mk_rv(false, true , true , false);
-    case Cd::s : return mk_rv(true , false, false, true );
-    case Cd::e : return mk_rv(true , true , false, false);
-    case Cd::w : return mk_rv(false, false, true , true );
-    case Cd::nw: return mk_rv(false, false, true , false);
-    case Cd::sw: return mk_rv(false, false, false, true );
-    case Cd::se: return mk_rv(true , false, false, false);
-    case Cd::ne: return mk_rv(false, true , false, false);
-    default: break;
-    }
-    throw BadBranchException{__LINE__, __FILE__};
-}
-
-/* private */ WallElevationAndDirection WallTileFactoryBase::elevations_and_direction
-    (const NeighborInfo & ninfo) const
-{
-    return WallTileFactory::elevations_and_direction
-        (ninfo, translation().y + 1, m_dir, m_tileset_location);
-}
-
-/* private */ Tuple<SharedPtr<const RenderModel>, std::vector<Triangle>>
-    WallTileFactoryBase::make_render_model_and_triangles
-    (const WallElevationAndDirection & wed,
-     Platform::ForLoaders & platform) const
-{
-    using Cd = CardinalDirection;
-
-    // nothing here should move to their final position
-
-    auto add_wall_triangles_to_ = [this, &wed] {
-        // wall dips on cases where no dips occur, will be zero, and therefore
-        // quite usable despite the use of subtraction here
-        Real ne, nw, se, sw;
-        const auto corner_pairs = {
-            make_tuple(Cd::ne, &ne), make_tuple(Cd::nw, &nw),
-            make_tuple(Cd::se, &se), make_tuple(Cd::sw, &sw)
-        };
-        auto offset = translation().y;
-        for (auto [dir, ptr] : corner_pairs)
-            { *ptr = offset - wed.dip_heights[corner_index(dir)]; }
-
-        return [nw, sw, se, ne, this]
-               (SplitOpt opt, Real div, const TriangleAdder & adder)
-        {
-            WallTileFactory::add_wall_triangles_to
-                (m_dir, nw, sw, se, ne, opt, div, adder);
-        };
-    } ();
-
-    // how will I do texture coords?
-    std::vector<Triangle> triangles;
-    add_wall_triangles_to_(k_both_flats_and_wall, k_physical_dip_thershold,
-        TriangleAdder::make(
-            [&triangles] (const Triangle & triangle)
-            { triangles.push_back(triangle); }));
-
-    std::vector<Vertex> verticies;
-    std::vector<unsigned> elements;
-
-    auto to_tx_coord = [this] {
-        auto origin = common_texture_origin(m_tileset_location);
-        auto scale  = common_texture_tile_size();
-        return [origin, scale](Vector pos) {
-            auto local_pos = Vector2{pos.x + 0.5, -pos.z + 0.5};
-            Vector2 scaled_pos{local_pos.x*scale.width, local_pos.y*scale.height};
-            return origin + scaled_pos;
-        };
-    } ();
-    auto to_vtx = [&to_tx_coord](Vector pos)
-        { return Vertex{pos, to_tx_coord(pos)}; };
-    add_wall_triangles_to_(k_flats_only, k_visual_dip_thershold,
-        TriangleAdder::make([&verticies, to_vtx]
-        (const Triangle & triangle)
-    {
-        // triangle x-zs correspond pretty closely to texture
-        verticies.push_back(to_vtx(triangle.point_a()));
-        verticies.push_back(to_vtx(triangle.point_b()));
-        verticies.push_back(to_vtx(triangle.point_c()));
-    }));
-    // x or z, it depends
-    // v assumes is wall already (and co-planar)
-    static auto is_x_axis_aligned = [](const Triangle & triangle) {
-        return are_very_close(triangle.point_a().z, triangle.point_b().z);
-    };
-    auto to_wall_tx_coord = [] (const TileTexture & tile_texture) {
-        return [&tile_texture] (Vector pos, bool use_x_axis) {
-            // how do I want to restrict the texture rectangle?
-            using std::fmod;
-            // why isn't nextafter constexpr?!
-            static const Real k_after_one = std::nextafter(Real(1), Real(2));
-            Vector2 txr{fmod(magnitude((use_x_axis ? pos.x : pos.z) - Real(0.5)), k_after_one),
-                        fmod(magnitude(pos.y), k_after_one)};
-            auto x = tile_texture.sw.x*txr.x + tile_texture.ne.x*(1 - txr.x);
-            auto y = tile_texture.sw.y*txr.y + tile_texture.ne.y*(1 - txr.y);
-            return Vertex{pos, Vector2{x, y}};
-        };
-    } (*m_wall_texture_coords);
-    // walls are a bit trickier
-    add_wall_triangles_to_(k_wall_only, k_visual_dip_thershold,
-        TriangleAdder::make([&verticies, to_wall_tx_coord]
-        (const Triangle & triangle)
-    {
-        bool use_x_axis = is_x_axis_aligned(triangle);
-        verticies.push_back(to_wall_tx_coord(triangle.point_a(), use_x_axis));
-        verticies.push_back(to_wall_tx_coord(triangle.point_b(), use_x_axis));
-        verticies.push_back(to_wall_tx_coord(triangle.point_c(), use_x_axis));
-    }));
-    elements.resize(verticies.size());
-    std::iota(elements.begin(), elements.end(), 0);
-    auto model = platform.make_render_model();
-    model->load(verticies, elements);
-
-    return make_tuple(model, std::move(triangles));
-}
-#endif
 CardinalDirection cardinal_direction_from(const char * str) {
     auto seq = [str](const char * s) { return !::strcmp(str, s); };
     using Cd = CardinalDirection;
@@ -565,6 +301,51 @@ void WallTileFactoryBaseN::make_physical_triangles
                    split_opt, add_triangle);
 }
 
+/* private */ void InWallTileFactory::make_triangles
+    (const Slopes & elvs, Real thershold, SplitOpt split_opt,
+     const TriangleAdder & add_triangle) const
+{
+    auto make_triangles = [this] {
+        using Cd = CardinalDirection;
+        switch (direction()) {
+        case Cd::ne: return northeast_in_corner_split;
+        case Cd::nw: return northwest_in_corner_split;
+        case Cd::se: return southeast_in_corner_split;
+        case Cd::sw: return southwest_in_corner_split;
+        default: break;
+        }
+        throw BadBranchException{__LINE__, __FILE__};
+    } ();
+#   if 0
+    auto list = { elvs_.ne, elvs_.nw, elvs_.se, elvs_.sw };
+    using cul::is_real;
+    auto itr = std::find_if(list.begin(), list.end(), is_real<Real>);
+    assert(itr != list.end());
+    auto known_quantity = *itr;
+    auto elvs = elvs_;
+    std::array knowns   { &elvs.ne, &elvs.nw, &elvs.se, &elvs.sw };
+    std::array unknowns { &elvs.ne, &elvs.nw, &elvs.se, &elvs.sw };
+    std::transform(knowns.begin(), knowns.end(), knowns.begin(), [](Real * ptr) {
+        return is_real(*ptr) ? ptr : nullptr;
+    });
+    std::transform(unknowns.begin(), unknowns.end(), unknowns.begin(), [](Real * ptr) {
+        return !is_real(*ptr) ? ptr : nullptr;
+    });
+    for (auto * ptr : knowns) {
+        if (ptr)
+            *ptr = k_inf;
+    }
+    for (auto * ptr : unknowns) {
+        if (ptr)
+            *ptr = known_quantity;
+    }
+#   endif
+
+    make_triangles(
+        elvs.nw, elvs.ne, elvs.sw, elvs.se, thershold, split_opt,
+        add_triangle);
+}
+
 /* private */ void OutWallTileFactory::make_triangles
     (const Slopes & elvs, Real thershold, SplitOpt split_opt,
      const TriangleAdder & add_triangle) const
@@ -572,10 +353,10 @@ void WallTileFactoryBaseN::make_physical_triangles
     auto make_triangles = [this] {
         using Cd = CardinalDirection;
         switch (direction()) {
-        case Cd::ne: return northeast_corner_split;
-        case Cd::nw: return northwest_corner_split;
-        case Cd::se: return southeast_corner_split;
-        case Cd::sw: return southwest_corner_split;
+        case Cd::ne: return northeast_out_corner_split;
+        case Cd::nw: return northwest_out_corner_split;
+        case Cd::se: return southeast_out_corner_split;
+        case Cd::sw: return southwest_out_corner_split;
         default: break;
         }
         throw BadBranchException{__LINE__, __FILE__};
@@ -699,7 +480,92 @@ void west_east_split
          make_triangle_transformer(invert_x, f));
 }
 
-void northwest_corner_split
+void northwest_in_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f)
+{
+    // only one maybe non-real
+    using cul::is_real;
+    bool can_only_do_top =
+            is_real(north_east_y) &&  is_real(north_west_y)
+        &&  is_real(south_west_y) && !is_real(south_east_y);
+    bool are_all_real =
+           is_real(north_east_y) && is_real(north_west_y)
+        && is_real(south_west_y) && is_real(south_east_y);
+    if (   (opt & ~k_top_only)
+        && can_only_do_top)
+    {
+        throw InvArg{"northwest_in_corner_split: "};
+    }
+    if (   are_all_real
+        && (   south_east_y < north_west_y || south_east_y < north_east_y
+            || south_east_y < south_west_y))
+    {
+        throw InvArg{"northwest_in_corner_split: south_east_y is assumed to be "
+                     "the top's elevation, method not explicitly written to "
+                     "handle south east *not* being the top"};
+    }
+    // amount of top space when should follow out corner:
+    // "late division, less top space, early division... more"
+    // elevation assignments are different than out corners
+    // the top "flat's" depth/width remain equal regardless where the division
+    // is placed
+    // divisions are place on different lines, that is between:
+    // - nw and ne
+    // - nw and sw
+    // the "control" points are:
+    Vector nw          {       -0.5, north_west_y,          0.5};
+    Vector center_floor{division_xz, north_west_y, -division_xz};
+    Vector center_top  {division_xz, south_east_y, -division_xz};
+    Vector nw_ne_floor {division_xz, north_west_y,          0.5};
+    Vector nw_ne_top   {division_xz, north_east_y,          0.5};
+    Vector nw_sw_floor {       -0.5, north_west_y, -division_xz};
+    Vector nw_sw_top   {       -0.5, north_east_y, -division_xz};
+    Vector se          {        0.5, south_east_y,         -0.5};
+    Vector sw          {       -0.5, south_west_y,         -0.5};
+    Vector ne          {        0.5, north_east_y,          0.5};
+
+    // they're so f***ing symmetric there's gotta be a way to merge
+    // implementations
+    if (opt & k_top_only && !are_very_close(division_xz, 0.5)) {
+        // top is the relatively more complex shape here
+        // four triangles
+        f(Triangle{ne, center_top, se});
+        f(Triangle{sw, center_top, se});
+        if (!are_very_close(division_xz, -0.5)) {
+            f(Triangle{ne, center_top, nw_ne_top});
+            f(Triangle{sw, center_top, nw_sw_top});
+        }
+    }
+
+    if (opt & k_bottom_only && !are_very_close(division_xz, 0.5)) {
+        f(Triangle{nw, nw_ne_floor, center_floor});
+        f(Triangle{nw, nw_sw_floor, center_floor});
+    }
+
+    if (opt & k_wall_only && !are_very_close(division_xz, 0.5)) {
+        make_linear_triangle_strip(nw_ne_top, nw_ne_floor, center_top, center_floor, 1, f);
+        make_linear_triangle_strip(nw_sw_top, nw_sw_floor, center_top, center_floor, 1, f);
+    }
+}
+
+void southwest_in_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f) {}
+
+void northeast_in_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f) {}
+
+void southeast_in_corner_split
+    (Real north_west_y, Real north_east_y,
+     Real south_west_y, Real south_east_y,
+     Real division_xz, SplitOpt opt, const TriangleAdder & f) {}
+
+void northwest_out_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
@@ -715,19 +581,22 @@ void northwest_corner_split
     if (   (opt & ~k_top_only)
         && can_only_do_top)
     {
-        throw InvArg{"northwest_corner_split: "};
+        throw InvArg{"northwest_out_corner_split: "};
     }
     if (   are_all_real
         && (   south_east_y < north_west_y || south_east_y < north_east_y
             || south_east_y < south_west_y))
     {
-        throw InvArg{"northwest_corner_split: south_east_y is assumed to be "
+        throw InvArg{"northwest_out_corner_split: south_east_y is assumed to be "
                      "the top's elevation, method not explicitly written to "
                      "handle south east *not* being the top"};
     }
     // late division, less top space, early division... more
     // the top "flat's" depth/width remain equal regardless where the division
     // is placed
+    // divisions are placed between:
+    // - ne, and se
+    // - sw, and se
     // the "control" points are:
     // nw corner, floor, top
     Vector nw_corner{       -0.5, north_west_y,          0.5};
@@ -772,38 +641,38 @@ void northwest_corner_split
 }
 
 // can just exploit symmetry to implement the rest
-void southwest_corner_split
+void southwest_out_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
     auto invert_z = [](const Vector & r)
         { return Vector{r.x, r.y, -r.z}; };
-    northwest_corner_split
+    northwest_out_corner_split
         (south_west_y, south_east_y, north_west_y, north_east_y, division_xz,
          opt, make_triangle_transformer(invert_z, f));
 }
 
-void northeast_corner_split
+void northeast_out_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
     auto invert_x = [](const Vector & r)
         { return Vector{-r.x, r.y, r.z}; };
-    northwest_corner_split
+    northwest_out_corner_split
         (north_east_y, north_west_y, south_east_y, south_west_y, division_xz,
          opt, make_triangle_transformer(invert_x, f));
 }
 
-void southeast_corner_split
+void southeast_out_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
     auto invert_xz = [](const Vector & r)
         { return Vector{-r.x, r.y, -r.z}; };
-    northwest_corner_split
+    northwest_out_corner_split
         (south_east_y, south_west_y, north_east_y, north_west_y, division_xz,
          opt, make_triangle_transformer(invert_xz, f));
 }
