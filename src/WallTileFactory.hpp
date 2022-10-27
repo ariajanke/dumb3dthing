@@ -23,6 +23,7 @@
 #include "TileFactory.hpp"
 #include "RenderModel.hpp"
 
+#include <bitset>
 #include <iostream>
 
 class TranslatableTileFactory : public TileFactory {
@@ -160,9 +161,8 @@ public:
     Slopes tile_elevations() const final {
         using Cd = CardinalDirection;
         auto is_known_corner = [this] {
-            auto knowns = make_known_corners(m_dir);
-            return [knowns] (Cd dir)
-                { return knowns[corner_index(dir)]; };
+            auto knowns = make_known_corners_();
+            return [knowns] (Cd dir) { return knowns[dir]; };
         } ();
 
         auto elevation_for_corner = [this, &is_known_corner] {
@@ -180,9 +180,12 @@ public:
     Slopes computed_tile_elevations(const NeighborInfo & ninfo) const {
         using Cd = CardinalDirection;
         auto slopes = tile_elevations();
-        auto update_corner = [&ninfo] (Real & x, Cd dir) {
+        auto update_corner = [&ninfo, this] (Real & x, Cd dir) {
             if (cul::is_real(x)) return;
             x = ninfo.neighbor_elevation(dir);
+            if (cul::is_real(x)) return;
+            // fallback!
+            x = known_elevation();
         };
         update_corner(slopes.nw, Cd::nw);
         update_corner(slopes.ne, Cd::ne);
@@ -281,23 +284,68 @@ protected:
     CardinalDirection direction() const noexcept
         { return m_dir; }
 
-    static int corner_index(CardinalDirection dir) {
-        using Cd = CardinalDirection;
-        switch (dir) {
-        case Cd::nw: return 0;
-        case Cd::sw: return 1;
-        case Cd::se: return 2;
-        case Cd::ne: return 3;
-        default: break;
+    static int corner_index(CardinalDirection dir)
+        { return KnownCorners::corner_index(dir); }
+
+    class KnownCorners final {
+    public:
+        KnownCorners & set(CardinalDirection dir, bool val) {
+            m_values[corner_index(dir)] = val;
+            return *this;
         }
-        throw BadBranchException{__LINE__, __FILE__};
-    }
-#   if 0 // will be back
-    virtual std::array<bool, 4> make_known_corners_() const = 0;
+
+        auto & nw(bool val)
+            { return set(CardinalDirection::nw, val); }
+
+        auto & sw(bool val)
+            { return set(CardinalDirection::sw, val); }
+
+        auto & ne(bool val)
+            { return set(CardinalDirection::ne, val); }
+
+        auto & se(bool val)
+            { return set(CardinalDirection::se, val); }
+
+        bool operator [] (CardinalDirection dir) const
+            { return m_values[corner_index(dir)]; }
+#       if 0
+        auto & invert() {
+            m_values.flip();
+            return *this;
+        }
+#       endif
+        static int corner_index(CardinalDirection dir) {
+            using Cd = CardinalDirection;
+            switch (dir) {
+            case Cd::nw: return 0;
+            case Cd::sw: return 1;
+            case Cd::se: return 2;
+            case Cd::ne: return 3;
+            default: break;
+            }
+            throw BadBranchException{__LINE__, __FILE__};
+        }
+
+    private:
+        std::bitset<4> m_values;
+    };
+
+    virtual KnownCorners make_known_corners_() const = 0;
 
     std::array<Tuple<bool, CardinalDirection>, 4>
-            make_known_corners_with_preposition_() const;
-#   endif
+            make_known_corners_with_preposition_() const
+    {
+        using Cd = CardinalDirection;
+        auto knowns = make_known_corners_();
+        return {
+            make_tuple(knowns[Cd::ne], Cd::ne),
+            make_tuple(knowns[Cd::nw], Cd::nw),
+            make_tuple(knowns[Cd::sw], Cd::sw),
+            make_tuple(knowns[Cd::se], Cd::se),
+        };
+    }
+
+#   if 0
     // too inflexible, can I change this to a virtual instance method?
     // (two call sites, both from instances)
     static std::array<bool, 4> make_known_corners(CardinalDirection dir) {
@@ -315,6 +363,7 @@ protected:
         switch (dir) {
         // a north wall, all point on the south are known
         case Cd::n : return mk_rv(false, true , true , false);
+            KnownCorners{}.set(Cd::nw, true);
         case Cd::s : return mk_rv(true , false, false, true );
         case Cd::e : return mk_rv(true , true , false, false);
         case Cd::w : return mk_rv(false, false, true , true );
@@ -340,7 +389,7 @@ protected:
             make_tuple(knowns[corner_index(Cd::se)], Cd::se),
         };
     }
-
+#   endif
     Real known_elevation() const
         { return translation().y + 1; }
 
@@ -349,7 +398,7 @@ protected:
         key.direction = m_dir;
 
         const auto known_elevation = translation().y + 1;
-        for (auto [known, corner] : make_known_corners_with_preposition(m_dir)) {
+        for (auto [known, corner] : make_known_corners_with_preposition_()) {
             // walls are only generated for dips on "unknown corners"
             // if a neighbor elevation is unknown, then no wall it created for that
             // corner (which can very easily mean no wall are generated on any "dip"
@@ -453,6 +502,22 @@ class TwoWayWallTileFactory final : public WallTileFactoryBaseN {
     }
 
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
+
+    KnownCorners make_known_corners_() const final {
+        using Cd = CardinalDirection;
+        using Corners = KnownCorners;
+        switch (direction()) {
+        case Cd::n:
+            return Corners{}.nw(false).sw(true ).se(true ).ne(false);
+        case Cd::s:
+            return Corners{}.nw(true ).sw(false).se(false).ne(true );
+        case Cd::e:
+            return Corners{}.nw(true ).sw(true ).se(false).ne(false);
+        case Cd::w:
+            return Corners{}.nw(false).sw(false).se(true ).ne(true );
+        default: throw BadBranchException{__LINE__, __FILE__};
+        }
+    }
 };
 
 // in wall
@@ -485,10 +550,54 @@ class InWallTileFactory final : public CornerWallTileFactory {
     // one unknown corner
 
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
+
+    KnownCorners make_known_corners_() const final;
 };
 
 class OutWallTileFactory final : public CornerWallTileFactory {
+
+    static KnownCorners make_known_corners_(CardinalDirection dir_) {
+        using Cd = CardinalDirection;
+        using Corners = KnownCorners;
+        switch (dir_) {
+        case Cd::nw:
+            return Corners{}.nw(false).sw(false).se(true ).ne(false);
+        case Cd::sw:
+            return Corners{}.nw(false).sw(false).se(false).ne(true );
+        case Cd::se:
+            return Corners{}.nw(true ).sw(false).se(false).ne(false);
+        case Cd::ne:
+            return Corners{}.nw(false).sw(true ).se(false).ne(false);
+        default: throw std::invalid_argument{"Bad direction"};
+        }
+    }
+
     // one known corner
     // three unknown corners
+
+    // TODO: out wall has different known corners for the same direction values
+    //       so turning that into a virtual function seems to be a feasible
+    //       solution
+
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
+
+    KnownCorners make_known_corners_() const final {
+        return make_known_corners_(direction());
+    }
 };
+
+inline InWallTileFactory::KnownCorners InWallTileFactory::make_known_corners_() const {
+    using Cd = CardinalDirection;
+    using Corners = KnownCorners;
+    switch (direction()) {
+    case Cd::nw:
+        return Corners{}.nw(false).sw(true ).se(true ).ne(true );
+    case Cd::sw:
+        return Corners{}.nw(true ).sw(false).se(true ).ne(true );
+    case Cd::se:
+        return Corners{}.nw(true ).sw(true ).se(false).ne(true );
+    case Cd::ne:
+        return Corners{}.nw(true ).sw(true ).se(true ).ne(false);
+    default: throw std::invalid_argument{"Bad direction"};
+    }
+}

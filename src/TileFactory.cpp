@@ -52,9 +52,10 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const 
     using Cd = CardinalDirection;
 
     using VecCdTup = Tuple<Vector2I, Cd>;
-    auto select_el = [this] (const std::array<VecCdTup, 2> & arr) {
+    static constexpr int k_neighbor_count = 3;
+    auto select_el = [this] (const std::array<VecCdTup, k_neighbor_count> & arr) {
         // I miss map, transform sucks :c
-        std::array<Real, 2> vals;
+        std::array<Real, k_neighbor_count> vals;
         std::transform(arr.begin(), arr.end(), vals.begin(), [this] (const VecCdTup & tup) {
             auto [r, d] = tup; {}
             return neighbor_elevation(r, d);
@@ -70,22 +71,26 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const 
     case Cd::nw:
         return select_el(std::array{
             make_tuple(Vector2I{ 0, -1}, Cd::sw),
-            make_tuple(Vector2I{-1 , 0}, Cd::ne)
+            make_tuple(Vector2I{-1 , 0}, Cd::ne),
+            make_tuple(Vector2I{-1 ,-1}, Cd::se)
         });
     case Cd::sw:
         return select_el(std::array{
             make_tuple(Vector2I{-1,  0}, Cd::se),
-            make_tuple(Vector2I{ 0,  1}, Cd::nw)
+            make_tuple(Vector2I{ 0,  1}, Cd::nw),
+            make_tuple(Vector2I{-1 , 1}, Cd::ne)
         });
     case Cd::se:
         return select_el(std::array{
-            make_tuple(Vector2I{ 1,  0}, Cd::sw),
-            make_tuple(Vector2I{ 0 , 1}, Cd::ne)
+            make_tuple(Vector2I{ 1, 0}, Cd::sw),
+            make_tuple(Vector2I{ 0, 1}, Cd::ne),
+            make_tuple(Vector2I{ 1, 1}, Cd::nw)
         });
     case Cd::ne:
         return select_el(std::array{
             make_tuple(Vector2I{ 1,  0}, Cd::nw),
-            make_tuple(Vector2I{ 0, -1}, Cd::se)
+            make_tuple(Vector2I{ 0, -1}, Cd::se),
+            make_tuple(Vector2I{ 1, -1}, Cd::sw)
         });
     default: break;
     }

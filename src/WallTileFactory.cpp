@@ -275,10 +275,15 @@ void WallTileFactoryBaseN::make_physical_triangles
 {
     auto elvs = computed_tile_elevations(neighborhood);
     auto offset = grid_position_to_v3(neighborhood.tile_location());
-    make_triangles(
-        elvs, k_physical_dip_thershold, k_both_flats_and_wall,
-        TriangleAdder::make([&adder, offset](const Triangle & triangle)
-    { adder.add_triangle(triangle.move(offset)); }));
+    try {
+        make_triangles(
+            elvs, k_physical_dip_thershold, k_both_flats_and_wall,
+            TriangleAdder::make([&adder, offset](const Triangle & triangle)
+        { adder.add_triangle(triangle.move(offset)); }));
+    }  catch (...) {
+        computed_tile_elevations(neighborhood)        ;
+    }
+
 }
 
 /* private */ void TwoWayWallTileFactory::make_triangles
@@ -539,7 +544,7 @@ void northwest_in_corner_split
         }
     }
 
-    if (opt & k_bottom_only && !are_very_close(division_xz, 0.5)) {
+    if (opt & k_bottom_only && !are_very_close(division_xz, -0.5)) {
         f(Triangle{nw, nw_ne_floor, center_floor});
         f(Triangle{nw, nw_sw_floor, center_floor});
     }
