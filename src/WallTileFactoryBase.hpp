@@ -187,6 +187,7 @@ public:
     // - entities
     //   - contain graphics
     using Triangle = TriangleSegment;
+    using KnownCorners = CornersArray<bool>;
     enum SplitOpt {
         k_bottom_only         = 1 << 0,
         k_top_only            = 1 << 1,
@@ -212,7 +213,6 @@ public:
     Slopes tile_elevations() const final;
 
 protected:
-    using KnownCorners = CornersArray<bool>;
     using GraphicMap = std::map<WallTileGraphicKey, WeakPtr<const RenderModel>>;
 
     static constexpr const Real k_visual_dip_thershold   = -0.25;

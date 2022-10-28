@@ -19,25 +19,17 @@
 *****************************************************************************/
 
 #include "WallTileFactory.hpp"
-#include "tiled-map-loader.hpp"
-#include "RenderModel.hpp"
-
-#include <numeric>
-
-#include <cstring>
 
 namespace {
 
 using namespace cul::exceptions_abbr;
 using Triangle = TriangleSegment;
 using SplitOpt = WallTileFactoryBase::SplitOpt;
+using KnownCorners = WallTileFactoryBase::KnownCorners;
 
-constexpr const auto k_flats_only          =
-    static_cast<SplitOpt>(SplitOpt::k_bottom_only | SplitOpt::k_top_only);
-constexpr const auto k_bottom_only         = SplitOpt::k_bottom_only;
-constexpr const auto k_top_only            = SplitOpt::k_top_only;
-constexpr const auto k_wall_only           = SplitOpt::k_wall_only;
-constexpr const auto k_both_flats_and_wall = SplitOpt::k_both_flats_and_wall;
+constexpr const auto k_bottom_only = SplitOpt::k_bottom_only;
+constexpr const auto k_top_only    = SplitOpt::k_top_only;
+constexpr const auto k_wall_only   = SplitOpt::k_wall_only;
 
 void east_west_split
     (Real north_east_y, Real north_west_y,
@@ -105,7 +97,31 @@ void southeast_out_corner_split
 
 } // end of <anonymous> namespace
 
-// ------------------------------- <! messy !> --------------------------------
+// ----------------------------------------------------------------------------
+
+/* private */ bool TwoWayWallTileFactory::is_okay_wall_direction
+    (CardinalDirection dir) const noexcept
+{
+    using Cd = CardinalDirection;
+    constexpr static std::array k_list = { Cd::n, Cd::e, Cd::s, Cd::w };
+    return std::find(k_list.begin(), k_list.end(), dir) != k_list.end();
+}
+
+/* private */ KnownCorners TwoWayWallTileFactory::make_known_corners() const {
+    using Cd = CardinalDirection;
+    using Corners = KnownCorners;
+    switch (direction()) {
+    case Cd::n:
+        return Corners{}.nw(false).sw(true ).se(true ).ne(false);
+    case Cd::s:
+        return Corners{}.nw(true ).sw(false).se(false).ne(true );
+    case Cd::e:
+        return Corners{}.nw(true ).sw(true ).se(false).ne(false);
+    case Cd::w:
+        return Corners{}.nw(false).sw(false).se(true ).ne(true );
+    default: throw BadBranchException{__LINE__, __FILE__};
+    }
+}
 
 /* private */ void TwoWayWallTileFactory::make_triangles
     (const Slopes & elvs, Real thershold, SplitOpt split_opt,
@@ -127,6 +143,36 @@ void southeast_out_corner_split
                    split_opt, add_triangle);
 }
 
+// ----------------------------------------------------------------------------
+
+bool CornerWallTileFactory::is_okay_wall_direction
+    (CardinalDirection dir) const noexcept
+{
+    using Cd = CardinalDirection;
+    constexpr static std::array k_list = { Cd::ne, Cd::nw, Cd::se, Cd::sw };
+    return std::find(k_list.begin(), k_list.end(), dir) != k_list.end();
+}
+
+// ----------------------------------------------------------------------------
+
+/* private */ InWallTileFactory::KnownCorners
+    InWallTileFactory::make_known_corners() const
+{
+    using Cd = CardinalDirection;
+    using Corners = KnownCorners;
+    switch (direction()) {
+    case Cd::nw:
+        return Corners{}.nw(false).sw(true ).se(true ).ne(true );
+    case Cd::sw:
+        return Corners{}.nw(true ).sw(false).se(true ).ne(true );
+    case Cd::se:
+        return Corners{}.nw(true ).sw(true ).se(false).ne(true );
+    case Cd::ne:
+        return Corners{}.nw(true ).sw(true ).se(true ).ne(false);
+    default: throw std::invalid_argument{"Bad direction"};
+    }
+}
+
 /* private */ void InWallTileFactory::make_triangles
     (const Slopes & elvs, Real thershold, SplitOpt split_opt,
      const TriangleAdder & add_triangle) const
@@ -146,6 +192,24 @@ void southeast_out_corner_split
     make_triangles(
         elvs.nw, elvs.ne, elvs.sw, elvs.se, thershold, split_opt,
         add_triangle);
+}
+
+// ----------------------------------------------------------------------------
+
+KnownCorners OutWallTileFactory::make_known_corners() const {
+    using Cd = CardinalDirection;
+    using Corners = KnownCorners;
+    switch (direction()) {
+    case Cd::nw:
+        return Corners{}.nw(false).sw(false).se(true ).ne(false);
+    case Cd::sw:
+        return Corners{}.nw(false).sw(false).se(false).ne(true );
+    case Cd::se:
+        return Corners{}.nw(true ).sw(false).se(false).ne(false);
+    case Cd::ne:
+        return Corners{}.nw(false).sw(true ).se(false).ne(false);
+    default: throw std::invalid_argument{"Bad direction"};
+    }
 }
 
 /* private */ void OutWallTileFactory::make_triangles

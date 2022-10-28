@@ -6,7 +6,7 @@
   <property name="loader:south" value="whole:test-map2.tmx"/>
   <property name="loader:west" value="whole:test-map2.tmx"/>
  </properties>
- <tileset firstgid="1" source="test-tileset.tsx"/>
+ <tileset firstgid="1" source="test-tileset-rv2.tsx"/>
  <layer id="1" name="Tile Layer 1" width="40" height="40">
   <data encoding="csv">
 38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,
