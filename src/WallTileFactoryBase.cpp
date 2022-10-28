@@ -92,16 +92,17 @@ void TranslatableTileFactory::setup
 {
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
-    if (const auto * val = find_property("translation", properties)) {
-        auto list = { &m_translation.x, &m_translation.y, &m_translation.z };
-        auto itr = list.begin();
-        for (auto value_str : split_range(val, val + ::strlen(val),
-                                          is_comma, make_trim_whitespace<const char *>()))
-        {
-            bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), **itr);
-            assert(is_num);
-            ++itr;
-        }
+    const auto * val = find_property("translation", properties);
+    if (!val) return;
+
+    auto list = { &m_translation.x, &m_translation.y, &m_translation.z };
+    auto itr = list.begin();
+    for (auto value_str : split_range(val, val + ::strlen(val),
+                                      is_comma, make_trim_whitespace<const char *>()))
+    {
+        bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), **itr);
+        assert(is_num);
+        ++itr;
     }
 }
 

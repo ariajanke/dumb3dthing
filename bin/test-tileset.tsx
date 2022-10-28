@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.8" tiledversion="1.8.0" name="text-tileset-rv2" tilewidth="32" tileheight="32" tilecount="90" columns="9">
- <image source="test-tileset-rv2.png" width="288" height="320"/>
+<tileset version="1.8" tiledversion="1.8.0" name="test-tileset" tilewidth="32" tileheight="32" tilecount="90" columns="9">
+ <image source="test-tileset.png" width="288" height="320"/>
  <tile id="0" type="in-ramp">
   <properties>
    <property name="direction" value="nw"/>

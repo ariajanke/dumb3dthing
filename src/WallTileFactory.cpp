@@ -248,6 +248,14 @@ template <typename TransformingFunc, typename PassOnFunc>
         { pf(Triangle{tf(tri.point_a()), tf(tri.point_b()), tf(tri.point_c())}); });
 }
 
+Vector xz_swap_roles(const Vector & r) { return Vector{r.z, r.y, r.x}; };
+
+Vector invert_z(const Vector & r) { return Vector{r.x, r.y, -r.z}; }
+
+Vector invert_x(const Vector & r) { return Vector{-r.x, r.y, r.z}; }
+
+Vector invert_xz(const Vector & r) { return Vector{-r.x, r.y, -r.z}; }
+
 void east_west_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
@@ -256,8 +264,6 @@ void east_west_split
     // simply switch roles
     // east <-> north
     // west <-> south
-    auto xz_swap_roles = [] (const Vector & r)
-        { return Vector{r.z, r.y, r.x}; };
     north_south_split
         (south_east_y, north_east_y, south_west_y, north_west_y,
          division_x, opt,
@@ -327,8 +333,6 @@ void south_north_split
      Real south_west_y, Real south_east_y,
      Real division_z, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_z = [] (const Vector & r)
-        { return Vector{r.x, r.y, -r.z}; };
     north_south_split
         (south_west_y, south_east_y, north_west_y, north_east_y, division_z, opt,
          make_triangle_transformer(invert_z, f));
@@ -339,8 +343,6 @@ void west_east_split
      Real south_west_y, Real south_east_y,
      Real division_x, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_x = [] (const Vector & r)
-        { return Vector{-r.x, r.y, r.z}; };
     east_west_split
         (north_east_y, north_west_y, south_east_y, south_west_y, division_x, opt,
          make_triangle_transformer(invert_x, f));
@@ -421,8 +423,6 @@ void southwest_in_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_z = [](const Vector & r)
-        { return Vector{r.x, r.y, -r.z}; };
     northwest_in_corner_split
         (south_west_y, south_east_y, north_west_y, north_east_y, division_xz,
          opt, make_triangle_transformer(invert_z, f));
@@ -433,8 +433,6 @@ void northeast_in_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_x = [](const Vector & r)
-        { return Vector{-r.x, r.y, r.z}; };
     northwest_in_corner_split
         (north_east_y, north_west_y, south_east_y, south_west_y, division_xz,
          opt, make_triangle_transformer(invert_x, f));
@@ -445,8 +443,6 @@ void southeast_in_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_xz = [](const Vector & r)
-        { return Vector{-r.x, r.y, -r.z}; };
     northwest_in_corner_split
         (south_east_y, south_west_y, north_east_y, north_west_y, division_xz,
          opt, make_triangle_transformer(invert_xz, f));
@@ -533,8 +529,6 @@ void southwest_out_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_z = [](const Vector & r)
-        { return Vector{r.x, r.y, -r.z}; };
     northwest_out_corner_split
         (south_west_y, south_east_y, north_west_y, north_east_y, division_xz,
          opt, make_triangle_transformer(invert_z, f));
@@ -545,8 +539,6 @@ void northeast_out_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_x = [](const Vector & r)
-        { return Vector{-r.x, r.y, r.z}; };
     northwest_out_corner_split
         (north_east_y, north_west_y, south_east_y, south_west_y, division_xz,
          opt, make_triangle_transformer(invert_x, f));
@@ -557,8 +549,6 @@ void southeast_out_corner_split
      Real south_west_y, Real south_east_y,
      Real division_xz, SplitOpt opt, const TriangleAdder & f)
 {
-    auto invert_xz = [](const Vector & r)
-        { return Vector{-r.x, r.y, -r.z}; };
     northwest_out_corner_split
         (south_east_y, south_west_y, north_east_y, north_west_y, division_xz,
          opt, make_triangle_transformer(invert_xz, f));

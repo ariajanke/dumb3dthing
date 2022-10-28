@@ -218,11 +218,25 @@ protected:
     static constexpr const Real k_visual_dip_thershold   = -0.25;
     static constexpr const Real k_physical_dip_thershold = -0.5;
 
+    CardinalDirection direction() const noexcept;
+
+    virtual bool is_okay_wall_direction(CardinalDirection) const noexcept = 0;
+
+    virtual KnownCorners make_known_corners() const = 0;
+
+    virtual void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const = 0;
+
+private:
     template <typename Func>
     static auto make_triangle_to_verticies(Func && f)
         { return TriangleToFloorVerticies::make(std::move(f)); }
 
-    CardinalDirection direction() const noexcept;
+    // v belongs in a base class?
+    TileTexture floor_texture() const;
+
+    WallTileGraphicKey graphic_key(const NeighborInfo & ninfo) const;
+
+    Real known_elevation() const;
 
     SharedPtr<const RenderModel> ensure_bottom_model
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
@@ -236,19 +250,9 @@ protected:
         ensure_wall_graphics
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
 
-    TileTexture floor_texture() const;
-
-    WallTileGraphicKey graphic_key(const NeighborInfo & ninfo) const;
-
-    virtual bool is_okay_wall_direction(CardinalDirection) const noexcept = 0;
-
-    Real known_elevation() const;
-
     SharedPtr<const RenderModel>
         make_bottom_graphics
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
-
-    virtual KnownCorners make_known_corners() const = 0;
 
     std::array<Tuple<bool, CardinalDirection>, 4>
         make_known_corners_with_preposition() const;
@@ -263,21 +267,18 @@ protected:
     auto make_triangle_to_floor_verticies() const
         { return TriangleToFloorVerticies{floor_texture(), -translation().y}; }
 
-    virtual void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const = 0;
-
     SharedPtr<const RenderModel>
         make_wall_graphics
         (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
 
-    TileTexture wall_texture() const;
-
-private:
     CardinalDirection verify_okay_wall_direction(CardinalDirection dir) const {
         if (!is_okay_wall_direction(dir)) {
             throw std::invalid_argument{"bad wall"};
         }
         return dir;
     }
+
+    TileTexture wall_texture() const;
 
     CardinalDirection m_dir = CardinalDirection::ne;
     Vector2I m_tileset_location;

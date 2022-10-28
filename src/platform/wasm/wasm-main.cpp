@@ -26,7 +26,7 @@
 
 #include <emscripten.h>
 
-#include <common/Util.hpp>
+#include <ariajanke/cul/Util.hpp>
 
 #include <set>
 #include <iostream>
@@ -289,7 +289,9 @@ public:
 
     void render_scene(const Scene & scene) final {
         if (Entity e{m_camera_ent}) {
+#           if 0
             from_js_log_line("[cpp]: setting camera");
+#           endif
             const auto & cam = e.get<Camera>();
             // something with camera...
             from_js_view_matrix_look_at(
@@ -306,13 +308,19 @@ public:
             if (auto * translation = ent.ptr<Translation>()) {
                 const auto & r = translation->value;
                 from_js_model_matrix_translate(r.x, r.y, r.z);
+#               if 0
                 from_js_log_line("[cpp]: applying translation");
+#               endif
             }
             if (auto * y_rotation = ent.ptr<YRotation>()) {
                 from_js_model_matrix_rotate_y(y_rotation->value);
+#               if 0
                 from_js_log_line("[cpp]: applying y rotation");
+#               endif
             }
+#           if 0
             from_js_log_line("[cpp]: rendering model");
+#           endif
             auto [texture, render_model] = ent.get<SharedCPtr<Texture>, SharedCPtr<RenderModel>>();
             from_js_model_matrix_apply();
             texture->bind_texture();
@@ -347,8 +355,6 @@ static UniquePtr<Driver> s_driver;
 } // end of <anonymous> namespace
 
 int main() {
-    using std::cout, std::endl;
-    cout << "Hello World!\n" << endl;
     return 0;
 }
 
@@ -379,14 +385,18 @@ EMSCRIPTEN_KEEPALIVE void to_js_update(float et_in_seconds) {
 }
 
 EMSCRIPTEN_KEEPALIVE void * to_js_prepare_content_buffer(void * handle, std::size_t length) {
+#   if 0
     from_js_log_line("[cpp]: prepared buffer for future");
+#   endif
     auto & future = *reinterpret_cast<WebFutureString *>(handle);
     future.set_aside(length);
     return future.data();
 }
 
 EMSCRIPTEN_KEEPALIVE void to_js_mark_fulfilled(void * handle) {
+#   if 0
     from_js_log_line("[cpp]: mark future as fulfilled");
+#   endif
     auto & future = *reinterpret_cast<WebFutureString *>(handle);
     future.mark_as_fulfilled();
 }
