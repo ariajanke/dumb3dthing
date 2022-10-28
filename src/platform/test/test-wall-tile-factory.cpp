@@ -123,7 +123,7 @@ void remove_non_top_flats(std::vector<Triangle> & triangles) {
 } // end of <anonymous> namespace
 
 bool run_wall_tile_factory_tests() {
-#   if 0
+
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
     using namespace cul::ts;
     TestSuite suite;
@@ -200,6 +200,7 @@ bool run_wall_tile_factory_tests() {
         auto res = ninfo.neighbor_elevation(CardinalDirection::nw);
         return test(cul::is_real(res));
     });
+#   if 0
     // elevations (dip heights) are okay for sample neighbor
     mark(suite).test([] {
         using Wtf = WallTileFactoryBase;
@@ -211,7 +212,7 @@ bool run_wall_tile_factory_tests() {
 #       if 0
                 make_sample_neighbor_info(tileset);
 #       endif
-        auto wed = Wtf::elevations_and_direction(ninfo, 1, CardinalDirection::n, Vector2I{0, 1});
+        auto wed = WallTileGraphicKey; Wtf::elevations_and_direction(ninfo, 1, CardinalDirection::n, Vector2I{0, 1});
         auto nw = wed.dip_heights[Wtf::corner_index(Cd::nw)];
         auto ne = wed.dip_heights[Wtf::corner_index(Cd::ne)];
         auto sw = wed.dip_heights[Wtf::corner_index(Cd::sw)];
@@ -276,7 +277,8 @@ bool run_wall_tile_factory_tests() {
                         && are_very_close(sw, 1) && are_very_close(se, 1));
         });
     });
-
+#   endif
+#   if 0
     suite.start_series("Wall Tile Factory :: Triangle Generation");
     // I'd like to test different divisions here
     set_context(suite, [] (TestSuite & suite, Unit & unit) {
@@ -572,8 +574,7 @@ bool run_wall_tile_factory_tests() {
     // I'd like test cases for...
     // corners
     // mid splits (where the wall is in the middle of the tile)
+#   endif
 #   undef mark
     return suite.has_successes_only();
-#   endif
-    return true;
 }
