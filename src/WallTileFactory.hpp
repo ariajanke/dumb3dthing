@@ -308,12 +308,7 @@ protected:
 
         bool operator [] (CardinalDirection dir) const
             { return m_values[corner_index(dir)]; }
-#       if 0
-        auto & invert() {
-            m_values.flip();
-            return *this;
-        }
-#       endif
+
         static int corner_index(CardinalDirection dir) {
             using Cd = CardinalDirection;
             switch (dir) {

@@ -558,17 +558,38 @@ void northwest_in_corner_split
 void southwest_in_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
-     Real division_xz, SplitOpt opt, const TriangleAdder & f) {}
+     Real division_xz, SplitOpt opt, const TriangleAdder & f)
+{
+    auto invert_z = [](const Vector & r)
+        { return Vector{r.x, r.y, -r.z}; };
+    northwest_in_corner_split
+        (south_west_y, south_east_y, north_west_y, north_east_y, division_xz,
+         opt, make_triangle_transformer(invert_z, f));
+}
 
 void northeast_in_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
-     Real division_xz, SplitOpt opt, const TriangleAdder & f) {}
+     Real division_xz, SplitOpt opt, const TriangleAdder & f)
+{
+    auto invert_x = [](const Vector & r)
+        { return Vector{-r.x, r.y, r.z}; };
+    northwest_in_corner_split
+        (north_east_y, north_west_y, south_east_y, south_west_y, division_xz,
+         opt, make_triangle_transformer(invert_x, f));
+}
 
 void southeast_in_corner_split
     (Real north_west_y, Real north_east_y,
      Real south_west_y, Real south_east_y,
-     Real division_xz, SplitOpt opt, const TriangleAdder & f) {}
+     Real division_xz, SplitOpt opt, const TriangleAdder & f)
+{
+    auto invert_xz = [](const Vector & r)
+        { return Vector{-r.x, r.y, -r.z}; };
+    northwest_in_corner_split
+        (south_east_y, south_west_y, north_east_y, north_west_y, division_xz,
+         opt, make_triangle_transformer(invert_xz, f));
+}
 
 void northwest_out_corner_split
     (Real north_west_y, Real north_east_y,
