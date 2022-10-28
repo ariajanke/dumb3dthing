@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include <common/VectorTraits.hpp>
+#include <ariajanke/cul/VectorTraits.hpp>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>

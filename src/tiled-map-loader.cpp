@@ -24,8 +24,9 @@
 #include "RenderModel.hpp"
 #include "Texture.hpp"
 #include "TileSet.hpp"
+#include "TileFactory.hpp"
 
-#include <common/StringUtil.hpp>
+#include <ariajanke/cul/StringUtil.hpp>
 
 #include <map>
 #include <unordered_map>
@@ -36,38 +37,11 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 
-using tinyxml2::XMLDocument;
 using TeardownTask = MapLoader::TeardownTask;
 using MapSide = MapEdgeLinks::Side;
 using TileRange = MapEdgeLinks::TileRange;
 
 } // end of <anonymous> namespace
-
-TiXmlIter::TiXmlIter(): el(nullptr), name(nullptr) {}
-
-TiXmlIter::TiXmlIter(const TiXmlElement * el_, const char * name_):
-    el(el_), name(name_) {}
-
-TiXmlIter & TiXmlIter::operator ++ ()
-    { el = el->NextSiblingElement(name); return *this; }
-
-bool TiXmlIter::operator != (const TiXmlIter & rhs) const
-    { return el != rhs.el; }
-
-const TiXmlElement & TiXmlIter::operator * () const
-    { return *el; }
-
-XmlRange::XmlRange(const TiXmlElement * el_, const char * name_):
-    m_beg(el_ ? el_->FirstChildElement(name_) : nullptr, name_) {}
-
-XmlRange::XmlRange(const TiXmlElement & el_, const char * name_):
-    m_beg(el_.FirstChildElement(name_), name_) {}
-
-TiXmlIter XmlRange::begin() const { return m_beg;       }
-
-TiXmlIter XmlRange::end()   const { return TiXmlIter{}; }
-
-// ----------------------------------------------------------------------------
 
 Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     (const Vector2I & map_offset)
@@ -111,9 +85,29 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                 std::vector<Entity> & m_entities;
             };
 
+            class GridIntfImpl final : public SlopesGridInterface {
+            public:
+                GridIntfImpl(const GidTidTranslator & translator, const Grid<int> & grid):
+                    m_translator(translator), m_grid(grid) {}
+
+                Slopes operator () (Vector2I r) const {
+                    static const Slopes k_all_inf{0, k_inf, k_inf, k_inf, k_inf};
+                    if (!m_grid.has_position(r)) return k_all_inf;
+                    auto [tid, tileset] = m_translator.gid_to_tid(m_grid(r));
+                    auto factory = (*tileset)(tid);
+                    if (!factory) return k_all_inf;
+                    return factory->tile_elevations();
+                }
+
+            private:
+                const GidTidTranslator & m_translator;
+                const Grid<int> & m_grid;
+            };
+
+            GridIntfImpl gridintf{m_tidgid_translator, m_layer};
             Impl etadder{entities, adder};
-            (*factory)(etadder,
-                    TileFactory::NeighborInfo{tileset, m_layer, r, map_offset},
+            (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, map_offset},
+                    // TileFactory::NeighborInfo{tileset, m_layer, r, map_offset},
                     callbacks.platform());
         });
         entities.back().add<
@@ -144,7 +138,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     static constexpr const std::size_t k_no_idx = std::string::npos;
     for (auto & [idx, future] : m_pending_tilesets) {
         if (!future->is_ready()) continue;
-        XMLDocument document;
+        TiXmlDocument document;
         auto contents = future->retrieve();
         document.Parse(contents.c_str());
         m_tilesets[idx]->load_information(*m_platform, *document.RootElement());
@@ -253,7 +247,7 @@ TileRange to_range
 bool is_colon(char c) { return c == ':'; }
 
 /* private */ void MapLoader::do_content_load(std::string && contents) {
-    XMLDocument document;
+    TiXmlDocument document;
     if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
         // ...idk
         throw RtError{"Problem parsing XML x.x"};

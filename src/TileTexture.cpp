@@ -18,16 +18,25 @@
 
 *****************************************************************************/
 
-#include "Texture.hpp"
+#include "TileTexture.hpp"
 
-#include <ariajanke/cul/Util.hpp>
+TileTexture::TileTexture
+    (Vector2 nw, Vector2 se):
+    m_nw(nw),
+    m_se(se)
+{}
 
-#include <string>
+TileTexture::TileTexture(Vector2I tileset_loc, const Size2 & tile_size) {
+    using cul::convert_to;
+    Vector2 offset{tileset_loc.x*tile_size.width, tileset_loc.y*tile_size.height};
+    m_nw = offset;
+    m_se = offset + convert_to<Vector2>(tile_size);
+}
 
-void Texture::load_from_file(const char * filename) {
-    using namespace cul::exceptions_abbr;
-    if (!load_from_file_no_throw(filename)) {
-        throw RtError{  std::string{"Texture::load_from_file: Failed to load texture \""}
-                      + filename + "\""};
-    }
+Vector2 TileTexture::texture_position_for
+    (const Vector2 & tile_normalized_location) const
+{
+    auto r = tile_normalized_location;
+    return Vector2{r.x*m_se.x + m_nw.x*(1 - r.x),
+                   r.y*m_se.y + m_nw.y*(1 - r.y)};
 }

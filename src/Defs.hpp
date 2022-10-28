@@ -20,9 +20,10 @@
 
 #pragma once
 
-#include <common/Grid.hpp>
-#include <common/VectorUtils.hpp>
-#include <common/Vector3.hpp>
+#include <ariajanke/cul/Grid.hpp>
+#include <ariajanke/cul/VectorUtils.hpp>
+#include <ariajanke/cul/Vector3.hpp>
+#include <ariajanke/cul/Util.hpp>
 
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
 #include <ariajanke/ecs3/HashTableEntity.hpp>
@@ -77,6 +78,8 @@ using Opt = ecs::Optional<T>;
 
 using cul::Grid;
 
+using cul::View;
+
 class TriangleSegment;
 class Texture;
 class RenderModel;
@@ -122,6 +125,8 @@ struct VectorLike {
     Vector operator * (Real scalar) const noexcept
         { return value*scalar; }
 
+    Vector & operator += (const Vector & r)
+        { return (value += r); }
 
     Vector value;
 };

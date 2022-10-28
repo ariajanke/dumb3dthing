@@ -21,7 +21,7 @@
 #include "test-functions.hpp"
 #include "../../TriangleSegment.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 namespace {
 
@@ -194,6 +194,11 @@ bool run_triangle_segment_tests() {
         TriangleSegment triangle{Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, 1}};
         auto res = triangle.intersection(a, b);
         return test(cul::is_solution(res));
+    });
+
+    mark(suite).test([] {
+        TriangleSegment triangle{Vector{-0.25, 1, 0.25}, Vector{-0.25, 1, 0.5}, Vector{0.5, 1, -0.5}};
+        return test(are_very_close(triangle.point_at(triangle.point_c_in_2d()), triangle.point_c()));
     });
 
 #   undef mark

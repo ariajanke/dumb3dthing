@@ -23,7 +23,7 @@
 #include "../../TriangleLinks.hpp"
 #include "../../PointAndPlaneDriver.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 bool run_triangle_links_tests() {
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE

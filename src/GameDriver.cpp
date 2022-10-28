@@ -26,8 +26,8 @@
 #include "Systems.hpp"
 #include "tiled-map-loader.hpp"
 
-#include <common/BezierCurves.hpp>
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/BezierCurves.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 #include <iostream>
 
@@ -265,7 +265,7 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
     return rv;
 }
 
-static constexpr const Vector k_player_start{4.5 + 40*49, 5.1, -18 - 40*49};
+static constexpr const Vector k_player_start{2, 5.1, 2};
 
 // model entity, physical entity
 Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
@@ -324,7 +324,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
         SharedCPtr<Texture>, SharedCPtr<RenderModel>, Translation,
         TranslationFromParent
     >() = make_tuple(
-        tx, model, Translation{},
+        tx, model, Translation{k_player_start},
         TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}
     );
 
@@ -340,7 +340,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
 
-    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map3.tmx";
     static constexpr const auto k_load_limit = 3;
 
     physics_ent.add<SharedPtr<EveryFrameTask>>() =
@@ -350,7 +350,7 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
          physics_ent]
         (TaskCallbacks & callbacks, Real) mutable
     {
-        static constexpr const auto k_base_map_size = 40;
+        static constexpr const auto k_base_map_size = 20;
         // if there's no teardown task... then it's pending
         for (auto & [gpos, loader, teardown] : loaded_maps) {
             if (teardown) continue;

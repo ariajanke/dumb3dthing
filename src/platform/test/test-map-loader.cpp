@@ -22,7 +22,7 @@
 #include "../../map-loader.hpp"
 #include "../../tiled-map-loader.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 #include <cstring>
 
@@ -96,19 +96,6 @@ bool run_map_loader_tests() {
     };
 
     using std::any_of, std::get;
-#   if 0
-    static auto any_point_arrangement_of = []
-        (const Triangle & tri, const std::array<Vector, 3> & pts)
-    {
-        auto make_pred = [] (const Vector & tri_pt) {
-            return [tri_pt](const Vector & r)
-                { return are_very_close(tri_pt, r); };
-        };
-        return    any_of(pts.begin(), pts.end(), make_pred(tri.point_a()))
-               && any_of(pts.begin(), pts.end(), make_pred(tri.point_b()))
-               && any_of(pts.begin(), pts.end(), make_pred(tri.point_c()));
-    };
-#   endif
     static auto make_driver_for_test_layout = [] {
         auto links = load_test_layout();
         for (const auto & link : links) {
@@ -179,7 +166,6 @@ bool run_map_loader_tests() {
         return test(any_point_arrangement_of(
             *get<PpOnSegment>(state).segment, k_expect_triangle));
     });
-    // land on...??? which triangle in the middle?
 
     // both must be done, no short circutting please!
     return static_cast<bool>(

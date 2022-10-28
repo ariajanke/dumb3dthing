@@ -18,16 +18,20 @@
 
 *****************************************************************************/
 
-#include "Texture.hpp"
+#pragma once
 
-#include <ariajanke/cul/Util.hpp>
+#include "Defs.hpp"
 
-#include <string>
+class TileTexture final {
+public:
+    TileTexture() {}
 
-void Texture::load_from_file(const char * filename) {
-    using namespace cul::exceptions_abbr;
-    if (!load_from_file_no_throw(filename)) {
-        throw RtError{  std::string{"Texture::load_from_file: Failed to load texture \""}
-                      + filename + "\""};
-    }
-}
+    TileTexture(Vector2 nw, Vector2 se);
+
+    TileTexture(Vector2I tileset_loc, const Size2 & tile_size);
+
+    Vector2 texture_position_for(const Vector2 & tile_normalized_location) const;
+
+private:
+    Vector2 m_nw, m_se;
+};

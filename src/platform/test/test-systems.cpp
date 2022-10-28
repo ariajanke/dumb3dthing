@@ -21,7 +21,7 @@
 #include "test-functions.hpp"
 #include "../../Systems.hpp"
 
-#include <common/TestSuite.hpp>
+#include <ariajanke/cul/TestSuite.hpp>
 
 bool run_systems_tests() {
     using namespace cul::exceptions_abbr;
