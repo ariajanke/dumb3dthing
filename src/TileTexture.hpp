@@ -22,13 +22,13 @@
 
 #include "Defs.hpp"
 
-class TileTextureN final {
+class TileTexture final {
 public:
-    TileTextureN() {}
+    TileTexture() {}
 
-    TileTextureN(Vector2 nw, Vector2 se);
+    TileTexture(Vector2 nw, Vector2 se);
 
-    TileTextureN(Vector2I tileset_loc, const Size2 & tile_size);
+    TileTexture(Vector2I tileset_loc, const Size2 & tile_size);
 
     Vector2 texture_position_for(const Vector2 & tile_normalized_location) const;
 

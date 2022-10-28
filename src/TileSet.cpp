@@ -140,7 +140,7 @@ void TileSet::set_texture_information
                 m_tile_size.height / m_texture_size.height};
     Vector2 pos{r.x*scale.width, r.y*scale.height};
     m_tile_texture_map[assignment] =
-        TileTextureN{pos, pos + convert_to<Vector2>(scale)};
+        TileTexture{pos, pos + convert_to<Vector2>(scale)};
 }
 
 /* private */ void TileSet::load_factory

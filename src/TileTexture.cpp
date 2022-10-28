@@ -20,20 +20,20 @@
 
 #include "TileTexture.hpp"
 
-TileTextureN::TileTextureN
+TileTexture::TileTexture
     (Vector2 nw, Vector2 se):
     m_nw(nw),
     m_se(se)
 {}
 
-TileTextureN::TileTextureN(Vector2I tileset_loc, const Size2 & tile_size) {
+TileTexture::TileTexture(Vector2I tileset_loc, const Size2 & tile_size) {
     using cul::convert_to;
     Vector2 offset{tileset_loc.x*tile_size.width, tileset_loc.y*tile_size.height};
     m_nw = offset;
     m_se = offset + convert_to<Vector2>(tile_size);
 }
 
-Vector2 TileTextureN::texture_position_for
+Vector2 TileTexture::texture_position_for
     (const Vector2 & tile_normalized_location) const
 {
     auto r = tile_normalized_location;

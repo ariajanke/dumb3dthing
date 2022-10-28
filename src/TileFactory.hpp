@@ -171,10 +171,12 @@ protected:
 
     Vector2 common_texture_origin(Vector2I ts_r) const;
 
-    TileTextureN floor_texture_at(Vector2I) const;
+    TileTexture floor_texture_at(Vector2I) const;
 
 private:
     SharedCPtr<Texture> m_texture_ptr;
     Size2 m_texture_size;
     Size2 m_tile_size;
 };
+
+CardinalDirection cardinal_direction_from(const char * str);

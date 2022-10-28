@@ -43,7 +43,7 @@ public:
     int total_tile_count() const { return m_tile_count; }
 
 private:
-    using TileTextureMap = std::map<std::string, TileTextureN>;
+    using TileTextureMap = std::map<std::string, TileTexture>;
     struct TileParams final {
         TileParams(Size2 tile_size_,
                    Platform::ForLoaders & platform_):
@@ -83,7 +83,7 @@ private:
     void load_usual_wall_factory
         (const TiXmlElement & el, int id, Vector2I r, TileParams & tp)
     {
-        static_assert(std::is_base_of_v<WallTileFactoryBaseN, T>);
+        static_assert(std::is_base_of_v<WallTileFactoryBase, T>);
         auto wall_factory = make_unique<T>();
         wall_factory->assign_wall_texture(m_tile_texture_map["wall"]);
         load_factory(el, std::move(wall_factory), id, r, tp.platform);

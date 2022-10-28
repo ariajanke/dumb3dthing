@@ -30,10 +30,7 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 using Triangle = TriangleSegment;
-
-using TriangleAdder = WallTileFactoryBaseN::TriangleAdder;
-
-using SplitOpt = WallTileFactoryBaseN::SplitOpt;
+using SplitOpt = WallTileFactoryBase::SplitOpt;
 
 constexpr const auto k_flats_only          =
     static_cast<SplitOpt>(SplitOpt::k_bottom_only | SplitOpt::k_top_only);
@@ -108,183 +105,7 @@ void southeast_out_corner_split
 
 } // end of <anonymous> namespace
 
-void TranslatableTileFactory::setup
-    (Vector2I, const TiXmlElement * properties, Platform::ForLoaders &)
-{
-    // eugh... having to run through elements at a time
-    // not gonna worry about it this iteration
-    if (const auto * val = find_property("translation", properties)) {
-        auto list = { &m_translation.x, &m_translation.y, &m_translation.z };
-        auto itr = list.begin();
-        for (auto value_str : split_range(val, val + ::strlen(val),
-                                          is_comma, make_trim_whitespace<const char *>()))
-        {
-            bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), **itr);
-            assert(is_num);
-            ++itr;
-        }
-    }
-}
-
-/* protected */ Entity
-    TranslatableTileFactory::make_entity
-    (Platform::ForLoaders & platform, Vector2I tile_loc,
-     SharedCPtr<RenderModel> model_ptr) const
-{
-    return TileFactory::make_entity(platform,
-        m_translation + grid_position_to_v3(tile_loc), model_ptr);
-}
-
-// ----------------------------------------------------------------------------
-
-CardinalDirection cardinal_direction_from(const char * str) {
-    auto seq = [str](const char * s) { return !::strcmp(str, s); };
-    using Cd = CardinalDirection;
-    if (seq("n" )) return Cd::n;
-    if (seq("s" )) return Cd::s;
-    if (seq("e" )) return Cd::e;
-    if (seq("w" )) return Cd::w;
-    if (seq("ne")) return Cd::ne;
-    if (seq("nw")) return Cd::nw;
-    if (seq("se")) return Cd::se;
-    if (seq("sw")) return Cd::sw;
-    throw InvArg{""};
-}
-
 // ------------------------------- <! messy !> --------------------------------
-
-/* private static */ const TileTextureN WallTileFactoryBaseN::s_default_texture =
-    TileTextureN{Vector2{}, Vector2{1, 1}};
-/* private static */ WallTileFactoryBaseN::GraphicMap WallTileFactoryBaseN::s_wall_graphics_cache;
-/* private static */ WallTileFactoryBaseN::GraphicMap WallTileFactoryBaseN::s_bottom_graphics_cache;
-
-namespace wall {
-
-using TileTexture = TileTextureN;
-
-static const Real k_after_one = std::nextafter(Real(1), Real(2));
-
-bool is_x_axis_aligned(const Triangle & triangle) {
-    return are_very_close(triangle.point_a().z, triangle.point_b().z);
-}
-
-Vector2 to_x_ways_texture_vertex(const Vector & r) {
-    return Vector2{fmod(magnitude(r.x - Real(0.5)), k_after_one),
-                   fmod(magnitude(r.y), k_after_one)};
-}
-
-Vector2 to_z_ways_texture_vertex(const Vector & r) {
-    return Vector2{fmod(magnitude(r.z - Real(0.5)), k_after_one),
-                   fmod(magnitude(r.y), k_after_one)};
-}
-
-std::array<Vertex, 3> to_verticies(const Triangle & triangle) {
-    auto get_tx_x = [&triangle] {
-        bool use_x_axis = is_x_axis_aligned(triangle);
-        return [use_x_axis] (const Vector & r) {
-            return use_x_axis ? r.x : r.y;
-        };
-    } ();
-
-    auto to_tex = [&get_tx_x] (const Vector & r) {
-        // even/odd is the way to go I think?
-        // mmm least value of the triangle?
-        return Vector2{fmod(magnitude(get_tx_x(r) - Real(0.5)), k_after_one),
-                       fmod(magnitude(r.y), k_after_one)};
-    };
-
-    auto a = triangle.point_a();
-    auto b = triangle.point_b();
-    auto c = triangle.point_c();
-    return std::array {
-        Vertex{a, to_tex(a)},
-        Vertex{b, to_tex(b)},
-        Vertex{c, to_tex(c)}
-    };
-}
-
-Vertex map_to_texture(const Vertex & vtx, const TileTexture & txt) {
-    return Vertex{vtx.position, txt.texture_position_for(vtx.texture_position)};
-}
-
-std::array<Vertex, 3> map_to_texture(std::array<Vertex, 3> arr, const TileTexture & txt) {
-    auto tf = [&txt](const Vertex & vtx)
-        { return map_to_texture(vtx, txt); };
-    std::transform(arr.begin(), arr.end(), arr.begin(), tf);
-    return arr;
-}
-
-}
-
-WallTileFactoryBaseN::TileTexture WallTileFactoryBaseN::floor_texture() const {
-    return floor_texture_at(m_tileset_location);
-}
-
-SharedPtr<const RenderModel>
-    WallTileFactoryBaseN::make_wall_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
-{
-    const auto elvs = computed_tile_elevations(neighborhood);
-    auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {
-        auto vtxs = wall::to_verticies(triangle.move(Vector{0, -translation().y, 0}));
-        return wall::map_to_texture(vtxs, wall_texture());
-    });
-    return make_model_graphics(elvs, k_wall_only, to_verticies, platform);
-}
-
-/* private */ SharedPtr<const RenderModel>
-    WallTileFactoryBaseN::make_bottom_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
-{
-    return make_model_graphics(
-        computed_tile_elevations(neighborhood), k_bottom_only,
-        make_triangle_to_floor_verticies(), platform);
-}
-
-/* private */ SharedPtr<const RenderModel>
-    WallTileFactoryBaseN::make_model_graphics
-    (const Slopes & elvs, SplitOpt split_opt,
-     const TriangleToVerticies & to_verticies, Platform::ForLoaders & platform) const
-{
-    auto mod_ptr = platform.make_render_model();
-    std::vector<Vertex> verticies;
-    make_triangles(elvs, k_visual_dip_thershold,
-                   split_opt,
-                   TriangleAdder::make([&verticies, &to_verticies] (const Triangle & triangle)
-    {
-        auto vtxs = to_verticies(triangle);
-        verticies.insert(verticies.end(), vtxs.begin(), vtxs.end());
-    }));
-    std::vector<unsigned> elements;
-    elements.resize(verticies.size());
-    std::iota(elements.begin(), elements.end(), 0);
-    mod_ptr->load(verticies, elements);
-    return mod_ptr;
-}
-
-SharedPtr<const RenderModel>
-    WallTileFactoryBaseN::make_top_model(Platform::ForLoaders & platform) const
-{
-    return make_model_graphics(
-        tile_elevations(), k_top_only,
-        make_triangle_to_floor_verticies(), platform);
-}
-
-void WallTileFactoryBaseN::make_physical_triangles
-    (const NeighborInfo & neighborhood, EntityAndTrianglesAdder & adder) const
-{
-    auto elvs = computed_tile_elevations(neighborhood);
-    auto offset = grid_position_to_v3(neighborhood.tile_location());
-    try {
-        make_triangles(
-            elvs, k_physical_dip_thershold, k_both_flats_and_wall,
-            TriangleAdder::make([&adder, offset](const Triangle & triangle)
-        { adder.add_triangle(triangle.move(offset)); }));
-    }  catch (...) {
-        computed_tile_elevations(neighborhood)        ;
-    }
-
-}
 
 /* private */ void TwoWayWallTileFactory::make_triangles
     (const Slopes & elvs, Real thershold, SplitOpt split_opt,
@@ -321,30 +142,6 @@ void WallTileFactoryBaseN::make_physical_triangles
         }
         throw BadBranchException{__LINE__, __FILE__};
     } ();
-#   if 0
-    auto list = { elvs_.ne, elvs_.nw, elvs_.se, elvs_.sw };
-    using cul::is_real;
-    auto itr = std::find_if(list.begin(), list.end(), is_real<Real>);
-    assert(itr != list.end());
-    auto known_quantity = *itr;
-    auto elvs = elvs_;
-    std::array knowns   { &elvs.ne, &elvs.nw, &elvs.se, &elvs.sw };
-    std::array unknowns { &elvs.ne, &elvs.nw, &elvs.se, &elvs.sw };
-    std::transform(knowns.begin(), knowns.end(), knowns.begin(), [](Real * ptr) {
-        return is_real(*ptr) ? ptr : nullptr;
-    });
-    std::transform(unknowns.begin(), unknowns.end(), unknowns.begin(), [](Real * ptr) {
-        return !is_real(*ptr) ? ptr : nullptr;
-    });
-    for (auto * ptr : knowns) {
-        if (ptr)
-            *ptr = k_inf;
-    }
-    for (auto * ptr : unknowns) {
-        if (ptr)
-            *ptr = known_quantity;
-    }
-#   endif
 
     make_triangles(
         elvs.nw, elvs.ne, elvs.sw, elvs.se, thershold, split_opt,

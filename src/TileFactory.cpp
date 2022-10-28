@@ -159,12 +159,12 @@ void TileFactory::set_shared_texture_information
     return Vector2{ts_r.x*scale.width, ts_r.y*scale.height};
 }
 
-/* protected */ TileTextureN TileFactory::floor_texture_at(Vector2I r) const {
+/* protected */ TileTexture TileFactory::floor_texture_at(Vector2I r) const {
     using cul::convert_to;
     Size2 scale{m_tile_size.width  / m_texture_size.width ,
                 m_tile_size.height / m_texture_size.height};
     Vector2 offset{r.x*scale.width, r.y*scale.height};
-    return TileTextureN{offset, offset + convert_to<Vector2>(scale)};
+    return TileTexture{offset, offset + convert_to<Vector2>(scale)};
 }
 
 /* protected */ std::array<Vector2, 4> TileFactory::common_texture_positions_from
@@ -213,4 +213,18 @@ void TileFactory::set_shared_texture_information
     ent.add<SharedCPtr<RenderModel>, SharedCPtr<Texture>, Translation, Visible>() =
             make_tuple(model_ptr, common_texture(), Translation{translation}, true);
     return ent;
+}
+
+CardinalDirection cardinal_direction_from(const char * str) {
+    auto seq = [str](const char * s) { return !::strcmp(str, s); };
+    using Cd = CardinalDirection;
+    if (seq("n" )) return Cd::n;
+    if (seq("s" )) return Cd::s;
+    if (seq("e" )) return Cd::e;
+    if (seq("w" )) return Cd::w;
+    if (seq("ne")) return Cd::ne;
+    if (seq("nw")) return Cd::nw;
+    if (seq("se")) return Cd::se;
+    if (seq("sw")) return Cd::sw;
+    throw InvArg{""};
 }
