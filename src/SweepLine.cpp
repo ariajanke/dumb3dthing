@@ -18,11 +18,27 @@
 
 *****************************************************************************/
 
-#pragma once
+#include "SweepLine.hpp"
 
-bool run_triangle_links_tests();
-bool run_map_loader_tests();
-bool run_triangle_segment_tests();
-bool run_systems_tests();
-bool run_wall_tile_factory_tests();
-bool run_sweep_line_tests();
+SweepLine::Interval SweepLine::interval_for(const Triangle & triangle) const {
+    Interval rv;
+    rv.min =  k_inf;
+    rv.max = -k_inf;
+    auto pts_on_line = {
+        point_for(triangle.point_a()),
+        point_for(triangle.point_b()),
+        point_for(triangle.point_c())
+    };
+    for (auto v : pts_on_line) {
+        rv.min = std::min(rv.min, v);
+        rv.max = std::max(rv.max, v);
+    }
+    return rv;
+}
+
+Real SweepLine::point_for(const Vector & r) const {
+    auto r_on_line = cul::find_closest_point_to_line(m_a, m_b, r);
+    auto mag = magnitude(r_on_line - m_a);
+    Real dir = dot(r_on_line - m_a, m_b - m_a) < 0 ? -1 : 1;
+    return mag*dir;
+}

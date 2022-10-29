@@ -22,24 +22,27 @@
 
 #include "TriangleSegment.hpp"
 
+class TriangleLinksAttn;
+
 class TriangleLinks final {
 public:
+    friend class TriangleLinksAttn;
     using Side = TriangleSide;
     using Triangle = TriangleSegment;
 
     struct Transfer final {
-        SharedCPtr<Triangle> target; // set if there is a valid transfer to be had
+        SharedPtr<const Triangle> target; // set if there is a valid transfer to be had
         Side side = Side::k_inside; // transfer on what side of target?
         bool inverts = false; // normal *= -1
         bool flips = false; // true -> (1 - t)
     };
 
-    explicit TriangleLinks(const SharedCPtr<Triangle> &);
+    explicit TriangleLinks(const SharedPtr<const Triangle> &);
 
     // atempts all sides
-    TriangleLinks & attempt_attachment_to(const SharedCPtr<Triangle> &);
+    TriangleLinks & attempt_attachment_to(const SharedPtr<const Triangle> &);
 
-    TriangleLinks & attempt_attachment_to(const SharedCPtr<Triangle> &, Side);
+    TriangleLinks & attempt_attachment_to(const SharedPtr<const Triangle> &, Side);
 
     bool has_side_attached(Side) const;
 
@@ -48,7 +51,7 @@ public:
 
     const Triangle & segment() const;
 
-    SharedCPtr<Triangle> segment_ptr() const
+    SharedPtr<const Triangle> segment_ptr() const
         { return m_segment; }
 
     Transfer transfers_to(Side) const;
@@ -60,19 +63,57 @@ public:
 
     int owner_count() const noexcept
         { return m_segment.use_count(); }
+
 private:
-    struct SideInfo final {
-        WeakCPtr<Triangle> target;
+    struct SideLinks final {
+        WeakPtr<const Triangle> target;
         Side side = Side::k_inside;
         bool inverts = false;
         bool flip = false;
     };
+    using SideLinksArray = std::array<SideLinks, 3>;
 
     static bool has_opposing_normals(const Triangle &, Side, const Triangle &, Side);
 
     static Side verify_valid_side(const char * caller, Side);
 
-    SharedCPtr<Triangle> m_segment;
+    SharedPtr<const Triangle> m_segment;
 
-    std::array<SideInfo, 3> m_triangle_sides;
+    SideLinksArray m_triangle_sides;
+};
+
+class WeakTriangleLinks;
+
+class TriangleLinksAttn final {
+    friend class WeakTriangleLinks;
+    using Triangle = TriangleSegment;
+    using SideLinks = TriangleLinks::SideLinks;
+    using SideLinksArray = TriangleLinks::SideLinksArray;
+
+    static TriangleLinks make_links
+        (SharedPtr<const Triangle>, const SideLinksArray & links);
+
+    static SharedPtr<const Triangle> get_triangle_pointer
+        (const TriangleLinks & links)
+    { return links.m_segment; }
+
+    static SideLinksArray get_links_array(const TriangleLinks & links)
+        { return links.m_triangle_sides; }
+};
+
+class WeakTriangleLinks final {
+public:
+    using Triangle = TriangleSegment;
+
+    explicit WeakTriangleLinks(const TriangleLinks & links);
+
+    TriangleLinks lock_links() const;
+
+    bool expired() const noexcept
+        { return m_segment.expired(); }
+
+private:
+    using SideLinksArray = TriangleLinksAttn::SideLinksArray;
+    WeakPtr<const Triangle> m_segment;
+    SideLinksArray m_links;
 };

@@ -122,8 +122,6 @@ bool run_triangle_links_tests() {
         return test(triangle.contains_point(new_loc_));
     });
     mark(suite).test([] {
-
-
         // where I want to capture flip-flop
         auto a = make_shared<Triangle>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
         auto b = make_shared<Triangle>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
@@ -137,6 +135,7 @@ bool run_triangle_links_tests() {
             auto pdriver = point_and_plane::Driver::make_driver();
             pdriver->add_triangle(links_a);
             pdriver->add_triangle(links_b);
+            pdriver->update();
             return pdriver;
         } ();
         auto test_handler = point_and_plane::EventHandler::make_test_handler();

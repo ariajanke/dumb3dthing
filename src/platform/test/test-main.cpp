@@ -30,7 +30,8 @@ int main() {
         run_map_loader_tests,
         run_triangle_links_tests,
         run_systems_tests,
-        run_wall_tile_factory_tests
+        run_wall_tile_factory_tests,
+        run_sweep_line_tests
     };
     std::array<bool, k_test_functions.size()> results;
     for (std::size_t i = 0; i != k_test_functions.size(); ++i)

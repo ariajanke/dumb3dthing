@@ -178,3 +178,27 @@ int TriangleLinks::sides_attached_count() const {
     throw InvArg{  std::string{caller}
                  + ": side must be valid value and not k_inside."};
 }
+
+// ----------------------------------------------------------------------------
+
+/* private static */ TriangleLinks TriangleLinksAttn::make_links
+    (SharedPtr<const Triangle> segment, const SideLinksArray & links)
+{
+    TriangleLinks rv{segment};
+    rv.m_triangle_sides = links;
+    return rv;
+}
+
+// ----------------------------------------------------------------------------
+
+WeakTriangleLinks::WeakTriangleLinks(const TriangleLinks & links):
+    m_segment(TriangleLinksAttn::get_triangle_pointer(links)),
+    m_links  (TriangleLinksAttn::get_links_array     (links))
+{}
+
+TriangleLinks WeakTriangleLinks::lock_links() const {
+    if (auto ptr = m_segment.lock()) {
+        return TriangleLinksAttn::make_links(ptr, m_links);
+    }
+    throw std::runtime_error{"WeakTriangleLinks::lock_links: cannot lock links, original triangle no longer exists"};
+}

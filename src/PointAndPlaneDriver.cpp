@@ -35,15 +35,6 @@ using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
 
-class SweepLineView final { // I suck at names
-public:
-    SweepLineView(const Vector &, const Vector &);
-
-    Tuple<Real, Real> interval_for(const Triangle &) const;
-
-    Real point_for(const Vector &) const;
-};
-
 // this can become a bottle neck in performance
 // (as can entity component accessors)
 // so triangles are then sorted along an arbitrary axis
@@ -69,9 +60,13 @@ private:
 
     const TriangleLinks & find_links_for(SharedPtr<const Triangle>) const;
 
+    SweepLine m_sweep_line;
+    SweepLineMap<TriangleLinks> m_sweeped_links;
+#   if 0
     // both containers are owning
     std::unordered_map<std::size_t, TriangleLinks> m_links;
     std::vector<SharedPtr<const Triangle>> m_triangles;
+#   endif
 };
 
 } // end of <anonymous> namespace
@@ -130,7 +125,6 @@ Vector location_of(const State & state) {
 
 } // end of point_and_plane namespace
 
-
 namespace {
 
 template <typename Vec1, typename Vec2>
@@ -144,19 +138,45 @@ inline std::size_t to_key(const SharedCPtr<Triangle> & tptr)
 
 // should/add remove fast
 void DriverComplete::add_triangle(const TriangleLinks & links) {
+    m_sweeped_links.push_entry(SweepLine::Interval{}, links);
+#   if 0
     m_links.insert(std::make_pair( links.hash(), links ));
+#   endif
 }
 
-void DriverComplete::remove_triangle(const TriangleLinks & links) {
+void DriverComplete::remove_triangle(const TriangleLinks &) {
+    throw RtError{"unimplemented"};
+#   if 0
     m_links.erase(links.hash());
+#   endif
 }
 
 void DriverComplete::clear_all_triangles() {
+    m_sweeped_links.remove_all();
+#   if 0
     m_triangles.clear();
     m_links.clear();
+#   endif
 }
 
 Driver & DriverComplete::update() {
+    auto old_count = m_sweeped_links.count();
+    m_sweeped_links.remove_if([](const TriangleLinks & links) {
+        return links.is_sole_owner();
+    });
+    if (old_count != m_sweeped_links.count()) {
+        std::cout << "Dropeed " << (old_count - m_sweeped_links.count())
+                  << " triangles." << std::endl;
+    }
+
+    if (!m_sweeped_links.is_sorted()) {
+        auto link_to_triangle = [](const TriangleLinks & links)
+            { return links.segment(); };
+        m_sweep_line = SweepLine::make_for(m_sweeped_links, link_to_triangle);
+        m_sweeped_links.update_as_triangles(m_sweep_line, link_to_triangle);
+        m_sweeped_links.sort();
+    }
+#   if 0
     m_triangles.clear();
     int triangles_dropped = 0;
     for (auto itr = m_links.begin(); itr != m_links.end(); ) {
@@ -175,6 +195,7 @@ Driver & DriverComplete::update() {
     for (auto & pair : m_links) {
         m_triangles.emplace_back(pair.second.segment_ptr());
     }
+#   endif
     return *this;
 }
 
@@ -215,11 +236,20 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_freebody
     (const InAir & freebody, const EventHandler & env) const
 {
+    auto view = m_sweeped_links.view_for( m_sweep_line.point_for( freebody.location ) );
+#   if 0
     const auto * beg = &m_triangles.front();
     const auto * end = beg + m_triangles.size();
+#   elif 0
+    auto beg = m_sweeped_links.begin();
+    auto end = m_sweeped_links.end();
+#   elif 1
+    auto beg = view.begin();
+    auto end = view.end();
+#   endif
     auto new_loc = freebody.location + freebody.displacement;
     for (auto itr = beg; itr != end; ++itr) {
-        auto & triangle = **itr;
+        auto & triangle = (*itr).segment();
 
         constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
         auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
@@ -233,7 +263,7 @@ State DriverComplete::operator ()
                   normalize(project_onto(new_loc - freebody.location,
                                          triangle.normal()          ))
                 - triangle.normal(), Vector{});
-            return OnSegment{*itr, heads_against_normal, liminx.intersection, *disv2};
+            return OnSegment{itr->segment_ptr(), heads_against_normal, liminx.intersection, *disv2};
         }
         auto * disv3 = get_if<Vector>(&gv);
         assert(disv3);
@@ -268,6 +298,9 @@ State DriverComplete::operator ()
         return OnSegment{tracker.segment, tracker.invert_normal,
                          tracker.location + tracker.displacement, Vector2{}};
     }
+
+    // I can, from an interval, find the tracker's segment's links
+    //
 
     const auto transfer = find_links_for(tracker.segment).transfers_to(crossing.side);
     constexpr const auto k_caller_name = "DriverComplete::handle_tracker";
@@ -317,12 +350,20 @@ State DriverComplete::operator ()
 /* private */ const TriangleLinks & DriverComplete::find_links_for
     (SharedPtr<const Triangle> tptr) const
 {
+    auto view = m_sweeped_links.view_for(m_sweep_line.interval_for(*tptr));
+    for (auto & links : view) {
+        if (links.segment_ptr() == tptr)
+            return links;
+    }
+    throw RtError{"Cannot find triangle links"};
+#   if 0
     auto itr = m_links.find(std::hash<const Triangle *>{}(tptr.get()));
     if (itr == m_links.end()) {
         throw RtError{"Cannot find triangle links, was the triangle occupied "
                       "by the subject state added to the driver?"};
     }
     return itr->second;
+#   endif
 }
 
 // ----------------------------------------------------------------------------

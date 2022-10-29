@@ -18,11 +18,25 @@
 
 *****************************************************************************/
 
-#pragma once
+#include "../../SweepLine.hpp"
 
-bool run_triangle_links_tests();
-bool run_map_loader_tests();
-bool run_triangle_segment_tests();
-bool run_systems_tests();
-bool run_wall_tile_factory_tests();
-bool run_sweep_line_tests();
+#include <ariajanke/cul/TestSuite.hpp>
+
+namespace {
+
+using Triangle = TriangleSegment;
+
+} // end of <anonymous> namespace
+
+bool run_sweep_line_tests() {
+    using namespace cul::ts;
+#   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
+    // tests...
+    TestSuite suite;
+    mark(suite).test([] {
+        return test(false);
+    });
+
+#   undef mark
+    return false;
+}
