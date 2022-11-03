@@ -76,7 +76,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                     m_tri_adder(triangles_), m_entities(entities) {}
 
                 void add_triangle(const TriangleSegment & triangle) final
-                    { m_tri_adder.add_triangle( make_shared<TriangleSegment>(triangle) ); }
+                    { m_tri_adder.add_triangle( triangle ); }
 
                 void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
 
@@ -111,7 +111,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                     callbacks.platform());
         });
         entities.back().add<
-            std::vector<TriangleLinks>, Grid<cul::View<std::vector<TriangleLinks>::const_iterator>>>()
+            TriangleLinks, Grid<cul::View<TriangleLinks::const_iterator>>>()
             = std::move(triangles_and_grid);
         for (auto & ent : entities)
             callbacks.add(ent);

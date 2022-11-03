@@ -86,7 +86,7 @@ class RenderModel;
 
 class ShaderProgram;
 
-class TriangleLinks;
+class TriangleLink;
 
 class BadBranchException final : public std::runtime_error {
 public:
@@ -199,7 +199,7 @@ template <typename T>
 bool are_very_close(const VectorLike<T> & lhs, const VectorLike<T> & rhs)
     { return are_very_close(lhs.value, rhs.value); }
 
-void print_links(std::ostream &, const TriangleLinks &);
+[[deprecated]] void print_links(std::ostream &, const TriangleLink &);
 
 /** Gets the "nextafter" vector following a given direction
  *  @param r starting position

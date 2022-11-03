@@ -88,12 +88,12 @@ using CellSubGrid = ConstSubGrid<Cell>;
 
 class TrianglesAdder final {
 public:
-    using TriangleVec = std::vector<SharedPtr<TriangleSegment>>;
+    using TriangleVec = std::vector<TriangleSegment>;
 
     TrianglesAdder(TriangleVec & vec): m_vec(vec) {}
 
-    void add_triangle(SharedPtr<TriangleSegment> ptr)
-        { m_vec.push_back(ptr); }
+    void add_triangle(TriangleSegment triangle)
+        { m_vec.push_back(triangle); }
 
 private:
     TriangleVec & m_vec;
@@ -141,7 +141,7 @@ private:
     SharedPtr<Texture> & ensure_texture(SharedPtr<Texture> &, const char * filename);
 
     Tuple<Slopes, SharedPtr<RenderModel>,
-          SharedPtr<TriangleSegment>, SharedPtr<TriangleSegment>>
+          TriangleSegment, TriangleSegment>
         get_slope_model_(const Slopes & slopes, const Vector & translation);
 
     LoaderCallbacks & m_callbacks;
@@ -171,13 +171,16 @@ protected:
     virtual Cell to_cell(char) const = 0;
 };
 
-std::vector<TriangleLinks> load_map_graphics
+using TriangleLinks = std::vector<SharedPtr<TriangleLink>>;
+
+TriangleLinks load_map_graphics
     (TileGraphicGenerator &, CellSubGrid);
 
 Grid<Cell> load_map_cell(const char * layout, const CharToCell &);
 
 template <typename Func>
-Tuple<std::vector<TriangleLinks>, Grid<cul::View<std::vector<TriangleLinks>::const_iterator>>>
+Tuple<TriangleLinks,
+     Grid<cul::View<TriangleLinks::const_iterator>>>
     add_triangles_and_link_
     (int width, int height, Func && on_add_tile)
 {
@@ -193,18 +196,18 @@ Tuple<std::vector<TriangleLinks>, Grid<cul::View<std::vector<TriangleLinks>::con
         links_grid(r).second = vec.size();
     }
 
-    std::vector<TriangleLinks> rv1;
+    TriangleLinks rv1;
     rv1.reserve(vec.size());
-    for (auto & triptr : vec)
-        { rv1.emplace_back(triptr); }
+    for (auto & tri : vec)
+        { rv1.emplace_back(std::make_shared<TriangleLink>(tri)); }
 
-    Grid<cul::View<std::vector<TriangleLinks>::iterator>> link_grid;
+    Grid<cul::View<TriangleLinks::iterator>> link_grid;
     link_grid.set_size(links_grid.width(), links_grid.height(),
-                       cul::View<std::vector<TriangleLinks>::iterator>{ rv1.end(), rv1.end() });
+                       cul::View<TriangleLinks::iterator>{ rv1.end(), rv1.end() });
     {
     auto beg = rv1.begin();
     for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
-        link_grid(r) = cul::View<std::vector<TriangleLinks>::iterator>{
+        link_grid(r) = cul::View<TriangleLinks::iterator>{
             beg + links_grid(r).first, beg + links_grid(r).second};
     }
     }
@@ -212,22 +215,22 @@ Tuple<std::vector<TriangleLinks>, Grid<cul::View<std::vector<TriangleLinks>::con
     // now link them together
     for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
     for (auto & this_tri : link_grid(r)) {
-        assert(this_tri.segment_ptr());
+        assert(this_tri);//.segment_ptr());
         for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
 /*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
         if (!links_grid.has_position(v)) continue;
         for (auto & other_tri : link_grid(v)) {
-            assert(other_tri.segment_ptr());
+            assert(other_tri);//.segment_ptr());
 
-            if (this_tri.segment_ptr() == other_tri.segment_ptr()) continue;
-            this_tri.attempt_attachment_to(other_tri.segment_ptr());
+            if (this_tri == other_tri) continue;
+            this_tri->attempt_attachment_to(other_tri);
         }}
     }}
-    Grid<cul::View<std::vector<TriangleLinks>::const_iterator>> rv2;
+    Grid<cul::View<TriangleLinks::const_iterator>> rv2;
     rv2.set_size(links_grid.width(), links_grid.height(),
-                 cul::View<std::vector<TriangleLinks>::const_iterator>{ rv1.end(), rv1.end() });
+                 cul::View<TriangleLinks::const_iterator>{ rv1.end(), rv1.end() });
     for (Vector2I r; r != rv2.end_position(); r = rv2.next(r)) {
-        rv2(r) = cul::View<std::vector<TriangleLinks>::const_iterator>{
+        rv2(r) = cul::View<TriangleLinks::const_iterator>{
                 link_grid(r).begin(), link_grid(r).end() };
     }
 
