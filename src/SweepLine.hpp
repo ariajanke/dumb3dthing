@@ -51,7 +51,7 @@ private:
 };
 
 // ----------------------------------------------------------------------------
-
+// Not possible
 template <typename T>
 class SweepLineMap final {
 public:
@@ -87,11 +87,19 @@ public:
         bool operator != (const Iterator & rhs) const noexcept
             { return m_itr != rhs.m_itr; }
 
+        bool operator == (const Iterator & rhs) const noexcept
+            { return m_itr == rhs.m_itr; }
+
+        auto operator - (const Iterator & rhs) const
+            { return m_itr - rhs.m_itr; }
+
     private:
         IteratorImpl m_itr;
     };
 
     void sort();
+
+    void push_entry(const T & obj);
 
     void push_entry(const Interval & intv, const T & obj);
 
@@ -99,6 +107,8 @@ public:
     void update_as_triangles(const SweepLine & line, ObjAsTriangle && f);
 
     cul::View<Iterator> view_for(Real x) const;
+
+    cul::View<Iterator> view_for(Real low, Real high) const;
 
     cul::View<Iterator> view_for(const Interval & intv) const;
 
@@ -123,6 +133,103 @@ private:
 
     bool m_sorted = true;
     std::vector<Entry> m_container;
+};
+
+// ----------------------------------------------------------------------------
+
+// for ease of implementation
+// no bubbles
+// for this application, I maybe able to accept dupelicates
+// the goal is thusly: reduce that scan load, check for a collision with the
+// smallest resulting displacement
+template <typename T>
+class SpatialPartitionMap final {
+public:
+    using Interval = SweepLine::Interval;
+
+private:
+    struct Entry final {
+        Entry() {}
+        Entry(const Interval & intv, const T & obj_):
+            min(intv.min), max(intv.max),
+            obj(obj_) {}
+        Real min;
+        Real max;
+        T obj;
+    };
+
+    using IteratorImpl = typename std::vector<Entry>::const_iterator;
+
+public:
+    class Iterator final {
+    public:
+        explicit Iterator(IteratorImpl impl):
+            m_itr(impl) {}
+
+        Iterator & operator ++ () {
+            ++m_itr;
+            return *this;
+        }
+
+        const T & operator * () const { return m_itr->obj; }
+
+        const T * operator -> () const { return &(m_itr->obj); }
+
+        bool operator != (const Iterator & rhs) const noexcept
+            { return m_itr != rhs.m_itr; }
+
+        bool operator == (const Iterator & rhs) const noexcept
+            { return m_itr == rhs.m_itr; }
+
+        auto operator - (const Iterator & rhs) const
+            { return m_itr - rhs.m_itr; }
+
+    private:
+        IteratorImpl m_itr;
+    };
+
+    // sorts the container, and computes divisions...
+    // essentially get the container ready
+    void sort();
+
+    template <typename TToTriangle>
+    void update_intervals(TToTriangle &&);
+
+    void push_entry(const T & obj);
+
+    cul::View<Iterator> view_for(Real x) const;
+
+    cul::View<Iterator> view_for(Real low, Real high) const;
+
+    cul::View<Iterator> view_for(const Interval & intv) const;
+
+    void set_line(const SweepLine &);
+
+    void remove_all();
+
+    template <typename Pred>
+    void remove_if(Pred && should_remove);
+
+    bool is_sorted() const noexcept { return m_sorted; }
+
+    void mark_as_unsorted() { m_sorted = false; }
+
+    std::size_t count() const;
+
+    Iterator begin() const { return Iterator{m_entries.begin()}; }
+
+    Iterator end() const { return Iterator{m_entries.end()}; }
+
+private:
+    void verify_is_sorted(const char * caller) const;
+
+    void recompute_division(std::vector<Real> & divisions) const;
+
+    bool m_sorted = true;
+    SweepLine m_line;
+    std::vector<Real> m_divisions;
+    std::vector<IteratorImpl> m_divided_entries;
+    std::vector<Entry> m_entries;
 };
 
 // ----------------------------------------------------------------------------
@@ -177,6 +284,10 @@ void SweepLineMap<T>::sort() {
 }
 
 template <typename T>
+void SweepLineMap<T>::push_entry(const T & obj)
+    { push_entry(Interval{}, obj); }
+
+template <typename T>
 void SweepLineMap<T>::push_entry(const Interval & intv, const T & obj) {
     m_container.emplace_back(intv, obj);
     m_sorted = false;
@@ -199,8 +310,20 @@ template <typename T>
 cul::View<typename SweepLineMap<T>::Iterator> SweepLineMap<T>::view_for
     (Real x) const
 {
+    static constexpr Real k_error = 0.005;
     Interval intv;
-    intv.max = intv.min = x;
+    intv.max = x + k_error;
+    intv.min = x - k_error;
+    return view_for(intv);
+}
+
+template <typename T>
+cul::View<typename SweepLineMap<T>::Iterator> SweepLineMap<T>::view_for
+    (Real low, Real high) const
+{
+    Interval intv;
+    intv.max = high;
+    intv.min = low;
     return view_for(intv);
 }
 
@@ -210,9 +333,9 @@ cul::View<typename SweepLineMap<T>::Iterator> SweepLineMap<T>::view_for
 {
     verify_is_sorted("view_for");
     auto low = intv.min;
-    auto itr = std::lower_bound(
+    auto itr = std::upper_bound(
         m_container.begin(), m_container.end(), low,
-        [](const Entry & entry, Real low)
+        [](Real low, const Entry & entry)
         { return entry.min < low; });
 
     auto high = intv.max;

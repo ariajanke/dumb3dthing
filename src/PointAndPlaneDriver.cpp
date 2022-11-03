@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "PointAndPlaneDriver.hpp"
+#include "SweepLine.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -236,7 +237,11 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_freebody
     (const InAir & freebody, const EventHandler & env) const
 {
-    auto view = m_sweeped_links.view_for( m_sweep_line.point_for( freebody.location ) );
+    auto low = m_sweep_line.point_for( freebody.location );
+    auto high = m_sweep_line.point_for( freebody.location + freebody.displacement );
+    if (low > high)
+        std::swap(low, high);
+    auto view = m_sweeped_links.view_for(low, high);
 #   if 0
     const auto * beg = &m_triangles.front();
     const auto * end = beg + m_triangles.size();
