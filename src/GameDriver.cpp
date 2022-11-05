@@ -132,7 +132,7 @@ void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
 
     int new_triangles = 0;
     for (auto & ent : new_entities) {
-        auto * vec = ent.ptr<std::vector<TriangleLinks>>();
+        auto * vec = ent.ptr<TriangleLinks>();
         if (!vec) continue;
         ppdriver().add_triangles(*vec);
         new_triangles += vec->size();
@@ -159,7 +159,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
      SharedPtr<Texture> texture, int resolution,
      Vector2 texture_offset, Real texture_scale)
 {
-    std::vector<SharedPtr<const TriangleSegment>> triangles;
+    std::vector<TriangleSegment> triangles;
     std::vector<Vertex> verticies;
     std::vector<int> elements;
     int el = 0;
@@ -170,33 +170,32 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
         verticies.emplace_back(b.point(), texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
         verticies.emplace_back(c.point(), texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
 
-        triangles.emplace_back(make_shared<TriangleSegment>(a.point(), b.point(), c.point()));
+        triangles.emplace_back(TriangleSegment{a.point(), b.point(), c.point()});
 
         elements.emplace_back(el++);
         elements.emplace_back(el++);
         elements.emplace_back(el++);
     }
-
-    std::vector<TriangleLinks> links;
+#   if 0
+    std::vector<SharedPtr<TriangleLink>> links;
     if (triangles.size() > 1) {
         links.emplace_back( triangles.front() );
         for (auto itr = triangles.begin() + 1; itr != triangles.end(); ++itr) {
 
-            links.back().attempt_attachment_to( *itr );
+            links.back()->attempt_attachment_to( *itr );
             links.emplace_back( *itr );
-            links.back().attempt_attachment_to( *(itr - 1) );
+            links.back()->attempt_attachment_to( *(itr - 1) );
         }
     }
-
+#   endif
     auto mod = platform.make_render_model();
     mod->load<int>(verticies, elements);
 
     auto ent = platform.make_renderable_entity();
     ent.add<
-        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain,
-        std::vector<TriangleLinks>
+        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain
     >() = make_tuple(
-        std::move(mod), texture, VisibilityChain{}, std::move(links)
+        std::move(mod), texture, VisibilityChain{}
     );
     return ent;
 }

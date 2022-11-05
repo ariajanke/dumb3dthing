@@ -141,9 +141,6 @@ void CheckJump::operator ()
         auto & triangle = *on_segment->segment;
         auto dir = (on_segment->invert_normal ? -1 : 1)*triangle.normal()*0.1;
         vel = k_jump_vel;
-#       if 0
-        if (regvel) *regvel = regvel->value - project_onto(regvel->value, k_up);
-#       endif
         state = PpInAir{triangle.point_at(on_segment->location) + dir, Vector{}};
     }
 

@@ -41,7 +41,7 @@ static const constexpr std::array k_flat_points = {
 Vector grid_location_to_v3(Vector2I loc, Real elevation)
     { return Vector{Real(loc.x), elevation, Real(-loc.y)}; }
 
-Tuple<SharedPtr<Triangle>, SharedPtr<Triangle>>
+Tuple<Triangle, Triangle>
     make_flat_segments(Vector2I loc, Real elevation);
 
 TileGraphicGenerator::WallDips get_dips(CellSubGrid, Vector2I);
@@ -259,7 +259,7 @@ void TileGraphicGenerator::create_flat
 }
 
 /* private */ Tuple<Slopes, SharedPtr<RenderModel>,
-      SharedPtr<TriangleSegment>, SharedPtr<TriangleSegment>>
+      TriangleSegment, TriangleSegment>
     TileGraphicGenerator::get_slope_model_
     (const Slopes & slopes, const Vector & translation)
 {
@@ -270,14 +270,14 @@ void TileGraphicGenerator::create_flat
     if (itr != m_slopes_map.end()) {
         const auto & els = get_common_elements();
         auto triangle_segments = make_tuple(
-            make_shared<TriangleSegment>(
+            TriangleSegment{
                 k_points[els[0]] + translation,
                 k_points[els[1]] + translation,
-                k_points[els[2]] + translation),
-            make_shared<TriangleSegment>(
+                k_points[els[2]] + translation},
+            TriangleSegment{
                 k_points[els[3]] + translation,
                 k_points[els[4]] + translation,
-                k_points[els[5]] + translation));
+                k_points[els[5]] + translation});
         assert(*itr->second);
         auto pair = *itr;
         return std::tuple_cat(std::move(pair), triangle_segments);
@@ -348,7 +348,7 @@ MaybeCell CharToCell::operator () (char c) const {
 
 // ----------------------------------------------------------------------------
 
-std::vector<TriangleLinks>
+TriangleLinks
     load_map_graphics
     (TileGraphicGenerator & tileset, CellSubGrid grid)
 {
@@ -404,19 +404,19 @@ Grid<Cell> load_map_cell(const char * layout, const CharToCell & char_to_cell) {
 
 namespace {
 
-Tuple<SharedPtr<Triangle>, SharedPtr<Triangle>>
+Tuple<Triangle, Triangle>
        make_flat_segments(Vector2I loc, Real elevation)
 {
    auto translation = grid_location_to_v3(loc, elevation);
    return make_tuple(
-       make_shared<TriangleSegment>(
+       TriangleSegment{
            k_flat_points[0] + translation,  // nw
            k_flat_points[1] + translation,  // sw
-           k_flat_points[2] + translation), // se
-       make_shared<TriangleSegment>(
+           k_flat_points[2] + translation}, // se
+       TriangleSegment{
            k_flat_points[0] + translation,   // nw
            k_flat_points[2] + translation,   // se
-           k_flat_points[3] + translation)); // ne
+           k_flat_points[3] + translation}); // ne
 }
 
 TileGraphicGenerator::WallDips get_dips(CellSubGrid grid, Vector2I r) {

@@ -81,20 +81,3 @@ std::ostream & operator << (std::ostream & out, const Vector2 & r) {
     out.precision(old_prec);
     return out;
 }
-
-void print_links(std::ostream & out, const TriangleLinks & link) {
-    using std::endl;
-    out << "link: " << link.hash() << endl;
-    auto & tri = link.segment();
-    out << "(triangle a, b, c) " << tri.point_a() << ", "
-        << tri.point_b() << ", " << tri.point_c() << endl;
-    using Side = TriangleSide;
-    auto hash_of_side = [link] (Side side) -> std::size_t {
-        if (side == Side::k_inside) return 0;
-        auto ptr = link.transfers_to(side).target;
-        return std::hash<const TriangleSegment *>{}(ptr.get());
-    };
-    out << "- ab: " << hash_of_side(Side::k_side_ab) << "\n"
-        << "- bc: " << hash_of_side(Side::k_side_bc) << "\n"
-        << "- ca: " << hash_of_side(Side::k_side_ca) << endl;
-}

@@ -22,7 +22,7 @@
 
 #include "Defs.hpp"
 #include "TriangleSegment.hpp"
-#include "TriangleLinks.hpp"
+#include "TriangleLink.hpp"
 
 namespace point_and_plane {
 
@@ -31,10 +31,11 @@ using Triangle = TriangleSegment;
 struct OnSegment final {
     OnSegment() {}
 
-    OnSegment(SharedCPtr<Triangle> tri_, bool invert_norm_,
+    OnSegment(const SharedPtr<const TriangleFragment> & tri_, bool invert_norm_,
               Vector2 loc_, Vector2 dis_);
 
-    SharedCPtr<Triangle> segment;
+    SharedPtr<const TriangleFragment> fragment;
+    const Triangle * segment = nullptr;
     bool invert_normal = false;
     Vector2 location;
     Vector2 displacement;
@@ -131,13 +132,17 @@ public:
 
     virtual ~Driver() {}
 
-    virtual void add_triangle(const TriangleLinks &) = 0;
+    virtual void add_triangle(const SharedPtr<const TriangleLink> &) = 0;
 
-    void add_triangles(const std::vector<TriangleLinks> & links) {
+    void add_triangles(const std::vector<SharedPtr<TriangleLink>> & links) {
         for (auto & link : links) add_triangle(link);
     }
 
-    virtual void remove_triangle(const TriangleLinks &) = 0;
+    void add_triangles(const std::vector<SharedPtr<const TriangleLink>> & links) {
+        for (auto & link : links) add_triangle(link);
+    }
+
+    virtual void remove_triangle(const SharedPtr<const TriangleLink> &) = 0;
 
     virtual Driver & update() = 0;
 

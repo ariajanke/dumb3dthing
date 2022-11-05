@@ -35,15 +35,6 @@ using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
 
-class SweepLineView final { // I suck at names
-public:
-    SweepLineView(const Vector &, const Vector &);
-
-    Tuple<Real, Real> interval_for(const Triangle &) const;
-
-    Real point_for(const Vector &) const;
-};
-
 // this can become a bottle neck in performance
 // (as can entity component accessors)
 // so triangles are then sorted along an arbitrary axis
@@ -51,9 +42,9 @@ public:
 // distrubuted to reduce load.
 class DriverComplete final : public Driver {
 public:
-    void add_triangle(const TriangleLinks &) final;
+    void add_triangle(const SharedPtr<const TriangleLink> &) final;
 
-    void remove_triangle(const TriangleLinks &) final;
+    void remove_triangle(const SharedPtr<const TriangleLink> &) final;
 
     void clear_all_triangles() final;
 
@@ -67,11 +58,7 @@ private:
 
     State handle_tracker(const OnSegment &, const EventHandler &) const;
 
-    const TriangleLinks & find_links_for(SharedPtr<const Triangle>) const;
-
-    // both containers are owning
-    std::unordered_map<std::size_t, TriangleLinks> m_links;
-    std::vector<SharedPtr<const Triangle>> m_triangles;
+    std::vector<SharedPtr<const TriangleLink>> m_links;
 };
 
 } // end of <anonymous> namespace
@@ -79,21 +66,18 @@ private:
 namespace point_and_plane {
 
 OnSegment::OnSegment
-    (SharedCPtr<Triangle> tri_, bool invert_norm_, Vector2 loc_, Vector2 dis_):
-    segment(tri_), invert_normal(invert_norm_),
-    location(loc_), displacement(dis_)
+    (const SharedPtr<const TriangleFragment> & frag_,
+     bool invert_norm_, Vector2 loc_, Vector2 dis_):
+    fragment(frag_), segment(&frag_->segment()),
+    invert_normal(invert_norm_), location(loc_), displacement(dis_)
 {
-    // there's state validation...
-    // surface; must not be nullptr
-    //
-    assert(tri_);
-    if (!tri_->contains_point(loc_)) {
+    if (!segment->contains_point(loc_)) {
         std::cerr << loc_ << " " 
-                  << tri_->point_a_in_2d() << " " 
-                  << tri_->point_b_in_2d() << " " 
-                  << tri_->point_c_in_2d() << std::endl;
+                  << segment->point_a_in_2d() << " "
+                  << segment->point_b_in_2d() << " "
+                  << segment->point_c_in_2d() << std::endl;
     }
-    assert(tri_->contains_point(loc_));
+    assert(segment->contains_point(loc_));
 }
 
 Vector location_of(const State & state) {
@@ -130,7 +114,6 @@ Vector location_of(const State & state) {
 
 } // end of point_and_plane namespace
 
-
 namespace {
 
 template <typename Vec1, typename Vec2>
@@ -139,42 +122,30 @@ void verify_decreasing_displacement
      EnableIf<cul::VectorTraits<Vec2>::k_is_vector_type, const Vec2 &> old_displacement,
      const char * caller);
 
-inline std::size_t to_key(const SharedCPtr<Triangle> & tptr)
-    { return std::hash<const Triangle *>{}(tptr.get()); }
-
 // should/add remove fast
-void DriverComplete::add_triangle(const TriangleLinks & links) {
-    m_links.insert(std::make_pair( links.hash(), links ));
+void DriverComplete::add_triangle(const SharedPtr<const TriangleLink> & link) {
+    m_links.push_back(link);
 }
 
-void DriverComplete::remove_triangle(const TriangleLinks & links) {
-    m_links.erase(links.hash());
+void DriverComplete::remove_triangle(const SharedPtr<const TriangleLink> &) {
+    throw RtError{"unimplemented"};
 }
 
 void DriverComplete::clear_all_triangles() {
-    m_triangles.clear();
     m_links.clear();
 }
 
 Driver & DriverComplete::update() {
-    m_triangles.clear();
-    int triangles_dropped = 0;
-    for (auto itr = m_links.begin(); itr != m_links.end(); ) {
-        if (itr->second.is_sole_owner()) {
-            itr = m_links.erase(itr);
-            ++triangles_dropped;
-        } else {
-            ++itr;
-        }
-    }
-    if (triangles_dropped) {
+    auto new_end = std::remove_if(m_links.begin(), m_links.end(),
+        [](const SharedPtr<const TriangleLink> & link)
+    { return link.use_count() < 2; });
+
+    if (new_end != m_links.end()) {
+        auto triangles_dropped = m_links.end() - new_end;
         std::cout << "Dropeed " << triangles_dropped << " triangles." << std::endl;
     }
+    m_links.erase(new_end, m_links.end());
 
-    m_triangles.reserve(m_links.size());
-    for (auto & pair : m_links) {
-        m_triangles.emplace_back(pair.second.segment_ptr());
-    }
     return *this;
 }
 
@@ -215,11 +186,11 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_freebody
     (const InAir & freebody, const EventHandler & env) const
 {
-    const auto * beg = &m_triangles.front();
-    const auto * end = beg + m_triangles.size();
+    const auto beg = m_links.begin();
+    const auto end = m_links.end();
     auto new_loc = freebody.location + freebody.displacement;
     for (auto itr = beg; itr != end; ++itr) {
-        auto & triangle = **itr;
+        auto & triangle = (**itr).segment();
 
         constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
         auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
@@ -247,29 +218,32 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_tracker
     (const OnSegment & tracker, const EventHandler & env) const
 {
+    // this function is a little heavy, can we split it? (defer)
     assert(tracker.segment);
     // ground opens up from underneath
 
     const auto & triangle = *tracker.segment;
 
     // check collisions with other surfaces while traversing the "tracked" segment
-    const TriangleLinks * beg = nullptr;
-    const TriangleLinks * end = nullptr;
-    // I think I may skip this for now, until I have some results
+    auto beg = m_links.begin();
+    auto end = m_links.end();
 
     // usual segment transfer
     const auto new_loc = tracker.location + tracker.displacement;
     auto crossing = triangle.check_for_side_crossing(tracker.location, new_loc);
     if (crossing.side == TriangleSide::k_inside) {
-        if (!tracker.segment->contains_point(tracker.location + tracker.displacement)) {
-            triangle.check_for_side_crossing(tracker.location, tracker.location + tracker.displacement);
+        auto new_tracker_location = tracker.location + tracker.displacement;
+        if (!tracker.segment->contains_point(new_tracker_location)) {
+            triangle.check_for_side_crossing(
+                tracker.location, new_tracker_location);
         }
-        assert(tracker.segment->contains_point(tracker.location + tracker.displacement));
-        return OnSegment{tracker.segment, tracker.invert_normal,
-                         tracker.location + tracker.displacement, Vector2{}};
+        assert(tracker.segment->contains_point(new_tracker_location));
+        return OnSegment{tracker.fragment, tracker.invert_normal,
+                         new_tracker_location, Vector2{}};
     }
 
-    const auto transfer = find_links_for(tracker.segment).transfers_to(crossing.side);
+    const auto transfer = std::dynamic_pointer_cast<const TriangleLink>
+        (tracker.fragment)->transfers_to(crossing.side);
     constexpr const auto k_caller_name = "DriverComplete::handle_tracker";
     if (!transfer.target) {
         auto abgv = env.on_transfer_absent_link(*tracker.segment, crossing, new_loc);
@@ -291,7 +265,7 @@ State DriverComplete::operator ()
 
     auto outside_pt = triangle.point_at(crossing.outside);
     auto stgv = env.on_transfer(*tracker.segment, crossing,
-                                *transfer.target, tracker.segment->point_at(new_loc));
+                                transfer.target->segment(), tracker.segment->point_at(new_loc));
     if (auto * tup = get_if<Tuple<bool, Vector2>>(&stgv)) {
         auto [does_transfer, rem_displc] = *tup; {}
         verify_decreasing_displacement<Vector2, Vector2>(
@@ -299,7 +273,7 @@ State DriverComplete::operator ()
         if (does_transfer) {
             return OnSegment{
                 transfer.target, transfer.inverts,
-                transfer.target->closest_contained_point(outside_pt), rem_displc};
+                transfer.target->segment().closest_contained_point(outside_pt), rem_displc};
         }
         OnSegment rv{tracker};
         rv.location = crossing.inside;
@@ -312,17 +286,6 @@ State DriverComplete::operator ()
             *disv3, tracker.displacement, k_caller_name);
         return InAir{outside_pt, *disv3};
     }
-}
-
-/* private */ const TriangleLinks & DriverComplete::find_links_for
-    (SharedPtr<const Triangle> tptr) const
-{
-    auto itr = m_links.find(std::hash<const Triangle *>{}(tptr.get()));
-    if (itr == m_links.end()) {
-        throw RtError{"Cannot find triangle links, was the triangle occupied "
-                      "by the subject state added to the driver?"};
-    }
-    return itr->second;
 }
 
 // ----------------------------------------------------------------------------

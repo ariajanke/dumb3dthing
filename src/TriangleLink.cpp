@@ -18,12 +18,12 @@
 
 *****************************************************************************/
 
-#include "TriangleLinks.hpp"
+#include "TriangleLink.hpp"
 
 namespace {
 
 using namespace cul::exceptions_abbr;
-using Triangle = TriangleLinks::Triangle;
+using Triangle = TriangleLink::Triangle;
 
 Vector project_onto_line_segment
     (const Vector & a, const Vector & b, const Vector & ex)
@@ -36,30 +36,29 @@ Vector project_onto_line_segment
 
 } // end of <anonymous> namespace
 
-TriangleLinks::TriangleLinks(const SharedCPtr<Triangle> & tptr):
-    m_segment(tptr)
-{
-    if (tptr) return;
-    throw InvArg{"TriangleLinks::TriangleLinks: must own a triangle."};
-}
+TriangleLink::TriangleLink(const Triangle & triangle):
+    TriangleFragment(triangle)
+{}
 
-TriangleLinks & TriangleLinks::attempt_attachment_to(const SharedCPtr<Triangle> & tptr) {
+TriangleLink::TriangleLink(const Vector & a, const Vector & b, const Vector & c):
+    TriangleFragment(a, b, c)
+{}
+
+TriangleLink & TriangleLink::attempt_attachment_to
+    (const SharedPtr<const TriangleLink> & tptr)
+{
     return  attempt_attachment_to(tptr, Side::k_side_ab)
            .attempt_attachment_to(tptr, Side::k_side_bc)
            .attempt_attachment_to(tptr, Side::k_side_ca);
 }
 
-TriangleLinks & TriangleLinks::attempt_attachment_to
-    (const SharedCPtr<Triangle> & other, Side other_side)
+TriangleLink & TriangleLink::attempt_attachment_to
+    (const SharedPtr<const TriangleLink> & other, Side other_side)
 {
-    if (other == m_segment) {
-        throw InvArg{"TriangleLinks::attempt_attachment_to: attempted to "
-                     "attach triangle to an identical triangle."};
-    }
     verify_valid_side("TriangleLinks::attempt_attachment_to", other_side);
-    auto [oa, ob] = other->side_points(other_side); {}
+    auto [oa, ob] = other->segment().side_points(other_side); {}
     for (auto this_side : { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca }) {
-        auto [ta, tb] = m_segment->side_points(this_side); {}
+        auto [ta, tb] = segment().side_points(this_side); {}
         bool has_flipped_points    = are_very_close(oa, tb) && are_very_close(ob, ta);
         bool has_nonflipped_points = are_very_close(oa, ta) && are_very_close(ob, tb);
         if (!has_flipped_points && !has_nonflipped_points) continue;
@@ -68,24 +67,19 @@ TriangleLinks & TriangleLinks::attempt_attachment_to
         info.flip = has_flipped_points;
         info.side = other_side;
         // next call gets really complicated!
-        info.inverts = !has_opposing_normals(*other, other_side, *m_segment, this_side);
+        info.inverts = !has_opposing_normals(other->segment(), other_side, segment(), this_side);
         info.target = other;
         break;
     }
     return *this;
 }
 
-bool TriangleLinks::has_side_attached(Side side) const {
+bool TriangleLink::has_side_attached(Side side) const {
     verify_valid_side("TriangleLinks::has_side_attached", side);
     return !!m_triangle_sides[side].target.lock();
 }
 
-const Triangle & TriangleLinks::segment() const {
-    assert(m_segment);
-    return *m_segment;
-}
-
-TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
+TriangleLink::Transfer TriangleLink::transfers_to(Side side) const {
     verify_valid_side("TriangleLinks::transfers_to", side);
     auto & info = m_triangle_sides[side];
     Transfer rv;
@@ -96,13 +90,13 @@ TriangleLinks::Transfer TriangleLinks::transfers_to(Side side) const {
     return rv;
 }
 
-int TriangleLinks::sides_attached_count() const {
+int TriangleLink::sides_attached_count() const {
     auto list = { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca };
     return std::count_if(list.begin(), list.end(), [this](Side side)
         { return has_side_attached(side); });
 }
 
-/* private static */ bool TriangleLinks::has_opposing_normals
+/* private static */ bool TriangleLink::has_opposing_normals
     (const Triangle & lhs, Side left_side, const Triangle & rhs, Side right_side)
 {
     // assumption, sides "line up"
@@ -136,11 +130,8 @@ int TriangleLinks::sides_attached_count() const {
     // get possible rotations
     // Now there's a possible problem here... what if the previous projection
     // ends up landing right on the pivot?...
-#   if 0
-    auto t0 = angle_between(left_opp - pivot, left_opp_projd - pivot);
-#   else
+
     auto t0 = angle_between(left_opp - pivot, right_opp - pivot);
-#   endif
     auto t1 = k_pi - t0;
 
     auto segmid = 0.5*(pivot + right_opp);
@@ -167,7 +158,7 @@ int TriangleLinks::sides_attached_count() const {
 }
 
 
-/* private static */ TriangleSide TriangleLinks::verify_valid_side
+/* private static */ TriangleSide TriangleLink::verify_valid_side
     (const char * caller, Side side)
 {
     switch (side) {
