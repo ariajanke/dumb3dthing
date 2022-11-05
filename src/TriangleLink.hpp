@@ -59,7 +59,7 @@ public:
 
     TriangleLink(const Vector & a, const Vector & b, const Vector & c);
 
-    // atempts all sides
+    // attempts all sides
     TriangleLink & attempt_attachment_to(const SharedPtr<const TriangleLink> &);
 
     TriangleLink & attempt_attachment_to(const SharedPtr<const TriangleLink> &, Side);

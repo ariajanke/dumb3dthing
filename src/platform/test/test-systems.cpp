@@ -26,7 +26,7 @@
 bool run_systems_tests() {
     using namespace cul::exceptions_abbr;
     using namespace cul::ts;
-    using Triangle = TriangleSegment;
+
     TestSuite suite;
     suite.start_series("Systems Tests");
 #   define mark MACRO_MARK_POSITION_OF_CUL_TEST_SUITE
@@ -37,11 +37,6 @@ bool run_systems_tests() {
         auto make_pdriver = []
             (SharedPtr<TriangleLink> links_a, SharedPtr<TriangleLink> links_b)
         {
-#           if 0
-            // need links too
-            auto links_a = std::make_shared<TriangleLink>(a);
-            auto links_b = std::make_shared<TriangleLink>(b);
-#           endif
             links_a->attempt_attachment_to(links_b);
             links_b->attempt_attachment_to(links_a);
 
@@ -54,10 +49,6 @@ bool run_systems_tests() {
         auto test_handler = point_and_plane::EventHandler::make_test_handler();
 
         unit.start(mark(suite), [&] {
-#           if 0
-            auto a = make_shared<Triangle>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
-            auto b = make_shared<Triangle>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
-#           endif
             auto links_a = make_shared<TriangleLink>(
                 Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
             auto links_b = make_shared<TriangleLink>(
@@ -80,10 +71,6 @@ bool run_systems_tests() {
         });
         unit.start(mark(suite), [&] {
             // inverts correctly
-#           if 0
-            auto a = make_shared<Triangle>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, 1});
-            auto b = make_shared<Triangle>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, -1});
-#           endif
             auto links_a = make_shared<TriangleLink>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, 1});
             auto links_b = make_shared<TriangleLink>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, -1});
 

@@ -199,8 +199,6 @@ template <typename T>
 bool are_very_close(const VectorLike<T> & lhs, const VectorLike<T> & rhs)
     { return are_very_close(lhs.value, rhs.value); }
 
-[[deprecated]] void print_links(std::ostream &, const TriangleLink &);
-
 /** Gets the "nextafter" vector following a given direction
  *  @param r starting position
  *  @param dir direction to go in

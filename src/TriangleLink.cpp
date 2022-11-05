@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "TriangleLinks.hpp"
+#include "TriangleLink.hpp"
 
 namespace {
 

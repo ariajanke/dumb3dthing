@@ -114,7 +114,6 @@ Vector location_of(const State & state) {
 
 } // end of point_and_plane namespace
 
-
 namespace {
 
 template <typename Vec1, typename Vec2>
@@ -137,19 +136,15 @@ void DriverComplete::clear_all_triangles() {
 }
 
 Driver & DriverComplete::update() {
-    int triangles_dropped = 0;
-    // TODO: this is silly, you can implement this in linear time
-    for (auto itr = m_links.begin(); itr != m_links.end(); ) {
-        if (itr->use_count() < 2) {
-            itr = m_links.erase(itr);
-            ++triangles_dropped;
-        } else {
-            ++itr;
-        }
-    }
-    if (triangles_dropped) {
+    auto new_end = std::remove_if(m_links.begin(), m_links.end(),
+        [](const SharedPtr<const TriangleLink> & link)
+    { return link.use_count() < 2; });
+
+    if (new_end != m_links.end()) {
+        auto triangles_dropped = m_links.end() - new_end;
         std::cout << "Dropeed " << triangles_dropped << " triangles." << std::endl;
     }
+    m_links.erase(new_end, m_links.end());
 
     return *this;
 }
@@ -191,8 +186,8 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_freebody
     (const InAir & freebody, const EventHandler & env) const
 {
-    const auto beg = m_links.begin();// &m_triangles.front();
-    const auto end = m_links.end();// beg + m_triangles.size();
+    const auto beg = m_links.begin();
+    const auto end = m_links.end();
     auto new_loc = freebody.location + freebody.displacement;
     for (auto itr = beg; itr != end; ++itr) {
         auto & triangle = (**itr).segment();
@@ -223,6 +218,7 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_tracker
     (const OnSegment & tracker, const EventHandler & env) const
 {
+    // this function is a little heavy, can we split it? (defer)
     assert(tracker.segment);
     // ground opens up from underneath
 
@@ -231,23 +227,21 @@ State DriverComplete::operator ()
     // check collisions with other surfaces while traversing the "tracked" segment
     auto beg = m_links.begin();
     auto end = m_links.end();
-    // I think I may skip this for now, until I have some results
 
     // usual segment transfer
     const auto new_loc = tracker.location + tracker.displacement;
     auto crossing = triangle.check_for_side_crossing(tracker.location, new_loc);
     if (crossing.side == TriangleSide::k_inside) {
-        if (!tracker.segment->contains_point(tracker.location + tracker.displacement)) {
-            triangle.check_for_side_crossing(tracker.location, tracker.location + tracker.displacement);
+        auto new_tracker_location = tracker.location + tracker.displacement;
+        if (!tracker.segment->contains_point(new_tracker_location)) {
+            triangle.check_for_side_crossing(
+                tracker.location, new_tracker_location);
         }
-        assert(tracker.segment->contains_point(tracker.location + tracker.displacement));
+        assert(tracker.segment->contains_point(new_tracker_location));
         return OnSegment{tracker.fragment, tracker.invert_normal,
-                         tracker.location + tracker.displacement, Vector2{}};
+                         new_tracker_location, Vector2{}};
     }
 
-    // this line is the hardest...
-    // I need to find the link from information only found in tracker
-    // (while maintaining encapsulation)
     const auto transfer = std::dynamic_pointer_cast<const TriangleLink>
         (tracker.fragment)->transfers_to(crossing.side);
     constexpr const auto k_caller_name = "DriverComplete::handle_tracker";

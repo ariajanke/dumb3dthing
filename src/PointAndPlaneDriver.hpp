@@ -22,7 +22,7 @@
 
 #include "Defs.hpp"
 #include "TriangleSegment.hpp"
-#include "TriangleLinks.hpp"
+#include "TriangleLink.hpp"
 
 namespace point_and_plane {
 
@@ -34,7 +34,7 @@ struct OnSegment final {
     OnSegment(const SharedPtr<const TriangleFragment> & tri_, bool invert_norm_,
               Vector2 loc_, Vector2 dis_);
 
-    SharedPtr<const TriangleFragment> fragment; // turns into a nasty name
+    SharedPtr<const TriangleFragment> fragment;
     const Triangle * segment = nullptr;
     bool invert_normal = false;
     Vector2 location;
