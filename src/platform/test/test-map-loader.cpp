@@ -36,7 +36,7 @@ namespace {
 using PlayerEntities = LoaderTask::PlayerEntities;
 using namespace cul::exceptions_abbr;
 using cul::is_real;
-using LinksGrid = Grid<cul::View<std::vector<TriangleLinks>::const_iterator>>;
+using LinksGrid = Grid<cul::View<TriangleLinks::const_iterator, TriangleLinks::const_iterator>>;
 using Triangle = TriangleSegment;
 
 class TestLoaderTaskCallbacks final : public LoaderTask::Callbacks {
@@ -99,7 +99,7 @@ bool run_map_loader_tests() {
     static auto make_driver_for_test_layout = [] {
         auto links = load_test_layout();
         for (const auto & link : links) {
-            std::cout << link.sides_attached_count() << ", ";
+            std::cout << link->sides_attached_count() << ", ";
         }
         std::cout << std::endl;
         auto ppdriver = point_and_plane::Driver::make_driver();
@@ -125,8 +125,8 @@ bool run_map_loader_tests() {
     // triangle locations sanity
     mark(suite).test([] {
         auto links = load_test_layout();
-        return test(any_of(links.begin(), links.end(), [](const TriangleLinks & link) {
-            const auto & tri = link.segment();
+        return test(any_of(links.begin(), links.end(), [](const SharedPtr<TriangleLink> & link) {
+            const auto & tri = link->segment();
             auto pt_list = { tri.point_a(), tri.point_b(), tri.point_c() };
             return any_of(pt_list.begin(), pt_list.end(), [](Vector r)
                 { return are_very_close(r.x, 2.5) && are_very_close(r.z, -2.5); });
@@ -263,8 +263,9 @@ bool run_tiled_map_loader_tests() {
     };
 
     static auto elevation_for_all = [](const LinksGrid::Element & el, Real y) {
-        return std::all_of(el.begin(), el.end(), [y](const TriangleLinks & links) {
-            const auto & tri = links.segment();
+        static_assert(std::is_same_v<LinksGrid::Element, cul::View<TriangleLinks::const_iterator>>);
+        return std::all_of(el.begin(), el.end(), [y](const SharedPtr<TriangleLink> & links) {
+            const auto & tri = links->segment();
             auto list = { tri.point_a().y, tri.point_b().y, tri.point_c().y };
             return std::all_of(list.begin(), list.end(),
                                [y](Real x) { return are_very_close(x, y); });
@@ -283,11 +284,11 @@ bool run_tiled_map_loader_tests() {
         // This current design is sort of a "trick". The driver/scheduler
         // should not handle anything other than entities.
 
-        const auto & links = entities.back().get<std::vector<TriangleLinks>>();
+        const auto & links = entities.back().get<TriangleLinks>();
         // tell me these links look okay...
         // (note values are fixture specific)
-        return test(std::all_of(links.begin(), links.end(), [] (const TriangleLinks & link) {
-            auto list = { link.segment().point_a().y, link.segment().point_b().y, link.segment().point_c().y };
+        return test(std::all_of(links.begin(), links.end(), [] (const SharedPtr<TriangleLink> & link) {
+            auto list = { link->segment().point_a().y, link->segment().point_b().y, link->segment().point_c().y };
             return std::all_of(list.begin(), list.end(), [](Real y) { return are_very_close(y, 0); });
         }));
     });
@@ -373,7 +374,7 @@ bool run_tiled_map_loader_tests() {
 
         Real sum = 0;
         for (auto & link : grid(Vector2I{0, 1})) {
-            auto & tri = link.segment();
+            auto & tri = link->segment();
             if (!tri.can_be_projected_onto(k_up))
                 continue;
             sum += tri.project_onto_plane(k_up).area_of_triangle();
@@ -392,10 +393,10 @@ bool run_tiled_map_loader_tests() {
         const auto & grid = entities.back().get<LinksGrid>();
         auto wall_tile = grid(Vector2I{0, 1});
         bool wall_found = std::any_of(wall_tile.begin(), wall_tile.end(),
-            [](const TriangleLinks & links)
+            [](const SharedPtr<TriangleLink> & links)
         {
             // all the same x, where x == 1
-            auto tri = links.segment();
+            auto tri = links->segment();
             return    are_very_close(tri.point_a().x, tri.point_b().x)
                    && are_very_close(tri.point_b().x, tri.point_c().x);
         });
@@ -416,7 +417,7 @@ bool run_tiled_map_loader_tests() {
         Real low_y = k_inf;
         // get the greatest height difference, expect it to be about 2
         for (auto & links : wall_tile) {
-            auto & tri = links.segment();
+            auto & tri = links->segment();
             if (   are_very_close(tri.point_a().x, tri.point_b().x)
                 && are_very_close(tri.point_b().x, tri.point_c().x))
             {

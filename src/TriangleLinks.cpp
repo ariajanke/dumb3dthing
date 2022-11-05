@@ -45,6 +45,10 @@ TriangleLink::TriangleLink(const Triangle & triangle):
 #   endif
 }
 
+TriangleLink::TriangleLink(const Vector & a, const Vector & b, const Vector & c):
+    TriangleFragment(a, b, c)
+{}
+
 TriangleLink & TriangleLink::attempt_attachment_to
     (const SharedPtr<const TriangleLink> & tptr)
 {

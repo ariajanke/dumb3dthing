@@ -34,12 +34,16 @@ bool run_systems_tests() {
         using std::get;
         using VtoD = VelocitiesToDisplacement;
 
-        auto make_pdriver = [] (SharedPtr<const Triangle> a, SharedPtr<const Triangle> b) {
+        auto make_pdriver = []
+            (SharedPtr<TriangleLink> links_a, SharedPtr<TriangleLink> links_b)
+        {
+#           if 0
             // need links too
-            TriangleLinks links_a{a};
-            TriangleLinks links_b{b};
-            links_a.attempt_attachment_to(b);
-            links_b.attempt_attachment_to(a);
+            auto links_a = std::make_shared<TriangleLink>(a);
+            auto links_b = std::make_shared<TriangleLink>(b);
+#           endif
+            links_a->attempt_attachment_to(links_b);
+            links_b->attempt_attachment_to(links_a);
 
             auto pdriver = point_and_plane::Driver::make_driver();
             pdriver->add_triangle(links_a);
@@ -50,11 +54,17 @@ bool run_systems_tests() {
         auto test_handler = point_and_plane::EventHandler::make_test_handler();
 
         unit.start(mark(suite), [&] {
+#           if 0
             auto a = make_shared<Triangle>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
             auto b = make_shared<Triangle>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
-            auto pdriver = make_pdriver(a, b);
+#           endif
+            auto links_a = make_shared<TriangleLink>(
+                Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
+            auto links_b = make_shared<TriangleLink>(
+                Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
+            auto pdriver = make_pdriver(links_a, links_b);
             Vector displacement{-0.076216, -0.00069444, -0.00069444};
-            PpState state{PpOnSegment{a, true, Vector2{1.4142019007112767, 0.842617146393735}, Vector2{}}};
+            PpState state{PpOnSegment{links_a, true, Vector2{1.4142019007112767, 0.842617146393735}, Vector2{}}};
             get<PpOnSegment>(state).displacement = VtoD::find_on_segment_displacement(get<PpOnSegment>(state), displacement);
 
             // what should displacement be after the transfer?
@@ -66,15 +76,22 @@ bool run_systems_tests() {
             state = (*pdriver)(state, *test_handler);
 
             are_very_close(displc, Vector{displacement.x, 0, displacement.z});
-            return test(get<PpOnSegment>(state).segment != a);
+            return test(get<PpOnSegment>(state).fragment != links_a);
         });
         unit.start(mark(suite), [&] {
             // inverts correctly
+#           if 0
             auto a = make_shared<Triangle>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, 1});
             auto b = make_shared<Triangle>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, -1});
-            PpOnSegment a_state{a, true, a->closest_point(Vector{ 0.5, 0, 0.1 }),
-                        a->closest_point(Vector{ 0.5, 0, -0.1 }) - a->closest_point(Vector{ 0.5, 0, 0.1 })};
-            auto pdriver = make_pdriver(a, b);
+#           endif
+            auto links_a = make_shared<TriangleLink>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, 1});
+            auto links_b = make_shared<TriangleLink>(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 0, -1});
+
+            PpOnSegment a_state{links_a, true,
+                links_a->segment().closest_point(Vector{ 0.5, 0, 0.1 }),
+                  links_a->segment().closest_point(Vector{ 0.5, 0, -0.1 })
+                - links_a->segment().closest_point(Vector{ 0.5, 0,  0.1 })};
+            auto pdriver = make_pdriver(links_a, links_b);
             auto res = std::get<PpOnSegment>((*pdriver)(PpState{a_state}, *test_handler));
             return test(!res.invert_normal);
         });
@@ -84,10 +101,12 @@ bool run_systems_tests() {
         // maybe I need to test this? -> find_on_segment_displacement
         // no this is fine...
         Vector displacement{-0.7, -0.1, -0.1};
-        auto a = make_shared<Triangle>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
-        auto b = make_shared<Triangle>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
-        PpOnSegment a_state{a, true, a->center_in_2d(), Vector2{}};
-        PpOnSegment b_state{b, true, b->center_in_2d(), Vector2{}};
+        auto links_a = make_shared<TriangleLink>(Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
+        auto links_b = make_shared<TriangleLink>(Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
+        const auto & a = links_a->segment();
+        const auto & b = links_b->segment();
+        PpOnSegment a_state{links_a, true, a.center_in_2d(), Vector2{}};
+        PpOnSegment b_state{links_b, true, b.center_in_2d(), Vector2{}};
         a_state.displacement = VtoD::find_on_segment_displacement(a_state, displacement);
         b_state.displacement = VtoD::find_on_segment_displacement(b_state, displacement);
         auto a_displc = point_and_plane::segment_displacement_to_v3(PpState{a_state});

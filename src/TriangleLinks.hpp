@@ -35,6 +35,10 @@ protected:
     explicit TriangleFragment(const Triangle & triangle):
         m_segment(triangle) {}
 
+    TriangleFragment(const Vector & a, const Vector & b, const Vector & c):
+        m_segment(Triangle(a, b, c))
+    {}
+
 private:
     Triangle m_segment;
 };
@@ -55,6 +59,8 @@ public:
     };
 
     explicit TriangleLink(const Triangle &);
+
+    TriangleLink(const Vector & a, const Vector & b, const Vector & c);
 
     // atempts all sides
     TriangleLink & attempt_attachment_to(const SharedPtr<const TriangleLink> &);
