@@ -38,12 +38,7 @@ Vector project_onto_line_segment
 
 TriangleLink::TriangleLink(const Triangle & triangle):
     TriangleFragment(triangle)
-{
-#   if 0
-    if (tptr) return;
-    throw InvArg{"TriangleLinks::TriangleLinks: must own a triangle."};
-#   endif
-}
+{}
 
 TriangleLink::TriangleLink(const Vector & a, const Vector & b, const Vector & c):
     TriangleFragment(a, b, c)
@@ -60,12 +55,6 @@ TriangleLink & TriangleLink::attempt_attachment_to
 TriangleLink & TriangleLink::attempt_attachment_to
     (const SharedPtr<const TriangleLink> & other, Side other_side)
 {
-#   if 0 // can't know this here... :c
-    if (other == m_segment) {
-        throw InvArg{"TriangleLinks::attempt_attachment_to: attempted to "
-                     "attach triangle to an identical triangle."};
-    }
-#   endif
     verify_valid_side("TriangleLinks::attempt_attachment_to", other_side);
     auto [oa, ob] = other->segment().side_points(other_side); {}
     for (auto this_side : { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca }) {
@@ -89,15 +78,7 @@ bool TriangleLink::has_side_attached(Side side) const {
     verify_valid_side("TriangleLinks::has_side_attached", side);
     return !!m_triangle_sides[side].target.lock();
 }
-#if 0
-const Triangle & TriangleLink::segment() const {
-#   if 0
-    assert(m_segment);
-    return *m_segment;
-#   endif
-    return m_segment;
-}
-#endif
+
 TriangleLink::Transfer TriangleLink::transfers_to(Side side) const {
     verify_valid_side("TriangleLinks::transfers_to", side);
     auto & info = m_triangle_sides[side];
@@ -149,11 +130,8 @@ int TriangleLink::sides_attached_count() const {
     // get possible rotations
     // Now there's a possible problem here... what if the previous projection
     // ends up landing right on the pivot?...
-#   if 0
-    auto t0 = angle_between(left_opp - pivot, left_opp_projd - pivot);
-#   else
+
     auto t0 = angle_between(left_opp - pivot, right_opp - pivot);
-#   endif
     auto t1 = k_pi - t0;
 
     auto segmid = 0.5*(pivot + right_opp);

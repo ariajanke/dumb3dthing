@@ -43,14 +43,11 @@ private:
     Triangle m_segment;
 };
 
-// what is a triangle link more generally... such that you only know about the
-// triangle segment?
+// a triangle link has a triangle, and is linked to other triangles
 class TriangleLink final : public TriangleFragment {
 public:
     using Side = TriangleSide;
-#   if 0
-    using Triangle = TriangleSegment;
-#   endif
+
     struct Transfer final {
         SharedPtr<const TriangleLink> target; // set if there is a valid transfer to be had
         Side side = Side::k_inside; // transfer on what side of target?
@@ -68,29 +65,11 @@ public:
     TriangleLink & attempt_attachment_to(const SharedPtr<const TriangleLink> &, Side);
 
     bool has_side_attached(Side) const;
-#   if 0
-    std::size_t hash() const noexcept
-        { return std::hash<const Triangle *>{}(m_segment.get()); }
-#   endif
-#   if 0
-    const Triangle & segment() const;
-#   endif
-#   if 0
-    SharedPtr<Triangle> segment_ptr() const
-        { return m_segment; }
-#   endif
+
     Transfer transfers_to(Side) const;
 
     int sides_attached_count() const;
-#   if 0
-    // I need to be able to drop triangles, when their "true" owner is destroyed
 
-    bool is_sole_owner() const noexcept
-        { return m_segment.use_count() == 1; }
-
-    int owner_count() const noexcept
-        { return m_segment.use_count(); }
-#   endif
 private:
     struct SideInfo final {
         WeakPtr<const TriangleLink> target;
@@ -102,8 +81,6 @@ private:
     static bool has_opposing_normals(const Triangle &, Side, const Triangle &, Side);
 
     static Side verify_valid_side(const char * caller, Side);
-#   if 0
-    Triangle m_segment;
-#   endif
+
     std::array<SideInfo, 3> m_triangle_sides;
 };

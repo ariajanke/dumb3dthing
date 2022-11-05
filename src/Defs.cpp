@@ -84,9 +84,7 @@ std::ostream & operator << (std::ostream & out, const Vector2 & r) {
 
 void print_links(std::ostream & out, const TriangleLink & link) {
     using std::endl;
-#   if 0
-    out << "link: " << link.hash() << endl;
-#   endif
+
     auto & tri = link.segment();
     out << "(triangle a, b, c) " << tri.point_a() << ", "
         << tri.point_b() << ", " << tri.point_c() << endl;

@@ -35,15 +35,6 @@ using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
 
-class SweepLineView final { // I suck at names
-public:
-    SweepLineView(const Vector &, const Vector &);
-
-    Tuple<Real, Real> interval_for(const Triangle &) const;
-
-    Real point_for(const Vector &) const;
-};
-
 // this can become a bottle neck in performance
 // (as can entity component accessors)
 // so triangles are then sorted along an arbitrary axis
@@ -66,14 +57,7 @@ private:
     State handle_freebody(const InAir &, const EventHandler &) const;
 
     State handle_tracker(const OnSegment &, const EventHandler &) const;
-#   if 0
-    const TriangleLinks & find_links_for(SharedPtr<const Triangle>) const;
-#   endif
-    // both containers are owning
-#   if 0
-    std::unordered_map<std::size_t, TriangleLinks> m_links;
-    std::vector<SharedPtr<const Triangle>> m_triangles;
-#   endif
+
     std::vector<SharedPtr<const TriangleLink>> m_links;
 };
 
@@ -100,9 +84,6 @@ Vector location_of(const State & state) {
     auto * in_air = get_if<InAir>(&state);
     if (in_air) return in_air->location;
     auto & on_surf = std::get<OnSegment>(state);
-#   if 0
-    return on_surf.segment->point_at(on_surf.location);
-#   endif
     return on_surf.segment->point_at(on_surf.location);
 }
 
@@ -142,41 +123,23 @@ void verify_decreasing_displacement
      EnableIf<cul::VectorTraits<Vec2>::k_is_vector_type, const Vec2 &> old_displacement,
      const char * caller);
 
-inline std::size_t to_key(const SharedCPtr<Triangle> & tptr)
-    { return std::hash<const Triangle *>{}(tptr.get()); }
-
 // should/add remove fast
 void DriverComplete::add_triangle(const SharedPtr<const TriangleLink> & link) {
-#   if 0
-    m_links.insert(std::make_pair( links.hash(), links ));
-#   endif
     m_links.push_back(link);
 }
 
 void DriverComplete::remove_triangle(const SharedPtr<const TriangleLink> &) {
-#   if 0
-    m_links.erase(links.hash());
-#   endif
     throw RtError{"unimplemented"};
 }
 
 void DriverComplete::clear_all_triangles() {
     m_links.clear();
-#   if 0
-    m_triangles.clear();
-    m_links.clear();
-#   endif
 }
 
 Driver & DriverComplete::update() {
-#   if 0
-    m_triangles.clear();
-#   endif
     int triangles_dropped = 0;
+    // TODO: this is silly, you can implement this in linear time
     for (auto itr = m_links.begin(); itr != m_links.end(); ) {
-#       if 0
-        if (itr->second.is_sole_owner()) {
-#       endif
         if (itr->use_count() < 2) {
             itr = m_links.erase(itr);
             ++triangles_dropped;
@@ -187,12 +150,7 @@ Driver & DriverComplete::update() {
     if (triangles_dropped) {
         std::cout << "Dropeed " << triangles_dropped << " triangles." << std::endl;
     }
-#   if 0
-    m_triangles.reserve(m_links.size());
-    for (auto & pair : m_links) {
-        m_triangles.emplace_back(pair.second.segment_ptr());
-    }
-#   endif
+
     return *this;
 }
 
@@ -265,18 +223,12 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_tracker
     (const OnSegment & tracker, const EventHandler & env) const
 {
-#   if 0
     assert(tracker.segment);
-#   endif
     // ground opens up from underneath
 
     const auto & triangle = *tracker.segment;
 
     // check collisions with other surfaces while traversing the "tracked" segment
-#   if 0
-    const TriangleLinks * beg = nullptr;
-    const TriangleLinks * end = nullptr;
-#   endif
     auto beg = m_links.begin();
     auto end = m_links.end();
     // I think I may skip this for now, until I have some results
@@ -296,9 +248,6 @@ State DriverComplete::operator ()
     // this line is the hardest...
     // I need to find the link from information only found in tracker
     // (while maintaining encapsulation)
-#   if 0
-    const auto transfer = find_links_for(tracker.segment).transfers_to(crossing.side);
-#   endif
     const auto transfer = std::dynamic_pointer_cast<const TriangleLink>
         (tracker.fragment)->transfers_to(crossing.side);
     constexpr const auto k_caller_name = "DriverComplete::handle_tracker";
@@ -344,18 +293,7 @@ State DriverComplete::operator ()
         return InAir{outside_pt, *disv3};
     }
 }
-#if 0
-/* private */ const TriangleLinks & DriverComplete::find_links_for
-    (SharedPtr<const Triangle> tptr) const
-{
-    auto itr = m_links.find(std::hash<const Triangle *>{}(tptr.get()));
-    if (itr == m_links.end()) {
-        throw RtError{"Cannot find triangle links, was the triangle occupied "
-                      "by the subject state added to the driver?"};
-    }
-    return itr->second;
-}
-#endif
+
 // ----------------------------------------------------------------------------
 
 template <typename Vec1, typename Vec2>
