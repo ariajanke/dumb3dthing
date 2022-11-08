@@ -22,8 +22,7 @@
 
 #include "TriangleLink.hpp"
 
-// fairly "static"
-// dupelicates allowed in views
+#include <ariajanke/cul/VectorUtils.hpp>
 
 class ProjectionLine final {
 public:
@@ -38,11 +37,34 @@ public:
     ProjectionLine(const Vector & a_, const Vector & b_):
         m_a(a_), m_b(b_) {}
 
-    Interval interval_for(const Triangle &) const;
+    Interval interval_for(const Triangle & triangle) const {
+        std::array pts
+            { triangle.point_a(), triangle.point_b(), triangle.point_c() };
+        return interval_for(&pts[0], &pts[0] + pts.size());
+    }
 
-    Real point_for(const Vector &) const;
+    Interval interval_for(const Vector & a, const Vector & b) const {
+        std::array pts{a, b};
+        return interval_for(&pts[0], &pts[0] + pts.size());
+    }
 
-private:
+    Real point_for(const Vector & r) const {
+        auto pt_on_line = find_closest_point_to_line(m_a, m_b, r);
+        auto mag = magnitude(pt_on_line - m_a);
+        auto dir = dot(pt_on_line - m_a, m_b - m_a) < 0 ? -1 : 1;
+        return mag*dir;
+    }
+
+private:    
+    Interval interval_for(const Vector * beg, const Vector * end) const {
+        assert(beg != end);
+        auto [min, max] = std::minmax_element
+            (beg, end,
+             [this](const Vector & lhs, const Vector & rhs)
+             { return point_for(lhs) < point_for(rhs); });
+        return Interval{point_for(*min), point_for(*max)};
+    }
+
     Vector m_a, m_b;
 };
 
@@ -61,11 +83,35 @@ public:
         }
     }
 
-    Tuple<T, T> pair_for(const Interval &) const;
+    /** @brief Froms a pair based on the given interval.
+     *
+     *  @return returns a pair, the first element
+     */
+    Tuple<T, T> pair_for(const Interval & interval) const {
+        // lower_bound for min, np
+        auto low = lower_bound
+            (interval.min,
+             [] (const DivisionTuple & tup, Real min)
+             { return std::get<k_div_element>(tup) < min; });
+        // high end's a little tougher
+        auto high = lower_bound
+            (interval.max,
+             [] (const DivisionTuple & tup, Real max)
+             { return std::get<k_div_element>(tup) < max; });
+        high = high == m_container.end() ? high - 1 : high;
+        ;
+        return make_tuple(std::get<0>(*low), std::get<1>(*high));
+    }
 
-    void push(Real interval_end, const T &, const T &);
+    void push(Real interval_end, const T & first, const T & second)
+        { m_container.emplace_back(first, second, interval_end); }
 
-    void verify_sorted(const char * caller) const;
+    // a public verify feels like a smell to me
+    void verify_sorted(const char * caller) const {
+        using namespace cul::exceptions_abbr;
+        if (is_sorted()) return;
+        throw RtError{std::string{caller} + ": divisions must be sorted"};
+    }
 
     void clear()
         { m_container.clear(); }
@@ -77,7 +123,29 @@ public:
     auto end() const { return m_container.end(); }
 
 private:
-    std::vector<Tuple<T, T, Real>> m_container;
+    using DivisionTuple = Tuple<T, T, Real>;
+    using Container = std::vector<DivisionTuple>;
+
+    static constexpr const auto k_div_element = 2;
+
+    static bool ordered_tuples
+        (const DivisionTuple & lhs, const DivisionTuple & rhs)
+        { return std::get<k_div_element>(lhs) < std::get<k_div_element>(rhs); }
+
+    template <typename Func>
+    typename Container::const_iterator
+        lower_bound(Real value, Func && pred) const
+    {
+        return std::lower_bound
+            (m_container.begin(), m_container.end(), value, std::move(pred));
+    }
+
+    bool is_sorted() const {
+        return std::is_sorted
+            (m_container.begin(), m_container.end(), ordered_tuples);
+    }
+
+    std::vector<DivisionTuple> m_container;
 };
 
 class SpatialPartitionMap final {
@@ -120,8 +188,8 @@ public:
 
     void populate(const EntryContainer & sorted_entries) {
         using namespace cul::exceptions_abbr;
-        if (std::is_sorted(sorted_entries.begin(), sorted_entries.end(),
-                compare_entries))
+        if (std::is_sorted
+                (sorted_entries.begin(), sorted_entries.end(), compare_entries))
         { throw InvArg{"entries must be sorted"}; }
 
         m_divisions.clear();
@@ -216,4 +284,71 @@ private:
 
     EntryContainer m_container;
     Divisions<EntryIterator> m_divisions;
+};
+
+class ProjectedSpatialMap final {
+public:
+    using TriangleLinks = std::vector<SharedPtr<const TriangleLink>>;
+    using Iterator = SpatialPartitionMap::Iterator;
+
+    void populate(const TriangleLinks & links) {
+        using EntryContainer = SpatialPartitionMap::EntryContainer;
+
+        m_projection_line = make_line_for(links);
+
+        EntryContainer entries;
+        entries.reserve(links.size());
+        for (auto & link : links) {
+            entries.emplace_back
+                (m_projection_line.interval_for(link->segment()), link);
+        }
+        std::sort
+            (entries.begin(), entries.end(),
+             SpatialPartitionMap::compare_entries);
+        m_spatial_map.populate(entries);
+    }
+
+    cul::View<Iterator> view_for(const Vector & a, const Vector & b) const {
+        return m_spatial_map.view_for
+            ( m_projection_line.interval_for(a, b) );
+    }
+
+private:
+    static ProjectionLine make_line_for(const TriangleLinks & links) {
+        Vector low { k_inf,  k_inf,  k_inf};
+        Vector high{-k_inf, -k_inf, -k_inf};
+        for (auto & link : links) {
+            const auto & triangle = link->segment();
+            for (auto pt : { triangle.point_a(), triangle.point_b(), triangle.point_c() }) {
+                auto low_list = {
+                    make_tuple(&pt.x, &low.x),
+                    make_tuple(&pt.y, &low.y),
+                    make_tuple(&pt.z, &low.z),
+                };
+                auto high_list = {
+                    make_tuple(&pt.x, &high.x),
+                    make_tuple(&pt.y, &high.y),
+                    make_tuple(&pt.z, &high.z),
+                };
+                for (auto [i, low_i] : low_list) {
+                    *low_i = std::min(*low_i, *i);
+                }
+                for (auto [i, high_i] : high_list) {
+                    *high_i = std::max(*high_i, *i);
+                }
+            }
+        }
+        auto line_options = {
+            make_tuple(high.x - low.x, Vector{high.x, 0, 0}, Vector{low.x, 0, 0}),
+            make_tuple(high.y - low.y, Vector{0, high.y, 0}, Vector{0, low.y, 0}),
+            make_tuple(high.z - low.z, Vector{0, 0, high.z}, Vector{0, 0, low.z})
+        };
+        auto choice = std::max_element(line_options.begin(), line_options.end(),
+                         [] (auto & lhs, auto & rhs)
+        { return std::get<0>(lhs) < std::get<0>(rhs); });
+        return ProjectionLine{std::get<1>(*choice), std::get<1>(*choice)};
+    }
+
+    SpatialPartitionMap m_spatial_map;
+    ProjectionLine m_projection_line;
 };
