@@ -35,7 +35,14 @@ public:
     ProjectionLine() {}
 
     ProjectionLine(const Vector & a_, const Vector & b_):
-        m_a(a_), m_b(b_) {}
+        m_a(a_), m_b(b_)
+    {
+        using namespace cul::exceptions_abbr;
+        if (!are_very_close(a_, b_)) return;
+
+        throw InvArg{"ProjectionLine::ProjectionLine: points a and b must be "
+                     "two different points to form a line."};
+    }
 
     Interval interval_for(const Triangle & triangle) const {
         std::array pts
@@ -68,12 +75,67 @@ private:
     Vector m_a, m_b;
 };
 
+class SpatialDivisionPairsBase {
+protected:
+    SpatialDivisionPairsBase() {}
+
+    template <typename T>
+    using DivisionTuple_ = Tuple<T, T, Real>;
+
+    template <typename T>
+    using Container_ = std::vector<DivisionTuple_<T>>;
+
+    static constexpr const auto k_div_element = 2;
+
+    template <typename T>
+    static bool is_sorted(const Container_<T> & container) {
+        return std::is_sorted
+            (container.begin(), container.end(), compare_tuples<T>);
+    }
+
+private:
+    template <typename T>
+    static bool compare_tuples
+        (const DivisionTuple_<T> & lhs, const DivisionTuple_<T> & rhs)
+        { return std::get<k_div_element>(lhs) < std::get<k_div_element>(rhs); }
+};
+
 template <typename T>
-class SpatialDivisionPairs final {
+class SpatialDivisionPairsPopulator final : public SpatialDivisionPairsBase {
 public:
     using Interval = ProjectionLine::Interval;
+    using Container = Container_<T>;
+
+    SpatialDivisionPairsPopulator() {}
+
+    explicit SpatialDivisionPairsPopulator(Container && container_):
+        m_container(std::move(container_)) {}
+
+    void push(Real interval_end, const T & first, const T & second)
+        { m_container.emplace_back(first, second, interval_end); }
+
+    Container give_container() { return std::move(m_container); }
+
+private:
+    Container m_container;
+};
+
+template <typename T>
+class SpatialDivisionPairs final : public SpatialDivisionPairsBase {
+public:
+    using Interval = ProjectionLine::Interval;
+    using Populator = SpatialDivisionPairsPopulator<T>;
 
     SpatialDivisionPairs() {}
+
+    explicit SpatialDivisionPairs(Populator && population_):
+        m_container(population_.give_container())
+    {
+        using namespace cul::exceptions_abbr;
+        if (is_sorted(m_container)) return;
+        throw RtError{"SpatialDivisionPairs::SpatialDivisionPairs: divisions "
+                      "must be sorted"};
+    }
 
     template <typename U, typename UtoT>
     SpatialDivisionPairs(const SpatialDivisionPairs<U> & other_divs, UtoT && u_to_t) {
@@ -99,23 +161,17 @@ public:
              [] (const DivisionTuple & tup, Real max)
              { return std::get<k_div_element>(tup) < max; });
         high = high == m_container.end() ? high - 1 : high;
-        ;
         return make_tuple(std::get<0>(*low), std::get<1>(*high));
     }
 
-    void push(Real interval_end, const T & first, const T & second)
-        { m_container.emplace_back(first, second, interval_end); }
-
-    // a public verify feels like a smell to me
-    void verify_sorted(const char * caller) const {
-        using namespace cul::exceptions_abbr;
-        if (is_sorted()) return;
-        throw RtError{std::string{caller} + ": divisions must be sorted"};
+    Populator make_populator() {
+        m_container.clear();
+        return Populator{std::move(m_container)};
     }
-
+#   if 0
     void clear()
         { m_container.clear(); }
-
+#   endif
     auto count() const { return m_container.size(); }
 
     auto begin() const { return m_container.begin(); }
@@ -123,14 +179,8 @@ public:
     auto end() const { return m_container.end(); }
 
 private:
-    using DivisionTuple = Tuple<T, T, Real>;
-    using Container = std::vector<DivisionTuple>;
-
-    static constexpr const auto k_div_element = 2;
-
-    static bool ordered_tuples
-        (const DivisionTuple & lhs, const DivisionTuple & rhs)
-        { return std::get<k_div_element>(lhs) < std::get<k_div_element>(rhs); }
+    using DivisionTuple = SpatialDivisionPairsBase::DivisionTuple_<T>;
+    using Container = SpatialDivisionPairsBase::Container_<T>;
 
     template <typename Func>
     typename Container::const_iterator
@@ -140,12 +190,7 @@ private:
             (m_container.begin(), m_container.end(), value, std::move(pred));
     }
 
-    bool is_sorted() const {
-        return std::is_sorted
-            (m_container.begin(), m_container.end(), ordered_tuples);
-    }
-
-    std::vector<DivisionTuple> m_container;
+    Container m_container;
 };
 
 class SpatialPartitionMap final {
@@ -189,24 +234,22 @@ public:
     void populate(const EntryContainer & sorted_entries) {
         using namespace cul::exceptions_abbr;
         if (std::is_sorted
-                (sorted_entries.begin(), sorted_entries.end(), compare_entries))
+            (sorted_entries.begin(), sorted_entries.end(), compare_entries))
         { throw InvArg{"entries must be sorted"}; }
 
-        m_divisions.clear();
         m_container.clear();
 
         // sorted_entries is our temporary
         auto divisions = compute_divisions(sorted_entries);
 
         // indicies represent would be positions in the destination container
-        Divisions<std::size_t> index_divisions;
+        DivisionsPopulator<std::size_t> index_divisions;
         make_indexed_divisions
             (sorted_entries, divisions, index_divisions, m_container);
-        index_divisions.verify_sorted("populate");
 
         // after all entries are in, convert indicies into iterators
         m_divisions = Divisions<EntryIterator>
-            {index_divisions,
+            {Divisions<std::size_t>{std::move(index_divisions)},
              [this](std::size_t idx) { return m_container.begin() + idx; }};
     }
 
@@ -221,6 +264,9 @@ private:
     template <typename T>
     using Divisions = SpatialDivisionPairs<T>;
 
+    template <typename T>
+    using DivisionsPopulator = SpatialDivisionPairsPopulator<T>;
+
     static std::vector<Real> compute_divisions
         (const EntryContainer &)
     {
@@ -230,7 +276,8 @@ private:
 
     static void make_indexed_divisions
         (const EntryContainer & sorted_entries, const std::vector<Real> & divisions,
-         Divisions<std::size_t> & index_divisions, EntryContainer & product_container)
+         DivisionsPopulator<std::size_t> & index_divisions,
+         EntryContainer & product_container)
     {
         Real last_division = 0;
         for (auto division : divisions) {
@@ -346,7 +393,7 @@ private:
         auto choice = std::max_element(line_options.begin(), line_options.end(),
                          [] (auto & lhs, auto & rhs)
         { return std::get<0>(lhs) < std::get<0>(rhs); });
-        return ProjectionLine{std::get<1>(*choice), std::get<1>(*choice)};
+        return ProjectionLine{std::get<1>(*choice), std::get<2>(*choice)};
     }
 
     SpatialPartitionMap m_spatial_map;
