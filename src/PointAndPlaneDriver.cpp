@@ -165,6 +165,9 @@ State DriverComplete::operator ()
     // before returning, this must be true:
     //
     // are_very_close(/* something */.displacement, make_zero_vector<Vector>())
+    if (m_spm_dirty) {
+        throw RtError{"Driver::operator(): update must be called first"};
+    }
 
     auto next_state = [this](const State & state, const EventHandler & env) {
         if (auto * freebody = get_if<InAir>(&state)) {
@@ -202,6 +205,7 @@ State DriverComplete::operator ()
     const auto beg = view.begin();//m_links.begin();
     const auto end = view.end();//m_links.end();
     for (auto itr = beg; itr != end; ++itr) {
+        auto idx = itr - beg;
         auto & triangle = (*itr).lock()->segment();
 
         constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
