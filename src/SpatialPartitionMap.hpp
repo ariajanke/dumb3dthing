@@ -48,17 +48,17 @@ private:
     Vector m_a, m_b;
 };
 
-class SpatialDivisionPairsBase {
+class SpatialDivisionBase {
 protected:
-    SpatialDivisionPairsBase() {}
+    SpatialDivisionBase() {}
 
     template <typename T>
-    using DivisionTuple_ = Tuple<T, T, Real>;
+    using DivisionTuple_ = Tuple<Real, T>;
 
     template <typename T>
     using Container_ = std::vector<DivisionTuple_<T>>;
 
-    static constexpr const auto k_div_element = 2;
+    static constexpr const auto k_div_element = 0;
 
     template <typename T>
     static bool is_sorted(const Container_<T> & container) {
@@ -74,39 +74,43 @@ private:
 };
 
 template <typename T>
-class SpatialDivisionPairsPopulator final : public SpatialDivisionPairsBase {
+class SpatialDivisionPopulator final : public SpatialDivisionBase {
 public:
     using Interval = ProjectionLine::Interval;
     using Container = Container_<T>;
 
-    SpatialDivisionPairsPopulator() {}
+    SpatialDivisionPopulator() {}
 
-    explicit SpatialDivisionPairsPopulator(Container && container_):
+    explicit SpatialDivisionPopulator(Container && container_):
         m_container(std::move(container_)) {}
 
-    void push(Real interval_end, const T & first, const T & second)
-        { m_container.emplace_back(first, second, interval_end); }
+    void push(Real interval_start, const T & element)
+        { m_container.emplace_back(interval_start, element); }
 
-    Container give_container()
+    Container && give_container()
         { return std::move(m_container); }
 
 private:
     Container m_container;
 };
 
+/**
+ *  Each division has a starting point, whose ending point is described by the
+ *  next division's starting point.
+ */
 template <typename T>
-class SpatialDivisionPairs final : public SpatialDivisionPairsBase {
+class SpatialDivisionContainer final : public SpatialDivisionBase {
 public:
     using Interval = ProjectionLine::Interval;
-    using Populator = SpatialDivisionPairsPopulator<T>;
+    using Populator = SpatialDivisionPopulator<T>;
 
-    SpatialDivisionPairs() {}
+    SpatialDivisionContainer() {}
 
-    explicit SpatialDivisionPairs(Populator &&);
+    explicit SpatialDivisionContainer(Populator &&);
 
     template <typename U, typename UtoT>
-    SpatialDivisionPairs
-        (const SpatialDivisionPairs<U> & other_divs, UtoT && u_to_t);
+    SpatialDivisionContainer
+        (const SpatialDivisionContainer<U> & other_divs, UtoT && u_to_t);
 
     /** @brief Froms a pair based on the given interval.
      *
@@ -123,12 +127,14 @@ public:
     auto end() const { return m_container.end(); }
 
 private:
-    using DivisionTuple = SpatialDivisionPairsBase::DivisionTuple_<T>;
-    using Container = SpatialDivisionPairsBase::Container_<T>;
+    using DivisionTuple = SpatialDivisionBase::DivisionTuple_<T>;
+    using Container = SpatialDivisionBase::Container_<T>;
 
     template <typename Func>
     typename Container::const_iterator
         lower_bound(Real value, Func && pred) const;
+
+    void verify_container(const char * caller) const;
 
     Container m_container;
 };
@@ -150,16 +156,16 @@ public:
     using EntryView = cul::View<EntryIterator>;
 
     template <typename T>
-    using Divisions = SpatialDivisionPairs<T>;
+    using Divisions = SpatialDivisionContainer<T>;
 
     template <typename T>
-    using DivisionsPopulator = SpatialDivisionPairsPopulator<T>;
+    using DivisionsPopulator = SpatialDivisionPopulator<T>;
 
     static std::vector<Real> compute_divisions
         (const EntryContainer &)
     {
         // a little more difficult, I'll do hard coded quarters to start
-        return { 0.25, 0.5, 0.75, 1. };
+        return { 0., 0.25, 0.5, 0.75, k_inf };
     }
 
     static void make_indexed_divisions
@@ -216,10 +222,10 @@ public:
 
 private:
     template <typename T>
-    using Divisions = SpatialDivisionPairs<T>;
+    using Divisions = SpatialDivisionContainer<T>;
 
     template <typename T>
-    using DivisionsPopulator = SpatialDivisionPairsPopulator<T>;
+    using DivisionsPopulator = SpatialDivisionPopulator<T>;
 
     EntryContainer m_container;
     Divisions<EntryIterator> m_divisions;
@@ -244,55 +250,86 @@ private:
 // ----------------------------------------------------------------------------
 
 template <typename T>
-SpatialDivisionPairs<T>::SpatialDivisionPairs(Populator && population_):
-    m_container(population_.give_container())
-{
-    using namespace cul::exceptions_abbr;
-    if (is_sorted(m_container)) return;
-    throw RtError{"SpatialDivisionPairs::SpatialDivisionPairs: divisions "
-                  "must be sorted"};
-}
+SpatialDivisionContainer<T>::SpatialDivisionContainer(Populator && population_):
+    m_container(std::move(population_.give_container()))
+{ verify_container("SpatialDivisionPairs"); }
 
 template <typename T>
 template <typename U, typename UtoT>
-SpatialDivisionPairs<T>::SpatialDivisionPairs
-    (const SpatialDivisionPairs<U> & other_divs, UtoT && u_to_t)
+SpatialDivisionContainer<T>::SpatialDivisionContainer
+    (const SpatialDivisionContainer<U> & other_divs, UtoT && u_to_t)
 {
     m_container.reserve(other_divs.count());
-    for (auto & [u0, u1, div] : other_divs) {
-        m_container.emplace_back(u_to_t(u0), u_to_t(u1), div);
+    for (auto & [div, u] : other_divs) {
+        m_container.emplace_back(div, u_to_t(u));
     }
+    verify_container("SpatialDivisionContainer");
 }
 
 template <typename T>
-Tuple<T, T> SpatialDivisionPairs<T>::pair_for(const Interval & interval) const {
+Tuple<T, T> SpatialDivisionContainer<T>::pair_for(const Interval & interval) const {
+    using std::get;
+    using namespace cul::exceptions_abbr;
     // lower_bound for min, np
     auto low = lower_bound
         (interval.min,
          [] (const DivisionTuple & tup, Real min)
-         { return std::get<k_div_element>(tup) < min; });
+         { return get<k_div_element>(tup) < min; });
+
     // high end's a little tougher
     auto high = lower_bound
         (interval.max,
          [] (const DivisionTuple & tup, Real max)
-         { return std::get<k_div_element>(tup) < max; });
-    high = high == m_container.end() ? high - 1 : high;
-    return make_tuple(std::get<0>(*low), std::get<1>(*high));
+         { return get<k_div_element>(tup) < max; });
+
+    // it's even better, "high" should never hit end
+    if (low == m_container.begin() || high == m_container.end()) {
+        throw InvArg{"SpatialDivisionContainer::pair_for: given interval is "
+                     "outside of known range for divisions (was there an "
+                     "\"<infinity, end>\" element added?)"};
+    }
+
+    // if we hit end, return end iterator of container
+    auto low_itr = get<1>(*(low - 1));
+    auto end_itr = //high == m_container.end() ?
+        //m_container.end() RtError:
+        get<1>(*high);
+    return make_tuple(low_itr, end_itr);
 }
 
 template <typename T>
-SpatialDivisionPairsPopulator<T> SpatialDivisionPairs<T>::make_populator() {
+SpatialDivisionPopulator<T> SpatialDivisionContainer<T>::make_populator() {
     m_container.clear();
     return Populator{std::move(m_container)};
 }
 
 template <typename T>
 template <typename Func>
-/* private */ typename SpatialDivisionPairs<T>::Container::const_iterator
-    SpatialDivisionPairs<T>::lower_bound(Real value, Func && pred) const
+/* private */ typename SpatialDivisionContainer<T>::Container::const_iterator
+    SpatialDivisionContainer<T>::lower_bound(Real value, Func && pred) const
 {
     return std::lower_bound
         (m_container.begin(), m_container.end(), value, std::move(pred));
+}
+
+template <typename T>
+/* private */ void SpatialDivisionContainer<T>::verify_container
+    (const char * caller) const
+{
+    using namespace cul::exceptions_abbr;
+    if (!is_sorted(m_container)) {
+        throw RtError{"SpatialDivisionContainer::" + std::string{caller} +
+                      ": divisions must be sorted"};
+    }
+    const auto make_no_inf_end_exp = [caller] {
+        return RtError{"SpatialDivisionContainer::" + std::string{caller} +
+                       ": divisions must end in an infinity"};
+    };
+    if (!m_container.empty()) {
+        if (cul::is_real( std::get<k_div_element>(m_container.back()) )) {
+            throw make_no_inf_end_exp();
+        }
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -303,11 +340,28 @@ template <typename Element>
      DivisionsPopulator<std::size_t> & index_divisions,
      EntryContainer & product_container)
 {
+    using namespace cul::exceptions_abbr;
+
+    if (divisions.size() == 1) {
+        throw InvArg{"SpatialPartitionMapHelpers::make_indexed_divisions: "
+                     "divisions may not contain only one element"};
+    }
+    for (auto itr = divisions.begin(); itr + 1 == divisions.end(); ++itr) {
+        auto low = *itr;
+        auto high = *(itr + 1);
+        const auto entries = view_for_entries
+            (sorted_entries.begin(), sorted_entries.end(), low, high);
+        index_divisions.push(low, product_container.size());
+        product_container.insert
+            (product_container.end(), entries.begin(), entries.end());
+    }
+
+#   if 0
     Real last_division = 0;
     for (auto division : divisions) {
        const auto entries = view_for_entries
            (sorted_entries.begin(), sorted_entries.end(),
-            last_division, division);
+            division);
        auto old_size = product_container.size();
        product_container.insert
            (product_container.begin(), entries.begin(), entries.end());
@@ -315,6 +369,7 @@ template <typename Element>
            (division, old_size, product_container.size());
        last_division = division;
     }
+#   endif
 }
 
 template <typename Element>

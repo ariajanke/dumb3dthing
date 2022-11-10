@@ -205,7 +205,6 @@ State DriverComplete::operator ()
     const auto beg = view.begin();//m_links.begin();
     const auto end = view.end();//m_links.end();
     for (auto itr = beg; itr != end; ++itr) {
-        auto idx = itr - beg;
         auto & triangle = (*itr).lock()->segment();
 
         constexpr const auto k_caller_name = "DriverComplete::handle_freebody";

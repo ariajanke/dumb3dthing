@@ -26,11 +26,11 @@
 int main() {
     // I *could* just dump all my test functions here I guess...
     const std::array k_test_functions = {
-        run_triangle_segment_tests,
-        run_map_loader_tests,
-        run_triangle_links_tests,
-        run_systems_tests,
-        run_wall_tile_factory_tests,
+//        run_triangle_segment_tests,
+//        run_map_loader_tests,
+//        run_triangle_links_tests,
+//        run_systems_tests,
+//        run_wall_tile_factory_tests,
         run_spm_tests
     };
     std::array<bool, k_test_functions.size()> results;

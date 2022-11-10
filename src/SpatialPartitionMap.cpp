@@ -172,5 +172,5 @@ cul::View<ProjectedSpatialMap::Iterator>
     auto choice = std::max_element(line_options.begin(), line_options.end(),
                      [] (auto & lhs, auto & rhs)
     { return std::get<0>(lhs) < std::get<0>(rhs); });
-    return ProjectionLine{std::get<1>(*choice), std::get<2>(*choice)};
+    return ProjectionLine{std::get<1>(*choice), std::get<1>(*choice)};
 }
