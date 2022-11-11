@@ -77,9 +77,8 @@ SpatialPartitionMap::Iterator & SpatialPartitionMap::Iterator::operator ++ () {
 
 void SpatialPartitionMap::populate(const EntryContainer & sorted_entries) {
     using namespace cul::exceptions_abbr;
-    if (!std::is_sorted
-        (sorted_entries.begin(), sorted_entries.end(), compare_entries))
-    { throw InvArg{"entries must be sorted"}; }
+    if (!Helpers::is_sorted(sorted_entries))
+        { throw InvArg{"entries must be sorted"}; }
 
     m_container.clear();
 
@@ -123,9 +122,8 @@ void ProjectedSpatialMap::populate(const TriangleLinks & links) {
         entries.emplace_back
             (m_projection_line.interval_for(link->segment()), link);
     }
-    std::sort
-        (entries.begin(), entries.end(),
-         SpatialPartitionMap::compare_entries);
+
+    Helpers::sort_entries_container(entries);
     m_spatial_map.populate(entries);
 }
 

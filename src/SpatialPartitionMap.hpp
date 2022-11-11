@@ -28,6 +28,9 @@ class ProjectionLine final {
 public:
     using Triangle = TriangleSegment;
     struct Interval final {
+        Interval() {}
+        Interval(Real min_, Real max_):
+            min(min_), max(max_) {}
         Real min = 0;
         Real max = 1;
     };
@@ -145,6 +148,9 @@ public:
     using Interval = ProjectionLine::Interval;
     struct Entry final {
         Entry() {}
+        Entry(Real min, Real max, const Element & el_):
+            interval(min, max),
+            element(el_) {}
         Entry(const Interval & intv_, const Element & el_):
             interval(intv_),
             element(el_) {}
@@ -183,7 +189,16 @@ public:
     static EntryIterator
         end_for_entries(EntryIterator beg, EntryIterator end, Real last);
 
+    static void sort_entries_container(EntryContainer & container)
+        { std::sort(container.begin(), container.end(), compare_entries); }
+
+    static bool is_sorted(const EntryContainer & container)
+        { return std::is_sorted(container.begin(), container.end(), compare_entries); }
+
 private:
+    static bool compare_entries(const Entry & lhs, const Entry & rhs)
+        { return lhs.interval.min < rhs.interval.min; }
+
     SpatialPartitionMapHelpers() {}
 };
 
@@ -213,9 +228,6 @@ public:
         EntryIterator m_itr;
     };
 
-    static bool compare_entries(const Entry & lhs, const Entry & rhs)
-        { return lhs.interval.min < rhs.interval.min; }
-
     void populate(const EntryContainer & sorted_entries);
 
     cul::View<Iterator> view_for(const Interval &) const;
@@ -235,6 +247,7 @@ class ProjectedSpatialMap final {
 public:
     using TriangleLinks = std::vector<SharedPtr<const TriangleLink>>;
     using Iterator = SpatialPartitionMap::Iterator;
+    using Helpers = SpatialPartitionMap::Helpers;
 
     void populate(const TriangleLinks &);
 
@@ -282,18 +295,10 @@ Tuple<T, T> SpatialDivisionContainer<T>::pair_for(const Interval & interval) con
          [] (const DivisionTuple & tup, Real max)
          { return get<k_div_element>(tup) < max; });
 
-    // it's even better, "high" should never hit end
-    if (low == m_container.begin() || high == m_container.end()) {
-        throw InvArg{"SpatialDivisionContainer::pair_for: given interval is "
-                     "outside of known range for divisions (was there an "
-                     "\"<infinity, end>\" element added?)"};
-    }
+    // it must be possible to return regardless of the given interval's values
+    auto low_itr = get<1>(*( low  == m_container.begin() ? low : low - 1 ));
+    auto end_itr = get<1>(*( high == m_container.end  () ? high - 1 : high ));
 
-    // if we hit end, return end iterator of container
-    auto low_itr = get<1>(*(low - 1));
-    auto end_itr = //high == m_container.end() ?
-        //m_container.end() RtError:
-        get<1>(*high);
     return make_tuple(low_itr, end_itr);
 }
 
@@ -379,8 +384,13 @@ template <typename Element>
 {
     // find the first entry that contains start
     // find the last entry that contains end (+1)
+#   if 0
     beg = begin_for_entries(beg, end, start);
     return EntryView{beg, end_for_entries(beg, end, last)};
+#   else
+    end = end_for_entries(beg, end, last);
+    return EntryView{begin_for_entries(beg, end, start), end};
+#   endif
 }
 
 template <typename Element>
@@ -388,15 +398,30 @@ template <typename Element>
     SpatialPartitionMapHelpers<Element>::begin_for_entries
     (EntryIterator beg, EntryIterator end, Real start)
 {
+#   if 0
     // returns first element that does not satisify element < value
-    // I want the first element that contains start
-    // therefore use a negative of that
-    return std::lower_bound
+    // but I want the one right before that!
+    auto itr = std::lower_bound
         (beg, end, start,
          [](const Entry & element, Real start) {
             const auto & interval = element.interval;
             return interval.min < start;
          });
+    return itr == beg ? itr : itr - 1;
+#   else
+    // how do I know I've hit that last containing interval?
+    // the only sure way to do it, is to do it linearly
+    // (which case order of running does not matter)
+    // there maybe an implementation in the future, where I can reduce it
+    // (perhaps yet another trade memory in for speed)
+    for (auto itr = beg; itr != end; ++itr) {
+        const auto & interval = itr->interval;
+        if (interval.min <= start && start <= interval.max) {
+            return itr;
+        }
+    }
+    return end;
+#   endif
 }
 
 template <typename Element>
@@ -404,6 +429,8 @@ template <typename Element>
     SpatialPartitionMapHelpers<Element>::end_for_entries
     (EntryIterator beg, EntryIterator end, Real last)
 {
+#   if 0
+    // I want the first element "beyond last" or end
     // kinda like sweep I guess
     // linearly run from beg to end until last
     for (; beg != end; ++beg) {
@@ -411,4 +438,14 @@ template <typename Element>
             break;
     }
     return beg;
+#   else
+    // find the first position to "insert" last
+    // the first min above last is the end iterator
+    return std::upper_bound
+        (beg, end, last,
+         [](Real last, const Entry & element) {
+            const auto & interval = element.interval;
+            return last < interval.min;
+         });
+#   endif
 }

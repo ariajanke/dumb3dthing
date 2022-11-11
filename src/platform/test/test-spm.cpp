@@ -55,7 +55,7 @@ bool run_spm_tests() {
     {
     using SamplePopulator = SpatialDivisionPopulator<int>;
     using SampleDivisions = SpatialDivisionContainer<int>;
-    mark(suite).test([] {
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
         SamplePopulator populator{ {
             make_tuple(0.   , 0),
             make_tuple(0.33 , 1),
@@ -63,12 +63,67 @@ bool run_spm_tests() {
             make_tuple(k_inf, 5)
         } };
         SampleDivisions divs{std::move(populator)};
-        Interval interval{0.4, 0.6};
-        auto [low, high] = divs.pair_for(interval);
-        return test(low == 1 && high == 5);
+
+        unit.start(mark(suite), [&] {
+            Interval interval{0.4, 0.6};
+            auto [low, high] = divs.pair_for(interval);
+            return test(low == 1 && high == 3);
+        });
+        unit.start(mark(suite), [&] {
+            Interval interval{0.0, 1.};
+            auto [low, high] = divs.pair_for(interval);
+            return test(low == 0 && high == 5);
+        });
+        unit.start(mark(suite), [&] {
+            Interval interval{-k_inf, k_inf};
+            auto [low, high] = divs.pair_for(interval);
+            return test(low == 0 && high == 5);
+        });
+        unit.start(mark(suite), [&] {
+            Interval interval{0.1, 0.15};
+            auto [low, high] = divs.pair_for(interval);
+            return test(low == 0 && high == 1);
+        });
+        unit.start(mark(suite), [&] {
+            Interval interval{0.34, 0.68};
+            auto [low, high] = divs.pair_for(interval);
+            return test(low == 1 && high == 5);
+        });
     });
+
     }
     suite.start_series("SpatialPartitionMapHelpers");
+    {
+    using Helpers = SpatialPartitionMapHelpers<int>;
+    using Entry = Helpers::Entry;
+    using EntryContainer = Helpers::EntryContainer;
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        Entry a{0.  , 0.25, 0};
+        Entry b{0.2 , 0.45, 1};
+        Entry c{0.3 , 0.55, 2};
+        Entry d{0.5 , 0.6 , 3};
+        Entry e{0.55, 0.65, 4};
+        EntryContainer container{a, b, c, d, e};
+        unit.start(mark(suite), [&] {
+            auto view = Helpers::view_for_entries(container.begin(), container.end(), 0.29, 0.4);
+            auto beg_idx = view.begin() - container.begin();
+            auto end_idx = view.end  () - container.begin();
+            return test(beg_idx == 1 && end_idx == 3);
+        });
+        unit.start(mark(suite), [&] {
+            auto view = Helpers::view_for_entries(container.begin(), container.end(), -0.1, 0.1);
+            auto beg_idx = view.begin() - container.begin();
+            auto end_idx = view.end  () - container.begin();
+            return test(beg_idx == 0 && end_idx == 1);
+        });
+        unit.start(mark(suite), [&] {
+            auto view = Helpers::view_for_entries(container.begin(), container.end(), 0.56, k_inf);
+            auto beg_idx = view.begin() - container.begin();
+            auto end_idx = view.end  () - container.begin();
+            return test(beg_idx == 3 && end_idx == 5);
+        });
+    });
+    }
     suite.start_series("SpatialPartitionMap");
     suite.start_series("ProjectedSpatialMap");
 
