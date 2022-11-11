@@ -37,6 +37,15 @@ public:
     int value = 0;
 };
 
+template <typename ... Types>
+SharedPtr<const TriangleLink> make_triangle_link(Types && ... args)
+    { return make_shared<TriangleLink>(std::forward<Types>(args)...); }
+
+auto make_finder (const SharedPtr<const TriangleLink> & link_ptr) {
+    return [link_ptr](const WeakPtr<const TriangleLink> & wptr)
+        { return link_ptr == wptr.lock(); };
+}
+
 } // end of <anonymous> namespace
 
 bool run_spm_tests() {
@@ -125,6 +134,55 @@ bool run_spm_tests() {
     });
     }
     suite.start_series("SpatialPartitionMap");
+    {
+    using Entry = SpatialPartitionMap::Entry;
+    using EntryContainer = SpatialPartitionMap::EntryContainer;
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        auto a_link = make_triangle_link();
+        auto b_link = make_triangle_link();
+        auto c_link = make_triangle_link();
+        auto d_link = make_triangle_link();
+        auto e_link = make_triangle_link();
+        Entry a{0.  , 0.25, a_link};
+        Entry b{0.2 , 0.45, b_link};
+        Entry c{0.3 , 0.55, c_link};
+        Entry d{0.5 , 0.6 , d_link};
+        Entry e{0.55, 0.65, e_link};
+
+        SpatialPartitionMap container{EntryContainer{a, b, c, d, e}};
+        // make sure I can find all the links which overlap certain intervals
+        // note: dupelicates are totally fine! It's the trade off we're making
+        // must have at least one of b, c, and d
+        auto mid_view = container.view_for(Interval{0.29, 0.4});
+        // d and e
+        auto high_view = container.view_for(Interval{0.56, k_inf});
+        unit.start(mark(suite), [&] {
+            auto res = std::find_if
+                (mid_view.begin(), mid_view.end(), make_finder(b_link));
+            return test(res != mid_view.end());
+        });
+        unit.start(mark(suite), [&] {
+            auto res = std::find_if
+                (mid_view.begin(), mid_view.end(), make_finder(c_link));
+            return test(res != mid_view.end());
+        });
+        unit.start(mark(suite), [&] {
+            auto res = std::find_if
+                (mid_view.begin(), mid_view.end(), make_finder(d_link));
+            return test(res != mid_view.end());
+        });
+        unit.start(mark(suite), [&] {
+            auto res = std::find_if
+                (high_view.begin(), high_view.end(), make_finder(d_link));
+            return test(res != high_view.end());
+        });
+        unit.start(mark(suite), [&] {
+            auto res = std::find_if
+                (high_view.begin(), high_view.end(), make_finder(e_link));
+            return test(res != high_view.end());
+        });
+    });
+    }
     suite.start_series("ProjectedSpatialMap");
 
     return suite.has_successes_only();

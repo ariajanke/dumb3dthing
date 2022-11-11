@@ -32,6 +32,8 @@ public:
     const Triangle & segment() const { return m_segment; }
 
 protected:
+    TriangleFragment() {}
+
     explicit TriangleFragment(const Triangle & triangle):
         m_segment(triangle) {}
 
@@ -54,6 +56,8 @@ public:
         bool inverts = false; // normal *= -1
         bool flips = false; // true -> (1 - t)
     };
+
+    TriangleLink() {}
 
     explicit TriangleLink(const Triangle &);
 

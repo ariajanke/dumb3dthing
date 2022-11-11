@@ -183,12 +183,6 @@ public:
         view_for_entries
         (EntryIterator beg, EntryIterator end, Real start, Real last);
 
-    static EntryIterator
-        begin_for_entries(EntryIterator beg, EntryIterator end, Real start);
-
-    static EntryIterator
-        end_for_entries(EntryIterator beg, EntryIterator end, Real last);
-
     static void sort_entries_container(EntryContainer & container)
         { std::sort(container.begin(), container.end(), compare_entries); }
 
@@ -196,6 +190,12 @@ public:
         { return std::is_sorted(container.begin(), container.end(), compare_entries); }
 
 private:
+    static EntryIterator
+        begin_for_entries(EntryIterator beg, EntryIterator end, Real start, Real last);
+
+    static EntryIterator
+        end_for_entries(EntryIterator beg, EntryIterator end, Real last);
+
     static bool compare_entries(const Entry & lhs, const Entry & rhs)
         { return lhs.interval.min < rhs.interval.min; }
 
@@ -214,6 +214,12 @@ public:
 
     class Iterator final {
     public:
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type = int;
+        using value_type = Element;
+        using reference = const Element &;
+        using pointer = const Element *;
+
         explicit Iterator(EntryIterator itr_):
             m_itr(itr_) {}
 
@@ -224,9 +230,16 @@ public:
         bool operator != (const Iterator & rhs) const
             { return m_itr != rhs.m_itr; }
 
+        bool operator == (const Iterator & rhs) const
+            { return m_itr == rhs.m_itr; }
+
     private:
         EntryIterator m_itr;
     };
+
+    SpatialPartitionMap() {}
+
+    explicit SpatialPartitionMap(const EntryContainer & sorted_entries);
 
     void populate(const EntryContainer & sorted_entries);
 
@@ -326,15 +339,21 @@ template <typename T>
         throw RtError{"SpatialDivisionContainer::" + std::string{caller} +
                       ": divisions must be sorted"};
     }
+    if (m_container.size() < 2) {
+        throw RtError{"SpatialDivisionContainer::" + std::string{caller} +
+                      ": container must have at least two elements"};
+    }
     const auto make_no_inf_end_exp = [caller] {
         return RtError{"SpatialDivisionContainer::" + std::string{caller} +
                        ": divisions must end in an infinity"};
     };
+#   if 0 // do I really need this?
     if (!m_container.empty()) {
         if (cul::is_real( std::get<k_div_element>(m_container.back()) )) {
             throw make_no_inf_end_exp();
         }
     }
+#   endif
 }
 
 // ----------------------------------------------------------------------------
@@ -351,7 +370,7 @@ template <typename Element>
         throw InvArg{"SpatialPartitionMapHelpers::make_indexed_divisions: "
                      "divisions may not contain only one element"};
     }
-    for (auto itr = divisions.begin(); itr + 1 == divisions.end(); ++itr) {
+    for (auto itr = divisions.begin(); itr + 1 != divisions.end(); ++itr) {
         auto low = *itr;
         auto high = *(itr + 1);
         const auto entries = view_for_entries
@@ -360,21 +379,6 @@ template <typename Element>
         product_container.insert
             (product_container.end(), entries.begin(), entries.end());
     }
-
-#   if 0
-    Real last_division = 0;
-    for (auto division : divisions) {
-       const auto entries = view_for_entries
-           (sorted_entries.begin(), sorted_entries.end(),
-            division);
-       auto old_size = product_container.size();
-       product_container.insert
-           (product_container.begin(), entries.begin(), entries.end());
-       index_divisions.push
-           (division, old_size, product_container.size());
-       last_division = division;
-    }
-#   endif
 }
 
 template <typename Element>
@@ -384,61 +388,34 @@ template <typename Element>
 {
     // find the first entry that contains start
     // find the last entry that contains end (+1)
-#   if 0
-    beg = begin_for_entries(beg, end, start);
-    return EntryView{beg, end_for_entries(beg, end, last)};
-#   else
     end = end_for_entries(beg, end, last);
-    return EntryView{begin_for_entries(beg, end, start), end};
-#   endif
+    return EntryView{begin_for_entries(beg, end, start, last), end};
 }
 
 template <typename Element>
-/* static */ typename SpatialPartitionMapHelpers<Element>::EntryIterator
+/* private static */ typename SpatialPartitionMapHelpers<Element>::EntryIterator
     SpatialPartitionMapHelpers<Element>::begin_for_entries
-    (EntryIterator beg, EntryIterator end, Real start)
+    (EntryIterator beg, EntryIterator end, Real start, Real last)
 {
-#   if 0
-    // returns first element that does not satisify element < value
-    // but I want the one right before that!
-    auto itr = std::lower_bound
-        (beg, end, start,
-         [](const Entry & element, Real start) {
-            const auto & interval = element.interval;
-            return interval.min < start;
-         });
-    return itr == beg ? itr : itr - 1;
-#   else
-    // how do I know I've hit that last containing interval?
+    // how do I know I've hit that last overlapping the interval?
     // the only sure way to do it, is to do it linearly
     // (which case order of running does not matter)
     // there maybe an implementation in the future, where I can reduce it
     // (perhaps yet another trade memory in for speed)
     for (auto itr = beg; itr != end; ++itr) {
         const auto & interval = itr->interval;
-        if (interval.min <= start && start <= interval.max) {
+        if (last > interval.min && interval.max > start) {
             return itr;
         }
     }
     return end;
-#   endif
 }
 
 template <typename Element>
-/* static */ typename SpatialPartitionMapHelpers<Element>::EntryIterator
+/* private static */ typename SpatialPartitionMapHelpers<Element>::EntryIterator
     SpatialPartitionMapHelpers<Element>::end_for_entries
     (EntryIterator beg, EntryIterator end, Real last)
 {
-#   if 0
-    // I want the first element "beyond last" or end
-    // kinda like sweep I guess
-    // linearly run from beg to end until last
-    for (; beg != end; ++beg) {
-        if (beg->interval.min > last)
-            break;
-    }
-    return beg;
-#   else
     // find the first position to "insert" last
     // the first min above last is the end iterator
     return std::upper_bound
@@ -447,5 +424,4 @@ template <typename Element>
             const auto & interval = element.interval;
             return last < interval.min;
          });
-#   endif
 }
