@@ -67,7 +67,7 @@ TriangleLink & TriangleLink::attempt_attachment_to
         info.flip = has_flipped_points;
         info.side = other_side;
         // next call gets really complicated!
-        info.inverts = !has_opposing_normals(other->segment(), other_side, segment(), this_side);
+        info.inverts = has_opposing_normals(other->segment(), other_side, segment(), this_side);
         info.target = other;
         break;
     }
@@ -84,7 +84,7 @@ TriangleLink::Transfer TriangleLink::transfers_to(Side side) const {
     auto & info = m_triangle_sides[side];
     Transfer rv;
     rv.flips = info.flip;
-    rv.inverts = info.inverts;
+    rv.inverts_normal = info.inverts;
     rv.side = info.side;
     rv.target = info.target.lock();
     return rv;

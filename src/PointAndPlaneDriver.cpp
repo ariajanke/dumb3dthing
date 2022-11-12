@@ -35,6 +35,7 @@ using namespace point_and_plane;
 using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
+using LinkTransfer = TriangleLink::Transfer;
 
 // this can become a bottle neck in performance
 // (as can entity component accessors)
@@ -63,6 +64,16 @@ private:
     bool m_spm_dirty = false;
     ProjectedSpatialMap m_spm;
 };
+
+bool new_invert_normal
+    (const LinkTransfer & transfer, const OnSegment & tracker)
+{
+    // if  trans &  tracker then false
+    // if !trans &  tracker then true
+    // if  trans & !tracker then true
+    // if !trans & !tracker then false
+    return transfer.inverts_normal ^ tracker.invert_normal;
+}
 
 } // end of <anonymous> namespace
 
@@ -284,12 +295,14 @@ State DriverComplete::operator ()
                                 transfer.target->segment(), tracker.segment->point_at(new_loc));
     if (auto * tup = get_if<Tuple<bool, Vector2>>(&stgv)) {
         auto [does_transfer, rem_displc] = *tup; {}
-        verify_decreasing_displacement<Vector2, Vector2>(
-            rem_displc, tracker.displacement, k_caller_name);
+        verify_decreasing_displacement<Vector2, Vector2>
+            (rem_displc, tracker.displacement, k_caller_name);
         if (does_transfer) {
-            return OnSegment{
-                transfer.target, transfer.inverts,
-                transfer.target->segment().closest_contained_point(outside_pt), rem_displc};
+            auto seg_loc = transfer.target->segment()
+                .closest_contained_point(outside_pt);
+            return OnSegment
+                {transfer.target, new_invert_normal(transfer, tracker),
+                 seg_loc, rem_displc};
         }
         OnSegment rv{tracker};
         rv.location = crossing.inside;

@@ -51,10 +51,14 @@ public:
     using Side = TriangleSide;
 
     struct Transfer final {
-        SharedPtr<const TriangleLink> target; // set if there is a valid transfer to be had
-        Side side = Side::k_inside; // transfer on what side of target?
-        bool inverts = false; // normal *= -1
-        bool flips = false; // true -> (1 - t)
+        /// set if there is a valid transfer to be had
+        SharedPtr<const TriangleLink> target;
+        /// which side of the target did the tracker transfer to
+        Side side = Side::k_inside;
+        /// caller should flip normal vector of tracker
+        bool inverts_normal = false;
+        // true -> (1 - t)
+        bool flips = false;
     };
 
     TriangleLink() {}
