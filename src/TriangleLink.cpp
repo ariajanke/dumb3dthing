@@ -125,8 +125,12 @@ int TriangleLink::sides_attached_count() const {
     auto right_opp = project_onto_plane(rhs.opposing_point(right_side), plane_v);
     auto pivot     = project_onto_plane(la, plane_v);
 
+    // do I need this? do this tell me anything useful?
+    // a less buggy alternative? an important detail here?
+#   if 0
     // rotme projected onto line described by the other triangle
     auto left_opp_projd = project_onto_line_segment(pivot, right_opp, left_opp);
+#   endif
     // get possible rotations
     // Now there's a possible problem here... what if the previous projection
     // ends up landing right on the pivot?...

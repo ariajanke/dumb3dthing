@@ -19,8 +19,8 @@
 *****************************************************************************/
 
 #include "test-functions.hpp"
-#include "../../map-loader.hpp"
-#include "../../tiled-map-loader.hpp"
+#include "../../map-loader/map-loader.hpp"
+#include "../../map-loader/tiled-map-loader.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -36,7 +36,7 @@ namespace {
 using PlayerEntities = LoaderTask::PlayerEntities;
 using namespace cul::exceptions_abbr;
 using cul::is_real;
-using LinksGrid = Grid<cul::View<TriangleLinks::const_iterator, TriangleLinks::const_iterator>>;
+using LinksGrid = Grid<View<TriangleLinks::const_iterator, TriangleLinks::const_iterator>>;
 using Triangle = TriangleSegment;
 
 class TestLoaderTaskCallbacks final : public LoaderTask::Callbacks {
@@ -49,7 +49,7 @@ public:
 
     void add(const Entity & e) final { entities.push_back(e); }
 
-    Platform::ForLoaders & platform() final
+    Platform & platform() final
         { return Platform::null_callbacks(); }
 
     PlayerEntities player_entites() const final
@@ -175,7 +175,7 @@ bool run_map_loader_tests() {
 
 namespace {
 
-class PlatformWithFileSystem final : public Platform::Callbacks {
+class PlatformWithFileSystem final : public Platform {
 public:
 
     static PlatformWithFileSystem & isntance() {
@@ -263,7 +263,7 @@ bool run_tiled_map_loader_tests() {
     };
 
     static auto elevation_for_all = [](const LinksGrid::Element & el, Real y) {
-        static_assert(std::is_same_v<LinksGrid::Element, cul::View<TriangleLinks::const_iterator>>);
+        static_assert(std::is_same_v<LinksGrid::Element, View<TriangleLinks::const_iterator>>);
         return std::all_of(el.begin(), el.end(), [y](const SharedPtr<TriangleLink> & links) {
             const auto & tri = links->segment();
             auto list = { tri.point_a().y, tri.point_b().y, tri.point_c().y };

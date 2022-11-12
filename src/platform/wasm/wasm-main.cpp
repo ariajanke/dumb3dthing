@@ -303,7 +303,10 @@ public:
         from_js_view_matrix_apply();
 
         for (auto & ent : scene) {
-            if (!ent.has_all<SharedCPtr<Texture>, SharedCPtr<RenderModel>>()) continue;
+            if (!ent.has_all
+                <SharedPtr<const Texture>, SharedPtr<const RenderModel>>
+                ())
+            { continue; }
             from_js_reset_model_matrix();
             if (auto * translation = ent.ptr<Translation>()) {
                 const auto & r = translation->value;
@@ -321,7 +324,8 @@ public:
 #           if 0
             from_js_log_line("[cpp]: rendering model");
 #           endif
-            auto [texture, render_model] = ent.get<SharedCPtr<Texture>, SharedCPtr<RenderModel>>();
+            auto [texture, render_model] = ent.get
+                <SharedPtr<const Texture>, SharedPtr<const RenderModel>>();
             from_js_model_matrix_apply();
             texture->bind_texture();
             render_model->render();

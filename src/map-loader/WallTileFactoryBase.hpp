@@ -35,7 +35,7 @@ protected:
 
     Entity make_entity
         (Platform & platform, Vector2I tile_loc,
-         SharedPtr<const RenderModel> model_ptr) const;
+         const SharedPtr<const RenderModel> & model_ptr) const;
 
 private:
     Vector m_translation;

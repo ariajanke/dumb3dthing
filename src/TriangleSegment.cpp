@@ -127,7 +127,7 @@ SideCrossing TriangleSegment::check_for_side_crossing
         auto [li, fo] = move_to_last_in_and_first_out(
             far_in, far_out,
             next_in_direction(inx, far_in  - far_out),
-            next_in_direction(inx, far_out - far_in)); {}
+            next_in_direction(inx, far_out - far_in));
         return SideCrossing{r, li, fo};
     };
 

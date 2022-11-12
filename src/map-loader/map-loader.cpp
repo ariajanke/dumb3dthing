@@ -100,14 +100,14 @@ void TileGraphicGenerator::create_slope(TrianglesAdder & adder, Vector2I loc, co
         }
         assert(!"you've met a terrible fate, haven't you?");
     } ();
-    e.add<
-        SharedCPtr<RenderModel>, Translation,
-        YRotation, SharedCPtr<Texture>,
-        TextureTranslation>()
-    = make_tuple(
-        model, translation,
-        YRotation{rot_}, ensure_texture(m_tileset4, "tileset4.png"),
-        TextureTranslation{txr});
+    e.add
+        <SharedPtr<const RenderModel>, Translation,
+         YRotation, SharedPtr<const Texture>,
+         TextureTranslation>
+        () = make_tuple
+        (model, translation,
+         YRotation{rot_}, ensure_texture(m_tileset4, "tileset4.png"),
+         TextureTranslation{txr});
     adder.add_triangle(segment_a);
     adder.add_triangle(segment_b);
 }
@@ -122,29 +122,38 @@ void TileGraphicGenerator::create_flat
         m_callbacks.add(e);// m_entities_out.push_back(e);
         Translation flat_transl{grid_location_to_v3(loc, flat.y)};
         auto ground_tex = ensure_texture(m_ground_texture, "ground.png");
-        e.add<SharedCPtr<RenderModel>, Translation, SharedCPtr<Texture>>() =
-            make_tuple(m_flat_model, flat_transl, ground_tex);
+        e.add
+            <SharedPtr<const RenderModel>, Translation, SharedPtr<const Texture>>
+            () = make_tuple
+            (m_flat_model, flat_transl, ground_tex);
 
         using TransTup = Tuple<Vector, YRotation>;
         // +x is east, +z is north
-        std::array transf = { TransTup{
-            Vector{0, -.5, 0.5}, YRotation{}
-        }, TransTup{
-            Vector{-.5, -.5, 0}, YRotation{k_pi*0.5}
-        }, TransTup{
-            Vector{0, -.5, -.5}, YRotation{}
-        }, TransTup{
-            Vector{0.5, -.5, 0}, YRotation{k_pi*0.5}
-        } };
+        std::array transf = {
+            TransTup
+                {Vector{0, -.5, 0.5}, YRotation{}},
+            TransTup
+                {Vector{-.5, -.5, 0}, YRotation{k_pi*0.5}},
+            TransTup
+                {Vector{0, -.5, -.5}, YRotation{}},
+            TransTup
+                {Vector{0.5, -.5, 0}, YRotation{k_pi*0.5}}
+        };
         auto add_wall = [this, ground_tex]
             (Entity e, Vector translation, YRotation rot)
         {
-            auto fpart = make_tuple(m_wall_model, Translation{translation}, ground_tex);
+            auto fpart = make_tuple
+                (m_wall_model, Translation{translation}, ground_tex);
             if (rot.value == 0.f) {
-                e.add<SharedCPtr<RenderModel>, Translation, SharedCPtr<Texture>>() = fpart;
+                e.add
+                    <SharedPtr<const RenderModel>, Translation,
+                     SharedPtr<const Texture>>
+                    () = fpart;
             } else {
-                e.add<SharedCPtr<RenderModel>, Translation, SharedCPtr<Texture>, YRotation>() =
-                        tuple_cat(fpart, make_tuple(rot));
+                e.add
+                    <SharedPtr<const RenderModel>, Translation,
+                     SharedPtr<const Texture>, YRotation>
+                    () = tuple_cat(fpart, make_tuple(rot));
             }
             return e;
         };

@@ -107,12 +107,11 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
             GridIntfImpl gridintf{m_tidgid_translator, m_layer};
             Impl etadder{entities, adder};
             (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, map_offset},
-                    // TileFactory::NeighborInfo{tileset, m_layer, r, map_offset},
-                    callbacks.platform());
+                       callbacks.platform());
         });
-        entities.back().add<
-            TriangleLinks, Grid<cul::View<TriangleLinks::const_iterator>>>()
-            = std::move(triangles_and_grid);
+        entities.back().add
+            <TriangleLinks, Grid<View<TriangleLinks::const_iterator>>>
+            () = std::move(triangles_and_grid);
         for (auto & ent : entities)
             callbacks.add(ent);
         *teardown_task = TeardownTask{std::move(entities)};
@@ -213,7 +212,7 @@ inline bool is_dash(char c) { return c == '-'; }
 static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
 TileRange to_range
-    (const TileRange & range, const cul::View<const char *> & arg_)
+    (const TileRange & range, const View<const char *> & arg_)
 {
     constexpr const auto k_not_num = "must be numeric, and ";
     if (std::equal(arg_.begin(), arg_.end(), "whole")) {
@@ -273,7 +272,7 @@ bool is_colon(char c) { return c == ':'; }
     };
 
     static auto add_tile_range = []
-        (std::vector<MapEdgeLinks::MapLinks> & links, const cul::View<const char *> & arg, const TileRange & original_range)
+        (std::vector<MapEdgeLinks::MapLinks> & links, const View<const char *> & arg, const TileRange & original_range)
     {
         auto args = split_range(arg.begin(), arg.end(), is_comma, make_trim_whitespace<const char *>());
         auto count = distance(args.begin(), args.end());
@@ -288,7 +287,7 @@ bool is_colon(char c) { return c == ':'; }
     };
 
     static auto add_filenames = []
-        (std::vector<MapEdgeLinks::MapLinks> & links, const cul::View<const char *> & arg)
+        (std::vector<MapEdgeLinks::MapLinks> & links, const View<const char *> & arg)
     {
         auto args = split_range(arg.begin(), arg.end(), is_comma, k_whitespace_trimmer);
         auto count = distance(args.begin(), args.end());

@@ -134,7 +134,7 @@ void ProjectedSpatialMap::populate(const TriangleLinks & links) {
     m_spatial_map.populate(entries);
 }
 
-cul::View<ProjectedSpatialMap::Iterator>
+View<ProjectedSpatialMap::Iterator>
     ProjectedSpatialMap::view_for
     (const Vector & a, const Vector & b) const
 {

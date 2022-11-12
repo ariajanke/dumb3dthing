@@ -109,7 +109,7 @@ void TranslatableTileFactory::setup
 /* protected */ Entity
     TranslatableTileFactory::make_entity
     (Platform & platform, Vector2I tile_loc,
-     SharedCPtr<RenderModel> model_ptr) const
+     const SharedPtr<const RenderModel> & model_ptr) const
 {
     return TileFactory::make_entity(platform,
         m_translation + grid_position_to_v3(tile_loc), model_ptr);

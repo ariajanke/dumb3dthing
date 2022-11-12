@@ -45,7 +45,7 @@ protected:
         { return translate_y(model_tile_elevations(), translation().y); }
 
 private:
-    SharedCPtr<RenderModel> m_render_model;
+    SharedPtr<const RenderModel> m_render_model;
 };
 
 class RampTileFactory : public SlopesBasedModelTileFactory {

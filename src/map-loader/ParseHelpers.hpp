@@ -99,7 +99,7 @@ protected:
         auto b = m_beg;
         auto e = m_segment_end;
         m_with_f(b, e);
-        return cul::View<CharIter>{b, e};
+        return View<CharIter>{b, e};
     }
 
     bool is_same_as(const StringSplitterIteratorBase & lhs) const noexcept
@@ -157,7 +157,7 @@ public:
         return *this;
     }
 
-    cul::View<CharIter> operator * () const { return Super::deref(); }
+    View<CharIter> operator * () const { return Super::deref(); }
 };
 
 
@@ -203,7 +203,7 @@ public:
         return *this;
     }
 
-    Tuple<cul::View<CharIter>, int> operator * () const
+    Tuple<View<CharIter>, int> operator * () const
         { return make_tuple(Super::deref(), m_index); }
 
 private:
@@ -228,10 +228,10 @@ inline auto make_trim_nothing()
     { return [](CharIter &, CharIter &) {}; }
 
 template <typename CharIter, typename SplitterFunc, typename WithAdditionalFunc, typename EndIter = CharIter>
-using StringSplitterView = cul::View<StringSplitterIterator<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>, StringSplitterIteratorEnd>;
+using StringSplitterView = View<StringSplitterIterator<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>, StringSplitterIteratorEnd>;
 
 template <typename CharIter, typename SplitterFunc, typename WithAdditionalFunc, typename EndIter = CharIter>
-using StringSplitterViewWithIndex = cul::View<StringSplitterIteratorWithIndex<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>, StringSplitterIteratorEnd>;
+using StringSplitterViewWithIndex = View<StringSplitterIteratorWithIndex<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>, StringSplitterIteratorEnd>;
 
 template <typename CharIter, typename SplitterFunc, typename WithAdditionalFunc, typename EndIter = CharIter>
 StringSplitterView<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>
@@ -239,7 +239,7 @@ StringSplitterView<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>
                 WithAdditionalFunc && with_ = [](CharIter &, CharIter &){})
 {
     using Iterator = StringSplitterIterator<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>;
-    return cul::View<Iterator, StringSplitterIteratorEnd>{
+    return View<Iterator, StringSplitterIteratorEnd>{
         Iterator{beg, end, std::move(splitter_), std::move(with_)},
         StringSplitterIteratorEnd{}};
 }
@@ -256,5 +256,5 @@ StringSplitterViewWithIndex<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>
         StringSplitterIteratorEnd{}};
 }
 template <typename IterType>
-std::string view_to_string(const cul::View<IterType> & view)
+std::string view_to_string(const View<IterType> & view)
     { return std::string{view.begin(), view.end()}; }

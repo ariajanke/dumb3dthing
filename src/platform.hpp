@@ -28,6 +28,19 @@ class Texture;
 
 class RenderModel;
 
+enum class KeyControl {
+    forward,
+    backward,
+    left,
+    right,
+    jump,
+
+    pause,
+    advance,
+    print_info,
+    restart
+};
+
 template <typename T>
 class Future {
 public:

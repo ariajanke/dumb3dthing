@@ -240,9 +240,10 @@ State DriverComplete::operator ()
     const auto & triangle = *tracker.segment;
 
     // check collisions with other surfaces while traversing the "tracked" segment
+#   if 0 // <- might not be ready to delete yet?
     auto beg = m_links.begin();
     auto end = m_links.end();
-
+#   endif
     // usual segment transfer
     const auto new_loc = tracker.location + tracker.displacement;
     auto crossing = triangle.check_for_side_crossing(tracker.location, new_loc);

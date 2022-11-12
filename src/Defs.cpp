@@ -38,11 +38,6 @@ BadBranchException::BadBranchException(int line, const char * file):
                        + std::to_string(line))
 {}
 
-Vector rotate_around_up(Vector r, Real t) {
-    return Vector{r.x*std::cos(t) - r.y*std::sin(t),
-                  r.x*std::sin(t) + r.y*std::cos(t), r.z};
-}
-
 Vector next_in_direction(Vector r, Vector dir) {
     return Vector{std::nextafter(r.x, r.x + dir.x),
                   std::nextafter(r.y, r.y + dir.y),

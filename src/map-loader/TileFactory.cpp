@@ -115,7 +115,7 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const 
 }
 
 void TileFactory::set_shared_texture_information
-    (const SharedCPtr<Texture> & texture_ptr_, const Size2 & texture_size_,
+    (const SharedPtr<const Texture> & texture_ptr_, const Size2 & texture_size_,
      const Size2 & tile_size_)
 {
     m_texture_ptr = texture_ptr_;
@@ -184,7 +184,7 @@ void TileFactory::set_shared_texture_information
     return rv;
 }
 
-/* protected */ SharedCPtr<RenderModel>
+/* protected */ SharedPtr<const RenderModel>
     TileFactory::make_render_model_with_common_texture_positions
     (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const
 {
@@ -205,12 +205,15 @@ void TileFactory::set_shared_texture_information
 
 /* protected */ Entity TileFactory::make_entity
     (Platform & platform, Vector translation,
-     const SharedCPtr<RenderModel> & model_ptr) const
+     const SharedPtr<const RenderModel> & model_ptr) const
 {
     assert(model_ptr);
     auto ent = platform.make_renderable_entity();
-    ent.add<SharedCPtr<RenderModel>, SharedCPtr<Texture>, Translation, Visible>() =
-            make_tuple(model_ptr, common_texture(), Translation{translation}, true);
+    ent.add
+        <SharedPtr<const RenderModel>, SharedPtr<const Texture>,
+         Translation, Visible>
+        () = make_tuple
+        (model_ptr, common_texture(), Translation{translation}, true);
     return ent;
 }
 

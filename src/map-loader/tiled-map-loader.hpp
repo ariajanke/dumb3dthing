@@ -62,7 +62,7 @@ public:
         TileRange range;
     };
 
-    using LinksView = cul::View<const MapLinks *>;
+    using LinksView = View<const MapLinks *>;
     enum class Side { north, south, east, west };
 
     MapEdgeLinks() { m_views.fill(make_tuple(k_uninit, k_uninit)); }

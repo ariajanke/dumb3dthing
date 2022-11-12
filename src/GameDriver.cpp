@@ -191,11 +191,10 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
     mod->load<int>(verticies, elements);
 
     auto ent = platform.make_renderable_entity();
-    ent.add<
-        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain
-    >() = make_tuple(
-        std::move(mod), texture, VisibilityChain{}
-    );
+    ent.add
+        <SharedPtr<const RenderModel>, SharedPtr<const Texture>, VisibilityChain>
+        () = make_tuple
+        (std::move(mod), texture, VisibilityChain{});
     return ent;
 }
 
@@ -232,9 +231,8 @@ public:
     CircleLine(const Tuple<Vector, Vector, Vector> & pts_):
         m_points(pts_) {}
 
-    Vector operator () (Real t) const  {
-        throw RtError{"unimplemented"};
-    }
+    Vector operator () (Real) const
+        { throw RtError{"unimplemented"}; }
 
 private:
     const Tuple<Vector, Vector, Vector> & m_points;
@@ -322,13 +320,12 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
 
     auto tx = platform.make_texture();
     tx->load_from_file("ground.png");
-    model_ent.add<
-        SharedCPtr<Texture>, SharedCPtr<RenderModel>, Translation,
-        TranslationFromParent
-    >() = make_tuple(
-        tx, model, Translation{k_player_start},
-        TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}
-    );
+    model_ent.add
+        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, Translation,
+         TranslationFromParent>
+        () = make_tuple
+        (tx, model, Translation{k_player_start},
+         TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();

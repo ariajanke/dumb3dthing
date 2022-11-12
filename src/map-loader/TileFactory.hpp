@@ -136,7 +136,7 @@ public:
         (EntityAndTrianglesAdder &, const NeighborInfo &, Platform &) const = 0;
 
     void set_shared_texture_information
-        (const SharedCPtr<Texture> & texture_ptr_, const Size2 & texture_size_,
+        (const SharedPtr<const Texture> & texture_ptr_, const Size2 & texture_size_,
          const Size2 & tile_size_);
 
     virtual void setup
@@ -154,15 +154,15 @@ protected:
     static Vector grid_position_to_v3(Vector2I r)
         { return Vector{r.x, 0, -r.y}; }
 
-    SharedCPtr<Texture> common_texture() const
+    SharedPtr<const Texture> common_texture() const
         { return m_texture_ptr; }
 
     std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) const;
 
     Entity make_entity(Platform & platform, Vector translation,
-                       const SharedCPtr<RenderModel> & model_ptr) const;
+                       const SharedPtr<const RenderModel> & model_ptr) const;
 
-    SharedCPtr<RenderModel> make_render_model_with_common_texture_positions
+    SharedPtr<const RenderModel> make_render_model_with_common_texture_positions
         (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const;
 
     Size2 common_texture_tile_size() const;
@@ -172,7 +172,7 @@ protected:
     TileTexture floor_texture_at(Vector2I) const;
 
 private:
-    SharedCPtr<Texture> m_texture_ptr;
+    SharedPtr<const Texture> m_texture_ptr;
     Size2 m_texture_size;
     Size2 m_tile_size;
 };

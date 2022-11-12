@@ -77,7 +77,7 @@ void OpenGlRenderModel::swap(OpenGlRenderModel && lhs) {
 {
     std::vector<float> vertex_data;
     vertex_data.reserve(8*(vertex_end - vertex_beg));
-    for (const auto & vert : cul::View{vertex_beg, vertex_end}) {
+    for (const auto & vert : View{vertex_beg, vertex_end}) {
         vertex_data.push_back(float(vert.position.x));
         vertex_data.push_back(float(vert.position.y));
         vertex_data.push_back(float(vert.position.z));

@@ -179,8 +179,8 @@ TriangleLinks load_map_graphics
 Grid<Cell> load_map_cell(const char * layout, const CharToCell &);
 
 template <typename Func>
-Tuple<TriangleLinks,
-     Grid<cul::View<TriangleLinks::const_iterator>>>
+    Tuple
+        <TriangleLinks, Grid<View<TriangleLinks::const_iterator>>>
     add_triangles_and_link_
     (int width, int height, Func && on_add_tile)
 {
@@ -201,13 +201,13 @@ Tuple<TriangleLinks,
     for (auto & tri : vec)
         { rv1.emplace_back(std::make_shared<TriangleLink>(tri)); }
 
-    Grid<cul::View<TriangleLinks::iterator>> link_grid;
+    Grid<View<TriangleLinks::iterator>> link_grid;
     link_grid.set_size(links_grid.width(), links_grid.height(),
-                       cul::View<TriangleLinks::iterator>{ rv1.end(), rv1.end() });
+                       View<TriangleLinks::iterator>{ rv1.end(), rv1.end() });
     {
     auto beg = rv1.begin();
     for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
-        link_grid(r) = cul::View<TriangleLinks::iterator>{
+        link_grid(r) = View<TriangleLinks::iterator>{
             beg + links_grid(r).first, beg + links_grid(r).second};
     }
     }
@@ -215,23 +215,23 @@ Tuple<TriangleLinks,
     // now link them together
     for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
     for (auto & this_tri : link_grid(r)) {
-        assert(this_tri);//.segment_ptr());
+        assert(this_tri);
         for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
 /*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
-        if (!links_grid.has_position(v)) continue;
-        for (auto & other_tri : link_grid(v)) {
-            assert(other_tri);//.segment_ptr());
+            if (!links_grid.has_position(v)) continue;
+            for (auto & other_tri : link_grid(v)) {
+                assert(other_tri);
 
-            if (this_tri == other_tri) continue;
-            this_tri->attempt_attachment_to(other_tri);
+                if (this_tri == other_tri) continue;
+                this_tri->attempt_attachment_to(other_tri);
         }}
     }}
-    Grid<cul::View<TriangleLinks::const_iterator>> rv2;
+    Grid<View<TriangleLinks::const_iterator>> rv2;
     rv2.set_size(links_grid.width(), links_grid.height(),
-                 cul::View<TriangleLinks::const_iterator>{ rv1.end(), rv1.end() });
+                 View<TriangleLinks::const_iterator>{ rv1.end(), rv1.end() });
     for (Vector2I r; r != rv2.end_position(); r = rv2.next(r)) {
-        rv2(r) = cul::View<TriangleLinks::const_iterator>{
-                link_grid(r).begin(), link_grid(r).end() };
+        rv2(r) = View<TriangleLinks::const_iterator>
+            { link_grid(r).begin(), link_grid(r).end() };
     }
 
     return make_tuple(std::move(rv1), std::move(rv2));

@@ -20,7 +20,7 @@
 
 #include "test-functions.hpp"
 
-#include "../../SpatialPartitionMap.hpp"
+#include "../../point-and-plane/SpatialPartitionMap.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
