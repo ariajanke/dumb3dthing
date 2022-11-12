@@ -43,6 +43,7 @@ bool run_systems_tests() {
             auto pdriver = point_and_plane::Driver::make_driver();
             pdriver->add_triangle(links_a);
             pdriver->add_triangle(links_b);
+            pdriver->update();
             return pdriver;
         };
 

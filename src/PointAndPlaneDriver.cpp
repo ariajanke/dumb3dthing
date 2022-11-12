@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "PointAndPlaneDriver.hpp"
+#include "SpatialPartitionMap.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -59,6 +60,8 @@ private:
     State handle_tracker(const OnSegment &, const EventHandler &) const;
 
     std::vector<SharedPtr<const TriangleLink>> m_links;
+    bool m_spm_dirty = false;
+    ProjectedSpatialMap m_spm;
 };
 
 } // end of <anonymous> namespace
@@ -125,6 +128,7 @@ void verify_decreasing_displacement
 // should/add remove fast
 void DriverComplete::add_triangle(const SharedPtr<const TriangleLink> & link) {
     m_links.push_back(link);
+    m_spm_dirty = true;
 }
 
 void DriverComplete::remove_triangle(const SharedPtr<const TriangleLink> &) {
@@ -143,8 +147,14 @@ Driver & DriverComplete::update() {
     if (new_end != m_links.end()) {
         auto triangles_dropped = m_links.end() - new_end;
         std::cout << "Dropeed " << triangles_dropped << " triangles." << std::endl;
+        m_spm_dirty = true;
     }
     m_links.erase(new_end, m_links.end());
+
+    if (m_spm_dirty) {
+        m_spm_dirty = false;
+        m_spm.populate(m_links);
+    }
 
     return *this;
 }
@@ -155,6 +165,9 @@ State DriverComplete::operator ()
     // before returning, this must be true:
     //
     // are_very_close(/* something */.displacement, make_zero_vector<Vector>())
+    if (m_spm_dirty) {
+        throw RtError{"Driver::operator(): update must be called first"};
+    }
 
     auto next_state = [this](const State & state, const EventHandler & env) {
         if (auto * freebody = get_if<InAir>(&state)) {
@@ -186,11 +199,13 @@ State DriverComplete::operator ()
 /* private */ State DriverComplete::handle_freebody
     (const InAir & freebody, const EventHandler & env) const
 {
-    const auto beg = m_links.begin();
-    const auto end = m_links.end();
+
     auto new_loc = freebody.location + freebody.displacement;
+    auto view = m_spm.view_for(freebody.location, new_loc);
+    const auto beg = view.begin();
+    const auto end = view.end();
     for (auto itr = beg; itr != end; ++itr) {
-        auto & triangle = (**itr).segment();
+        auto & triangle = itr->lock()->segment();
 
         constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
         auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
@@ -204,7 +219,7 @@ State DriverComplete::operator ()
                   normalize(project_onto(new_loc - freebody.location,
                                          triangle.normal()          ))
                 - triangle.normal(), Vector{});
-            return OnSegment{*itr, heads_against_normal, liminx.intersection, *disv2};
+            return OnSegment{itr->lock(), heads_against_normal, liminx.intersection, *disv2};
         }
         auto * disv3 = get_if<Vector>(&gv);
         assert(disv3);
