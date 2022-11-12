@@ -93,26 +93,31 @@ void SpatialPartitionMap::populate(const EntryContainer & sorted_entries) {
     Helpers::make_indexed_divisions
         (sorted_entries, divisions, index_divisions, m_container);
 
+    auto idx_to_itr = [this](std::size_t idx) {
+        static constexpr const auto k_idx_oob_msg =
+            "SpatialPartitionMap::populate: index is out of bounds for entries "
+            "container; something is broken";
+        if (idx > m_container.size())
+            { throw RtError{k_idx_oob_msg}; }
+        return m_container.begin() + idx;
+    };
+
     // after all entries are in, convert indicies into iterators
     m_divisions = Divisions<EntryIterator>
-        {Divisions<std::size_t>{std::move(index_divisions)},
-         [this](std::size_t idx)
-        {
-            if (idx > m_container.size()) {
-                throw RtError{"uh oh"};
-            }
-            return m_container.begin() + idx;
-        }};
+        {Divisions<std::size_t>{std::move(index_divisions)}, idx_to_itr};
 }
 
-cul::View<SpatialPartitionMap::Iterator>
+View<SpatialPartitionMap::Iterator>
     SpatialPartitionMap::view_for(const Interval & interval) const
 {
-    auto [beg, end] = m_divisions.pair_for(interval); {}
-    return cul::View{Iterator{beg}, Iterator{end}};
+    auto [beg, end] = m_divisions.pair_for(interval);
+    return View{Iterator{beg}, Iterator{end}};
 }
 
 // ----------------------------------------------------------------------------
+
+ProjectedSpatialMap::ProjectedSpatialMap(const TriangleLinks & links)
+    { populate(links); }
 
 void ProjectedSpatialMap::populate(const TriangleLinks & links) {
     using EntryContainer = SpatialPartitionMap::EntryContainer;

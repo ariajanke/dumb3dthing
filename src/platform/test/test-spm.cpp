@@ -156,6 +156,7 @@ bool run_spm_tests() {
         auto mid_view = container.view_for(Interval{0.29, 0.4});
         // d and e
         auto high_view = container.view_for(Interval{0.56, k_inf});
+
         unit.start(mark(suite), [&] {
             auto res = std::find_if
                 (mid_view.begin(), mid_view.end(), make_finder(b_link));
@@ -181,10 +182,36 @@ bool run_spm_tests() {
                 (high_view.begin(), high_view.end(), make_finder(e_link));
             return test(res != high_view.end());
         });
+        unit.start(mark(suite), [&] {
+            auto view = container.view_for(Interval{0.23, 0.23});
+            auto res = std::find_if
+                (view.begin(), view.end(), make_finder(b_link));
+            return test(res != view.end());
+        });
     });
     }
+    {
     suite.start_series("ProjectedSpatialMap");
-
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        auto a_link = make_triangle_link(Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{1, 1, 0});
+        auto b_link = make_triangle_link(Vector{1, 0, 0}, Vector{2, 0, 0}, Vector{2, 1, 0});
+        auto c_link = make_triangle_link(Vector{2, 0, 0}, Vector{3, 0, 0}, Vector{3, 1, 0});
+        auto d_link = make_triangle_link(Vector{3, 0, 0}, Vector{4, 0, 0}, Vector{4, 1, 0});
+        auto e_link = make_triangle_link(Vector{4, 0, 0}, Vector{5, 0, 0}, Vector{5, 1, 0});
+        std::vector link_container{a_link, b_link, c_link, d_link, e_link};
+        ProjectedSpatialMap psm{ link_container };
+        unit.start(mark(suite), [&] {
+            auto view = psm.view_for(Vector{1.5, 0, 0}, Vector{2.5, 0, 0});
+            auto res = std::find_if(view.begin(), view.end(), make_finder(c_link));
+            return test(res != view.end());
+        });
+        unit.start(mark(suite), [&] {
+            auto view = psm.view_for(Vector{1.5, 0, 0}, Vector{1.5, 0, 0});
+            auto res = std::find_if(view.begin(), view.end(), make_finder(b_link));
+            return test(res != view.end());
+        });
+    });
+    }
     return suite.has_successes_only();
 #   undef mark
 }

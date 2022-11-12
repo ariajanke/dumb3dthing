@@ -159,7 +159,7 @@ public:
     };
     using EntryContainer = std::vector<Entry>;
     using EntryIterator = typename EntryContainer::const_iterator;
-    using EntryView = cul::View<EntryIterator>;
+    using EntryView = View<EntryIterator>;
 
     template <typename T>
     using Divisions = SpatialDivisionContainer<T>;
@@ -243,7 +243,7 @@ public:
 
     void populate(const EntryContainer & sorted_entries);
 
-    cul::View<Iterator> view_for(const Interval &) const;
+    View<Iterator> view_for(const Interval &) const;
 
 private:
     template <typename T>
@@ -262,9 +262,13 @@ public:
     using Iterator = SpatialPartitionMap::Iterator;
     using Helpers = SpatialPartitionMap::Helpers;
 
+    ProjectedSpatialMap() {}
+
+    explicit ProjectedSpatialMap(const TriangleLinks &);
+
     void populate(const TriangleLinks &);
 
-    cul::View<Iterator> view_for(const Vector &, const Vector &) const;
+    View<Iterator> view_for(const Vector &, const Vector &) const;
 
 private:
     static ProjectionLine make_line_for(const TriangleLinks &);
@@ -296,17 +300,12 @@ template <typename T>
 Tuple<T, T> SpatialDivisionContainer<T>::pair_for(const Interval & interval) const {
     using std::get;
     using namespace cul::exceptions_abbr;
-    // lower_bound for min, np
-    auto low = lower_bound
-        (interval.min,
-         [] (const DivisionTuple & tup, Real min)
-         { return get<k_div_element>(tup) < min; });
 
-    // high end's a little tougher
-    auto high = lower_bound
-        (interval.max,
-         [] (const DivisionTuple & tup, Real max)
-         { return get<k_div_element>(tup) < max; });
+    auto tuple_lt_value = [] (const DivisionTuple & tup, Real value)
+        { return get<k_div_element>(tup) < value; };
+
+    auto low  = lower_bound(interval.min, tuple_lt_value);
+    auto high = lower_bound(interval.max, tuple_lt_value);
 
     // it must be possible to return regardless of the given interval's values
     auto low_itr = get<1>(*( low  == m_container.begin() ? low : low - 1 ));
@@ -343,17 +342,6 @@ template <typename T>
         throw RtError{"SpatialDivisionContainer::" + std::string{caller} +
                       ": container must have at least two elements"};
     }
-    const auto make_no_inf_end_exp = [caller] {
-        return RtError{"SpatialDivisionContainer::" + std::string{caller} +
-                       ": divisions must end in an infinity"};
-    };
-#   if 0 // do I really need this?
-    if (!m_container.empty()) {
-        if (cul::is_real( std::get<k_div_element>(m_container.back()) )) {
-            throw make_no_inf_end_exp();
-        }
-    }
-#   endif
 }
 
 // ----------------------------------------------------------------------------
