@@ -138,6 +138,7 @@ bool run_triangle_links_tests() {
             auto pdriver = point_and_plane::Driver::make_driver();
             pdriver->add_triangle(links_a);
             pdriver->add_triangle(links_b);
+            pdriver->update();
             return pdriver;
         } ();
         auto test_handler = point_and_plane::EventHandler::make_test_handler();

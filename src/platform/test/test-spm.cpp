@@ -29,19 +29,11 @@ namespace {
 using Triangle = TriangleSegment;
 using Interval = ProjectionLine::Interval;
 
-struct Sample final {
-public:
-    Sample() {}
-    explicit Sample(int i_): value(i_) {}
-
-    int value = 0;
-};
-
 template <typename ... Types>
 SharedPtr<const TriangleLink> make_triangle_link(Types && ... args)
     { return make_shared<TriangleLink>(std::forward<Types>(args)...); }
 
-auto make_finder (const SharedPtr<const TriangleLink> & link_ptr) {
+auto make_finder(const SharedPtr<const TriangleLink> & link_ptr) {
     return [link_ptr](const WeakPtr<const TriangleLink> & wptr)
         { return link_ptr == wptr.lock(); };
 }
@@ -65,7 +57,7 @@ bool run_spm_tests() {
     using SamplePopulator = SpatialDivisionPopulator<int>;
     using SampleDivisions = SpatialDivisionContainer<int>;
     set_context(suite, [] (TestSuite & suite, Unit & unit) {
-        SamplePopulator populator{ {
+        SamplePopulator populator{ std::vector<Tuple<Real, int>> {
             make_tuple(0.   , 0),
             make_tuple(0.33 , 1),
             make_tuple(0.67 , 3),

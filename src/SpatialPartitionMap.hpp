@@ -56,12 +56,18 @@ protected:
     SpatialDivisionBase() {}
 
     template <typename T>
-    using DivisionTuple_ = Tuple<Real, T>;
+    struct Division_ final {
+        Division_() {}
+        Division_(Real pos_, T && el_):
+            position(pos_), element(std::move(el_)) {}
+        Division_(Real pos_, const T & el_):
+            position(pos_), element(el_) {}
+        Real position;
+        T element;
+    };
 
     template <typename T>
-    using Container_ = std::vector<DivisionTuple_<T>>;
-
-    static constexpr const auto k_div_element = 0;
+    using Container_ = std::vector<Division_<T>>;
 
     template <typename T>
     static bool is_sorted(const Container_<T> & container) {
@@ -72,8 +78,8 @@ protected:
 private:
     template <typename T>
     static bool compare_tuples
-        (const DivisionTuple_<T> & lhs, const DivisionTuple_<T> & rhs)
-        { return std::get<k_div_element>(lhs) < std::get<k_div_element>(rhs); }
+        (const Division_<T> & lhs, const Division_<T> & rhs)
+        { return lhs.position < rhs.position; }
 };
 
 template <typename T>
@@ -83,6 +89,12 @@ public:
     using Container = Container_<T>;
 
     SpatialDivisionPopulator() {}
+
+    explicit SpatialDivisionPopulator(const std::vector<Tuple<Real, T>> & container_) {
+        m_container.reserve(container_.size());
+        for (auto [pos, el] : container_)
+            { push(pos, el); }
+    }
 
     explicit SpatialDivisionPopulator(Container && container_):
         m_container(std::move(container_)) {}
@@ -130,7 +142,7 @@ public:
     auto end() const { return m_container.end(); }
 
 private:
-    using DivisionTuple = SpatialDivisionBase::DivisionTuple_<T>;
+    using Division = SpatialDivisionBase::Division_<T>;
     using Container = SpatialDivisionBase::Container_<T>;
 
     template <typename Func>
@@ -301,17 +313,19 @@ Tuple<T, T> SpatialDivisionContainer<T>::pair_for(const Interval & interval) con
     using std::get;
     using namespace cul::exceptions_abbr;
 
-    auto tuple_lt_value = [] (const DivisionTuple & tup, Real value)
-        { return get<k_div_element>(tup) < value; };
+    auto tuple_lt_value = [] (const Division & div, Real value)
+        { return div.position < value; };
 
     auto low  = lower_bound(interval.min, tuple_lt_value);
     auto high = lower_bound(interval.max, tuple_lt_value);
 
     // it must be possible to return regardless of the given interval's values
-    auto low_itr = get<1>(*( low  == m_container.begin() ? low : low - 1 ));
-    auto end_itr = get<1>(*( high == m_container.end  () ? high - 1 : high ));
+    low = low == m_container.begin() ? low : low - 1;
 
-    return make_tuple(low_itr, end_itr);
+    // it must be the case that not interval over takes the last value
+    assert(high != m_container.end());
+
+    return make_tuple(low->element, high->element);
 }
 
 template <typename T>
@@ -334,13 +348,24 @@ template <typename T>
     (const char * caller) const
 {
     using namespace cul::exceptions_abbr;
+    static auto make_head = [] (const char * caller) {
+        return "SpatialDivisionContainer::" + std::string{caller};
+    };
     if (!is_sorted(m_container)) {
-        throw RtError{"SpatialDivisionContainer::" + std::string{caller} +
-                      ": divisions must be sorted"};
+        throw InvArg{make_head(caller) + ": divisions must be sorted"};
     }
     if (m_container.size() < 2) {
-        throw RtError{"SpatialDivisionContainer::" + std::string{caller} +
-                      ": container must have at least two elements"};
+        throw InvArg{  make_head(caller)
+                     + ": container must have at least two elements"};
+    }
+    // this class is built on lower bound, there must be an element that no
+    // interval/position comes after, and therefore, there must be a last
+    // "infinity" element
+    if (m_container.back().position != k_inf) {
+        throw InvArg{  make_head(caller)
+                     + ": last element must be at infinity, as it must be the "
+                       "case that no interval position overtakes the last "
+                       "element in the container"};
     }
 }
 
@@ -367,6 +392,7 @@ template <typename Element>
         product_container.insert
             (product_container.end(), entries.begin(), entries.end());
     }
+    index_divisions.push(k_inf, product_container.size());
 }
 
 template <typename Element>
