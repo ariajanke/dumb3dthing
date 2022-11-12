@@ -202,10 +202,10 @@ State DriverComplete::operator ()
 
     auto new_loc = freebody.location + freebody.displacement;
     auto view = m_spm.view_for(freebody.location, new_loc);
-    const auto beg = view.begin();//m_links.begin();
-    const auto end = view.end();//m_links.end();
+    const auto beg = view.begin();
+    const auto end = view.end();
     for (auto itr = beg; itr != end; ++itr) {
-        auto & triangle = (*itr).lock()->segment();
+        auto & triangle = itr->lock()->segment();
 
         constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
         auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
@@ -219,7 +219,7 @@ State DriverComplete::operator ()
                   normalize(project_onto(new_loc - freebody.location,
                                          triangle.normal()          ))
                 - triangle.normal(), Vector{});
-            return OnSegment{(*itr).lock(), heads_against_normal, liminx.intersection, *disv2};
+            return OnSegment{itr->lock(), heads_against_normal, liminx.intersection, *disv2};
         }
         auto * disv3 = get_if<Vector>(&gv);
         assert(disv3);

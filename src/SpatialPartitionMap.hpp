@@ -29,8 +29,10 @@ public:
     using Triangle = TriangleSegment;
     struct Interval final {
         Interval() {}
+
         Interval(Real min_, Real max_):
             min(min_), max(max_) {}
+
         Real min = 0;
         Real max = 1;
     };
@@ -58,10 +60,13 @@ protected:
     template <typename T>
     struct Division_ final {
         Division_() {}
+
         Division_(Real pos_, T && el_):
             position(pos_), element(std::move(el_)) {}
+
         Division_(Real pos_, const T & el_):
             position(pos_), element(el_) {}
+
         Real position;
         T element;
     };
@@ -169,51 +174,24 @@ public:
         Interval interval;
         Element element;
     };
+
     using EntryContainer = std::vector<Entry>;
     using EntryIterator = typename EntryContainer::const_iterator;
     using EntryView = View<EntryIterator>;
-
     template <typename T>
     using Divisions = SpatialDivisionContainer<T>;
-
     template <typename T>
     using DivisionsPopulator = SpatialDivisionPopulator<T>;
 
     static std::vector<Real> compute_divisions
-        (const EntryContainer & entries)
-    {
-        using namespace cul::exceptions_abbr;
-        if (entries.empty())
-            { return { 0., k_inf }; }
-        if (!is_sorted(entries)) {
-            throw InvArg{"SpatialPartitionMapHelpers::compute_divisions:"
-                         "entries must be sorted"};
-        }
-        // a little more difficult, I'll do hard coded quarters to start
-        auto first_entry_max_is_min = [](const Entry & lhs, const Entry & rhs)
-            { return lhs.interval.max < rhs.interval.max; };
-
-        // they're sorted after all...
-        auto min = entries.front().interval.min;
-        auto max = std::max_element
-            (entries.begin(), entries.end(), first_entry_max_is_min)
-            ->interval.max;
-        // v "denormalize" these divisions v
-        std::vector<Real> divisions{ 0., 0.25, 0.5, 0.75, 0. };
-        for (auto & div : divisions) {
-            div = min + div*(max - min);
-        }
-        divisions.back() = k_inf;
-        return divisions;
-    }
+        (const EntryContainer & sorted_entries);
 
     static void make_indexed_divisions
         (const EntryContainer & sorted_entries, const std::vector<Real> & divisions,
          DivisionsPopulator<std::size_t> & index_divisions,
          EntryContainer & product_container);
 
-    static EntryView
-        view_for_entries
+    static EntryView view_for_entries
         (EntryIterator beg, EntryIterator end, Real start, Real last);
 
     static void sort_entries_container(EntryContainer & container)
@@ -257,6 +235,8 @@ public:
             m_itr(itr_) {}
 
         const Element & operator * () const { return m_itr->element; }
+
+        const Element * operator -> () const { return &m_itr->element; }
 
         Iterator & operator ++ ();
 
@@ -330,10 +310,9 @@ SpatialDivisionContainer<T>::SpatialDivisionContainer
 }
 
 template <typename T>
-Tuple<T, T> SpatialDivisionContainer<T>::pair_for(const Interval & interval) const {
-    using std::get;
-    using namespace cul::exceptions_abbr;
-
+Tuple<T, T> SpatialDivisionContainer<T>::pair_for
+    (const Interval & interval) const
+{
     auto tuple_lt_value = [] (const Division & div, Real value)
         { return div.position < value; };
 
@@ -369,12 +348,10 @@ template <typename T>
     (const char * caller) const
 {
     using namespace cul::exceptions_abbr;
-    static auto make_head = [] (const char * caller) {
-        return "SpatialDivisionContainer::" + std::string{caller};
-    };
-    if (!is_sorted(m_container)) {
-        throw InvArg{make_head(caller) + ": divisions must be sorted"};
-    }
+    static auto make_head = [] (const char * caller)
+        { return "SpatialDivisionContainer::" + std::string{caller}; };
+    if (!is_sorted(m_container))
+        { throw InvArg{make_head(caller) + ": divisions must be sorted"}; }
     if (m_container.size() < 2) {
         throw InvArg{  make_head(caller)
                      + ": container must have at least two elements"};
@@ -393,13 +370,42 @@ template <typename T>
 // ----------------------------------------------------------------------------
 
 template <typename Element>
+/* static */ std::vector<Real>
+    SpatialPartitionMapHelpers<Element>::compute_divisions
+    (const EntryContainer & entries)
+{
+    using namespace cul::exceptions_abbr;
+    if (entries.empty())
+        { return { 0., k_inf }; }
+    if (!is_sorted(entries)) {
+        throw InvArg{"SpatialPartitionMapHelpers::compute_divisions:"
+                     "entries must be sorted"};
+    }
+    // a little more difficult, I'll do hard coded quarters to start
+    auto first_entry_max_is_min = [](const Entry & lhs, const Entry & rhs)
+        { return lhs.interval.max < rhs.interval.max; };
+
+    // they're sorted after all...
+    auto min = entries.front().interval.min;
+    auto max = std::max_element
+        (entries.begin(), entries.end(), first_entry_max_is_min)
+        ->interval.max;
+    // v "denormalize" these divisions v
+    std::vector<Real> divisions{ 0., 0.25, 0.5, 0.75, 0. };
+    for (auto & div : divisions) {
+        div = min + div*(max - min);
+    }
+    divisions.back() = k_inf;
+    return divisions;
+}
+
+template <typename Element>
 /* static */ void SpatialPartitionMapHelpers<Element>::make_indexed_divisions
     (const EntryContainer & sorted_entries, const std::vector<Real> & divisions,
      DivisionsPopulator<std::size_t> & index_divisions,
      EntryContainer & product_container)
 {
     using namespace cul::exceptions_abbr;
-
     if (divisions.size() == 1) {
         throw InvArg{"SpatialPartitionMapHelpers::make_indexed_divisions: "
                      "divisions may not contain only one element"};
@@ -439,9 +445,8 @@ template <typename Element>
     // (perhaps yet another trade memory in for speed)
     for (auto itr = beg; itr != end; ++itr) {
         const auto & interval = itr->interval;
-        if (last > interval.min && interval.max > start) {
-            return itr;
-        }
+        if (last > interval.min && interval.max > start)
+            { return itr; }
     }
     return end;
 }
@@ -455,8 +460,6 @@ template <typename Element>
     // the first min above last is the end iterator
     return std::upper_bound
         (beg, end, last,
-         [](Real last, const Entry & element) {
-            const auto & interval = element.interval;
-            return last < interval.min;
-         });
+         [](Real last, const Entry & element)
+         { return last < element.interval.min; });
 }

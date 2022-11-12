@@ -25,14 +25,14 @@ namespace {
 using Triangle = ProjectionLine::Triangle;
 using Interval = ProjectionLine::Interval;
 
+using namespace cul::exceptions_abbr;
+
 } // end of <anonymous> namespace ---------------------------------------------
 
 ProjectionLine::ProjectionLine(const Vector & a_, const Vector & b_):
     m_a(a_), m_b(b_)
 {
-    using namespace cul::exceptions_abbr;
     if (!are_very_close(a_, b_)) return;
-
     throw InvArg{"ProjectionLine::ProjectionLine: points a and b must be "
                  "two different points to form a line."};
 }
@@ -79,7 +79,6 @@ SpatialPartitionMap::SpatialPartitionMap(const EntryContainer & sorted_entries)
     { populate(sorted_entries); }
 
 void SpatialPartitionMap::populate(const EntryContainer & sorted_entries) {
-    using namespace cul::exceptions_abbr;
     if (!Helpers::is_sorted(sorted_entries))
         { throw InvArg{"entries must be sorted"}; }
 
