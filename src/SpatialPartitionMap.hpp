@@ -180,10 +180,31 @@ public:
     using DivisionsPopulator = SpatialDivisionPopulator<T>;
 
     static std::vector<Real> compute_divisions
-        (const EntryContainer &)
+        (const EntryContainer & entries)
     {
+        using namespace cul::exceptions_abbr;
+        if (entries.empty())
+            { return { 0., k_inf }; }
+        if (!is_sorted(entries)) {
+            throw InvArg{"SpatialPartitionMapHelpers::compute_divisions:"
+                         "entries must be sorted"};
+        }
         // a little more difficult, I'll do hard coded quarters to start
-        return { 0., 0.25, 0.5, 0.75, k_inf };
+        auto first_entry_max_is_min = [](const Entry & lhs, const Entry & rhs)
+            { return lhs.interval.max < rhs.interval.max; };
+
+        // they're sorted after all...
+        auto min = entries.front().interval.min;
+        auto max = std::max_element
+            (entries.begin(), entries.end(), first_entry_max_is_min)
+            ->interval.max;
+        // v "denormalize" these divisions v
+        std::vector<Real> divisions{ 0., 0.25, 0.5, 0.75, 0. };
+        for (auto & div : divisions) {
+            div = min + div*(max - min);
+        }
+        divisions.back() = k_inf;
+        return divisions;
     }
 
     static void make_indexed_divisions

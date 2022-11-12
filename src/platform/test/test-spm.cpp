@@ -144,7 +144,7 @@ bool run_spm_tests() {
         SpatialPartitionMap container{EntryContainer{a, b, c, d, e}};
         // make sure I can find all the links which overlap certain intervals
         // note: dupelicates are totally fine! It's the trade off we're making
-        // must have at least one of b, c, and d
+        // must have at least one of b, and c
         auto mid_view = container.view_for(Interval{0.29, 0.4});
         // d and e
         auto high_view = container.view_for(Interval{0.56, k_inf});
@@ -157,11 +157,6 @@ bool run_spm_tests() {
         unit.start(mark(suite), [&] {
             auto res = std::find_if
                 (mid_view.begin(), mid_view.end(), make_finder(c_link));
-            return test(res != mid_view.end());
-        });
-        unit.start(mark(suite), [&] {
-            auto res = std::find_if
-                (mid_view.begin(), mid_view.end(), make_finder(d_link));
             return test(res != mid_view.end());
         });
         unit.start(mark(suite), [&] {
