@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "TriangleLink.hpp"
+#include "../TriangleLink.hpp"
 
 #include <ariajanke/cul/VectorUtils.hpp>
 

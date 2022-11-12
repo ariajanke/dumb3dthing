@@ -20,11 +20,11 @@
 
 #pragma once
 
-#include "Defs.hpp"
-#include "PointAndPlaneDriver.hpp"
-#include "Components.hpp"
+#include "../Defs.hpp"
+#include "../PointAndPlaneDriver.hpp"
+#include "../Components.hpp"
 
-#include "platform/platform.hpp"
+#include "../platform/platform.hpp"
 
 #include <ariajanke/cul/SubGrid.hpp>
 

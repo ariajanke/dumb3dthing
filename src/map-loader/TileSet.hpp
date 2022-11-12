@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "platform/platform.hpp"
+#include "../platform/platform.hpp"
 #include "map-loader.hpp"
 #include "ParseHelpers.hpp"
 #include "TileTexture.hpp"

@@ -21,7 +21,7 @@
 #pragma once
 
 #include "TileFactory.hpp"
-#include "RenderModel.hpp"
+#include "../RenderModel.hpp"
 
 #include <bitset>
 

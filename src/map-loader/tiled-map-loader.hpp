@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "platform/platform.hpp"
-#include "Components.hpp"
+#include "../platform/platform.hpp"
+#include "../Components.hpp"
 #include "TileSet.hpp"
 #include "ParseHelpers.hpp"
 

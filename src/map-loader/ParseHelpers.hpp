@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Defs.hpp"
+#include "../Defs.hpp"
 
 #include <ariajanke/cul/StringUtil.hpp>
 

@@ -19,9 +19,9 @@
 *****************************************************************************/
 
 #include "map-loader.hpp"
-#include "RenderModel.hpp"
-#include "Texture.hpp"
-#include "Components.hpp"
+#include "../RenderModel.hpp"
+#include "../Texture.hpp"
+#include "../Components.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 

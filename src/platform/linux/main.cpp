@@ -20,7 +20,7 @@
 
 #include "../../Defs.hpp"
 #include "../../GameDriver.hpp"
-#include "../../map-loader.hpp"
+#include "../../map-loader/map-loader.hpp"
 #include "../../Systems.hpp"
 
 #include "RenderModelImpl.hpp"

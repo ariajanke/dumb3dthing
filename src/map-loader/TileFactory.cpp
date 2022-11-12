@@ -20,7 +20,7 @@
 
 #include "TileFactory.hpp"
 #include "WallTileFactory.hpp"
-#include "RenderModel.hpp"
+#include "../RenderModel.hpp"
 
 #include <tinyxml2.h>
 

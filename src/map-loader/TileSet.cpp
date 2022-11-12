@@ -19,16 +19,13 @@
 *****************************************************************************/
 
 #include "TileSet.hpp"
-#include "Texture.hpp"
-#include "RenderModel.hpp"
+#include "../Texture.hpp"
+#include "../RenderModel.hpp"
 #include "tiled-map-loader.hpp"
 
 #include "WallTileFactory.hpp"
 #include "TileFactory.hpp"
 #include "RampTileFactory.hpp"
-
-// can always clean up embedded testing later
-#include <ariajanke/cul/TestSuite.hpp>
 
 #include <tinyxml2.h>
 

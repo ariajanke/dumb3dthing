@@ -20,9 +20,9 @@
 
 #include "tiled-map-loader.hpp"
 #include "map-loader.hpp"
-#include "Components.hpp"
-#include "RenderModel.hpp"
-#include "Texture.hpp"
+#include "../Components.hpp"
+#include "../RenderModel.hpp"
+#include "../Texture.hpp"
 #include "TileSet.hpp"
 #include "TileFactory.hpp"
 
