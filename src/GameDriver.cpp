@@ -85,7 +85,7 @@ auto make_sole_owner_pred() {
 /* static */ UniquePtr<Driver> Driver::make_instance()
     { return make_unique<GameDriverComplete>(); }
 
-void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
+void Driver::update(Real seconds, Platform & callbacks) {
     update_(seconds);
 
     std::vector<Entity> entities;
@@ -155,8 +155,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 //  :eyes:
     make_bezier_strip_model
     (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     Platform::ForLoaders & platform,
-     SharedPtr<Texture> texture, int resolution,
+     Platform & platform, SharedPtr<Texture> texture, int resolution,
      Vector2 texture_offset, Real texture_scale)
 {
     std::vector<TriangleSegment> triangles;
@@ -203,7 +202,9 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 template <typename T>
 Entity make_bezier_yring_model();
 
-Entity make_sample_bezier_model(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
+Entity make_sample_bezier_model
+    (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
+{
     static constexpr const auto k_hump_side = make_tuple(
         Vector{ -.5, 0,  1},
         Vector{ -.5, 0,  1} + Vector{-0.5, 1, 0.5},
@@ -239,10 +240,12 @@ private:
     const Tuple<Vector, Vector, Vector> & m_points;
 };
 
-Entity make_loop(Platform::Callbacks & callbacks,
+Entity make_loop(Platform & callbacks,
                  const Tuple<Vector, Vector, Vector> & tup);
 
-Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
+Entity make_sample_loop
+    (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
+{
 
     static constexpr const Real k_y = 10;
 
@@ -267,7 +270,7 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
 static constexpr const Vector k_player_start{2, 5.1, 2};
 
 // model entity, physical entity
-Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
+Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
         constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;

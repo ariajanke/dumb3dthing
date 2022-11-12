@@ -26,18 +26,20 @@ class SlopesBasedModelTileFactory : public TranslatableTileFactory {
 public:
     void operator ()
         (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-         Platform::ForLoaders & platform) const final;
+         Platform & platform) const final;
 
 protected:
     void add_triangles_based_on_model_details(Vector2I gridloc,
                                               EntityAndTrianglesAdder & adder) const;
 
-    Entity make_entity(Platform::ForLoaders & platform, Vector2I r) const
+    Entity make_entity(Platform & platform, Vector2I r) const
         { return TranslatableTileFactory::make_entity(platform, r, m_render_model); }
 
     virtual Slopes model_tile_elevations() const = 0;
 
-    void setup(Vector2I loc_in_ts, const tinyxml2::XMLElement * properties, Platform::ForLoaders & platform) override;
+    void setup
+        (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
+         Platform & platform) override;
 
     Slopes tile_elevations() const final
         { return translate_y(model_tile_elevations(), translation().y); }
@@ -56,7 +58,7 @@ protected:
     virtual void set_direction(const char *) = 0;
 
     void setup(Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
-               Platform::ForLoaders & platform) final;
+               Platform & platform) final;
 };
 
 class CornerRampTileFactory : public RampTileFactory {

@@ -135,7 +135,7 @@ void EventProcessor::process_input(GLFWwindow * window) {
     }
 }
 
-class NativePlatformCallbacks final : public Platform::Callbacks {
+class NativePlatformCallbacks final : public Platform {
 public:
     explicit NativePlatformCallbacks(ShaderProgram & shader):
         m_shader(shader)

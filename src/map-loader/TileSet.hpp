@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../platform/platform.hpp"
+#include "../platform.hpp"
 #include "map-loader.hpp"
 #include "ParseHelpers.hpp"
 #include "TileTexture.hpp"
@@ -38,19 +38,19 @@ public:
     // there may, or may not be a factory for a particular id
     TileFactory * operator () (int tid) const;
 
-    void load_information(Platform::ForLoaders &, const TiXmlElement & tileset);
+    void load_information(Platform &, const TiXmlElement & tileset);
 
     int total_tile_count() const { return m_tile_count; }
 
 private:
     using TileTextureMap = std::map<std::string, TileTexture>;
     struct TileParams final {
-        TileParams(Size2 tile_size_,
-                   Platform::ForLoaders & platform_):
+        TileParams(Size2 tile_size_, Platform & platform_):
             tile_size(tile_size_),
             platform(platform_) {}
+
         Size2 tile_size;
-        Platform::ForLoaders & platform;
+        Platform & platform;
     };
     // still really airy
     using LoadTileTypeFunc = void (TileSet::*)
@@ -69,7 +69,7 @@ private:
 
     void load_factory
         (const TiXmlElement &, UniquePtr<TileFactory> factory, int, Vector2I,
-         Platform::ForLoaders &);
+         Platform &);
 
     template <typename T>
     void load_usual_factory
@@ -119,9 +119,14 @@ public:
 private:
     template <bool kt_is_const>
     struct GidAndTileSetPtrImpl {
-        using TsPtrType = typename std::conditional_t<kt_is_const, ConstTileSetPtr, TileSetPtr>;
+        using TsPtrType =
+            typename std::conditional_t<kt_is_const, ConstTileSetPtr, TileSetPtr>;
+
         GidAndTileSetPtrImpl() {}
-        GidAndTileSetPtrImpl(int sid, const TsPtrType & ptr): starting_id(sid), tileset(ptr) {}
+
+        GidAndTileSetPtrImpl(int sid, const TsPtrType & ptr):
+            starting_id(sid), tileset(ptr) {}
+
         int starting_id = 0;
         TsPtrType tileset;
     };

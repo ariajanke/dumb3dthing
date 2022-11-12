@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "../platform.hpp"
+#include "../../platform.hpp"
 #include "../../Texture.hpp"
 #include "../../RenderModel.hpp"
 #include "../../GameDriver.hpp"
@@ -280,7 +280,7 @@ private:
     bool m_lost = false;
 };
 
-class WebGlPlatform final : public Platform::Callbacks {
+class WebGlPlatform final : public Platform {
 public:
     static WebGlPlatform & instance() {
         static WebGlPlatform inst;

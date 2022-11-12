@@ -27,14 +27,15 @@
 
 class TranslatableTileFactory : public TileFactory {
 public:
-    void setup(Vector2I, const tinyxml2::XMLElement * properties,
-               Platform::ForLoaders &) override;
+    void setup
+        (Vector2I, const tinyxml2::XMLElement * properties, Platform &) override;
 
 protected:
     Vector translation() const { return m_translation; }
 
-    Entity make_entity(Platform::ForLoaders & platform, Vector2I tile_loc,
-                       SharedCPtr<RenderModel> model_ptr) const;
+    Entity make_entity
+        (Platform & platform, Vector2I tile_loc,
+         SharedPtr<const RenderModel> model_ptr) const;
 
 private:
     Vector m_translation;
@@ -197,7 +198,7 @@ public:
 
     void operator ()
         (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-         Platform::ForLoaders & platform) const final;
+         Platform & platform) const final;
 
     void assign_wall_texture(const TileTexture &);
 
@@ -208,7 +209,7 @@ public:
         (const NeighborInfo &, EntityAndTrianglesAdder &) const;
 
     void setup
-        (Vector2I loc_in_ts, const TiXmlElement * properties, Platform::ForLoaders &) final;
+        (Vector2I loc_in_ts, const TiXmlElement * properties, Platform &) final;
 
     Slopes tile_elevations() const final;
 
@@ -239,7 +240,7 @@ private:
     Real known_elevation() const;
 
     SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform & platform) const;
 
     template <typename MakerFunc>
     SharedPtr<const RenderModel> ensure_model
@@ -248,11 +249,11 @@ private:
 
     SharedPtr<const RenderModel>
         ensure_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform & platform) const;
 
     SharedPtr<const RenderModel>
         make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform & platform) const;
 
     std::array<Tuple<bool, CardinalDirection>, 4>
         make_known_corners_with_preposition() const;
@@ -260,16 +261,16 @@ private:
     SharedPtr<const RenderModel>
         make_model_graphics
         (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform::ForLoaders & platform) const;
+         const TriangleToVerticies &, Platform & platform) const;
 
-    SharedPtr<const RenderModel> make_top_model(Platform::ForLoaders & platform) const;
+    SharedPtr<const RenderModel> make_top_model(Platform & platform) const;
 
     auto make_triangle_to_floor_verticies() const
         { return TriangleToFloorVerticies{floor_texture(), -translation().y}; }
 
     SharedPtr<const RenderModel>
         make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const;
+        (const NeighborInfo & neighborhood, Platform & platform) const;
 
     CardinalDirection verify_okay_wall_direction(CardinalDirection dir) const {
         if (!is_okay_wall_direction(dir)) {

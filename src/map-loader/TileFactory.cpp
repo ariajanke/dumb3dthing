@@ -186,8 +186,7 @@ void TileFactory::set_shared_texture_information
 
 /* protected */ SharedCPtr<RenderModel>
     TileFactory::make_render_model_with_common_texture_positions
-    (Platform::ForLoaders & platform, const Slopes & slopes,
-     Vector2I loc_in_ts) const
+    (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const
 {
     const auto & pos = TileGraphicGenerator::get_points_for(slopes);
     auto txpos = common_texture_positions_from(loc_in_ts);
@@ -205,7 +204,7 @@ void TileFactory::set_shared_texture_information
 }
 
 /* protected */ Entity TileFactory::make_entity
-    (Platform::ForLoaders & platform, Vector translation,
+    (Platform & platform, Vector translation,
      const SharedCPtr<RenderModel> & model_ptr) const
 {
     assert(model_ptr);
@@ -226,5 +225,6 @@ CardinalDirection cardinal_direction_from(const char * str) {
     if (seq("nw")) return Cd::nw;
     if (seq("se")) return Cd::se;
     if (seq("sw")) return Cd::sw;
-    throw InvArg{""};
+    throw InvArg{  "cardinal_direction_from: cannot convert \""
+                 + std::string{str} + "\" to a cardinal direction"};
 }

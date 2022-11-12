@@ -133,14 +133,14 @@ public:
     virtual ~TileFactory() {}
 
     virtual void operator ()
-        (EntityAndTrianglesAdder &, const NeighborInfo &, Platform::ForLoaders &) const = 0;
+        (EntityAndTrianglesAdder &, const NeighborInfo &, Platform &) const = 0;
 
     void set_shared_texture_information
         (const SharedCPtr<Texture> & texture_ptr_, const Size2 & texture_size_,
          const Size2 & tile_size_);
 
-    virtual void setup(Vector2I loc_in_ts, const TiXmlElement * properties,
-                       Platform::ForLoaders &) = 0;
+    virtual void setup
+        (Vector2I loc_in_ts, const TiXmlElement * properties, Platform &) = 0;
 
     virtual Slopes tile_elevations() const = 0;
 
@@ -159,13 +159,11 @@ protected:
 
     std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) const;
 
-    Entity make_entity(Platform::ForLoaders & platform, Vector translation,
+    Entity make_entity(Platform & platform, Vector translation,
                        const SharedCPtr<RenderModel> & model_ptr) const;
 
     SharedCPtr<RenderModel> make_render_model_with_common_texture_positions
-        (Platform::ForLoaders & platform,
-         const Slopes & slopes,
-         Vector2I loc_in_ts) const;
+        (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const;
 
     Size2 common_texture_tile_size() const;
 

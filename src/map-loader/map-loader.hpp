@@ -24,7 +24,7 @@
 #include "../PointAndPlaneDriver.hpp"
 #include "../Components.hpp"
 
-#include "../platform/platform.hpp"
+#include "../platform.hpp"
 
 #include <ariajanke/cul/SubGrid.hpp>
 

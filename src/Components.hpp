@@ -21,7 +21,7 @@
 #pragma once
 
 #include "Defs.hpp"
-#include "platform/platform.hpp"
+#include "platform.hpp"
 
 // --------------------------- Graphical Components ---------------------------
 
@@ -185,7 +185,7 @@ public:
 
     virtual void add(const Entity &) = 0;
 
-    virtual Platform::ForLoaders & platform() = 0;
+    virtual Platform & platform() = 0;
 };
 
 /** @brief An every frame task is retained and ran every frame.

@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../platform/platform.hpp"
+#include "../platform.hpp"
 #include "../Components.hpp"
 #include "TileSet.hpp"
 #include "ParseHelpers.hpp"
@@ -117,7 +117,7 @@ public:
         std::vector<Entity> m_entities;
     };
 
-    explicit MapLoader(Platform::ForLoaders & platform):
+    explicit MapLoader(Platform & platform):
         m_platform(&platform) {}
 
     Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> operator ()
@@ -154,7 +154,7 @@ private:
     FutureStringPtr m_file_contents;
 
     Grid<int> m_layer;
-    Platform::ForLoaders * m_platform;
+    Platform * m_platform;
 
     std::vector<SharedPtr<TileSet>> m_tilesets;
     std::vector<int> m_startgids;
