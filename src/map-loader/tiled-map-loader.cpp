@@ -65,7 +65,9 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
             add_triangles_and_link_(m_layer.width(), m_layer.height(),
             [&] (Vector2I r, TrianglesAdder adder)
         {
-            auto [tid, tileset] = m_tidgid_translator.gid_to_tid(m_layer(r)); {}
+            auto gid = m_layer(r);
+            if (gid == 0) return;
+            auto [tid, tileset] = m_tidgid_translator.gid_to_tid(m_layer(r));
             auto * factory = (*tileset)(tid);
             if (!factory) return;
 

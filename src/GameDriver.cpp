@@ -342,6 +342,16 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     static constexpr const auto k_testmap_filename = "demo-map3.tmx";
     static constexpr const auto k_load_limit = 3;
 
+    static auto check_fall_below = [](Entity & ent) {
+        auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
+        if (!ppair) return;
+        auto & loc = ppair->location;
+        if (loc.y < -10) {
+            loc = Vector{loc.x, 4, loc.z};
+            ent.get<Velocity>() = Velocity{};
+        }
+    };
+
     physics_ent.add<SharedPtr<EveryFrameTask>>() =
         EveryFrameTask::make(
         [loaded_maps = std::move(loaded_maps),
@@ -349,6 +359,8 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
          physics_ent]
         (TaskCallbacks & callbacks, Real) mutable
     {
+        check_fall_below(physics_ent);
+
         static constexpr const auto k_base_map_size = 20;
         // if there's no teardown task... then it's pending
         for (auto & [gpos, loader, teardown] : loaded_maps) {

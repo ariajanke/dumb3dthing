@@ -278,21 +278,22 @@ State DriverComplete::operator ()
             OnSegment rv{tracker};
             rv.location     = crossing.inside;
             rv.displacement = *disv2;
-            verify_decreasing_displacement<Vector2, Vector2>(
-                *disv2, tracker.displacement, k_caller_name);
+            verify_decreasing_displacement<Vector2, Vector2>
+                (*disv2, tracker.displacement, k_caller_name);
             return rv;
         } else {
             auto * disv3 = get_if<Vector>(&abgv);
             assert(disv3);
-            verify_decreasing_displacement<Vector, Vector2>(
-                *disv3, tracker.displacement, k_caller_name);
+            verify_decreasing_displacement<Vector, Vector2>
+                (*disv3, tracker.displacement, k_caller_name);
             return InAir{triangle.point_at(crossing.outside), *disv3};
         }
     }
 
     auto outside_pt = triangle.point_at(crossing.outside);
-    auto stgv = env.on_transfer(*tracker.segment, crossing,
-                                transfer.target->segment(), tracker.segment->point_at(new_loc));
+    auto stgv = env.on_transfer
+        (*tracker.segment, crossing, transfer.target->segment(),
+         tracker.segment->point_at(new_loc));
     if (auto * tup = get_if<Tuple<bool, Vector2>>(&stgv)) {
         auto [does_transfer, rem_displc] = *tup; {}
         verify_decreasing_displacement<Vector2, Vector2>
@@ -311,8 +312,8 @@ State DriverComplete::operator ()
     } else {
         auto * disv3 = get_if<Vector>(&stgv);
         assert(disv3);
-        verify_decreasing_displacement<Vector, Vector2>(
-            *disv3, tracker.displacement, k_caller_name);
+        verify_decreasing_displacement<Vector, Vector2>
+            (*disv3, tracker.displacement, k_caller_name);
         return InAir{outside_pt, *disv3};
     }
 }

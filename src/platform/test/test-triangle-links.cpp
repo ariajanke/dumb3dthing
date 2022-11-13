@@ -179,8 +179,7 @@ bool run_triangle_links_tests() {
             Vector{0, 0, -0.5}, Vector{1, 1, -1.5}, Vector{1, 0, -0.5}};
         Triangle rhs{
             Vector{0, 1, 0.5}, Vector{0, 0, -0.5}, Vector{1, 0, -0.5}};
-        std::cout << lhs.normal() << std::endl;
-        std::cout << rhs.normal() << std::endl;
+
         auto links_lhs = make_shared<TriangleLink>(lhs);
         auto links_rhs = make_shared<TriangleLink>(rhs);
 
@@ -193,6 +192,28 @@ bool run_triangle_links_tests() {
             return test(trans.inverts_normal);
         });
     });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // normals that are orthogonal
+        Triangle lhs{
+            Vector{0, 0, 0}, Vector{0, 0, 1}, Vector{1, 0, 0}};
+        Triangle rhs{
+            Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 1, 0}};
+
+        auto links_lhs = make_shared<TriangleLink>(lhs);
+        auto links_rhs = make_shared<TriangleLink>(rhs);
+        links_lhs->attempt_attachment_to(links_rhs);
+
+        unit.start(mark(suite), [&] {
+            auto ang = angle_between(lhs.normal(), rhs.normal());
+            return test(are_very_close(ang, k_pi*0.5));
+        });
+
+        unit.start(mark(suite), [&] {
+            auto trans = links_lhs->transfers_to(Side::k_side_ca);
+            return test(!trans.inverts_normal);
+        });
+    });
+
 #   undef mark
     return suite.has_successes_only();
 }

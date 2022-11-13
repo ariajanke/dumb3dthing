@@ -307,6 +307,10 @@ public:
                 <SharedPtr<const Texture>, SharedPtr<const RenderModel>>
                 ())
             { continue; }
+            if (auto * vis = ent.ptr<Visible>()) {
+                if (!vis->value)
+                    continue;
+            }
             from_js_reset_model_matrix();
             if (auto * translation = ent.ptr<Translation>()) {
                 const auto & r = translation->value;
