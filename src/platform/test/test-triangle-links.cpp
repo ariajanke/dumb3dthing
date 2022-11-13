@@ -175,19 +175,22 @@ bool run_triangle_links_tests() {
     });
     set_context(suite, [] (TestSuite & suite, Unit & unit) {
         // these triangle's normals are anti-parallel
-        Triangle lhs{
-            Vector{0, 0, -0.5}, Vector{1, 1, -1.5}, Vector{1, 0, -0.5}};
-        Triangle rhs{
-            Vector{0, 1, 0.5}, Vector{0, 0, -0.5}, Vector{1, 0, -0.5}};
+        Triangle lhs
+            {Vector{0, 0, -0.5}, Vector{1, 1, -1.5}, Vector{1, 0, -0.5}};
+        Triangle rhs
+            {Vector{0, 1, 0.5}, Vector{0, 0, -0.5}, Vector{1, 0, -0.5}};
 
         auto links_lhs = make_shared<TriangleLink>(lhs);
         auto links_rhs = make_shared<TriangleLink>(rhs);
 
-        links_lhs->attempt_attachment_to(links_rhs);
         unit.start(mark(suite), [&] {
+            links_lhs->attempt_attachment_to(links_rhs);
             return test(links_lhs->has_side_attached(Side::k_side_ca));
         });
         unit.start(mark(suite), [&] {
+            auto lhs_norm = lhs.normal();
+            auto rhs_norm = rhs.normal();
+            links_lhs->attempt_attachment_to(links_rhs);
             auto trans = links_lhs->transfers_to(Side::k_side_ca);
             return test(trans.inverts_normal);
         });
@@ -213,7 +216,46 @@ bool run_triangle_links_tests() {
             return test(!trans.inverts_normal);
         });
     });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // normal: <x: 0, y: -1, z: 0> bc
+        Triangle floor
+            {Vector{10.5, 0, 14.5}, Vector{11.5, 0, 13.5}, Vector{11.5, 0, 14.5}};
+        // normal: <x: -1, y: 0, z: 0> ab
+        Triangle wall
+            {Vector{11.5, 0, 13.5}, Vector{11.5, 0, 14.5}, Vector{11.5, 1, 13.5}};
+        auto links_floor = make_shared<TriangleLink>(floor);
+        auto links_wall = make_shared<TriangleLink>(wall);
 
+        links_floor->attempt_attachment_to(links_wall);
+        links_wall->attempt_attachment_to(links_floor);
+        unit.start(mark(suite), [&] {
+            // if you flip one way, you must flip the other
+            auto floor_trans = links_floor->transfers_to(Side::k_side_bc);
+            auto wall_trans = links_wall->transfers_to(Side::k_side_ab);
+            return test(floor_trans.inverts_normal == wall_trans.inverts_normal);
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // parallel normals, should not invert
+        // normal x: 0, y: 0, z: -1 ab
+        Triangle lhs{Vector{1.5, 2, 6.5}, Vector{2.5, 2, 6.5}, Vector{1.5, 3, 6.5}};
+        // normal x: 0, y: 0, z: -1 bc
+        Triangle rhs{Vector{2.5, 1, 6.5}, Vector{1.5, 2, 6.5}, Vector{2.5, 2, 6.5}};
+        auto links_lhs = make_shared<TriangleLink>(lhs);
+        auto links_rhs = make_shared<TriangleLink>(rhs);
+        links_lhs->attempt_attachment_to(links_rhs);
+        links_rhs->attempt_attachment_to(links_lhs);
+
+        assert(!are_very_close(lhs.normal(), rhs.normal()));
+        unit.start(mark(suite), [&] {
+            auto trans = links_lhs->transfers_to(Side::k_side_ab);
+            return test(trans.target && trans.inverts_normal);
+        });
+        unit.start(mark(suite), [&] {
+            auto trans = links_rhs->transfers_to(Side::k_side_bc);
+            return test(trans.target && trans.inverts_normal);
+        });
+    });
 #   undef mark
     return suite.has_successes_only();
 }

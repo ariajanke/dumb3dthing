@@ -92,10 +92,11 @@ void Driver::update(Real seconds, Platform & callbacks) {
     auto callbacks_ = get_callbacks(callbacks, entities);
     {
     auto enditr = m_every_frame_tasks.begin();
-    m_every_frame_tasks.erase(
-        std::remove_if(m_every_frame_tasks.begin(), enditr,
-                      make_sole_owner_pred<EveryFrameTask>()),
-        enditr);
+    m_every_frame_tasks.erase
+        (std::remove_if
+            (m_every_frame_tasks.begin(), enditr,
+             make_sole_owner_pred<EveryFrameTask>()),
+         enditr);
     }
     for (auto & task : m_every_frame_tasks) {
         task->on_every_frame(callbacks_, seconds);
@@ -339,7 +340,7 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
 
-    static constexpr const auto k_testmap_filename = "demo-map3.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map4.tmx";
     static constexpr const auto k_load_limit = 3;
 
     static auto check_fall_below = [](Entity & ent) {
@@ -361,7 +362,7 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     {
         check_fall_below(physics_ent);
 
-        static constexpr const auto k_base_map_size = 20;
+        static constexpr const auto k_base_map_size = 10;
         // if there's no teardown task... then it's pending
         for (auto & [gpos, loader, teardown] : loaded_maps) {
             if (teardown) continue;
@@ -445,8 +446,9 @@ void GameDriverComplete::press_key(KeyControl ky) {
     }
 }
 
-void GameDriverComplete::release_key(KeyControl ky)
-    { player_entities().physical.get<PlayerControl>().release(ky); }
+void GameDriverComplete::release_key(KeyControl ky) {
+    player_entities().physical.get<PlayerControl>().release(ky);
+}
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
 #   if 0

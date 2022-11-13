@@ -20,6 +20,7 @@
 
 #include "Defs.hpp"
 #include "PointAndPlaneDriver.hpp"
+#include "TriangleSegment.hpp"
 
 #include <iostream>
 
@@ -74,5 +75,13 @@ std::ostream & operator << (std::ostream & out, const Vector2 & r) {
     out << "<x: " << round_close_to_zero(r.x)
         << ", y: " << round_close_to_zero(r.y) << ">";
     out.precision(old_prec);
+    return out;
+}
+
+std::ostream & operator <<
+    (std::ostream & out, const TriangleSegment & triangle)
+{
+    out << "a: " << triangle.point_a() << " b: " << triangle.point_b()
+        << " c: " << triangle.point_c();
     return out;
 }

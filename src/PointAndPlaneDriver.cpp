@@ -72,7 +72,8 @@ bool new_invert_normal
     // if !trans &  tracker then true
     // if  trans & !tracker then true
     // if !trans & !tracker then false
-    return transfer.inverts_normal ^ tracker.invert_normal;
+    //return transfer.inverts_normal ^ tracker.invert_normal;
+    return transfer.inverts_normal ? !tracker.invert_normal : tracker.invert_normal;
 }
 
 } // end of <anonymous> namespace
@@ -215,6 +216,11 @@ State DriverComplete::operator ()
     auto view = m_spm.view_for(freebody.location, new_loc);
     const auto beg = view.begin();
     const auto end = view.end();
+
+    using LimitIntersection = Triangle::LimitIntersection;
+    SharedPtr<const TriangleLink> candidate;
+    LimitIntersection candidate_intx;
+#   if 0
     for (auto itr = beg; itr != end; ++itr) {
         auto & triangle = itr->lock()->segment();
 
@@ -239,6 +245,49 @@ State DriverComplete::operator ()
         return InAir{liminx.limit, *disv3};
     }
     return InAir{freebody.location + freebody.displacement, Vector{}};
+#   else
+    constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
+    for (auto itr = beg; itr != end; ++itr) {
+        auto link_ptr = itr->lock();
+        const auto & triangle = link_ptr->segment();
+
+        auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
+        if (!is_solution(liminx.intersection)) continue;
+        if (!candidate) {
+            candidate = link_ptr;
+            continue;
+        }
+        if (magnitude(liminx.limit         - freebody.location) <
+            magnitude(candidate_intx.limit - freebody.location)  )
+        {
+            candidate = link_ptr;
+            candidate_intx = liminx;
+        }
+    }
+    if (candidate) {
+        const auto & triangle = candidate->segment();
+        auto gv = env.on_triangle_hit
+            (triangle, candidate_intx.limit, candidate_intx.intersection, new_loc);
+        if (auto * disv2 = get_if<Vector2>(&gv)) {
+            // attach to segment
+            verify_decreasing_displacement<Vector2, Vector>
+                (*disv2, freebody.displacement, k_caller_name);
+            bool heads_against_normal = are_very_close
+                (normalize(project_onto(freebody.displacement,
+                                        triangle.normal()          ))
+                 - triangle.normal(), Vector{});
+            return OnSegment
+                {candidate, heads_against_normal, candidate_intx.intersection,
+                 *disv2};
+        }
+        auto * disv3 = get_if<Vector>(&gv);
+        assert(disv3);
+        verify_decreasing_displacement<Vector, Vector>
+            (*disv3, freebody.displacement, k_caller_name);
+        return InAir{candidate_intx.limit, *disv3};
+    }
+    return InAir{freebody.location + freebody.displacement, Vector{}};
+#   endif
 }
 
 /* private */ State DriverComplete::handle_tracker
@@ -301,6 +350,15 @@ State DriverComplete::operator ()
         if (does_transfer) {
             auto seg_loc = transfer.target->segment()
                 .closest_contained_point(outside_pt);
+#           if 1
+            std::cout << (new_invert_normal(transfer, tracker) ? "invert" : "regular") << std::endl;
+            OnSegment new_tracker
+                {transfer.target, new_invert_normal(transfer, tracker),
+                 seg_loc, rem_displc};
+            auto norm = transfer.target->segment().normal()*(new_tracker.invert_normal ? -1 : 1);
+            std::cout << norm << std::endl;
+            std::cout << "on: " << transfer.target->segment() << std::endl;
+#           endif
             return OnSegment
                 {transfer.target, new_invert_normal(transfer, tracker),
                  seg_loc, rem_displc};

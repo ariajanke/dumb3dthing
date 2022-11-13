@@ -392,6 +392,8 @@ template <typename Element>
         ->interval.max;
     // v "denormalize" these divisions v
     std::vector<Real> divisions{ 0., 0.25, 0.5, 0.75, 0. };
+    // std::vector<Real> divisions{ 0., 0.125, 0.25, 0.375, 0.5,
+    //                                  0.625, 0.75, 0.875, 0. };
     for (auto & div : divisions) {
         div = min + div*(max - min);
     }

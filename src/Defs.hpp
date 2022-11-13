@@ -100,6 +100,8 @@ std::ostream & operator << (std::ostream & out, const Vector & r);
 
 std::ostream & operator << (std::ostream & out, const Vector2 & r);
 
+std::ostream & operator << (std::ostream & out, const TriangleSegment &);
+
 bool are_very_close(Vector, Vector);
 
 bool are_very_close(Vector2, Vector2);

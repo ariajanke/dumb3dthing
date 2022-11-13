@@ -45,6 +45,16 @@ private:
     Triangle m_segment;
 };
 
+class VectorRotater final {
+public:
+    explicit VectorRotater(const Vector & axis_of_rotation);
+
+    Vector operator () (const Vector & v, Real angle) const;
+
+private:
+    Vector m_axis_of_rotation;
+};
+
 // a triangle link has a triangle, and is linked to other triangles
 class TriangleLink final : public TriangleFragment {
 public:
@@ -60,6 +70,12 @@ public:
         // true -> (1 - t)
         bool flips = false;
     };
+
+    static bool has_opposing_normals(const Triangle &, Side, const Triangle &, Side);
+
+    static Real angle_of_rotation_for_left
+        (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,
+         const VectorRotater & rotate_vec);
 
     TriangleLink() {}
 
@@ -85,8 +101,6 @@ private:
         bool inverts = false;
         bool flip = false;
     };
-
-    static bool has_opposing_normals(const Triangle &, Side, const Triangle &, Side);
 
     static Side verify_valid_side(const char * caller, Side);
 

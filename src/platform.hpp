@@ -34,7 +34,6 @@ enum class KeyControl {
     left,
     right,
     jump,
-
     pause,
     advance,
     print_info,
