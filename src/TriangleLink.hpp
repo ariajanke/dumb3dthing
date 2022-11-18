@@ -38,8 +38,7 @@ protected:
         m_segment(triangle) {}
 
     TriangleFragment(const Vector & a, const Vector & b, const Vector & c):
-        m_segment(Triangle(a, b, c))
-    {}
+        m_segment(Triangle(a, b, c)) {}
 
 private:
     Triangle m_segment;
@@ -71,7 +70,7 @@ public:
         bool flips = false;
     };
 
-    static bool has_opposing_normals(const Triangle &, Side, const Triangle &, Side);
+    static bool has_matching_normals(const Triangle &, Side, const Triangle &, Side);
 
     static Real angle_of_rotation_for_left
         (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,

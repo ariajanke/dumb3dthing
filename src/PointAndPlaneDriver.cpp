@@ -281,10 +281,8 @@ State DriverComplete::operator ()
         if (auto * disv2 = get_if<Vector2>(&gv)) {
             // need to convert remaining displacement into the same units as
             // freebody's displacement
-            auto old_loc_on_plane = triangle.point_at(intx);
-            auto new_loc2 = triangle.point_at(intx + *disv2);
-
-            auto disv3 = new_loc2 - old_loc_on_plane;
+            auto disv3 =   triangle.point_at(intx + *disv2)
+                         - triangle.point_at(intx);
             verify_decreasing_displacement<Vector, Vector>
                 (disv3, freebody.displacement, k_caller_name);
             auto displacement_on_normal =

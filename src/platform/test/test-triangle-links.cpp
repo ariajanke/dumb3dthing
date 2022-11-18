@@ -188,11 +188,9 @@ bool run_triangle_links_tests() {
             return test(links_lhs->has_side_attached(Side::k_side_ca));
         });
         unit.start(mark(suite), [&] {
-            auto lhs_norm = lhs.normal();
-            auto rhs_norm = rhs.normal();
             links_lhs->attempt_attachment_to(links_rhs);
             auto trans = links_lhs->transfers_to(Side::k_side_ca);
-            return test(trans.inverts_normal);
+            return test(!trans.inverts_normal);
         });
     });
     set_context(suite, [] (TestSuite & suite, Unit & unit) {
@@ -252,6 +250,31 @@ bool run_triangle_links_tests() {
             return test(trans.target && trans.inverts_normal);
         });
         unit.start(mark(suite), [&] {
+            auto trans = links_rhs->transfers_to(Side::k_side_bc);
+            return test(trans.target && trans.inverts_normal);
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // flip values are wrong, I believe they need to invert at least from
+        // lhs to rhs
+        // regular
+        // normal x: 0, y: 0, z: 1 ab
+        Triangle lhs{Vector{1.5, 1, -0.5}, Vector{2.5, 1, -0.5}, Vector{1.5, 2, -0.5}};
+        // regular
+        // normal x: 0, y: -0.70711, z: -0.70711 bc
+        Triangle rhs{Vector{1.5, 0, 0.5}, Vector{1.5, 1, -0.5}, Vector{2.5, 1, -0.5}};
+
+        auto links_lhs = make_shared<TriangleLink>(lhs);
+        auto links_rhs = make_shared<TriangleLink>(rhs);
+
+        unit.start(mark(suite), [&] {
+            links_lhs->attempt_attachment_to(links_rhs);
+            auto trans = links_lhs->transfers_to(Side::k_side_ab);
+            return test(trans.target && trans.inverts_normal);
+        });
+
+        unit.start(mark(suite), [&] {
+            links_rhs->attempt_attachment_to(links_lhs);
             auto trans = links_rhs->transfers_to(Side::k_side_bc);
             return test(trans.target && trans.inverts_normal);
         });

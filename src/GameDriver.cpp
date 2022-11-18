@@ -340,7 +340,7 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
 
-    static constexpr const auto k_testmap_filename = "demo-map4.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map.tmx";
     static constexpr const auto k_load_limit = 3;
 
     static auto check_fall_below = [](Entity & ent) {
@@ -362,7 +362,7 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     {
         check_fall_below(physics_ent);
 
-        static constexpr const auto k_base_map_size = 10;
+        static constexpr const auto k_base_map_size = 20;
         // if there's no teardown task... then it's pending
         for (auto & [gpos, loader, teardown] : loaded_maps) {
             if (teardown) continue;

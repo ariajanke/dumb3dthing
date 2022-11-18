@@ -24,16 +24,7 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 using Triangle = TriangleLink::Triangle;
-#if 0
-Vector project_onto_line_segment
-    (const Vector & a, const Vector & b, const Vector & ex)
-{
-    // all assumed to be roughly coplanar...
-    // choose an origin, why not a?
-    // then re-adjust (what does that mean?)
-    return a + project_onto(b - a, ex - a);
-};
-#endif
+
 } // end of <anonymous> namespace
 
 VectorRotater::VectorRotater(const Vector & axis_of_rotation):
@@ -54,27 +45,24 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
     (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,
      const VectorRotater & rotate_vec)
 {
-    auto t0 = angle_between(left_opp - pivot, right_opp - pivot);
-    auto t1 = t0 - k_pi;
-#   if 0
-    auto segmid = 0.5*(pivot + right_opp);
-#   endif
-    auto sol0 = rotate_vec(left_opp - pivot, t0);
-    auto sol1 = rotate_vec(left_opp - pivot, t1);
-#   if 0
-    bool t0_is_sol =
-        sum_of_squares(sol0 - (segmid - pivot)) <
-        sum_of_squares(sol1 - (segmid - pivot));
+    auto piv_to_left  = left_opp  - pivot;
+    auto piv_to_right = right_opp - pivot;
 
-    return t0_is_sol ? t0 : t1;
-#   endif
+    // only one of these solutions is correct, because we need the right
+    // direction
+    auto t0 = angle_between(piv_to_left, piv_to_right);
+    auto t1 = t0 - k_pi;
+
+    auto sol0 = rotate_vec(piv_to_left, t0);
+    auto sol1 = rotate_vec(piv_to_left, t1);
+
     // greatest is closest
-    if (dot(sol0, right_opp - pivot) > dot(sol1, right_opp - pivot))
+    if (dot(sol0, piv_to_right) > dot(sol1, piv_to_right))
         { return t0; }
     return t1;
 }
 
-/* static */ bool TriangleLink::has_opposing_normals
+/* static */ bool TriangleLink::has_matching_normals
     (const Triangle & lhs, Side left_side, const Triangle & rhs, Side right_side)
 {
     // assumption, sides "line up"
@@ -85,10 +73,10 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
                || (are_very_close(la, rb) && are_very_close(lb, ra));
     } ()));
 
-    // I remember taking the two triangles, lined up. Then projecting onto the
-    // plane where the joining line is used as the normal for that plane.
-
+    // Taking the two triangles, lined up. Then projecting onto the plane where
+    // the joining line is used as the normal for that plane.
     auto [la, lb] = lhs.side_points(left_side);
+
     // v doesn't necessarily need to be a normal vector
     auto plane_v = lb - la;
 
@@ -97,26 +85,21 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
     // this gives us three vectors, two line segments
     // we want the angles between them
     // the pivot is where they join
-    auto left_opp  = project_onto_plane(lhs.opposing_point(left_side), plane_v);
+    auto left_opp  = project_onto_plane(lhs.opposing_point(left_side ), plane_v);
     auto right_opp = project_onto_plane(rhs.opposing_point(right_side), plane_v);
     auto pivot     = project_onto_plane(la, plane_v);
 
-    // do I need this? do this tell me anything useful?
-    // a less buggy alternative? an important detail here?
-#   if 0
-    // rotme projected onto line described by the other triangle
-    auto left_opp_projd = project_onto_line_segment(pivot, right_opp, left_opp);
-#   endif
     // get possible rotations
     // Now there's a possible problem here... what if the previous projection
     // ends up landing right on the pivot?...
     VectorRotater rotate_vec{plane_v};
-    auto ang_for_lhs = angle_of_rotation_for_left
+
+    // do I even need a directed rotation for this?
+    // YES but it doesn't matter which solution we choose
+    auto angle_for_lhs = angle_of_rotation_for_left
         (pivot, left_opp, right_opp, rotate_vec);
-    // cancel out? they are opposing
-    // not so? they are NOT opposing
-    auto rot_norm = rotate_vec(lhs.normal(), ang_for_lhs);
-    return are_very_close(rot_norm, rhs.normal());
+    auto rotated_lhs_normal = rotate_vec(lhs.normal(), angle_for_lhs);
+    return dot(rotated_lhs_normal, rhs.normal()) > 0;
 }
 
 TriangleLink::TriangleLink(const Triangle & triangle):
@@ -141,17 +124,17 @@ TriangleLink & TriangleLink::attempt_attachment_to
     verify_valid_side("TriangleLinks::attempt_attachment_to", other_side);
     auto [oa, ob] = other->segment().side_points(other_side); {}
     for (auto this_side : { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca }) {
-        auto [ta, tb] = segment().side_points(this_side); {}
+        auto [ta, tb] = segment().side_points(this_side);
         bool has_flipped_points    = are_very_close(oa, tb) && are_very_close(ob, ta);
         bool has_nonflipped_points = are_very_close(oa, ta) && are_very_close(ob, tb);
         if (!has_flipped_points && !has_nonflipped_points) continue;
 
-        auto & info = m_triangle_sides[this_side];
-        info.flip = has_flipped_points;
-        info.side = other_side;
-        // next call gets really complicated!
-        info.inverts = has_opposing_normals(other->segment(), other_side, segment(), this_side);
-        info.target = other;
+        auto & link_transfer = m_triangle_sides[this_side];
+        link_transfer.flip = has_flipped_points;
+        link_transfer.side = other_side;
+        link_transfer.inverts = has_matching_normals
+            (other->segment(), other_side, segment(), this_side);
+        link_transfer.target = other;
         break;
     }
     return *this;
@@ -164,7 +147,7 @@ bool TriangleLink::has_side_attached(Side side) const {
 
 TriangleLink::Transfer TriangleLink::transfers_to(Side side) const {
     verify_valid_side("TriangleLinks::transfers_to", side);
-    auto & info = m_triangle_sides[side];
+    const auto & info = m_triangle_sides[side];
     Transfer rv;
     rv.flips = info.flip;
     rv.inverts_normal = info.inverts;
