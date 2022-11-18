@@ -377,7 +377,7 @@ bool run_tiled_map_loader_tests() {
             auto & tri = link->segment();
             if (!tri.can_be_projected_onto(k_up))
                 continue;
-            sum += tri.project_onto_plane(k_up).area_of_triangle();
+            sum += tri.project_onto_plane(k_up).area();
         }
 
         return test(are_very_close(sum, 1));

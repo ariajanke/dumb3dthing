@@ -88,7 +88,7 @@ TriangleSegment::TriangleSegment
     check_invarients();
 }
 
-Real TriangleSegment::area_of_triangle() const
+Real TriangleSegment::area() const
     { return cul::area_of_triangle(point_a(), point_b(), point_c()); }
 
 Vector TriangleSegment::basis_i() const
@@ -112,7 +112,13 @@ Vector TriangleSegment::center() const noexcept
 
 Vector2 TriangleSegment::center_in_2d() const noexcept
     { return (1. / 3.)*(point_a_in_2d() + point_b_in_2d() + point_c_in_2d()); }
-
+#if 0
+// make r relative to the triangle's origin
+// project it onto the plane of the triangle
+// again point_a being the origin is implementation knowledge
+Vector2 TriangleSegment::change_basis_of(const Vector & r) const
+    { return closest_point(r - point_a()); }
+#endif
 SideCrossing TriangleSegment::check_for_side_crossing
     (const Vector2 & old, const Vector2 & new_) const
 {
@@ -269,7 +275,7 @@ Vector TriangleSegment::point_at(const Vector2 & r) const {
 }
 
 TriangleSegment TriangleSegment::project_onto_plane(const Vector & n) const {
-    auto [a, b, c] = project_onto_plane_(n); {}
+    auto [a, b, c] = project_onto_plane_(n);
     return TriangleSegment{a, b, c};
 }
 

@@ -20,7 +20,11 @@
 
 #include "Systems.hpp"
 
-#include <ariajanke/cul/TestSuite.hpp>
+namespace {
+
+using TransferOnSegment = point_and_plane::EventHandler::TransferOnSegment;
+
+} // end of <anonymous> namespace
 
 void PlayerControlToVelocity::operator ()
     (PpState & state, Velocity & velocity, PlayerControl & control,
@@ -162,19 +166,15 @@ Variant<Vector2, Vector>
 {
     // for starters:
     // always attach, entirely consume displacement
+    // triangle, candidate_intx.limit, candidate_intx.intersection, new_loc
+    // v I hate this, this is an unexpected side effect!
     if (m_vel) {
         *Opt<Velocity>{m_vel} = project_onto_plane(m_vel->value, triangle.normal());
     }
     if (m_jumpvel) {
         *Opt<JumpVelocity>{m_jumpvel} = project_onto_plane(m_jumpvel->value, triangle.normal());
     }
-    auto intersection = triangle.point_at(inside);
-    auto diff = next - intersection;
-    auto rem_displc = project_onto_plane(diff, triangle.normal());
-
-    auto rv =  triangle.closest_point(rem_displc + intersection)
-             - triangle.closest_point(intersection);
-    return rv;
+    return triangle.closest_point(next) - inside;
 }
 
 Variant<Vector, Vector2>
@@ -193,12 +193,13 @@ Variant<Vector, Vector2>
     return project_onto(projected_new_location - crossing.outside, t - u);
 }
 
-Variant<Vector, Tuple<bool, Vector2>>
+Variant<Vector, TransferOnSegment>
     UpdatePpState::EventHandler::on_transfer
     (const Triangle & original, const SideCrossing & crossing,
      const Triangle & next, const Vector & new_loc) const
 {
     auto outside = original.point_at(crossing.outside);
     auto rv = next.closest_point(new_loc) - next.closest_point(outside);
-    return make_tuple(true, rv);
+
+    return make_tuple(rv*0.9, true);
 }

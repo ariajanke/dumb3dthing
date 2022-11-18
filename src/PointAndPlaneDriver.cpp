@@ -114,11 +114,11 @@ Vector location_of(const State & state) {
             (const Triangle &, const SideCrossing &, const Vector2 &) const final
         { return Vector{}; }
 
-        Variant<Vector, Tuple<bool, Vector2>>
+        Variant<Vector, TransferOnSegment>
             on_transfer
             (const Triangle &, const Triangle::SideCrossing &,
              const Triangle &, const Vector &) const final
-        { return make_tuple(true, Vector2{}); }
+        { return make_tuple(Vector2{}, true); }
     };
 
     return make_unique<TestHandler>();
@@ -126,7 +126,15 @@ Vector location_of(const State & state) {
 
 /* static */ UniquePtr<Driver> Driver::make_driver()
     { return UniquePtr<Driver>{make_unique<DriverComplete>()}; }
-
+#if 0
+Vector2 displacement_on_triangle
+    (const Triangle & triangle, const InAir & freebody)
+{
+    auto new_loc = freebody.location + freebody.displacement;
+    return   triangle.closest_point(new_loc)
+           - triangle.closest_point(freebody.location);
+}
+#endif
 } // end of point_and_plane namespace
 
 namespace {
@@ -212,7 +220,7 @@ State DriverComplete::operator ()
     (const InAir & freebody, const EventHandler & env) const
 {
 
-    auto new_loc = freebody.location + freebody.displacement;
+    const auto new_loc = freebody.location + freebody.displacement;
     auto view = m_spm.view_for(freebody.location, new_loc);
     const auto beg = view.begin();
     const auto end = view.end();
@@ -255,6 +263,7 @@ State DriverComplete::operator ()
         if (!is_solution(liminx.intersection)) continue;
         if (!candidate) {
             candidate = link_ptr;
+            candidate_intx = liminx;
             continue;
         }
         if (magnitude(liminx.limit         - freebody.location) <
@@ -266,19 +275,23 @@ State DriverComplete::operator ()
     }
     if (candidate) {
         const auto & triangle = candidate->segment();
+        const auto & intx = candidate_intx.intersection;
         auto gv = env.on_triangle_hit
-            (triangle, candidate_intx.limit, candidate_intx.intersection, new_loc);
+            (triangle, candidate_intx.limit, intx, new_loc);
         if (auto * disv2 = get_if<Vector2>(&gv)) {
-            // attach to segment
-            verify_decreasing_displacement<Vector2, Vector>
-                (*disv2, freebody.displacement, k_caller_name);
-            bool heads_against_normal = are_very_close
-                (normalize(project_onto(freebody.displacement,
-                                        triangle.normal()          ))
-                 - triangle.normal(), Vector{});
-            return OnSegment
-                {candidate, heads_against_normal, candidate_intx.intersection,
-                 *disv2};
+            // need to convert remaining displacement into the same units as
+            // freebody's displacement
+            auto old_loc_on_plane = triangle.point_at(intx);
+            auto new_loc2 = triangle.point_at(intx + *disv2);
+
+            auto disv3 = new_loc2 - old_loc_on_plane;
+            verify_decreasing_displacement<Vector, Vector>
+                (disv3, freebody.displacement, k_caller_name);
+            auto displacement_on_normal =
+                project_onto(freebody.displacement, triangle.normal());
+            bool heads_with_normal =
+                dot(triangle.normal(), displacement_on_normal) > 0;
+            return OnSegment{candidate, heads_with_normal, intx, *disv2};
         }
         auto * disv3 = get_if<Vector>(&gv);
         assert(disv3);
@@ -343,29 +356,29 @@ State DriverComplete::operator ()
     auto stgv = env.on_transfer
         (*tracker.segment, crossing, transfer.target->segment(),
          tracker.segment->point_at(new_loc));
-    if (auto * tup = get_if<Tuple<bool, Vector2>>(&stgv)) {
-        auto [does_transfer, rem_displc] = *tup; {}
+    if (auto * res = get_if<EventHandler::TransferOnSegment>(&stgv)) {
+
         verify_decreasing_displacement<Vector2, Vector2>
-            (rem_displc, tracker.displacement, k_caller_name);
-        if (does_transfer) {
+            (res->displacement, tracker.displacement, k_caller_name);
+        if (res->transfer_to_next) {
             auto seg_loc = transfer.target->segment()
                 .closest_contained_point(outside_pt);
 #           if 1
             std::cout << (new_invert_normal(transfer, tracker) ? "invert" : "regular") << std::endl;
             OnSegment new_tracker
                 {transfer.target, new_invert_normal(transfer, tracker),
-                 seg_loc, rem_displc};
+                 seg_loc, res->displacement};
             auto norm = transfer.target->segment().normal()*(new_tracker.invert_normal ? -1 : 1);
             std::cout << norm << std::endl;
             std::cout << "on: " << transfer.target->segment() << std::endl;
 #           endif
             return OnSegment
                 {transfer.target, new_invert_normal(transfer, tracker),
-                 seg_loc, rem_displc};
+                 seg_loc, res->displacement};
         }
         OnSegment rv{tracker};
         rv.location = crossing.inside;
-        rv.displacement = rem_displc;
+        rv.displacement = res->displacement;
         return rv;
     } else {
         auto * disv3 = get_if<Vector>(&stgv);
@@ -388,6 +401,8 @@ void verify_decreasing_displacement
         throw InvArg{std::string{caller} + ": new displacement must be a real vector."};
     }
     if (sum_of_squares(displc) > sum_of_squares(old_displacement)) {
+        auto dismag = magnitude(displc);
+        auto oldmag = magnitude(old_displacement);
         throw InvArg{std::string{caller} + ": new displacement must be decreasing."};
     }
 }
