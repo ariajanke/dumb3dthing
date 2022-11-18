@@ -1,5 +1,6 @@
 .*
 proj/*
 lib/*
+!lib/tinyxml2
 !.gitattributes
 !.gitignore
