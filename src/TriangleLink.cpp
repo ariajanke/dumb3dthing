@@ -20,6 +20,8 @@
 
 #include "TriangleLink.hpp"
 
+#include <iostream>
+
 namespace {
 
 using namespace cul::exceptions_abbr;
@@ -47,19 +49,34 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
 {
     auto piv_to_left  = left_opp  - pivot;
     auto piv_to_right = right_opp - pivot;
-
+#   if 1
     // only one of these solutions is correct, because we need the right
     // direction
     auto t0 = angle_between(piv_to_left, piv_to_right);
+#   if 0
     auto t1 = t0 - k_pi;
+#   endif
+    auto t1 = k_pi*2 - t0;
 
     auto sol0 = rotate_vec(piv_to_left, t0);
     auto sol1 = rotate_vec(piv_to_left, t1);
 
     // greatest is closest
-    if (dot(sol0, piv_to_right) > dot(sol1, piv_to_right))
-        { return t0; }
+    if (dot(sol0, piv_to_right) > dot(sol1, piv_to_right)) {
+        std::cout << "Choose t0: " << t0 << std::endl;
+        return t0;
+    }
+    std::cout << "Choose t1: " << t1 << std::endl;
     return t1;
+#   else
+    auto dp = dot(piv_to_left, piv_to_right);
+    if (dp < 0) {
+
+    } else {
+
+    }
+
+#   endif
 }
 
 /* static */ bool TriangleLink::has_matching_normals
@@ -87,7 +104,7 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
     // the pivot is where they join
     auto left_opp  = project_onto_plane(lhs.opposing_point(left_side ), plane_v);
     auto right_opp = project_onto_plane(rhs.opposing_point(right_side), plane_v);
-    auto pivot     = project_onto_plane(la, plane_v);
+    auto pivot     = project_onto_plane(la                            , plane_v);
 
     // get possible rotations
     // Now there's a possible problem here... what if the previous projection
@@ -99,6 +116,16 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
     auto angle_for_lhs = angle_of_rotation_for_left
         (pivot, left_opp, right_opp, rotate_vec);
     auto rotated_lhs_normal = rotate_vec(lhs.normal(), angle_for_lhs);
+
+    std::cout << "plane v " << plane_v << "\n"
+              << "lo  " << left_opp << "\n"
+              << "ro  " << right_opp << "\n"
+              << "piv " << pivot << "\n"
+              << "lnm " << lhs.normal() << "\n"
+              << "rnm " << rhs.normal() << "\n"
+              << "rot " << rotated_lhs_normal << "\n"
+              << "res " << dot(rotated_lhs_normal, rhs.normal()) << std::endl;
+
     return dot(rotated_lhs_normal, rhs.normal()) > 0;
 }
 

@@ -270,7 +270,13 @@ bool run_triangle_links_tests() {
         unit.start(mark(suite), [&] {
             links_lhs->attempt_attachment_to(links_rhs);
             auto trans = links_lhs->transfers_to(Side::k_side_ab);
-            return test(trans.target && trans.inverts_normal);
+            return test(!!trans.target);
+        });
+
+        unit.start(mark(suite), [&] {
+            links_lhs->attempt_attachment_to(links_rhs);
+            auto trans = links_lhs->transfers_to(Side::k_side_ab);
+            return test(trans.inverts_normal);
         });
 
         unit.start(mark(suite), [&] {
@@ -279,6 +285,11 @@ bool run_triangle_links_tests() {
             return test(trans.target && trans.inverts_normal);
         });
     });
+    //suite.start_series("TriangleLink::angle_of_rotation_for_left");
+    //mark(suite).test([] {
+        //TriangleLink::angle_of_rotation_for_left()
+        ;
+    //});
 #   undef mark
     return suite.has_successes_only();
 }

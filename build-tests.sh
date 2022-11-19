@@ -4,4 +4,5 @@ g++ -O3 -std=c++17 \
   -Ilib/cul/inc -Ilib/ecs3/inc -Ilib/tinyxml2 \
   -Wno-unqualified-std-cast-call \
   -o bin/.out-unit-tests
-./bin/.out-unit-tests
+cd bin
+./.out-unit-tests
