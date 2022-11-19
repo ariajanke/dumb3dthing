@@ -28,7 +28,7 @@ using namespace cul::exceptions_abbr;
 
 void SlopesBasedModelTileFactory::operator ()
     (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-     Platform::ForLoaders & platform) const
+     Platform & platform) const
 {
     auto r = ninfo.tile_location();
     add_triangles_based_on_model_details(r, adder);
@@ -44,7 +44,7 @@ void SlopesBasedModelTileFactory::operator ()
 
 /* protected */ void SlopesBasedModelTileFactory::setup
     (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
-     Platform::ForLoaders & platform)
+     Platform & platform)
 {
     TranslatableTileFactory::setup(loc_in_ts, properties, platform);
     m_render_model = make_render_model_with_common_texture_positions(
@@ -55,7 +55,7 @@ void SlopesBasedModelTileFactory::operator ()
 
 /* protected */ void RampTileFactory::setup
     (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
-     Platform::ForLoaders & platform)
+     Platform & platform)
 {
     if (const auto * val = find_property("direction", properties)) {
         set_direction(val);
@@ -73,7 +73,7 @@ void SlopesBasedModelTileFactory::operator ()
         case Cd::sw: return 1;
         case Cd::se: return 2;
         case Cd::ne: return 3;
-        default: throw InvArg{""};
+        default: throw BadBranchException{__LINE__, __FILE__};
         }
     } ();
     m_slopes = half_pi_rotations(non_rotated_slopes(), n);
@@ -90,7 +90,7 @@ void SlopesBasedModelTileFactory::operator ()
         case Cd::w: return 1;
         case Cd::s: return 2;
         case Cd::e: return 3;
-        default: throw InvArg{""};
+        default: throw BadBranchException{__LINE__, __FILE__};
         }
     } ();
     m_slopes = half_pi_rotations(k_non_rotated_slopes, n);

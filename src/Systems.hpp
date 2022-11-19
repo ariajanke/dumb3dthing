@@ -152,7 +152,7 @@ public:
             on_transfer_absent_link
             (const Triangle &, const SideCrossing &, const Vector2 &) const final;
 
-        Variant<Vector, Tuple<bool, Vector2>>
+        Variant<Vector, TransferOnSegment>
             on_transfer
             (const Triangle &, const Triangle::SideCrossing &,
              const Triangle &, const Vector &) const final;

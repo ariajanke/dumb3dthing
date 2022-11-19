@@ -21,10 +21,10 @@
 #include "GameDriver.hpp"
 #include "Components.hpp"
 #include "RenderModel.hpp"
-#include "map-loader.hpp"
+#include "map-loader/map-loader.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
-#include "tiled-map-loader.hpp"
+#include "map-loader/tiled-map-loader.hpp"
 
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
@@ -85,17 +85,18 @@ auto make_sole_owner_pred() {
 /* static */ UniquePtr<Driver> Driver::make_instance()
     { return make_unique<GameDriverComplete>(); }
 
-void Driver::update(Real seconds, Platform::Callbacks & callbacks) {
+void Driver::update(Real seconds, Platform & callbacks) {
     update_(seconds);
 
     std::vector<Entity> entities;
     auto callbacks_ = get_callbacks(callbacks, entities);
     {
     auto enditr = m_every_frame_tasks.begin();
-    m_every_frame_tasks.erase(
-        std::remove_if(m_every_frame_tasks.begin(), enditr,
-                      make_sole_owner_pred<EveryFrameTask>()),
-        enditr);
+    m_every_frame_tasks.erase
+        (std::remove_if
+            (m_every_frame_tasks.begin(), enditr,
+             make_sole_owner_pred<EveryFrameTask>()),
+         enditr);
     }
     for (auto & task : m_every_frame_tasks) {
         task->on_every_frame(callbacks_, seconds);
@@ -155,8 +156,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 //  :eyes:
     make_bezier_strip_model
     (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     Platform::ForLoaders & platform,
-     SharedPtr<Texture> texture, int resolution,
+     Platform & platform, SharedPtr<Texture> texture, int resolution,
      Vector2 texture_offset, Real texture_scale)
 {
     std::vector<TriangleSegment> triangles;
@@ -192,18 +192,19 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
     mod->load<int>(verticies, elements);
 
     auto ent = platform.make_renderable_entity();
-    ent.add<
-        SharedCPtr<RenderModel>, SharedPtr<Texture>, VisibilityChain
-    >() = make_tuple(
-        std::move(mod), texture, VisibilityChain{}
-    );
+    ent.add
+        <SharedPtr<const RenderModel>, SharedPtr<const Texture>, VisibilityChain>
+        () = make_tuple
+        (std::move(mod), texture, VisibilityChain{});
     return ent;
 }
 
 template <typename T>
 Entity make_bezier_yring_model();
 
-Entity make_sample_bezier_model(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
+Entity make_sample_bezier_model
+    (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
+{
     static constexpr const auto k_hump_side = make_tuple(
         Vector{ -.5, 0,  1},
         Vector{ -.5, 0,  1} + Vector{-0.5, 1, 0.5},
@@ -231,18 +232,19 @@ public:
     CircleLine(const Tuple<Vector, Vector, Vector> & pts_):
         m_points(pts_) {}
 
-    Vector operator () (Real t) const  {
-        throw RtError{"unimplemented"};
-    }
+    Vector operator () (Real) const
+        { throw RtError{"unimplemented"}; }
 
 private:
     const Tuple<Vector, Vector, Vector> & m_points;
 };
 
-Entity make_loop(Platform::Callbacks & callbacks,
+Entity make_loop(Platform & callbacks,
                  const Tuple<Vector, Vector, Vector> & tup);
 
-Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> texture, int resolution) {
+Entity make_sample_loop
+    (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
+{
 
     static constexpr const Real k_y = 10;
 
@@ -267,7 +269,7 @@ Entity make_sample_loop(Platform::Callbacks & callbacks, SharedPtr<Texture> text
 static constexpr const Vector k_player_start{2, 5.1, 2};
 
 // model entity, physical entity
-Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
+Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
         constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
@@ -319,13 +321,12 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
 
     auto tx = platform.make_texture();
     tx->load_from_file("ground.png");
-    model_ent.add<
-        SharedCPtr<Texture>, SharedCPtr<RenderModel>, Translation,
-        TranslationFromParent
-    >() = make_tuple(
-        tx, model, Translation{k_player_start},
-        TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}
-    );
+    model_ent.add
+        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, Translation,
+         TranslationFromParent>
+        () = make_tuple
+        (tx, model, Translation{k_player_start},
+         TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
@@ -339,8 +340,18 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
 
-    static constexpr const auto k_testmap_filename = "demo-map3.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map.tmx";
     static constexpr const auto k_load_limit = 3;
+
+    static auto check_fall_below = [](Entity & ent) {
+        auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
+        if (!ppair) return;
+        auto & loc = ppair->location;
+        if (loc.y < -10) {
+            loc = Vector{loc.x, 4, loc.z};
+            ent.get<Velocity>() = Velocity{};
+        }
+    };
 
     physics_ent.add<SharedPtr<EveryFrameTask>>() =
         EveryFrameTask::make(
@@ -349,6 +360,8 @@ Tuple<Entity, Entity> make_sample_player(Platform::ForLoaders & platform) {
          physics_ent]
         (TaskCallbacks & callbacks, Real) mutable
     {
+        check_fall_below(physics_ent);
+
         static constexpr const auto k_base_map_size = 20;
         // if there's no teardown task... then it's pending
         for (auto & [gpos, loader, teardown] : loaded_maps) {
@@ -433,8 +446,9 @@ void GameDriverComplete::press_key(KeyControl ky) {
     }
 }
 
-void GameDriverComplete::release_key(KeyControl ky)
-    { player_entities().physical.get<PlayerControl>().release(ky); }
+void GameDriverComplete::release_key(KeyControl ky) {
+    player_entities().physical.get<PlayerControl>().release(ky);
+}
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
 #   if 0

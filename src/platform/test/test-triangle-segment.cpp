@@ -201,6 +201,13 @@ bool run_triangle_segment_tests() {
         return test(are_very_close(triangle.point_at(triangle.point_c_in_2d()), triangle.point_c()));
     });
 
+    mark(suite).test([] {
+        TriangleSegment triangle_a;
+        auto triangle_b = triangle_a.flip();
+        auto ang = angle_between(triangle_a.normal(), triangle_b.normal());
+        return test(are_very_close(ang, k_pi));
+    });
+
 #   undef mark
     return suite.has_successes_only();
 }

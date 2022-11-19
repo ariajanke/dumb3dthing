@@ -88,7 +88,7 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
 } // end of wall namespace
 
 void TranslatableTileFactory::setup
-    (Vector2I, const TiXmlElement * properties, Platform::ForLoaders &)
+    (Vector2I, const TiXmlElement * properties, Platform &)
 {
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
@@ -108,8 +108,8 @@ void TranslatableTileFactory::setup
 
 /* protected */ Entity
     TranslatableTileFactory::make_entity
-    (Platform::ForLoaders & platform, Vector2I tile_loc,
-     SharedCPtr<RenderModel> model_ptr) const
+    (Platform & platform, Vector2I tile_loc,
+     const SharedPtr<const RenderModel> & model_ptr) const
 {
     return TileFactory::make_entity(platform,
         m_translation + grid_position_to_v3(tile_loc), model_ptr);
@@ -170,7 +170,7 @@ VertexArray TriangleToFloorVerticies::operator ()
 
 void WallTileFactoryBase::operator ()
     (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-     Platform::ForLoaders & platform) const
+     Platform & platform) const
 {
     // physical triangles
     make_physical_triangles(ninfo, adder);
@@ -191,7 +191,9 @@ void WallTileFactoryBase::operator ()
 void WallTileFactoryBase::assign_wall_texture(const TileTexture & tt)
     { m_wall_texture_coords = &tt; }
 
-Slopes WallTileFactoryBase::computed_tile_elevations(const NeighborInfo & ninfo) const {
+Slopes WallTileFactoryBase::computed_tile_elevations
+    (const NeighborInfo & ninfo) const
+{
     using Cd = CardinalDirection;
     auto slopes = tile_elevations();
     auto update_corner = [&ninfo, this] (Real & x, Cd dir) {
@@ -220,10 +222,11 @@ void WallTileFactoryBase::make_physical_triangles
 }
 
 void WallTileFactoryBase::setup
-    (Vector2I loc_in_ts, const TiXmlElement * properties, Platform::ForLoaders & platform)
+    (Vector2I loc_in_ts, const TiXmlElement * properties, Platform & platform)
 {
     TranslatableTileFactory::setup(loc_in_ts, properties, platform);
-    m_dir = verify_okay_wall_direction(cardinal_direction_from(find_property("direction", properties)));
+    m_dir = verify_okay_wall_direction
+        (cardinal_direction_from(find_property("direction", properties)));
     m_tileset_location = loc_in_ts;
     m_top_model = make_top_model(platform);
 }
@@ -250,8 +253,9 @@ Slopes WallTileFactoryBase::tile_elevations() const {
 /* protected */ CardinalDirection WallTileFactoryBase::direction() const noexcept
     { return m_dir; }
 
-/* protected */ SharedPtr<const RenderModel> WallTileFactoryBase::ensure_bottom_model
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+/* protected */ SharedPtr<const RenderModel>
+    WallTileFactoryBase::ensure_bottom_model
+    (const NeighborInfo & neighborhood, Platform & platform) const
 {
     return ensure_model
         (neighborhood, s_bottom_graphics_cache,
@@ -280,7 +284,7 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::ensure_wall_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+    (const NeighborInfo & neighborhood, Platform & platform) const
 {
     return ensure_model
         (neighborhood, s_wall_graphics_cache,
@@ -291,7 +295,9 @@ template <typename MakerFunc>
     return floor_texture_at(m_tileset_location);
 }
 
-/* protected */ WallTileGraphicKey WallTileFactoryBase::graphic_key(const NeighborInfo & ninfo) const {
+/* protected */ WallTileGraphicKey WallTileFactoryBase::graphic_key
+    (const NeighborInfo & ninfo) const
+{
     WallTileGraphicKey key;
     key.direction = m_dir;
 
@@ -317,7 +323,7 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::make_bottom_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+    (const NeighborInfo & neighborhood, Platform & platform) const
 {
     return make_model_graphics(
         computed_tile_elevations(neighborhood), k_bottom_only,
@@ -340,7 +346,7 @@ template <typename MakerFunc>
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::make_model_graphics
     (const Slopes & elvs, SplitOpt split_opt,
-     const TriangleToVerticies & to_verticies, Platform::ForLoaders & platform) const
+     const TriangleToVerticies & to_verticies, Platform & platform) const
 {
     auto mod_ptr = platform.make_render_model();
     std::vector<Vertex> verticies;
@@ -359,7 +365,7 @@ template <typename MakerFunc>
 }
 
 /* protected */ SharedPtr<const RenderModel>
-    WallTileFactoryBase::make_top_model(Platform::ForLoaders & platform) const
+    WallTileFactoryBase::make_top_model(Platform & platform) const
 {
     return make_model_graphics(
         tile_elevations(), k_top_only,
@@ -368,7 +374,7 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
 WallTileFactoryBase::make_wall_graphics
-    (const NeighborInfo & neighborhood, Platform::ForLoaders & platform) const
+    (const NeighborInfo & neighborhood, Platform & platform) const
 {
     const auto elvs = computed_tile_elevations(neighborhood);
     auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {

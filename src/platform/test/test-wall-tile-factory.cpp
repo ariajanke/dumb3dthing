@@ -20,8 +20,8 @@
 
 #include <ariajanke/cul/TestSuite.hpp>
 
-#include "../../WallTileFactory.hpp"
-#include "../../tiled-map-loader.hpp"
+#include "../../map-loader/WallTileFactory.hpp"
+#include "../../map-loader/tiled-map-loader.hpp"
 
 #include <tinyxml2.h>
 
@@ -105,7 +105,7 @@ Real sum_of_areas(const std::vector<Triangle> & triangles) {
         // | will cause tests to fail without projection
         // | but that's okay, non-projected flats shouldn't exceed their
         // v expected sizes
-        sum += triangle.area_of_triangle();
+        sum += triangle.area();
         projected_triangles.push_back(triangle.project_onto_plane(k_up));
     }
     return sum;

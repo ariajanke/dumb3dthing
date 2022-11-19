@@ -19,16 +19,13 @@
 *****************************************************************************/
 
 #include "TileSet.hpp"
-#include "Texture.hpp"
-#include "RenderModel.hpp"
+#include "../Texture.hpp"
+#include "../RenderModel.hpp"
 #include "tiled-map-loader.hpp"
 
 #include "WallTileFactory.hpp"
 #include "TileFactory.hpp"
 #include "RampTileFactory.hpp"
-
-// can always clean up embedded testing later
-#include <ariajanke/cul/TestSuite.hpp>
 
 #include <tinyxml2.h>
 
@@ -66,7 +63,7 @@ TileFactory & TileSet::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
 }
 
 void TileSet::load_information
-    (Platform::ForLoaders & platform, const TiXmlElement & tileset)
+    (Platform & platform, const TiXmlElement & tileset)
 {
     int tile_width = tileset.IntAttribute("tilewidth");
     int tile_height = tileset.IntAttribute("tileheight");
@@ -147,7 +144,7 @@ void TileSet::set_texture_information
 
 /* private */ void TileSet::load_factory
     (const TiXmlElement & el, UniquePtr<TileFactory> factory,
-     int id, Vector2I r, Platform::ForLoaders & platform)
+     int id, Vector2I r, Platform & platform)
 {
     if (!factory)
         return;

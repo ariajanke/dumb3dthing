@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Defs.hpp"
+#include "../Defs.hpp"
 
 class TileTexture final {
 public:

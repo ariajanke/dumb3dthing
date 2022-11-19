@@ -1,5 +1,7 @@
 .*
 proj/*
 lib/*
+!lib/tinyxml2
 !.gitattributes
 !.gitignore
+!.github/workflows

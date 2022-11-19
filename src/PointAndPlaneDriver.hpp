@@ -65,6 +65,16 @@ inline Vector segment_displacement_to_v3(const State & state) {
 class EventHandler {
 public:
     using SideCrossing = Triangle::SideCrossing;
+    struct TransferOnSegment final {
+        TransferOnSegment() {}
+        TransferOnSegment(Vector2 displc_, bool transfer_):
+            displacement(displc_), transfer_to_next(transfer_) {}
+        /* implicit */ TransferOnSegment(const Tuple<Vector2, bool> & tup):
+            displacement(std::get<Vector2>(tup)),
+            transfer_to_next(std::get<bool>(tup)) {}
+        Vector2 displacement;
+        bool transfer_to_next = true;
+    };
 
     static UniquePtr<EventHandler> make_test_handler();
 
@@ -120,7 +130,7 @@ public:
      *          be decidely outside the triangle segment. If 2D, the location
      *          will be on the inside of the segment.
      */
-    virtual Variant<Vector, Tuple<bool, Vector2>>
+    virtual Variant<Vector, TransferOnSegment>
         on_transfer
         (const Triangle & original, const SideCrossing & cross,
          const Triangle & next, const Vector & projected_new_loaction) const = 0;

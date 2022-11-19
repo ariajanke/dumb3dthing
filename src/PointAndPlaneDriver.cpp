@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "PointAndPlaneDriver.hpp"
-#include "SpatialPartitionMap.hpp"
+#include "point-and-plane/SpatialPartitionMap.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -35,6 +35,7 @@ using namespace point_and_plane;
 using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
+using LinkTransfer = TriangleLink::Transfer;
 
 // this can become a bottle neck in performance
 // (as can entity component accessors)
@@ -63,6 +64,17 @@ private:
     bool m_spm_dirty = false;
     ProjectedSpatialMap m_spm;
 };
+
+bool new_invert_normal
+    (const LinkTransfer & transfer, const OnSegment & tracker)
+{
+    // if  trans &  tracker then false
+    // if !trans &  tracker then true
+    // if  trans & !tracker then true
+    // if !trans & !tracker then false
+    //return transfer.inverts_normal ^ tracker.invert_normal;
+    return transfer.inverts_normal ? !tracker.invert_normal : tracker.invert_normal;
+}
 
 } // end of <anonymous> namespace
 
@@ -102,11 +114,11 @@ Vector location_of(const State & state) {
             (const Triangle &, const SideCrossing &, const Vector2 &) const final
         { return Vector{}; }
 
-        Variant<Vector, Tuple<bool, Vector2>>
+        Variant<Vector, TransferOnSegment>
             on_transfer
             (const Triangle &, const Triangle::SideCrossing &,
              const Triangle &, const Vector &) const final
-        { return make_tuple(true, Vector2{}); }
+        { return make_tuple(Vector2{}, true); }
     };
 
     return make_unique<TestHandler>();
@@ -200,32 +212,57 @@ State DriverComplete::operator ()
     (const InAir & freebody, const EventHandler & env) const
 {
 
-    auto new_loc = freebody.location + freebody.displacement;
+    const auto new_loc = freebody.location + freebody.displacement;
     auto view = m_spm.view_for(freebody.location, new_loc);
     const auto beg = view.begin();
     const auto end = view.end();
-    for (auto itr = beg; itr != end; ++itr) {
-        auto & triangle = itr->lock()->segment();
 
-        constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
+    using LimitIntersection = Triangle::LimitIntersection;
+    SharedPtr<const TriangleLink> candidate;
+    LimitIntersection candidate_intx;
+
+    constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
+    for (auto itr = beg; itr != end; ++itr) {
+        auto link_ptr = itr->lock();
+        const auto & triangle = link_ptr->segment();
+
         auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
         if (!is_solution(liminx.intersection)) continue;
-        auto gv = env.on_triangle_hit(triangle, liminx.limit, liminx.intersection, new_loc);
+        if (!candidate) {
+            candidate = link_ptr;
+            candidate_intx = liminx;
+            continue;
+        }
+        if (magnitude(liminx.limit         - freebody.location) <
+            magnitude(candidate_intx.limit - freebody.location)  )
+        {
+            candidate = link_ptr;
+            candidate_intx = liminx;
+        }
+    }
+    if (candidate) {
+        const auto & triangle = candidate->segment();
+        const auto & intx = candidate_intx.intersection;
+        auto gv = env.on_triangle_hit
+            (triangle, candidate_intx.limit, intx, new_loc);
         if (auto * disv2 = get_if<Vector2>(&gv)) {
-            // attach to segment
-            verify_decreasing_displacement<Vector2, Vector>(
-                *disv2, freebody.displacement, k_caller_name);
-            bool heads_against_normal = are_very_close(
-                  normalize(project_onto(new_loc - freebody.location,
-                                         triangle.normal()          ))
-                - triangle.normal(), Vector{});
-            return OnSegment{itr->lock(), heads_against_normal, liminx.intersection, *disv2};
+            // need to convert remaining displacement into the same units as
+            // freebody's displacement
+            auto disv3 =   triangle.point_at(intx + *disv2)
+                         - triangle.point_at(intx);
+            verify_decreasing_displacement<Vector, Vector>
+                (disv3, freebody.displacement, k_caller_name);
+            auto displacement_on_normal =
+                project_onto(freebody.displacement, triangle.normal());
+            bool heads_with_normal =
+                dot(triangle.normal(), displacement_on_normal) > 0;
+            return OnSegment{candidate, heads_with_normal, intx, *disv2};
         }
         auto * disv3 = get_if<Vector>(&gv);
         assert(disv3);
-        verify_decreasing_displacement<Vector, Vector>(
-            *disv3, freebody.displacement, k_caller_name);
-        return InAir{liminx.limit, *disv3};
+        verify_decreasing_displacement<Vector, Vector>
+            (*disv3, freebody.displacement, k_caller_name);
+        return InAir{candidate_intx.limit, *disv3};
     }
     return InAir{freebody.location + freebody.displacement, Vector{}};
 }
@@ -240,9 +277,10 @@ State DriverComplete::operator ()
     const auto & triangle = *tracker.segment;
 
     // check collisions with other surfaces while traversing the "tracked" segment
+#   if 0 // <- might not be ready to delete yet?
     auto beg = m_links.begin();
     auto end = m_links.end();
-
+#   endif
     // usual segment transfer
     const auto new_loc = tracker.location + tracker.displacement;
     auto crossing = triangle.check_for_side_crossing(tracker.location, new_loc);
@@ -266,39 +304,51 @@ State DriverComplete::operator ()
             OnSegment rv{tracker};
             rv.location     = crossing.inside;
             rv.displacement = *disv2;
-            verify_decreasing_displacement<Vector2, Vector2>(
-                *disv2, tracker.displacement, k_caller_name);
+            verify_decreasing_displacement<Vector2, Vector2>
+                (*disv2, tracker.displacement, k_caller_name);
             return rv;
         } else {
             auto * disv3 = get_if<Vector>(&abgv);
             assert(disv3);
-            verify_decreasing_displacement<Vector, Vector2>(
-                *disv3, tracker.displacement, k_caller_name);
+            verify_decreasing_displacement<Vector, Vector2>
+                (*disv3, tracker.displacement, k_caller_name);
             return InAir{triangle.point_at(crossing.outside), *disv3};
         }
     }
 
     auto outside_pt = triangle.point_at(crossing.outside);
-    auto stgv = env.on_transfer(*tracker.segment, crossing,
-                                transfer.target->segment(), tracker.segment->point_at(new_loc));
-    if (auto * tup = get_if<Tuple<bool, Vector2>>(&stgv)) {
-        auto [does_transfer, rem_displc] = *tup; {}
-        verify_decreasing_displacement<Vector2, Vector2>(
-            rem_displc, tracker.displacement, k_caller_name);
-        if (does_transfer) {
-            return OnSegment{
-                transfer.target, transfer.inverts,
-                transfer.target->segment().closest_contained_point(outside_pt), rem_displc};
+    auto stgv = env.on_transfer
+        (*tracker.segment, crossing, transfer.target->segment(),
+         tracker.segment->point_at(new_loc));
+    if (auto * res = get_if<EventHandler::TransferOnSegment>(&stgv)) {
+
+        verify_decreasing_displacement<Vector2, Vector2>
+            (res->displacement, tracker.displacement, k_caller_name);
+        if (res->transfer_to_next) {
+            auto seg_loc = transfer.target->segment()
+                .closest_contained_point(outside_pt);
+#           if 0
+            std::cout << (new_invert_normal(transfer, tracker) ? "invert" : "regular") << std::endl;
+            OnSegment new_tracker
+                {transfer.target, new_invert_normal(transfer, tracker),
+                 seg_loc, res->displacement};
+            auto norm = transfer.target->segment().normal()*(new_tracker.invert_normal ? -1 : 1);
+            std::cout << norm << std::endl;
+            std::cout << "on: " << transfer.target->segment() << std::endl;
+#           endif
+            return OnSegment
+                {transfer.target, new_invert_normal(transfer, tracker),
+                 seg_loc, res->displacement};
         }
         OnSegment rv{tracker};
         rv.location = crossing.inside;
-        rv.displacement = rem_displc;
+        rv.displacement = res->displacement;
         return rv;
     } else {
         auto * disv3 = get_if<Vector>(&stgv);
         assert(disv3);
-        verify_decreasing_displacement<Vector, Vector2>(
-            *disv3, tracker.displacement, k_caller_name);
+        verify_decreasing_displacement<Vector, Vector2>
+            (*disv3, tracker.displacement, k_caller_name);
         return InAir{outside_pt, *disv3};
     }
 }

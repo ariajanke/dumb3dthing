@@ -21,7 +21,74 @@
 #pragma once
 
 #include "Defs.hpp"
-#include "platform/platform.hpp"
+#include "platform.hpp"
+
+// ---------------------------- Component Helpers -----------------------------
+
+template <typename FullType>
+struct VectorLike {
+    using LikeBase = VectorLike<FullType>;
+
+    VectorLike() {}
+
+    VectorLike(Real x_, Real y_, Real z_):
+        value(x_, y_, z_) {}
+
+    explicit VectorLike(const Vector & r): value(r) {}
+
+    Vector & operator = (const Vector & r)
+        { return (value = r); }
+
+    Vector operator * (Real scalar) const noexcept
+        { return value*scalar; }
+
+    Vector & operator += (const Vector & r)
+        { return (value += r); }
+
+    Vector value;
+};
+
+template <typename T>
+Vector operator + (const VectorLike<T> & v, const Vector & r) noexcept
+    { return v.value + r; }
+
+template <typename T>
+Vector operator + (const Vector & r, const VectorLike<T> & v) noexcept
+    { return v.value + r; }
+
+template <typename FullType>
+struct Vector2Like {
+    using LikeBase = Vector2Like<FullType>;
+
+    Vector2Like() {}
+
+    Vector2Like(Real x_, Real y_):
+        value(x_, y_) {}
+
+    explicit Vector2Like(const Vector2 & r): value(r) {}
+
+    Vector2 & operator = (const Vector2 & r)
+        { return (value = r); }
+
+    Vector2 value;
+};
+
+template <typename FullType>
+struct ScalarLike {
+    using LikeBase = ScalarLike<FullType>;
+    ScalarLike() {}
+
+    explicit ScalarLike(Real x): value(x) {}
+
+    Real & operator = (Real x)
+        { return (value = x); }
+
+    Real value = 0;
+};
+
+template <typename T>
+bool are_very_close(const VectorLike<T> & lhs, const VectorLike<T> & rhs)
+    { return are_very_close(lhs.value, rhs.value); }
 
 // --------------------------- Graphical Components ---------------------------
 
@@ -185,7 +252,7 @@ public:
 
     virtual void add(const Entity &) = 0;
 
-    virtual Platform::ForLoaders & platform() = 0;
+    virtual Platform & platform() = 0;
 };
 
 /** @brief An every frame task is retained and ran every frame.

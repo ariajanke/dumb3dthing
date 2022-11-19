@@ -54,31 +54,20 @@ using Size2 = cul::Size2<Real>;
 
 template <typename T>
 using SharedPtr = std::shared_ptr<T>;
-
-template <typename T>
-using SharedCPtr = std::shared_ptr<const T>;
-
 template <typename T>
 using WeakPtr = std::weak_ptr<T>;
-
-template <typename T>
-using WeakCPtr = std::weak_ptr<const T>;
-
 template <typename T, typename Del = std::default_delete<T>>
 using UniquePtr = std::unique_ptr<T, Del>;
 
 template <typename ... Types>
 using Variant = std::variant<Types...>;
-
 template <typename ... Types>
 using Tuple = std::tuple<Types...>;
-
 template <typename T>
 using Opt = ecs::Optional<T>;
-
 using cul::Grid;
-
 using cul::View;
+using cul::TypeList;
 
 class TriangleSegment;
 class Texture;
@@ -91,82 +80,6 @@ class TriangleLink;
 class BadBranchException final : public std::runtime_error {
 public:
     BadBranchException(int line, const char * file);
-};
-
-enum class KeyControl {
-    forward,
-    backward,
-    left,
-    right,
-    jump,
-
-    pause,
-    advance,
-    print_info,
-    restart
-};
-
-// ---------------------------- Component Helpers -----------------------------
-
-template <typename FullType>
-struct VectorLike {
-    using LikeBase = VectorLike<FullType>;
-
-    VectorLike() {}
-
-    VectorLike(Real x_, Real y_, Real z_):
-        value(x_, y_, z_) {}
-
-    explicit VectorLike(const Vector & r): value(r) {}
-
-    Vector & operator = (const Vector & r)
-        { return (value = r); }
-
-    Vector operator * (Real scalar) const noexcept
-        { return value*scalar; }
-
-    Vector & operator += (const Vector & r)
-        { return (value += r); }
-
-    Vector value;
-};
-
-template <typename T>
-Vector operator + (const VectorLike<T> & v, const Vector & r) noexcept
-    { return v.value + r; }
-
-template <typename T>
-Vector operator + (const Vector & r, const VectorLike<T> & v) noexcept
-    { return v.value + r; }
-
-template <typename FullType>
-struct Vector2Like {
-    using LikeBase = Vector2Like<FullType>;
-
-    Vector2Like() {}
-
-    Vector2Like(Real x_, Real y_):
-        value(x_, y_) {}
-
-    explicit Vector2Like(const Vector2 & r): value(r) {}
-
-    Vector2 & operator = (const Vector2 & r)
-        { return (value = r); }
-
-    Vector2 value;
-};
-
-template <typename FullType>
-struct ScalarLike {
-    using LikeBase = ScalarLike<FullType>;
-    ScalarLike() {}
-
-    explicit ScalarLike(Real x): value(x) {}
-
-    Real & operator = (Real x)
-        { return (value = x); }
-
-    Real value = 0;
 };
 
 // --------------------------- Everywhere Functions ---------------------------
@@ -183,21 +96,17 @@ using std::get_if;
 using std::make_tuple;
 using std::make_unique;
 
-[[deprecated]] Vector rotate_around_up(Vector, Real);
-
 std::ostream & operator << (std::ostream & out, const Vector & r);
 
 std::ostream & operator << (std::ostream & out, const Vector2 & r);
+
+std::ostream & operator << (std::ostream & out, const TriangleSegment &);
 
 bool are_very_close(Vector, Vector);
 
 bool are_very_close(Vector2, Vector2);
 
 bool are_very_close(Real, Real);
-
-template <typename T>
-bool are_very_close(const VectorLike<T> & lhs, const VectorLike<T> & rhs)
-    { return are_very_close(lhs.value, rhs.value); }
 
 /** Gets the "nextafter" vector following a given direction
  *  @param r starting position
@@ -262,7 +171,7 @@ template <typename Head, typename ... Types>
 Tuple<Head, Types...> validate_graphical_components
     (Head && obj, Types && ... args)
 {
-    using AcceptedTypes = cul::TypeList<SharedCPtr<Texture>, SharedCPtr<RenderModel>>;
+    using AcceptedTypes = TypeList<SharedPtr<const Texture>, SharedPtr<const RenderModel>>;
     static_assert(AcceptedTypes::kt_occurance_count<Head>,
         "Type not contained in accepted graphical types.");
     using std::tuple_cat;
@@ -279,7 +188,7 @@ void add_components(Entity & e, Tuple<Types...> && tup) {
     if constexpr (sizeof...(Types) > 1) {
         e.add<Types...>() = std::move(tup);
     } else if constexpr (sizeof...(Types) == 1) {
-        using Head = typename cul::TypeList<Types...>::template TypeAtIndex<0>;
+        using Head = typename TypeList<Types...>::template TypeAtIndex<0>;
         e.add<Head>() = std::get<Head>(tup);
     }
 }

@@ -20,8 +20,8 @@
 
 #include "platform.hpp"
 
-#include "../Texture.hpp"
-#include "../RenderModel.hpp"
+#include "Texture.hpp"
+#include "RenderModel.hpp"
 
 namespace {
 
@@ -59,12 +59,14 @@ private:
 
 } // end of <anonymous> namespace
 
-Platform::Callbacks & Platform::null_callbacks() {
+Platform::~Platform() {}
+
+/* static */ Platform & Platform::null_callbacks() {
     static constexpr const auto k_cannot_promise_file_contents =
         "Platform::null_callbacks()::...::promise_file_contents: cannot use "
         "null instance of platform to promise file contents.";
 
-    class Impl final : public Callbacks {
+    class Impl final : public Platform {
         void render_scene(const Scene &) final {}
 
         Entity make_renderable_entity() const final

@@ -38,11 +38,20 @@ protected:
         m_segment(triangle) {}
 
     TriangleFragment(const Vector & a, const Vector & b, const Vector & c):
-        m_segment(Triangle(a, b, c))
-    {}
+        m_segment(Triangle(a, b, c)) {}
 
 private:
     Triangle m_segment;
+};
+
+class VectorRotater final {
+public:
+    explicit VectorRotater(const Vector & axis_of_rotation);
+
+    Vector operator () (const Vector & v, Real angle) const;
+
+private:
+    Vector m_axis_of_rotation;
 };
 
 // a triangle link has a triangle, and is linked to other triangles
@@ -51,11 +60,21 @@ public:
     using Side = TriangleSide;
 
     struct Transfer final {
-        SharedPtr<const TriangleLink> target; // set if there is a valid transfer to be had
-        Side side = Side::k_inside; // transfer on what side of target?
-        bool inverts = false; // normal *= -1
-        bool flips = false; // true -> (1 - t)
+        /// set if there is a valid transfer to be had
+        SharedPtr<const TriangleLink> target;
+        /// which side of the target did the tracker transfer to
+        Side side = Side::k_inside;
+        /// caller should flip normal vector of tracker
+        bool inverts_normal = false;
+        // true -> (1 - t)
+        bool flips = false;
     };
+
+    static bool has_matching_normals(const Triangle &, Side, const Triangle &, Side);
+
+    static Real angle_of_rotation_for_left_to_right
+        (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,
+         const VectorRotater & rotate_vec);
 
     TriangleLink() {}
 
@@ -81,8 +100,6 @@ private:
         bool inverts = false;
         bool flip = false;
     };
-
-    static bool has_opposing_normals(const Triangle &, Side, const Triangle &, Side);
 
     static Side verify_valid_side(const char * caller, Side);
 

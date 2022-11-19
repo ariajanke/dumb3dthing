@@ -19,8 +19,8 @@
 *****************************************************************************/
 
 #include "test-functions.hpp"
-#include "../../map-loader.hpp"
-#include "../../tiled-map-loader.hpp"
+#include "../../map-loader/map-loader.hpp"
+#include "../../map-loader/tiled-map-loader.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -36,7 +36,7 @@ namespace {
 using PlayerEntities = LoaderTask::PlayerEntities;
 using namespace cul::exceptions_abbr;
 using cul::is_real;
-using LinksGrid = Grid<cul::View<TriangleLinks::const_iterator, TriangleLinks::const_iterator>>;
+using LinksGrid = Grid<View<TriangleLinks::const_iterator, TriangleLinks::const_iterator>>;
 using Triangle = TriangleSegment;
 
 class TestLoaderTaskCallbacks final : public LoaderTask::Callbacks {
@@ -49,7 +49,7 @@ public:
 
     void add(const Entity & e) final { entities.push_back(e); }
 
-    Platform::ForLoaders & platform() final
+    Platform & platform() final
         { return Platform::null_callbacks(); }
 
     PlayerEntities player_entites() const final
@@ -166,16 +166,18 @@ bool run_map_loader_tests() {
         return test(any_point_arrangement_of(
             *get<PpOnSegment>(state).segment, k_expect_triangle));
     });
+    bool only_successes = suite.has_successes_only();
+    suite.finish_up();
 
     // both must be done, no short circutting please!
     return static_cast<bool>(
-          static_cast<std::byte>(suite.has_successes_only())
-        & static_cast<std::byte>( run_tiled_map_loader_tests()));
+          static_cast<std::byte>(only_successes)
+        & static_cast<std::byte>(run_tiled_map_loader_tests()));
 }
 
 namespace {
 
-class PlatformWithFileSystem final : public Platform::Callbacks {
+class PlatformWithFileSystem final : public Platform {
 public:
 
     static PlatformWithFileSystem & isntance() {
@@ -263,7 +265,7 @@ bool run_tiled_map_loader_tests() {
     };
 
     static auto elevation_for_all = [](const LinksGrid::Element & el, Real y) {
-        static_assert(std::is_same_v<LinksGrid::Element, cul::View<TriangleLinks::const_iterator>>);
+        static_assert(std::is_same_v<LinksGrid::Element, View<TriangleLinks::const_iterator>>);
         return std::all_of(el.begin(), el.end(), [y](const SharedPtr<TriangleLink> & links) {
             const auto & tri = links->segment();
             auto list = { tri.point_a().y, tri.point_b().y, tri.point_c().y };
@@ -377,7 +379,7 @@ bool run_tiled_map_loader_tests() {
             auto & tri = link->segment();
             if (!tri.can_be_projected_onto(k_up))
                 continue;
-            sum += tri.project_onto_plane(k_up).area_of_triangle();
+            sum += tri.project_onto_plane(k_up).area();
         }
 
         return test(are_very_close(sum, 1));
@@ -430,6 +432,7 @@ bool run_tiled_map_loader_tests() {
         return test(   is_real(high_y) && is_real(low_y)
                     && are_very_close(high_y - low_y, 2));
     });
+#   if 0
     // special case, other tile's elevation is the same
     mark(suite).test([] {
         return test(false);
@@ -447,7 +450,7 @@ bool run_tiled_map_loader_tests() {
     mark(suite).test([] {
         return test(false);
     });
-
+#   endif
     return suite.has_successes_only();
 }
 

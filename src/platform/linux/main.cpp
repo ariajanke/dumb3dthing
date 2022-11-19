@@ -20,7 +20,7 @@
 
 #include "../../Defs.hpp"
 #include "../../GameDriver.hpp"
-#include "../../map-loader.hpp"
+#include "../../map-loader/map-loader.hpp"
 #include "../../Systems.hpp"
 
 #include "RenderModelImpl.hpp"
@@ -135,7 +135,7 @@ void EventProcessor::process_input(GLFWwindow * window) {
     }
 }
 
-class NativePlatformCallbacks final : public Platform::Callbacks {
+class NativePlatformCallbacks final : public Platform {
 public:
     explicit NativePlatformCallbacks(ShaderProgram & shader):
         m_shader(shader)
@@ -153,7 +153,6 @@ public:
             // was called "z" rotation...
             model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_up));
         }
-    #   if 1
         , [](PpState & state, glm::mat4 & model) {
             auto on_surface = std::get_if<PpOnSegment>(&state);
             if (!on_surface) return;
@@ -176,19 +175,11 @@ public:
             if (are_very_close(crp, Vector{})) return;
             model = glm::rotate(model, float(angle), convert_to<glm::vec3>(normalize(crp)));
         }
-    #   endif
-#       if 1
-        ,[] (Opt<Visible> vis, SharedCPtr<Texture> & texture) {
+        ,[] (Opt<Visible> vis, SharedPtr<const Texture> & texture) {
             if (!should_be_visible(vis)) return;
             texture->bind_texture();
         }
-#       endif
-#       if 0
-        , [this] (Opt<TextureTranslation> translation) {
-            m_shader.set_vec2("tex_offset", convert_to<glm::vec2>(translation ? translation->value : Vector2{}));
-        }
-#       endif
-        , [this] (Opt<Visible> vis, glm::mat4 & model, SharedCPtr<RenderModel> mod_) {
+        , [this] (Opt<Visible> vis, glm::mat4 & model, SharedPtr<const RenderModel> mod_) {
             if (!should_be_visible(vis)) return;
             m_shader.set_mat4("model", model);
             mod_->render();

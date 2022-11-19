@@ -58,12 +58,14 @@ bool run_triangle_links_tests() {
         Triangle triangle_b{
             // pt_a             , pt_c                , pt_d
             Vector{2.5, 0, -3.5}, Vector{3.5, 0, -4.5}, Vector{3.5, 0, -3.5}};
+        // note: both triangles have the same normal vector
+
         auto links_a = make_shared<TriangleLink>(triangle_a);
         auto links_b = make_shared<TriangleLink>(triangle_b);
 
         links_b->attempt_attachment_to(links_a);
         auto trans = links_b->transfers_to(Side::k_side_ab);
-        return test(    trans.target && trans.inverts
+        return test(    trans.target && !trans.inverts_normal
                     && !links_b->transfers_to(Side::k_side_bc).target
                     && !links_b->transfers_to(Side::k_side_ca).target);
     });
@@ -76,13 +78,14 @@ bool run_triangle_links_tests() {
         Triangle triangle_b{
             // pt_a             , pt_c                , pt_d
             Vector{2.5, 0, -3.5}, Vector{3.5, 0, -4.5}, Vector{3.5, 0, -3.5}};
+        // note: both triangles have the same normal vector
 
         auto links_a = make_shared<TriangleLink>(triangle_a);
         auto links_b = make_shared<TriangleLink>(triangle_b);
 
         links_a->attempt_attachment_to(links_b);
         auto trans = links_a->transfers_to(Side::k_side_ca);
-        return test(    trans.target && trans.inverts
+        return test(    trans.target && !trans.inverts_normal
                     && !links_a->transfers_to(Side::k_side_bc).target
                     && !links_a->transfers_to(Side::k_side_ab).target);
     });
@@ -95,6 +98,7 @@ bool run_triangle_links_tests() {
         Triangle triangle_b{
             // pt_a             , pt_c                , pt_d
             Vector{2.5, 0, -3.5}, Vector{3.5, 0, -4.5}, Vector{3.5, 0, -3.5}};
+        // note: both triangles have the same normal vector
 
         auto links_a = make_shared<TriangleLink>(triangle_a);
         auto links_b = make_shared<TriangleLink>(triangle_b);
@@ -105,10 +109,10 @@ bool run_triangle_links_tests() {
         links_b->attempt_attachment_to(links_a);
         auto b_trans = links_b->transfers_to(Side::k_side_ab);
 
-        return test(    a_trans.target && a_trans.inverts
+        return test(    a_trans.target && !a_trans.inverts_normal
                     && !links_a->transfers_to(Side::k_side_bc).target
                     && !links_a->transfers_to(Side::k_side_ab).target
-                    &&  b_trans.target && b_trans.inverts
+                    &&  b_trans.target && !b_trans.inverts_normal
                     && !links_b->transfers_to(Side::k_side_bc).target
                     && !links_b->transfers_to(Side::k_side_ca).target);
     });
@@ -169,17 +173,145 @@ bool run_triangle_links_tests() {
         // flip-flop seems sourced in this odd flipping back and forth with
         // displacement (how can I test this?)
     });
-    mark(suite).test([] {
-        Triangle lhs{
-            Vector{0, 0, -0.5}, Vector{1, 1, -1.5}, Vector{1, 0, -0.5}};
-        Triangle rhs{
-            Vector{0, 1, 0.5}, Vector{0, 0, -0.5}, Vector{1, 0, -0.5}};
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // these triangle's normals are anti-parallel
+        Triangle lhs
+            {Vector{0, 0, -0.5}, Vector{1, 1, -1.5}, Vector{1, 0, -0.5}};
+        Triangle rhs
+            {Vector{0, 1, 0.5}, Vector{0, 0, -0.5}, Vector{1, 0, -0.5}};
 
         auto links_lhs = make_shared<TriangleLink>(lhs);
         auto links_rhs = make_shared<TriangleLink>(rhs);
 
+        unit.start(mark(suite), [&] {
+            links_lhs->attempt_attachment_to(links_rhs);
+            return test(links_lhs->has_side_attached(Side::k_side_ca));
+        });
+        unit.start(mark(suite), [&] {
+            links_lhs->attempt_attachment_to(links_rhs);
+            auto trans = links_lhs->transfers_to(Side::k_side_ca);
+            return test(!trans.inverts_normal);
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // normals that are orthogonal
+        Triangle lhs{
+            Vector{0, 0, 0}, Vector{0, 0, 1}, Vector{1, 0, 0}};
+        Triangle rhs{
+            Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 1, 0}};
+
+        auto links_lhs = make_shared<TriangleLink>(lhs);
+        auto links_rhs = make_shared<TriangleLink>(rhs);
         links_lhs->attempt_attachment_to(links_rhs);
-        return test(links_lhs->has_side_attached(Side::k_side_ca));
+
+        unit.start(mark(suite), [&] {
+            auto ang = angle_between(lhs.normal(), rhs.normal());
+            return test(are_very_close(ang, k_pi*0.5));
+        });
+
+        unit.start(mark(suite), [&] {
+            auto trans = links_lhs->transfers_to(Side::k_side_ca);
+            return test(!trans.inverts_normal);
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // normal: <x: 0, y: -1, z: 0> bc
+        Triangle floor
+            {Vector{10.5, 0, 14.5}, Vector{11.5, 0, 13.5}, Vector{11.5, 0, 14.5}};
+        // normal: <x: -1, y: 0, z: 0> ab
+        Triangle wall
+            {Vector{11.5, 0, 13.5}, Vector{11.5, 0, 14.5}, Vector{11.5, 1, 13.5}};
+        auto links_floor = make_shared<TriangleLink>(floor);
+        auto links_wall = make_shared<TriangleLink>(wall);
+
+        links_floor->attempt_attachment_to(links_wall);
+        links_wall->attempt_attachment_to(links_floor);
+        unit.start(mark(suite), [&] {
+            // if you flip one way, you must flip the other
+            auto floor_trans = links_floor->transfers_to(Side::k_side_bc);
+            auto wall_trans = links_wall->transfers_to(Side::k_side_ab);
+            return test(floor_trans.inverts_normal == wall_trans.inverts_normal);
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // parallel normals, should not invert
+        // normal x: 0, y: 0, z: -1 ab
+        Triangle lhs{Vector{1.5, 2, 6.5}, Vector{2.5, 2, 6.5}, Vector{1.5, 3, 6.5}};
+        // normal x: 0, y: 0, z: -1 bc
+        Triangle rhs{Vector{2.5, 1, 6.5}, Vector{1.5, 2, 6.5}, Vector{2.5, 2, 6.5}};
+        auto links_lhs = make_shared<TriangleLink>(lhs);
+        auto links_rhs = make_shared<TriangleLink>(rhs);
+        links_lhs->attempt_attachment_to(links_rhs);
+        links_rhs->attempt_attachment_to(links_lhs);
+
+        assert(!are_very_close(lhs.normal(), rhs.normal()));
+        unit.start(mark(suite), [&] {
+            auto trans = links_lhs->transfers_to(Side::k_side_ab);
+            return test(trans.target && trans.inverts_normal);
+        });
+        unit.start(mark(suite), [&] {
+            auto trans = links_rhs->transfers_to(Side::k_side_bc);
+            return test(trans.target && trans.inverts_normal);
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        // flip values are wrong, I believe they need to invert at least from
+        // lhs to rhs
+        // regular
+        // normal x: 0, y: 0, z: 1 ab
+        Triangle lhs{Vector{1.5, 1, -0.5}, Vector{2.5, 1, -0.5}, Vector{1.5, 2, -0.5}};
+        // regular
+        // normal x: 0, y: -0.70711, z: -0.70711 bc
+        Triangle rhs{Vector{1.5, 0, 0.5}, Vector{1.5, 1, -0.5}, Vector{2.5, 1, -0.5}};
+
+        auto links_lhs = make_shared<TriangleLink>(lhs);
+        auto links_rhs = make_shared<TriangleLink>(rhs);
+
+        unit.start(mark(suite), [&] {
+            links_lhs->attempt_attachment_to(links_rhs);
+            auto trans = links_lhs->transfers_to(Side::k_side_ab);
+            return test(!!trans.target);
+        });
+
+        unit.start(mark(suite), [&] {
+            links_lhs->attempt_attachment_to(links_rhs);
+            auto trans = links_lhs->transfers_to(Side::k_side_ab);
+            return test(trans.inverts_normal);
+        });
+
+        unit.start(mark(suite), [&] {
+            links_rhs->attempt_attachment_to(links_lhs);
+            auto trans = links_rhs->transfers_to(Side::k_side_bc);
+            return test(trans.target && trans.inverts_normal);
+        });
+    });
+    suite.start_series("TriangleLink::angle_of_rotation_for_left");
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        VectorRotater rotator{k_up};
+        auto angle = TriangleLink::angle_of_rotation_for_left_to_right
+            (Vector{}, k_east, k_north, rotator);
+        unit.start(mark(suite), [&] {
+            auto res = rotator(k_east, angle);
+            return test(are_very_close(res, k_north));
+        });
+        unit.start(mark(suite), [&] {
+            return test(are_very_close(angle, -k_pi*0.5));
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        VectorRotater rotator{k_east};
+        Vector left {0, 0 , 0.5};
+        Vector right{0, 2, -0.5};
+        Vector pivot{0, 1, -0.5};
+        auto angle = TriangleLink::angle_of_rotation_for_left_to_right
+            (pivot, left, right, rotator);
+        unit.start(mark(suite), [&] {
+            auto res = rotator(left - pivot, angle);
+            return test(are_very_close(angle_between(res, right - pivot), 0));
+        });
+        unit.start(mark(suite), [&] {
+            return test(angle < -k_pi*0.5 && angle > -k_pi);
+        });
     });
 
 #   undef mark

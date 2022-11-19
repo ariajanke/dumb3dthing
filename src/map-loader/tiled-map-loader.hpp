@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "platform/platform.hpp"
-#include "Components.hpp"
+#include "../platform.hpp"
+#include "../Components.hpp"
 #include "TileSet.hpp"
 #include "ParseHelpers.hpp"
 
@@ -62,7 +62,7 @@ public:
         TileRange range;
     };
 
-    using LinksView = cul::View<const MapLinks *>;
+    using LinksView = View<const MapLinks *>;
     enum class Side { north, south, east, west };
 
     MapEdgeLinks() { m_views.fill(make_tuple(k_uninit, k_uninit)); }
@@ -117,7 +117,7 @@ public:
         std::vector<Entity> m_entities;
     };
 
-    explicit MapLoader(Platform::ForLoaders & platform):
+    explicit MapLoader(Platform & platform):
         m_platform(&platform) {}
 
     Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> operator ()
@@ -154,7 +154,7 @@ private:
     FutureStringPtr m_file_contents;
 
     Grid<int> m_layer;
-    Platform::ForLoaders * m_platform;
+    Platform * m_platform;
 
     std::vector<SharedPtr<TileSet>> m_tilesets;
     std::vector<int> m_startgids;

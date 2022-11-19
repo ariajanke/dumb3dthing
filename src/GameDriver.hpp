@@ -21,7 +21,7 @@
 #pragma once
 
 #include "Defs.hpp"
-#include "platform/platform.hpp"
+#include "platform.hpp"
 #include "Components.hpp"
 
 namespace point_and_plane {
@@ -39,9 +39,9 @@ public:
 
     virtual void release_key(KeyControl) = 0;
 
-    void setup(Platform::ForLoaders & forloaders);
+    void setup(Platform & forloaders);
 
-    void update(Real seconds, Platform::Callbacks &);
+    void update(Real seconds, Platform &);
 
 protected:
     using PlayerEntities = LoaderTask::PlayerEntities;
@@ -58,7 +58,7 @@ protected:
 
     virtual void update_(Real seconds) = 0;
 
-    auto get_callbacks(Platform::ForLoaders & platform, std::vector<Entity> & entities) {
+    auto get_callbacks(Platform & platform, std::vector<Entity> & entities) {
         class Impl final : public LoaderCallbacks {
         public:
             Impl(std::vector<Entity> & entities_,
@@ -66,7 +66,7 @@ protected:
                  std::vector<EveryFrameTaskPtr> & every_frame_tasks_,
                  std::vector<OccasionalTaskPtr> & occasional_tasks_,
                  std::vector<LoaderTaskPtr> & loader_tasks_,
-                 Platform::ForLoaders & platform_):
+                 Platform & platform_):
                 m_entities(entities_),
                 m_player_entities(player_entities_),
                 m_every_frame_tasks(every_frame_tasks_),
@@ -87,7 +87,7 @@ protected:
             void add(const Entity & ent) final
                 { m_entities.push_back(ent); }
 
-            Platform::ForLoaders & platform() final { return m_platform; }
+            Platform & platform() final { return m_platform; }
 
             PlayerEntities player_entites() const final
                 { return m_player_entities; }
@@ -100,7 +100,7 @@ protected:
             std::vector<EveryFrameTaskPtr> & m_every_frame_tasks;
             std::vector<OccasionalTaskPtr> & m_occasional_tasks;
             std::vector<LoaderTaskPtr> & m_loader_tasks;
-            Platform::ForLoaders & m_platform;
+            Platform & m_platform;
         };
         return Impl{entities, m_player_entities, m_every_frame_tasks,
                     m_occasional_tasks, m_loader_tasks, platform};
@@ -130,7 +130,7 @@ private:
     std::vector<LoaderTaskPtr> m_loader_tasks;
 };
 
-inline void Driver::setup(Platform::ForLoaders & forloaders) {
+inline void Driver::setup(Platform & forloaders) {
     std::vector<Entity> entities;
     auto callbacks = get_callbacks(forloaders, entities);
     initial_load(callbacks);
