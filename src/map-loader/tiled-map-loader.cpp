@@ -63,7 +63,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
         std::vector<Entity> entities;
         auto triangles_and_grid =
             add_triangles_and_link_(m_layer.width(), m_layer.height(),
-            [&] (Vector2I r, TrianglesAdder adder)
+            [&] (Vector2I r, TriangleAdder & adder)
         {
             auto gid = m_layer(r);
             if (gid == 0) return;
@@ -74,16 +74,16 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
             class Impl final : public EntityAndTrianglesAdder {
             public:
                 Impl(std::vector<Entity> & entities,
-                     TrianglesAdder & triangles_):
+                     TriangleAdder & triangles_):
                     m_tri_adder(triangles_), m_entities(entities) {}
 
                 void add_triangle(const TriangleSegment & triangle) final
-                    { m_tri_adder.add_triangle( triangle ); }
+                    { m_tri_adder( triangle ); }
 
                 void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
 
             private:
-                TrianglesAdder & m_tri_adder;
+                TriangleAdder & m_tri_adder;
                 std::vector<Entity> & m_entities;
             };
 

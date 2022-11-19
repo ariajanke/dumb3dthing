@@ -34,9 +34,9 @@ class EntityAndTrianglesAdder {
 public:
     virtual ~EntityAndTrianglesAdder() {}
 
-    virtual void add_triangle(const TriangleSegment &) = 0;
-
     virtual void add_entity(const Entity &) = 0;
+
+    virtual void add_triangle(const TriangleSegment &) = 0;
 };
 
 enum class CardinalDirection {

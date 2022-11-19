@@ -56,17 +56,25 @@ inline Slopes half_pi_rotations(const Slopes & s, int n) {
 inline Slopes translate_y(const Slopes & s, Real y)
     { return Slopes{s.ne + y, s.nw + y, s.sw + y, s.se + y}; }
 
-class TrianglesAdder final {
+class TriangleAdder {
 public:
-    using TriangleVec = std::vector<TriangleSegment>;
+    virtual ~TriangleAdder() {}
 
-    TrianglesAdder(TriangleVec & vec): m_vec(vec) {}
+    virtual void operator () (const TriangleSegment &) const = 0;
 
-    void add_triangle(TriangleSegment triangle)
-        { m_vec.push_back(triangle); }
+    template <typename Func>
+    static auto make(Func && f) {
+        class Impl final : public TriangleAdder {
+        public:
+            explicit Impl(Func && f_): m_f(std::move(f_)) {}
 
-private:
-    TriangleVec & m_vec;
+            void operator () (const TriangleSegment & tri) const final
+                { m_f(tri); }
+        private:
+            Func m_f;
+        };
+        return Impl{std::move(f)};
+    }
 };
 
 using TriangleLinks = std::vector<SharedPtr<TriangleLink>>;
@@ -77,12 +85,13 @@ template <typename Func>
     add_triangles_and_link_
     (int width, int height, Func && on_add_tile)
 {
-    using TriangleVec = TrianglesAdder::TriangleVec;
+    using TriangleVec = std::vector<TriangleSegment>;
     using std::get;
     Grid<std::pair<std::size_t, std::size_t>> links_grid;
     links_grid.set_size(width, height);
     TriangleVec vec;
-    TrianglesAdder adder{vec};
+    auto adder = TriangleAdder::make([&vec] (const TriangleSegment & triangle)
+        { vec.push_back(triangle); });
     for (Vector2I r; r != links_grid.end_position(); r = links_grid.next(r)) {
         links_grid(r).first = vec.size();
         on_add_tile(r, adder);

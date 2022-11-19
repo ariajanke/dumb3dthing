@@ -76,8 +76,7 @@ protected:
 
     StringSplitterIteratorBase(
         CharIter beg, EndIter end,
-        SplitterFunc && splitter_, WithAdditionalFunc && with_)
-    :
+        SplitterFunc && splitter_, WithAdditionalFunc && with_):
         m_beg(beg), m_segment_end(beg), m_end(end),
         m_splitter_f(std::move(splitter_)),
         m_with_f(std::move(with_))
