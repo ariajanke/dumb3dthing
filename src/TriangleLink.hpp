@@ -72,7 +72,7 @@ public:
 
     static bool has_matching_normals(const Triangle &, Side, const Triangle &, Side);
 
-    static Real angle_of_rotation_for_left
+    static Real angle_of_rotation_for_left_to_right
         (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,
          const VectorRotater & rotate_vec);
 

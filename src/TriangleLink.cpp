@@ -43,40 +43,32 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
 
 // ----------------------------------------------------------------------------
 
-/* static */ Real TriangleLink::angle_of_rotation_for_left
+/* static */ Real TriangleLink::angle_of_rotation_for_left_to_right
     (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,
      const VectorRotater & rotate_vec)
 {
     auto piv_to_left  = left_opp  - pivot;
     auto piv_to_right = right_opp - pivot;
-#   if 1
+
     // only one of these solutions is correct, because we need the right
     // direction
     auto t0 = angle_between(piv_to_left, piv_to_right);
-#   if 0
-    auto t1 = t0 - k_pi;
-#   endif
-    auto t1 = k_pi*2 - t0;
+    auto t1 = -t0;
 
     auto sol0 = rotate_vec(piv_to_left, t0);
     auto sol1 = rotate_vec(piv_to_left, t1);
 
     // greatest is closest
     if (dot(sol0, piv_to_right) > dot(sol1, piv_to_right)) {
+#       if 0
         std::cout << "Choose t0: " << t0 << std::endl;
+#       endif
         return t0;
     }
+#   if 0
     std::cout << "Choose t1: " << t1 << std::endl;
-    return t1;
-#   else
-    auto dp = dot(piv_to_left, piv_to_right);
-    if (dp < 0) {
-
-    } else {
-
-    }
-
 #   endif
+    return t1;
 }
 
 /* static */ bool TriangleLink::has_matching_normals
@@ -113,10 +105,10 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
 
     // do I even need a directed rotation for this?
     // YES but it doesn't matter which solution we choose
-    auto angle_for_lhs = angle_of_rotation_for_left
+    auto angle_for_lhs = angle_of_rotation_for_left_to_right
         (pivot, left_opp, right_opp, rotate_vec);
     auto rotated_lhs_normal = rotate_vec(lhs.normal(), angle_for_lhs);
-
+#   if 0
     std::cout << "plane v " << plane_v << "\n"
               << "lo  " << left_opp << "\n"
               << "ro  " << right_opp << "\n"
@@ -125,7 +117,7 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
               << "rnm " << rhs.normal() << "\n"
               << "rot " << rotated_lhs_normal << "\n"
               << "res " << dot(rotated_lhs_normal, rhs.normal()) << std::endl;
-
+#   endif
     return dot(rotated_lhs_normal, rhs.normal()) > 0;
 }
 

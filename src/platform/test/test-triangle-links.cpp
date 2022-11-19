@@ -285,11 +285,35 @@ bool run_triangle_links_tests() {
             return test(trans.target && trans.inverts_normal);
         });
     });
-    //suite.start_series("TriangleLink::angle_of_rotation_for_left");
-    //mark(suite).test([] {
-        //TriangleLink::angle_of_rotation_for_left()
-        ;
-    //});
+    suite.start_series("TriangleLink::angle_of_rotation_for_left");
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        VectorRotater rotator{k_up};
+        auto angle = TriangleLink::angle_of_rotation_for_left_to_right
+            (Vector{}, k_east, k_north, rotator);
+        unit.start(mark(suite), [&] {
+            auto res = rotator(k_east, angle);
+            return test(are_very_close(res, k_north));
+        });
+        unit.start(mark(suite), [&] {
+            return test(are_very_close(angle, -k_pi*0.5));
+        });
+    });
+    set_context(suite, [] (TestSuite & suite, Unit & unit) {
+        VectorRotater rotator{k_east};
+        Vector left {0, 0 , 0.5};
+        Vector right{0, 2, -0.5};
+        Vector pivot{0, 1, -0.5};
+        auto angle = TriangleLink::angle_of_rotation_for_left_to_right
+            (pivot, left, right, rotator);
+        unit.start(mark(suite), [&] {
+            auto res = rotator(left - pivot, angle);
+            return test(are_very_close(angle_between(res, right - pivot), 0));
+        });
+        unit.start(mark(suite), [&] {
+            return test(angle < -k_pi*0.5 && angle > -k_pi);
+        });
+    });
+
 #   undef mark
     return suite.has_successes_only();
 }
