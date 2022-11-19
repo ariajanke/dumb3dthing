@@ -24,15 +24,18 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install clang -y
+      #- name: Install system dependencies
+      #  run: |
+      #    sudo apt update
+      #    sudo apt install clang -y
       # Runs a single command using the runners shell
       - name: Prepare libraries
         run: |
           git clone https://github.com/ariajanke/cul.git lib/cul
           git clone https://github.com/ariajanke/ecs.git lib/ecs
+          ls lib
+          ls lib/cul
+          find lib/ecs
 
       # Runs a set of commands using the runners shell
       - name: Build and Run tests
