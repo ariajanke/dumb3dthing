@@ -21,35 +21,15 @@
 #pragma once
 
 #include "../Defs.hpp"
-#include "../PointAndPlaneDriver.hpp"
-#include "../Components.hpp"
+#include "../TriangleSegment.hpp"
+#include "../TriangleLink.hpp"
 
-#include "../platform.hpp"
+#include <ariajanke/cul/Grid.hpp>
 
-#include <ariajanke/cul/SubGrid.hpp>
-
-#include <unordered_map>
-
-using cul::ConstSubGrid;
-
-struct AppearanceId {
-    int id = 0;
-protected:
-    AppearanceId() {}
-    AppearanceId(int id_): id(id_) {}
-};
-
-struct VoidSpace final {};
-
-struct Pit final {};
-
-struct EndOfRow final {};
-
-struct Slopes final : public AppearanceId {
+struct Slopes final {
     Slopes() {}
 
-    Slopes(int id_, Real ne_, Real nw_, Real sw_, Real se_):
-        AppearanceId(id_),
+    Slopes(Real ne_, Real nw_, Real sw_, Real se_):
         nw(nw_), ne(ne_), sw(sw_), se(se_) {}
 
     bool operator == (const Slopes & rhs) const noexcept
@@ -60,7 +40,7 @@ struct Slopes final : public AppearanceId {
 
     bool are_same(const Slopes & rhs) const noexcept {
         using Fe = std::equal_to<Real>;
-        return    id == rhs.id && Fe{}(nw, rhs.nw) && Fe{}(ne, rhs.ne)
+        return    Fe{}(nw, rhs.nw) && Fe{}(ne, rhs.ne)
                && Fe{}(sw, rhs.sw) && Fe{}(se, rhs.se);
     }
 
@@ -70,21 +50,11 @@ struct Slopes final : public AppearanceId {
 inline Slopes half_pi_rotations(const Slopes & s, int n) {
     if (n < 0) throw std::invalid_argument{""};
     if (n == 0) return s;
-    return half_pi_rotations(Slopes{s.id, s.se, s.ne, s.nw, s.sw}, n - 1);
+    return half_pi_rotations(Slopes{s.se, s.ne, s.nw, s.sw}, n - 1);
 }
 
 inline Slopes translate_y(const Slopes & s, Real y)
-    { return Slopes{0, s.ne + y, s.nw + y, s.sw + y, s.se + y}; }
-
-struct Flat final : public AppearanceId {
-    Flat() {}
-    Flat(int id_, Real y_): AppearanceId(id_), y(y_) {}
-    Real y;
-};
-
-using Cell = Variant<VoidSpace, Pit, Slopes, Flat>;
-
-using CellSubGrid = ConstSubGrid<Cell>;
+    { return Slopes{s.ne + y, s.nw + y, s.sw + y, s.se + y}; }
 
 class TrianglesAdder final {
 public:
@@ -99,84 +69,7 @@ private:
     TriangleVec & m_vec;
 };
 
-class TileGraphicGenerator {
-public:
-    using LoaderCallbacks = LoaderTask::Callbacks;
-    using WallDips = std::array<float, 4>;
-    using EntityVec = std::vector<Entity>;
-
-    explicit TileGraphicGenerator(LoaderCallbacks &);
-
-    void setup();
-
-    void create_slope(TrianglesAdder &, Vector2I, const Slopes &);
-
-    void create_flat(TrianglesAdder &, Vector2I, const Flat &, const WallDips &);
-
-    // Can't think of a method fast than O(n^2), though n is always 4 in this
-    // case
-    // A non real number is returned if there is no such rotation
-    static Real rotation_between(const Slopes & rhs, const Slopes & lhs);
-
-    static Slopes sub_minimum_value(const Slopes &);
-
-    static std::array<Vector, 4> get_points_for(const Slopes &);
-
-    static const std::vector<unsigned> & get_common_elements();
-
-private:
-    struct SlopesHasher final {
-        std::size_t operator () (const Slopes & slopes) const noexcept {
-            std::hash<float> hf{};
-            return hf(slopes.ne) ^ hf(slopes.nw) ^ hf(slopes.se) ^ hf(slopes.sw) ^ std::hash<int>{}(slopes.id);
-        }
-    };
-
-    struct SlopesEquality final {
-        bool operator () (const Slopes & rhs, const Slopes & lhs) const {
-            return cul::is_real(TileGraphicGenerator::rotation_between(rhs, lhs));
-        }
-    };
-
-    SharedPtr<Texture> & ensure_texture(SharedPtr<Texture> &, const char * filename);
-
-    Tuple<Slopes, SharedPtr<RenderModel>,
-          TriangleSegment, TriangleSegment>
-        get_slope_model_(const Slopes & slopes, const Vector & translation);
-
-    LoaderCallbacks & m_callbacks;
-
-    SharedPtr<Texture> m_ground_texture, m_tileset4;
-
-    // these things are unable to destruct themselves before the library closes!
-    SharedPtr<RenderModel> m_flat_model, m_wall_model;
-    std::unordered_map<Slopes, SharedPtr<RenderModel>, SlopesHasher, SlopesEquality> m_slopes_map;
-};
-
-class CharToCell {
-public:
-    using MaybeCell = Variant<VoidSpace, Pit, Slopes, Flat, EndOfRow>;
-
-    virtual ~CharToCell() {}
-
-    MaybeCell operator () (char c) const;
-
-    static Cell to_cell(const MaybeCell &);
-
-    static MaybeCell to_maybe_cell(const Cell &);
-
-    static const CharToCell & default_instance();
-
-protected:
-    virtual Cell to_cell(char) const = 0;
-};
-
 using TriangleLinks = std::vector<SharedPtr<TriangleLink>>;
-
-TriangleLinks load_map_graphics
-    (TileGraphicGenerator &, CellSubGrid);
-
-Grid<Cell> load_map_cell(const char * layout, const CharToCell &);
 
 template <typename Func>
     Tuple

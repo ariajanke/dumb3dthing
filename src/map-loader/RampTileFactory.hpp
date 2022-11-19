@@ -78,12 +78,12 @@ private:
 
 class InRampTileFactory final : public CornerRampTileFactory {
     Slopes non_rotated_slopes() const final
-        { return Slopes{0, 1, 1, 1, 0}; }
+        { return Slopes{1, 1, 1, 0}; }
 };
 
 class OutRampTileFactory final : public CornerRampTileFactory {
     Slopes non_rotated_slopes() const final
-        { return Slopes{0, 0, 0, 0, 1}; }
+        { return Slopes{0, 0, 0, 1}; }
 };
 
 class TwoRampTileFactory final : public RampTileFactory {
@@ -97,7 +97,7 @@ class TwoRampTileFactory final : public RampTileFactory {
 
 class FlatTileFactory final : public SlopesBasedModelTileFactory {
     Slopes model_tile_elevations() const final
-        { return Slopes{0, 0, 0, 0, 0}; }
+        { return Slopes{0, 0, 0, 0}; }
 };
 
 // ----------------------------------------------------------------------------
@@ -110,9 +110,9 @@ template <typename T>
     static std::vector<Vector> s_positions;
     if (!s_positions.empty()) {
         return Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
-            {s_positions, TileGraphicGenerator::get_common_elements()};
+            {s_positions, get_common_elements()};
     }
-    auto pts = TileGraphicGenerator::get_points_for(slopes);
+    auto pts = get_points_for(slopes);
     s_positions = std::vector<Vector>{pts.begin(), pts.end()};
     return get_model_positions_and_elements_<T>(slopes);
 }

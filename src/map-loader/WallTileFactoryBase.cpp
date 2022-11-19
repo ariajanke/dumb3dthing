@@ -245,9 +245,9 @@ Slopes WallTileFactoryBase::tile_elevations() const {
         };
     } ();
 
-    return Slopes{0,
-        elevation_for_corner(Cd::ne), elevation_for_corner(Cd::nw),
-        elevation_for_corner(Cd::sw), elevation_for_corner(Cd::se)};
+    return Slopes
+        {elevation_for_corner(Cd::ne), elevation_for_corner(Cd::nw),
+         elevation_for_corner(Cd::sw), elevation_for_corner(Cd::se)};
 }
 
 /* protected */ CardinalDirection WallTileFactoryBase::direction() const noexcept

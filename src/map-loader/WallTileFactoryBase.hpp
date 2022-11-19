@@ -22,6 +22,7 @@
 
 #include "TileFactory.hpp"
 #include "../RenderModel.hpp"
+#include "../platform.hpp"
 
 #include <bitset>
 

@@ -82,7 +82,7 @@ void SlopesBasedModelTileFactory::operator ()
 // --------------------------- <anonymous> namespace --------------------------
 
 /* private */ void TwoRampTileFactory::set_direction(const char * dir) {
-    static const Slopes k_non_rotated_slopes{0, 1, 1, 0, 0};
+    static const Slopes k_non_rotated_slopes{1, 1, 0, 0};
     using Cd = CardinalDirection;
     int n = [dir] {
         switch (cardinal_direction_from(dir)) {

@@ -21,6 +21,7 @@
 #include "TileFactory.hpp"
 #include "WallTileFactory.hpp"
 #include "../RenderModel.hpp"
+#include "../Components.hpp"
 
 #include <tinyxml2.h>
 
@@ -29,6 +30,13 @@ namespace {
 using namespace cul::exceptions_abbr;
 
 using Triangle = TriangleSegment;
+
+static const constexpr std::array k_flat_points = {
+    Vector{-.5, 0, 0.5}, // nw
+    Vector{-.5, 0, -.5}, // sw
+    Vector{0.5, 0, -.5}, // se
+    Vector{0.5, 0, 0.5}  // ne
+};
 
 } // end of <anonymous> namespace
 
@@ -127,8 +135,8 @@ void TileFactory::set_shared_texture_information
     (Vector2I gridloc, Vector translation, const Slopes & slopes,
      EntityAndTrianglesAdder & adder)
 {
-    const auto & els = TileGraphicGenerator::get_common_elements();
-    const auto pos = TileGraphicGenerator::get_points_for(slopes);
+    const auto & els = get_common_elements();
+    const auto pos = get_points_for(slopes);
     auto offset = grid_position_to_v3(gridloc) + translation;
     adder.add_triangle(TriangleSegment{
         pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset});
@@ -147,6 +155,25 @@ void TileFactory::set_shared_texture_information
         return val;
     }
     return nullptr;
+}
+
+/* protected static */ std::array<Vector, 4>
+    TileFactory::get_points_for(const Slopes & slopes)
+{
+    return std::array<Vector, 4>
+        {k_flat_points[0] + Vector{0, slopes.nw, 0},
+         k_flat_points[1] + Vector{0, slopes.sw, 0},
+         k_flat_points[2] + Vector{0, slopes.se, 0},
+         k_flat_points[3] + Vector{0, slopes.ne, 0}};
+}
+
+/* protected static */ const std::vector<unsigned> &
+    TileFactory::get_common_elements()
+{
+    static constexpr const std::array<unsigned, 6> arr =
+        {0, 1, 2, 0, 2, 3};
+    static const std::vector<unsigned> s_rv{arr.begin(), arr.end()};
+    return s_rv;
 }
 
 /* protected */ Size2 TileFactory::common_texture_tile_size() const {
@@ -188,7 +215,7 @@ void TileFactory::set_shared_texture_information
     TileFactory::make_render_model_with_common_texture_positions
     (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const
 {
-    const auto & pos = TileGraphicGenerator::get_points_for(slopes);
+    const auto & pos = get_points_for(slopes);
     auto txpos = common_texture_positions_from(loc_in_ts);
 
     std::vector<Vertex> verticies;
@@ -198,7 +225,7 @@ void TileFactory::set_shared_texture_information
     }
 
     auto render_model = platform.make_render_model(); // need platform
-    const auto & els = TileGraphicGenerator::get_common_elements();
+    const auto & els = get_common_elements();
     render_model->load(verticies, els);
     return render_model;
 }

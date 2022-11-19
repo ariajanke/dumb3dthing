@@ -403,39 +403,6 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     return make_tuple(model_ent, physics_ent);
 }
 
-static constexpr auto k_layout =
-    "xx   xx\n"
-    "  avb  \n"
-    "x >1<  \n"
-    "  c^d x\n"
-    "       \n"
-    "x  1  x\n"
-    "x1   1x\n";
-static constexpr auto k_layout2 =
-    "xxxxxxx\n"
-    "xxxxxxx\n"
-    "xxx xxx\n"
-    "xxxxxxx\n"
-    "xxxxxxx\n";
-static constexpr auto k_layout3 =
-    "xx   xx\n"
-    "       \n"
-    "x      \n"
-    "      x\n"
-    "       \n"
-    "1     1\n"
-    "x11111x\n";
-static constexpr auto k_layout4 =
-    "xx1111111111111111111111111111111111111111111111111111111111xx\n"
-    "xx^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^xx\n"
-    "1<                                                          >1\n"
-    "1<                                                                                                                              >1\n"
-    "1<                                                                                                                              >1\n"
-    "1<                                                          >1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxvvxx\n"
-    "xxvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
-    "xx1111111111111111111111111111111111111111111111111111111111xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1xxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
-    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx111111111111111111111111111111111111111111111111111111111111111111111xx\n";
-
 // ----------------------------------------------------------------------------
 
 void GameDriverComplete::press_key(KeyControl ky) {
@@ -451,17 +418,6 @@ void GameDriverComplete::release_key(KeyControl ky) {
 }
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
-#   if 0
-    std::vector<Entity> entities;
-    std::vector<SharedPtr<TriangleSegment>> triangles;
-    auto tgg_ptr = TileGraphicGenerator{triangles, callbacks};
-    tgg_ptr.setup();
-    auto [tlinks] = load_map_graphics(tgg_ptr, load_map_cell(k_layout2, CharToCell::default_instance())); {}
-
-    // v kinda icky v
-    m_ppdriver->clear_all_triangles();
-    m_ppdriver->add_triangles(tlinks);
-#   endif
     auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
     callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.set_player_entities(PlayerEntities{physical, renderable});

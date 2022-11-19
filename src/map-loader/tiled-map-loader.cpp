@@ -93,7 +93,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
                     m_translator(translator), m_grid(grid) {}
 
                 Slopes operator () (Vector2I r) const {
-                    static const Slopes k_all_inf{0, k_inf, k_inf, k_inf, k_inf};
+                    static const Slopes k_all_inf{k_inf, k_inf, k_inf, k_inf};
                     if (!m_grid.has_position(r)) return k_all_inf;
                     auto [tid, tileset] = m_translator.gid_to_tid(m_grid(r));
                     auto factory = (*tileset)(tid);
