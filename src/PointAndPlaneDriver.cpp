@@ -126,15 +126,7 @@ Vector location_of(const State & state) {
 
 /* static */ UniquePtr<Driver> Driver::make_driver()
     { return UniquePtr<Driver>{make_unique<DriverComplete>()}; }
-#if 0
-Vector2 displacement_on_triangle
-    (const Triangle & triangle, const InAir & freebody)
-{
-    auto new_loc = freebody.location + freebody.displacement;
-    return   triangle.closest_point(new_loc)
-           - triangle.closest_point(freebody.location);
-}
-#endif
+
 } // end of point_and_plane namespace
 
 namespace {
@@ -228,32 +220,7 @@ State DriverComplete::operator ()
     using LimitIntersection = Triangle::LimitIntersection;
     SharedPtr<const TriangleLink> candidate;
     LimitIntersection candidate_intx;
-#   if 0
-    for (auto itr = beg; itr != end; ++itr) {
-        auto & triangle = itr->lock()->segment();
 
-        constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
-        auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);
-        if (!is_solution(liminx.intersection)) continue;
-        auto gv = env.on_triangle_hit(triangle, liminx.limit, liminx.intersection, new_loc);
-        if (auto * disv2 = get_if<Vector2>(&gv)) {
-            // attach to segment
-            verify_decreasing_displacement<Vector2, Vector>(
-                *disv2, freebody.displacement, k_caller_name);
-            bool heads_against_normal = are_very_close(
-                  normalize(project_onto(new_loc - freebody.location,
-                                         triangle.normal()          ))
-                - triangle.normal(), Vector{});
-            return OnSegment{itr->lock(), heads_against_normal, liminx.intersection, *disv2};
-        }
-        auto * disv3 = get_if<Vector>(&gv);
-        assert(disv3);
-        verify_decreasing_displacement<Vector, Vector>(
-            *disv3, freebody.displacement, k_caller_name);
-        return InAir{liminx.limit, *disv3};
-    }
-    return InAir{freebody.location + freebody.displacement, Vector{}};
-#   else
     constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
     for (auto itr = beg; itr != end; ++itr) {
         auto link_ptr = itr->lock();
@@ -298,7 +265,6 @@ State DriverComplete::operator ()
         return InAir{candidate_intx.limit, *disv3};
     }
     return InAir{freebody.location + freebody.displacement, Vector{}};
-#   endif
 }
 
 /* private */ State DriverComplete::handle_tracker
@@ -361,7 +327,7 @@ State DriverComplete::operator ()
         if (res->transfer_to_next) {
             auto seg_loc = transfer.target->segment()
                 .closest_contained_point(outside_pt);
-#           if 1
+#           if 0
             std::cout << (new_invert_normal(transfer, tracker) ? "invert" : "regular") << std::endl;
             OnSegment new_tracker
                 {transfer.target, new_invert_normal(transfer, tracker),
@@ -399,8 +365,6 @@ void verify_decreasing_displacement
         throw InvArg{std::string{caller} + ": new displacement must be a real vector."};
     }
     if (sum_of_squares(displc) > sum_of_squares(old_displacement)) {
-        auto dismag = magnitude(displc);
-        auto oldmag = magnitude(old_displacement);
         throw InvArg{std::string{caller} + ": new displacement must be decreasing."};
     }
 }

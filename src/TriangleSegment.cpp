@@ -233,7 +233,7 @@ LimitIntersection TriangleSegment::limit_with_intersection
     auto along_t = [a, b](Real t) { return a + (b - a)*t; };
 
     auto t = cul::find_highest_false<Real>([&find_back_from_head, &along_t] (Real t)
-        { return within_01(find_back_from_head(along_t(t))); }, 0.0005, 1 - back_from_head);
+        { return within_01(find_back_from_head(along_t(t))); }, 1 - back_from_head);
     return LimitIntersection{ r, along_t(t) };
 }
 
