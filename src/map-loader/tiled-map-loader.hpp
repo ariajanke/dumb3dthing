@@ -170,3 +170,269 @@ inline MapEdgeLinks::TileRange operator + (const MapEdgeLinks::TileRange & lhs, 
 
 inline MapEdgeLinks::TileRange operator + (Vector2I rhs, const MapEdgeLinks::TileRange & lhs)
     { return lhs.displace(rhs); }
+
+// ----------------------------------------------------------------------------
+
+class MapSegmentContainer;
+
+class MapLoaderN final {
+public:
+    using Rectangle = cul::Rectangle<int>;
+
+    class TeardownTask final : public OccasionalTask {
+    public:
+        TeardownTask() {}
+
+        explicit TeardownTask(std::vector<Entity> && entities):
+            m_entities(std::move(entities)) {}
+
+        void on_occasion(Callbacks &) final {
+            for (auto & ent : m_entities)
+                { ent.request_deletion(); }
+        }
+
+    private:
+        std::vector<Entity> m_entities;
+    };
+
+    class StateHolder;
+
+    class State {
+    public:
+        State() {}
+
+        State
+            (Platform & platform, MapSegmentContainer & target_container,
+             const Vector2I & offset, const Rectangle & tiles_to_load):
+            m_platform(&platform),
+            m_target_container(&target_container),
+            m_offset(offset),
+            m_tiles_to_load(tiles_to_load) {}
+
+        virtual ~State() {}
+
+        virtual SharedPtr<LoaderTask> update_progress(StateHolder &)
+            { return nullptr; }
+
+        State & set_others_stuff(State & lhs) const {
+            lhs.m_platform = m_platform;
+            lhs.m_target_container = m_target_container;
+            lhs.m_offset = m_offset;
+            lhs.m_tiles_to_load = m_tiles_to_load;
+            return lhs;
+        }
+
+    protected:
+        struct TileSetsContainer final {
+            std::vector<int> startgids;
+            std::vector<SharedPtr<TileSet>> tilesets;
+            std::vector<Tuple<std::size_t, FutureStringPtr>> pending_tilesets;
+        };
+
+        Platform & platform() const {
+            verify_shared_set();
+            return *m_platform;
+        }
+
+        MapSegmentContainer & target() {
+            verify_shared_set();
+            return *m_target_container;
+        }
+
+        Vector2I map_offset() const {
+            verify_shared_set();
+            return m_offset;
+        }
+
+        Rectangle target_tile_range() const {
+            verify_shared_set();
+            return m_tiles_to_load;
+        }
+
+    private:
+        void verify_shared_set() const {
+            using namespace cul::exceptions_abbr;
+            if (m_platform) return;
+            throw RtError{"Unset stuff"};
+        }
+
+        Platform * m_platform = nullptr;
+        MapSegmentContainer * m_target_container = nullptr;
+        Vector2I m_offset;
+        Rectangle m_tiles_to_load;
+    };
+
+    class WaitingForFileContents final : public State {
+    public:
+        WaitingForFileContents
+            (Platform & platform, MapSegmentContainer & target_container,
+             const char * filename, const Vector2I & offset,
+             const Rectangle & tiles_to_load):
+             State(platform, target_container, offset, tiles_to_load)
+        { m_file_contents = platform.promise_file_contents(filename); }
+
+        SharedPtr<LoaderTask> update_progress(StateHolder & next_state) final;
+
+    private:
+        void add_tileset(const TiXmlElement & tileset, TileSetsContainer &);
+
+        FutureStringPtr m_file_contents;
+    };
+
+    class WaitingForTileSets final : public State {
+    public:
+        WaitingForTileSets
+            (TileSetsContainer && cont_, Grid<int> && layer_):
+            m_tilesets_container(std::move(cont_)),
+            m_layer(std::move(layer_)) {}
+
+        SharedPtr<LoaderTask> update_progress(StateHolder & next_state) final;
+
+    private:
+        TileSetsContainer m_tilesets_container;
+        Grid<int> m_layer;
+        GidTidTranslator m_tidgid_translator;
+    };
+
+    class Ready final : public State {
+    public:
+        Ready(GidTidTranslator && idtrans_, Grid<int> && layer_):
+            m_tidgid_translator(std::move(idtrans_)),
+            m_layer(std::move(layer_)) {}
+
+        SharedPtr<LoaderTask> update_progress(StateHolder & next_state) final;
+
+    private:
+        GidTidTranslator m_tidgid_translator;
+        Grid<int> m_layer;
+    };
+
+    class Expired final : public State {
+    public:
+        Expired() {}
+    };
+
+    using StateSpace = Variant
+        <WaitingForFileContents, WaitingForTileSets, Ready, Expired>;
+
+    class StateHolder final {
+    public:
+        template <typename NextState, typename ... Types>
+        NextState & set_next_state(Types && ...args) {
+            m_space = NextState{std::forward<Types>(args)...};
+            m_get_state = [](StateSpace & space) -> State *
+                { return &std::get<NextState>(space); };
+            return std::get<NextState>(m_space);
+        }
+
+        void move_if_state(State *& state_ptr, StateSpace & space) {
+            if (!m_get_state) return;
+
+            space = std::move(m_space);
+            state_ptr = m_get_state(space);
+            m_get_state = nullptr;
+        }
+
+    private:
+        using StatePtrGetter = State * (*)(StateSpace &);
+        StatePtrGetter m_get_state = nullptr;
+        StateSpace m_space = Expired{};
+    };
+
+    template <typename ... Types>
+    MapLoaderN
+        (Types && ... args):
+         m_state_space(WaitingForFileContents{ std::forward<Types>(args)... }),
+         m_state(&std::get<WaitingForFileContents>(m_state_space))
+    {}
+
+    SharedPtr<LoaderTask> update_progress() {
+        StateHolder next;
+        auto rv = m_state->update_progress(next);
+        // probably should write to allow as many updates as possible per call
+        next.move_if_state(m_state, m_state_space);
+
+        return rv;
+    }
+
+    bool is_expired() const
+        { return std::holds_alternative<Expired>(m_state_space); }
+
+private:
+    StateSpace m_state_space;
+    State * m_state = nullptr;
+};
+
+
+class MapLinkContainer final {
+public:
+    using Iterator = std::vector<SharedPtr<TriangleLink>>::iterator;
+    using GridOfViews = Grid<View<TriangleLinks::const_iterator>>;
+
+    explicit MapLinkContainer(const GridOfViews &) {}
+};
+
+class MapSegment final {
+public:
+    using TeardownTask = MapLoaderN::TeardownTask;
+
+    MapSegment(const SharedPtr<TeardownTask> &, MapLinkContainer &&) {}
+
+    void glue_to(MapSegment &);
+
+    void trigger_teardown(TaskCallbacks &);
+};
+
+// target object
+class MapSegmentContainer final {
+public:
+    void emplace_segment(MapSegment &&) {}
+};
+
+/** @brief The MapLoadingDirector is responsible for loading map segments.
+ *
+ *  Map segments are loaded depending on the player's state.
+ */
+class MapLoadingDirector final {
+public:
+    using Size2I = cul::Size2<int>;
+    using Rectangle = cul::Rectangle<int>;
+
+    MapLoadingDirector(const char * initial_map, Platform & platform, Size2I chunk_size):
+        m_chunk_size(chunk_size)
+    {
+        m_active_loaders.emplace_back
+            (platform, m_segment_container, initial_map, Vector2I{}, Rectangle{});
+    }
+
+    void on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent) {
+        for (auto & loader : m_active_loaders) {
+            auto loader_task = loader.update_progress();
+            if (loader_task) {
+                callbacks.add(loader_task);
+            }
+            // remove map loader somehow
+        }
+    }
+
+private:
+    Size2I m_chunk_size;
+    MapSegmentContainer m_segment_container;
+    std::vector<MapLoaderN> m_active_loaders;
+};
+
+class PlayerUpdateTask final : public EveryFrameTask {
+public:
+    PlayerUpdateTask
+        (MapLoadingDirector && map_director, Platform & platform, const EntityRef & physics_ent);
+
+    void on_every_frame(Callbacks & callbacks, Real) final {
+        m_map_director.on_every_frame(callbacks, Entity{m_physics_ent});
+    }
+
+private:
+    MapLoadingDirector m_map_director;
+    // | extremely important that the task is *not* owning
+    // v the reason entity refs exists
+    EntityRef m_physics_ent;
+};

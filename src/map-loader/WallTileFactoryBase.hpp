@@ -151,6 +151,8 @@ private:
 };
 
 // class is too god like
+// well what are the responsiblities this class is handling?
+// and how should I seperate them?
 class WallTileFactoryBase : public TranslatableTileFactory {
 public:
     // to make a tile:

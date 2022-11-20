@@ -351,3 +351,194 @@ bool is_colon(char c) { return c == ':'; }
         r = m_layer.next(r);
     }
 }
+
+// ----------------------------------------------------------------------------
+
+SharedPtr<LoaderTask> MapLoaderN::WaitingForFileContents::update_progress
+    (StateHolder & next_state)
+{
+    if (!m_file_contents->is_ready()) return nullptr;
+
+    std::string contents = m_file_contents->retrieve();
+    Grid<int> layer;
+
+    TiXmlDocument document;
+    if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
+        // ...idk
+        throw RtError{"Problem parsing XML x.x"};
+    }
+
+    auto * root = document.RootElement();
+
+    int width  = root->IntAttribute("width");
+    int height = root->IntAttribute("height");
+
+    XmlPropertiesReader propreader;
+    propreader.load(root);
+
+    std::vector<MapEdgeLinks::MapLinks> links;
+    TileSetsContainer tilesets_container;
+    for (auto & tileset : XmlRange{root, "tileset"}) {
+        add_tileset(tileset, tilesets_container);
+    }
+
+    layer.set_size(width, height);
+    auto * layer_el = root->FirstChildElement("layer");
+    assert(layer_el);
+    auto * data = layer_el->FirstChildElement("data");
+    assert(data);
+    assert(!::strcmp(data->Attribute( "encoding" ), "csv"));
+    auto data_text = data->GetText();
+    assert(data_text);
+    ; // and now I need a parsing helper for CSV strings
+    Vector2I r;
+    for (auto value_str : split_range(data_text, data_text + ::strlen(data_text),
+                                      is_comma, k_whitespace_trimmer))
+    {
+        int tile_id = 0;
+        bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), tile_id);
+        assert(is_num);
+        layer(r) = tile_id;
+        r = layer.next(r);
+    }
+
+    set_others_stuff
+        (next_state.set_next_state<WaitingForTileSets>
+            (std::move(tilesets_container), std::move(layer)));
+
+    return nullptr;
+}
+
+/* private */ void MapLoaderN::WaitingForFileContents::add_tileset
+    (const TiXmlElement & tileset, TileSetsContainer & tilesets_container)
+{
+    tilesets_container.tilesets.emplace_back(make_shared<TileSet>());
+    tilesets_container.startgids.emplace_back(tileset.IntAttribute("firstgid"));
+    if (const auto * source = tileset.Attribute("source")) {
+        tilesets_container.pending_tilesets.emplace_back(
+            tilesets_container.tilesets.size() - 1,
+            platform().promise_file_contents(source));
+    } else {
+        tilesets_container.tilesets.back()->
+            load_information(platform(), tileset);
+    }
+}
+
+SharedPtr<LoaderTask> MapLoaderN::WaitingForTileSets::update_progress
+    (StateHolder & next_state)
+{
+    // no short circuting permitted, therefore STL sequence algorithms
+    // not appropriate
+    auto & pending_tilesets = m_tilesets_container.pending_tilesets;
+    auto & tilesets = m_tilesets_container.tilesets;
+    auto & startgids = m_tilesets_container.startgids;
+    static constexpr const std::size_t k_no_idx = std::string::npos;
+    for (auto & [idx, future] : pending_tilesets) {
+        if (!future->is_ready()) continue;
+        TiXmlDocument document;
+        auto contents = future->retrieve();
+        document.Parse(contents.c_str());
+        tilesets[idx]->load_information(platform(), *document.RootElement());
+        idx = k_no_idx;
+    }
+
+    bool was_empty = pending_tilesets.empty();
+    auto end_itr = pending_tilesets.end();
+    pending_tilesets.erase(
+        std::remove_if(pending_tilesets.begin(), end_itr,
+            [](const Tuple<std::size_t, FutureStringPtr> & tup)
+            { return std::get<std::size_t>(tup) == k_no_idx; }),
+        end_itr);
+    if (!was_empty && pending_tilesets.empty()) {
+        m_tidgid_translator = GidTidTranslator{tilesets, startgids};
+    }
+
+    if (!pending_tilesets.empty()) {
+        return nullptr;
+    }
+    // no more tilesets pending
+    set_others_stuff
+        (next_state.set_next_state<Ready>
+            (std::move(m_tidgid_translator), std::move(m_layer)));
+    return nullptr;
+}
+
+SharedPtr<LoaderTask> MapLoaderN::Ready::update_progress
+    (StateHolder & next_state)
+{
+    auto & layer_ = m_layer;
+    auto & tidgid_translator_ = m_tidgid_translator;
+    auto map_offset_ = map_offset();
+    auto & target_container = target();
+    auto loader = LoaderTask::make(
+        // everything captured must out live this
+        [layer = std::move(layer_),
+         tidgid_translator = std::move(tidgid_translator_),
+         map_offset_, &target_container]
+        (LoaderTask::Callbacks & callbacks)
+    {
+        std::vector<Entity> entities;
+        auto triangles_and_grid =
+            add_triangles_and_link_(layer.width(), layer.height(),
+            [&] (Vector2I r, TriangleAdder & adder)
+        {
+            auto gid = layer(r);
+            if (gid == 0) return;
+            auto [tid, tileset] = tidgid_translator.gid_to_tid(layer(r));
+            auto * factory = (*tileset)(tid);
+            if (!factory) return;
+
+            class Impl final : public EntityAndTrianglesAdder {
+            public:
+                Impl(std::vector<Entity> & entities,
+                     TriangleAdder & triangles_):
+                    m_tri_adder(triangles_), m_entities(entities) {}
+
+                void add_triangle(const TriangleSegment & triangle) final
+                    { m_tri_adder( triangle ); }
+
+                void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
+
+            private:
+                TriangleAdder & m_tri_adder;
+                std::vector<Entity> & m_entities;
+            };
+
+            class GridIntfImpl final : public SlopesGridInterface {
+            public:
+                GridIntfImpl(const GidTidTranslator & translator, const Grid<int> & grid):
+                    m_translator(translator), m_grid(grid) {}
+
+                Slopes operator () (Vector2I r) const {
+                    static const Slopes k_all_inf{k_inf, k_inf, k_inf, k_inf};
+                    if (!m_grid.has_position(r)) return k_all_inf;
+                    auto [tid, tileset] = m_translator.gid_to_tid(m_grid(r));
+                    auto factory = (*tileset)(tid);
+                    if (!factory) return k_all_inf;
+                    return factory->tile_elevations();
+                }
+
+            private:
+                const GidTidTranslator & m_translator;
+                const Grid<int> & m_grid;
+            };
+
+            GridIntfImpl gridintf{tidgid_translator, layer};
+            Impl etadder{entities, adder};
+            (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, map_offset_},
+                       callbacks.platform());
+        });
+        entities.back().add
+            <TriangleLinks, Grid<View<TriangleLinks::const_iterator>>>
+            () = std::move(triangles_and_grid);
+        for (auto & ent : entities)
+            callbacks.add(ent);
+        using GridOfViews = MapLinkContainer::GridOfViews;
+        target_container.emplace_segment
+            (MapSegment{make_shared<TeardownTask>(std::move(entities)),
+                        MapLinkContainer{ entities.back().get<GridOfViews>() }});
+    });
+
+    next_state.set_next_state<Expired>();
+    return loader;
+}
