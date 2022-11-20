@@ -464,97 +464,116 @@ SharedPtr<LoaderTask> MapLoaderN::WaitingForTileSets::update_progress
     return nullptr;
 }
 
+class MapLoaderTask final : public LoaderTask {
+public:
+    MapLoaderTask
+        (Grid<int> && layer, GidTidTranslator && idtrans_,
+         MapSegmentContainer & segment_container, const Vector2I & offset):
+        m_layer(std::move(layer)),
+        m_idtranslator(std::move(idtrans_)),
+        m_segment_container(segment_container),
+        m_offset(offset)
+    {}
+
+    void operator () (Callbacks &) const final;
+
+private:
+    Grid<int> m_layer;
+    GidTidTranslator m_idtranslator;
+    MapSegmentContainer & m_segment_container;
+    Vector2I m_offset;
+};
+
+void MapLoaderTask::operator () (Callbacks & callbacks) const {
+    std::vector<Entity> entities;
+    auto triangles_and_grid =
+        add_triangles_and_link_(m_layer.width(), m_layer.height(),
+        [&] (Vector2I r, TriangleAdder & adder)
+    {
+        auto gid = m_layer(r);
+        if (gid == 0) return;
+        auto [tid, tileset] = m_idtranslator.gid_to_tid(m_layer(r));
+        auto * factory = (*tileset)(tid);
+        if (!factory) return;
+
+        class Impl final : public EntityAndTrianglesAdder {
+        public:
+            Impl(std::vector<Entity> & entities,
+                 TriangleAdder & triangles_):
+                m_tri_adder(triangles_), m_entities(entities) {}
+
+            void add_triangle(const TriangleSegment & triangle) final
+                { m_tri_adder( triangle ); }
+
+            void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
+
+        private:
+            TriangleAdder & m_tri_adder;
+            std::vector<Entity> & m_entities;
+        };
+
+        class GridIntfImpl final : public SlopesGridInterface {
+        public:
+            GridIntfImpl(const GidTidTranslator & translator, const Grid<int> & grid):
+                m_translator(translator), m_grid(grid) {}
+
+            Slopes operator () (Vector2I r) const {
+                static const Slopes k_all_inf{k_inf, k_inf, k_inf, k_inf};
+                if (!m_grid.has_position(r)) return k_all_inf;
+                auto [tid, tileset] = m_translator.gid_to_tid(m_grid(r));
+                auto factory = (*tileset)(tid);
+                if (!factory) return k_all_inf;
+                return factory->tile_elevations();
+            }
+
+        private:
+            const GidTidTranslator & m_translator;
+            const Grid<int> & m_grid;
+        };
+
+        GridIntfImpl gridintf{m_idtranslator, m_layer};
+        Impl etadder{entities, adder};
+        (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, m_offset},
+                   callbacks.platform());
+    });
+    for (auto & ent : entities)
+        callbacks.add(ent);
+    using GridOfViews = MapLinkContainer::GridOfViews;
+
+    m_segment_container.emplace_segment
+        (m_offset,
+         MapSegment{make_shared<MapLoaderN::TeardownTask>(std::move(entities)),
+                    MapLinkContainer{ std::get<GridOfViews>(triangles_and_grid) }});
+}
+
 SharedPtr<LoaderTask> MapLoaderN::Ready::update_progress
     (StateHolder & next_state)
 {
-    auto & layer_ = m_layer;
-    auto & tidgid_translator_ = m_tidgid_translator;
-    auto map_offset_ = map_offset();
-    auto & target_container = target();
-    auto loader = LoaderTask::make(
-        // everything captured must out live this
-        [layer = std::move(layer_),
-         tidgid_translator = std::move(tidgid_translator_),
-         map_offset_, &target_container]
-        (LoaderTask::Callbacks & callbacks)
-    {
-        std::vector<Entity> entities;
-        auto triangles_and_grid =
-            add_triangles_and_link_(layer.width(), layer.height(),
-            [&] (Vector2I r, TriangleAdder & adder)
-        {
-            auto gid = layer(r);
-            if (gid == 0) return;
-            auto [tid, tileset] = tidgid_translator.gid_to_tid(layer(r));
-            auto * factory = (*tileset)(tid);
-            if (!factory) return;
-
-            class Impl final : public EntityAndTrianglesAdder {
-            public:
-                Impl(std::vector<Entity> & entities,
-                     TriangleAdder & triangles_):
-                    m_tri_adder(triangles_), m_entities(entities) {}
-
-                void add_triangle(const TriangleSegment & triangle) final
-                    { m_tri_adder( triangle ); }
-
-                void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
-
-            private:
-                TriangleAdder & m_tri_adder;
-                std::vector<Entity> & m_entities;
-            };
-
-            class GridIntfImpl final : public SlopesGridInterface {
-            public:
-                GridIntfImpl(const GidTidTranslator & translator, const Grid<int> & grid):
-                    m_translator(translator), m_grid(grid) {}
-
-                Slopes operator () (Vector2I r) const {
-                    static const Slopes k_all_inf{k_inf, k_inf, k_inf, k_inf};
-                    if (!m_grid.has_position(r)) return k_all_inf;
-                    auto [tid, tileset] = m_translator.gid_to_tid(m_grid(r));
-                    auto factory = (*tileset)(tid);
-                    if (!factory) return k_all_inf;
-                    return factory->tile_elevations();
-                }
-
-            private:
-                const GidTidTranslator & m_translator;
-                const Grid<int> & m_grid;
-            };
-
-            GridIntfImpl gridintf{tidgid_translator, layer};
-            Impl etadder{entities, adder};
-            (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, map_offset_},
-                       callbacks.platform());
-        });
-        for (auto & ent : entities)
-            callbacks.add(ent);
-        using GridOfViews = MapLinkContainer::GridOfViews;
-        target_container.emplace_segment
-            (map_offset_,
-             MapSegment{make_shared<TeardownTask>(std::move(entities)),
-                        MapLinkContainer{ std::get<GridOfViews>(triangles_and_grid) }});
-    });
+    auto loader = make_shared<MapLoaderTask>
+        (std::move(m_layer), std::move(m_tidgid_translator),
+         target(), map_offset());
 
     next_state.set_next_state<Expired>();
     return loader;
 }
 
 void MapSegmentContainer::add_all_triangles(point_and_plane::Driver & ppdriver) {
+    glue_together_new_segments();
     ppdriver.clear_all_triangles();
     for (auto & pair : m_segments) {
         for (auto & link : pair.second) {
             ppdriver.add_triangle(link);
         }
     }
+
+    m_has_changed = false;
 }
 
 void MapLoadingDirector::on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent) {
     for (auto & loader : m_active_loaders) {
         auto loader_task = loader.update_progress();
         if (loader_task) {
+            Entity{physics_ent}.ensure<Velocity>();
             callbacks.add(loader_task);
         }
         // remove map loader somehow
@@ -569,5 +588,15 @@ void MapLoadingDirector::on_every_frame(TaskCallbacks & callbacks, const Entity 
     if (m_segment_container.has_changed()) {
         // do ppdriver things
         m_segment_container.add_all_triangles(*m_ppdriver);
+    }
+}
+
+/* private static */ void PlayerUpdateTask::check_fall_below(Entity & ent) {
+    auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
+    if (!ppair) return;
+    auto & loc = ppair->location;
+    if (loc.y < -10) {
+        loc = Vector{loc.x, 4, loc.z};
+        ent.get<Velocity>() = Velocity{};
     }
 }

@@ -350,6 +350,7 @@ public:
         StateHolder next;
         auto rv = m_state->update_progress(next);
         // probably should write to allow as many updates as possible per call
+        int should_write_to_allow_many_updates_per_call;
         next.move_if_state(m_state, m_state_space);
 
         return rv;
@@ -426,9 +427,11 @@ public:
         m_links(std::move(link_container)) {}
 
     void glue_to(MapSegment & other_segment) {
+#       if 0
         for (auto itr = m_links.edge_begin(); itr != m_links.edge_end(); ++itr) {
 
         }
+#       endif
     }
 
     void trigger_teardown(TaskCallbacks & callbacks) {
@@ -464,6 +467,7 @@ public:
         using namespace cul::exceptions_abbr;
         auto pair = m_segments.insert({ r, segment });
         if (pair.second) {
+            m_has_changed = true;
             m_unglued_segments.push_back(r);
             return;
         }
@@ -473,21 +477,6 @@ public:
     }
 
     bool has_changed() const { return m_has_changed; }
-
-    void glue_together_new_segments() {
-        for (auto r : m_unglued_segments) {
-            auto itr = m_segments.find(r);
-            assert(itr != m_segments.end());
-            for (auto offset : k_neighbor_offsets) {
-                auto jtr = m_segments.find(r + offset);
-                if (jtr == m_segments.end()) continue;
-                itr->second.glue_to(jtr->second);
-            }
-        }
-
-        m_unglued_segments.clear();
-        m_has_changed = false;
-    }
 
     void add_all_triangles(point_and_plane::Driver &);
 
@@ -527,6 +516,20 @@ private:
         throw RtError{"MapSegmentContainer: chunk width and height must be positive integers"};
     }
 
+    void glue_together_new_segments() {
+        for (auto r : m_unglued_segments) {
+            auto itr = m_segments.find(r);
+            assert(itr != m_segments.end());
+            for (auto offset : k_neighbor_offsets) {
+                auto jtr = m_segments.find(r + offset);
+                if (jtr == m_segments.end()) continue;
+                itr->second.glue_to(jtr->second);
+            }
+        }
+
+        m_unglued_segments.clear();
+    }
+
     std::unordered_map<Vector2I, MapSegment, Vector2IHasher> m_segments;
     Size2I m_chunk_size;
     bool m_has_changed = false;
@@ -543,12 +546,12 @@ public:
     using Rectangle = cul::Rectangle<int>;
     using PpDriver = point_and_plane::Driver;
 
-    MapLoadingDirector
-        (const char * initial_map, PpDriver * ppdriver, Platform & platform,
-         Size2I chunk_size):
+    MapLoadingDirector(PpDriver * ppdriver, Size2I chunk_size):
         m_ppdriver(ppdriver),
         m_chunk_size(chunk_size)
-    {
+    {}
+
+    void load_map(const char * initial_map, Platform & platform) {
         m_active_loaders.emplace_back
             (platform, m_segment_container, initial_map, Vector2I{}, Rectangle{});
     }
@@ -566,17 +569,28 @@ private:
 class PlayerUpdateTask final : public EveryFrameTask {
 public:
     PlayerUpdateTask
-        (MapLoadingDirector && map_director, const EntityRef & physics_ent);
+        (MapLoadingDirector && map_director, const EntityRef & physics_ent):
+        m_map_director(std::move(map_director)),
+        m_physics_ent(physics_ent)
+    {}
+
+    void load_initial_map(const char * initial_map, Platform & platform) {
+        m_map_director.load_map(initial_map, platform);
+    }
 
     void on_every_frame(Callbacks & callbacks, Real) final {
         using namespace cul::exceptions_abbr;
         if (!m_physics_ent) {
             throw RtError{"Player entity deleted before its update task"};
         }
-        m_map_director.on_every_frame(callbacks, Entity{m_physics_ent});
+        Entity physics_ent{m_physics_ent};
+        m_map_director.on_every_frame(callbacks, physics_ent);
+        check_fall_below(physics_ent);
     }
 
 private:
+    static void check_fall_below(Entity & ent);
+
     MapLoadingDirector m_map_director;
     // | extremely important that the task is *not* owning
     // v the reason entity refs exists

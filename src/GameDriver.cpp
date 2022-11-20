@@ -266,10 +266,10 @@ Entity make_sample_loop
     return rv;
 }
 
-static constexpr const Vector k_player_start{2, 5.1, 2};
+static constexpr const Vector k_player_start{2, 5.1, -2};
 
 // model entity, physical entity
-Tuple<Entity, Entity> make_sample_player(Platform & platform) {
+Tuple<Entity, Entity> make_sample_player(Platform & platform, point_and_plane::Driver & ppdriver) {
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
         constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
@@ -335,12 +335,14 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     // So not subjecting to testing.
     {
 
+
+
+    static constexpr const auto k_testmap_filename = "demo-map.tmx";
+#   if 0
     using TeardownTask = MapLoader::TeardownTask;
     std::map<std::string, MapLoader> map_loaders;
     using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
     std::vector<MpTuple> loaded_maps;
-
-    static constexpr const auto k_testmap_filename = "demo-map.tmx";
     static constexpr const auto k_load_limit = 3;
 
     static auto check_fall_below = [](Entity & ent) {
@@ -398,6 +400,15 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
         }
         loaded_maps.erase(loaded_maps.begin(), loaded_maps.begin() + n_too_many);
     });
+#   else
+    auto player_update_task = make_shared<PlayerUpdateTask>
+        (MapLoadingDirector{&ppdriver, cul::Size2<int>{20, 20}},
+         EntityRef{physics_ent});
+    player_update_task->load_initial_map(k_testmap_filename, platform);
+    physics_ent.add<SharedPtr<EveryFrameTask>>() = player_update_task;
+#   endif
+
+
     }
 
     return make_tuple(model_ent, physics_ent);
@@ -418,7 +429,7 @@ void GameDriverComplete::release_key(KeyControl ky) {
 }
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
-    auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
+    auto [renderable, physical] = make_sample_player(callbacks.platform(), ppdriver()); {}
     callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.set_player_entities(PlayerEntities{physical, renderable});
     callbacks.add(physical);

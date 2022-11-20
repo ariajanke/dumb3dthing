@@ -67,10 +67,10 @@ public:
 
     Slopes operator () (Vector2I r) const final {
         if (!m_grid.has_position(r))
-            return Slopes{0, k_inf, k_inf, k_inf, k_inf};
+            return Slopes{k_inf, k_inf, k_inf, k_inf};
         auto factory = m_tileset(m_grid(r));
         if (!factory)
-            return Slopes{0, k_inf, k_inf, k_inf, k_inf};
+            return Slopes{k_inf, k_inf, k_inf, k_inf};
         return factory->tile_elevations();
     }
 

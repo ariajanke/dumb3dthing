@@ -21,6 +21,7 @@
 #include "test-functions.hpp"
 #include "../../map-loader/map-loader.hpp"
 #include "../../map-loader/tiled-map-loader.hpp"
+#include "../../PointAndPlaneDriver.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -62,117 +63,10 @@ public:
 
 bool run_tiled_map_loader_tests();
 
-bool any_point_arrangement_of
-    (const Triangle & tri, const std::array<Vector, 3> & pts)
-{
-    using std::any_of;
-    auto make_pred = [] (const Vector & tri_pt) {
-        return [tri_pt](const Vector & r)
-            { return are_very_close(tri_pt, r); };
-    };
-    return    any_of(pts.begin(), pts.end(), make_pred(tri.point_a()))
-           && any_of(pts.begin(), pts.end(), make_pred(tri.point_b()))
-           && any_of(pts.begin(), pts.end(), make_pred(tri.point_c()));
-}
-
 } // end of <anonymous> namespace
 
 bool run_map_loader_tests() {
-    // test movements in each cardinal direction
-    using namespace cul::ts;
-    TestSuite suite;
-    suite.start_series("Map Loader");
-    static auto load_test_layout = [] {
-        static constexpr auto k_layout =
-            "xxx\n"
-            "xx \n"
-            "x  \n";
-        TestLoaderTaskCallbacks impl;
-        TileGraphicGenerator tgg{impl};
-        tgg.setup();
-        // triangles aren't getting linked up :c
-        auto grid = load_map_cell(k_layout, CharToCell::default_instance());
-        return load_map_graphics(tgg, grid);
-    };
-
-    using std::any_of, std::get;
-    static auto make_driver_for_test_layout = [] {
-        auto links = load_test_layout();
-        for (const auto & link : links) {
-            std::cout << link->sides_attached_count() << ", ";
-        }
-        std::cout << std::endl;
-        auto ppdriver = point_and_plane::Driver::make_driver();
-        ppdriver->add_triangles(links);
-        ppdriver->update();
-        return ppdriver;
-    };
-
-    static auto run_intersegment_transfer = []
-        (point_and_plane::Driver & driver, const Vector & start, const Vector & displacement)
-    {
-        PpState state = PpInAir{start + Vector{0, 0.1, 0}, Vector{0, -0.2, 0}};
-        auto thandler = point_and_plane::EventHandler::make_test_handler();
-        state = driver(state, *thandler);
-
-        auto & tri = *get<PpOnSegment>(state).segment;
-        get<PpOnSegment>(state).displacement =
-            tri.closest_point(displacement + start) - tri.closest_point(start);
-
-        return driver(state, *thandler);
-    };
-
-    // triangle locations sanity
-    mark(suite).test([] {
-        auto links = load_test_layout();
-        return test(any_of(links.begin(), links.end(), [](const SharedPtr<TriangleLink> & link) {
-            const auto & tri = link->segment();
-            auto pt_list = { tri.point_a(), tri.point_b(), tri.point_c() };
-            return any_of(pt_list.begin(), pt_list.end(), [](Vector r)
-                { return are_very_close(r.x, 2.5) && are_very_close(r.z, -2.5); });
-        }));
-    });
-
-    mark(suite).test([] {
-        auto ppdriver = make_driver_for_test_layout();
-        PpState state = PpInAir{ Vector{2, 0.1, -1.9}, Vector{ 0, -0.2, 0 } };
-        auto thandler = point_and_plane::EventHandler::make_test_handler();
-        state = (*ppdriver)(state, *thandler);
-        return test(get_if<PpOnSegment>(&state));
-    });
-    // can cross eastbound
-    mark(suite).test([] {
-        constexpr const Vector k_start{1.4, 0, -2};
-        constexpr const Vector k_displacement{0.2, 0, 0};
-        constexpr const std::array k_expect_triangle =
-            { Vector{1.5, 0, -2.5}, Vector{1.5, 0, -1.5}, Vector{2.5, 0, -2.5} };
-
-        auto ppdriver = make_driver_for_test_layout();
-        auto state = run_intersegment_transfer(*ppdriver, k_start, k_displacement);
-
-        auto & res_tri = *get<PpOnSegment>(state).segment;
-        return test(any_point_arrangement_of(res_tri, k_expect_triangle));
-    });
-    // can cross westbound
-    mark(suite).test([] {
-        constexpr const Vector k_start{1.6, 0, -2};
-        constexpr const Vector k_displacement{-0.2, 0, 0};
-        constexpr const std::array k_expect_triangle =
-            { Vector{1.5, 0, -2.5}, Vector{1.5, 0, -1.5}, Vector{0.5, 0, -1.5} };
-
-        auto ppdriver = make_driver_for_test_layout();
-        auto state = run_intersegment_transfer(*ppdriver, k_start, k_displacement);
-
-        return test(any_point_arrangement_of(
-            *get<PpOnSegment>(state).segment, k_expect_triangle));
-    });
-    bool only_successes = suite.has_successes_only();
-    suite.finish_up();
-
-    // both must be done, no short circutting please!
-    return static_cast<bool>(
-          static_cast<std::byte>(only_successes)
-        & static_cast<std::byte>(run_tiled_map_loader_tests()));
+    return run_tiled_map_loader_tests();
 }
 
 namespace {
@@ -236,7 +130,7 @@ bool run_tiled_map_loader_tests() {
     using namespace cul::ts;
     using MapLinks = MapEdgeLinks::MapLinks;
     using TileRange = MapEdgeLinks::TileRange;
-    using Triangle = TriangleSegment;
+
     TestSuite suite;
     suite.start_series("Tiled Map Loader");
     // for these test cases, I'm going to do something wild:
