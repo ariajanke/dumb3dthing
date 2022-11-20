@@ -369,24 +369,168 @@ public:
     using Iterator = std::vector<SharedPtr<TriangleLink>>::iterator;
     using GridOfViews = Grid<View<TriangleLinks::const_iterator>>;
 
-    explicit MapLinkContainer(const GridOfViews &) {}
+    static constexpr const std::array k_neighbor_offsets = {
+        Vector2I{ 1, 0}, Vector2I{0,  1},
+        Vector2I{-1, 0}, Vector2I{0, -1},
+    };
+
+    explicit MapLinkContainer(const GridOfViews & views) {
+        append_links_by_predicate<is_not_edge_tile>(views, m_links);
+        auto idx_for_edge = m_links.size();
+        append_links_by_predicate<is_edge_tile>(views, m_links);
+        m_edge_begin = m_links.begin() + idx_for_edge;
+    }
+
+    Iterator edge_begin() { return m_edge_begin; }
+
+    Iterator edge_end() { return m_links.end(); }
+
+    Iterator all_begin() { return m_links.begin(); }
+
+    Iterator all_end() { return m_links.end(); }
+
+private:
+    static bool is_edge_tile(const GridOfViews & grid, const Vector2I & r) {
+        return std::any_of
+            (k_neighbor_offsets.begin(), k_neighbor_offsets.end(),
+             [&] (const Vector2I & offset)
+             { return !grid.has_position(offset + r); });
+    }
+
+    static bool is_not_edge_tile(const GridOfViews & grid, const Vector2I & r)
+        { return !is_edge_tile(grid, r); }
+
+    template <bool (*meets_pred)(const GridOfViews &, const Vector2I &)>
+    static void append_links_by_predicate
+        (const GridOfViews & views, std::vector<SharedPtr<TriangleLink>> & links)
+    {
+        for (Vector2I r; r != views.end_position(); r = views.next(r)) {
+            if (!meets_pred(views, r)) continue;
+            for (auto & link : views(r)) {
+                links.push_back(link);
+            }
+        }
+    }
+
+    std::vector<SharedPtr<TriangleLink>> m_links;
+    Iterator m_edge_begin;
 };
 
 class MapSegment final {
 public:
     using TeardownTask = MapLoaderN::TeardownTask;
 
-    MapSegment(const SharedPtr<TeardownTask> &, MapLinkContainer &&) {}
+    MapSegment
+        (const SharedPtr<TeardownTask> & teardown, MapLinkContainer && link_container):
+        m_teardown(teardown),
+        m_links(std::move(link_container)) {}
 
-    void glue_to(MapSegment &);
+    void glue_to(MapSegment & other_segment) {
+        for (auto itr = m_links.edge_begin(); itr != m_links.edge_end(); ++itr) {
 
-    void trigger_teardown(TaskCallbacks &);
+        }
+    }
+
+    void trigger_teardown(TaskCallbacks & callbacks) {
+        callbacks.add(m_teardown);
+        m_teardown = nullptr; // <- prevent accidental dbl sending
+    }
+
+    auto begin() { return m_links.all_begin(); }
+
+    auto end() { return m_links.all_end(); }
+
+private:
+    SharedPtr<TeardownTask> m_teardown;
+    MapLinkContainer m_links;
 };
+
+namespace point_and_plane {
+    class Driver;
+} // end of point_and_plane namespace
 
 // target object
 class MapSegmentContainer final {
 public:
-    void emplace_segment(MapSegment &&) {}
+    using Size2I = cul::Size2<int>;
+    using Rectangle = cul::Rectangle<int>;
+
+    MapSegmentContainer() {}
+
+    void set_chunk_size(const Size2I & chunk_size)
+        { m_chunk_size = chunk_size; }
+
+    void emplace_segment(const Vector2I & r, MapSegment && segment) {
+        using namespace cul::exceptions_abbr;
+        auto pair = m_segments.insert({ r, segment });
+        if (pair.second) {
+            m_unglued_segments.push_back(r);
+            return;
+        }
+        throw InvArg{"MapSegmentContainer::emplace_segment: conflict map "
+                     "segments at location: " + std::to_string(r.x) +
+                     ", " + std::to_string(r.y)};
+    }
+
+    bool has_changed() const { return m_has_changed; }
+
+    void glue_together_new_segments() {
+        for (auto r : m_unglued_segments) {
+            auto itr = m_segments.find(r);
+            assert(itr != m_segments.end());
+            for (auto offset : k_neighbor_offsets) {
+                auto jtr = m_segments.find(r + offset);
+                if (jtr == m_segments.end()) continue;
+                itr->second.glue_to(jtr->second);
+            }
+        }
+
+        m_unglued_segments.clear();
+        m_has_changed = false;
+    }
+
+    void add_all_triangles(point_and_plane::Driver &);
+
+    template <typename RemovePred>
+    void remove_segments_if(TaskCallbacks & callbacks, RemovePred && pred) {
+        for (auto itr = m_segments.begin(); itr != m_segments.end(); ) {
+            auto & [location, segment] = *itr;
+            const auto & csegment = segment;
+            if (!pred(csegment, Rectangle{location, m_chunk_size})) {
+                ++itr;
+                continue;
+            }
+            segment.trigger_teardown(callbacks);
+            m_has_changed = true;
+            itr = m_segments.erase(itr);
+        }
+    }
+
+    // at some point, I'm going to have to handle new segment triangles and
+    // push them to the pp driver
+    //
+    // I may have to take them *all* out, and then add them back in (yuck)
+
+private:
+    struct Vector2IHasher final {
+        std::size_t operator () (const Vector2I & r) const {
+            using IntHash = std::hash<int>;
+            return IntHash{}(r.x) ^ IntHash{}(r.y);
+        }
+    };
+    static constexpr const auto k_neighbor_offsets =
+        MapLinkContainer::k_neighbor_offsets;
+
+    void verify_chunk_size_set() const {
+        using namespace cul::exceptions_abbr;
+        if (m_chunk_size.width > 0 && m_chunk_size.height > 0) return;
+        throw RtError{"MapSegmentContainer: chunk width and height must be positive integers"};
+    }
+
+    std::unordered_map<Vector2I, MapSegment, Vector2IHasher> m_segments;
+    Size2I m_chunk_size;
+    bool m_has_changed = false;
+    std::vector<Vector2I> m_unglued_segments;
 };
 
 /** @brief The MapLoadingDirector is responsible for loading map segments.
@@ -397,25 +541,23 @@ class MapLoadingDirector final {
 public:
     using Size2I = cul::Size2<int>;
     using Rectangle = cul::Rectangle<int>;
+    using PpDriver = point_and_plane::Driver;
 
-    MapLoadingDirector(const char * initial_map, Platform & platform, Size2I chunk_size):
+    MapLoadingDirector
+        (const char * initial_map, PpDriver * ppdriver, Platform & platform,
+         Size2I chunk_size):
+        m_ppdriver(ppdriver),
         m_chunk_size(chunk_size)
     {
         m_active_loaders.emplace_back
             (platform, m_segment_container, initial_map, Vector2I{}, Rectangle{});
     }
 
-    void on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent) {
-        for (auto & loader : m_active_loaders) {
-            auto loader_task = loader.update_progress();
-            if (loader_task) {
-                callbacks.add(loader_task);
-            }
-            // remove map loader somehow
-        }
-    }
+    void on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent);
 
 private:
+    // there's only one per game and it never changes
+    PpDriver * m_ppdriver = nullptr;
     Size2I m_chunk_size;
     MapSegmentContainer m_segment_container;
     std::vector<MapLoaderN> m_active_loaders;
@@ -424,9 +566,13 @@ private:
 class PlayerUpdateTask final : public EveryFrameTask {
 public:
     PlayerUpdateTask
-        (MapLoadingDirector && map_director, Platform & platform, const EntityRef & physics_ent);
+        (MapLoadingDirector && map_director, const EntityRef & physics_ent);
 
     void on_every_frame(Callbacks & callbacks, Real) final {
+        using namespace cul::exceptions_abbr;
+        if (!m_physics_ent) {
+            throw RtError{"Player entity deleted before its update task"};
+        }
         m_map_director.on_every_frame(callbacks, Entity{m_physics_ent});
     }
 

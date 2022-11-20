@@ -25,6 +25,7 @@
 #include "../Texture.hpp"
 #include "TileSet.hpp"
 #include "TileFactory.hpp"
+#include "../PointAndPlaneDriver.hpp"
 
 #include <ariajanke/cul/StringUtil.hpp>
 
@@ -528,17 +529,45 @@ SharedPtr<LoaderTask> MapLoaderN::Ready::update_progress
             (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, map_offset_},
                        callbacks.platform());
         });
-        entities.back().add
-            <TriangleLinks, Grid<View<TriangleLinks::const_iterator>>>
-            () = std::move(triangles_and_grid);
         for (auto & ent : entities)
             callbacks.add(ent);
         using GridOfViews = MapLinkContainer::GridOfViews;
         target_container.emplace_segment
-            (MapSegment{make_shared<TeardownTask>(std::move(entities)),
-                        MapLinkContainer{ entities.back().get<GridOfViews>() }});
+            (map_offset_,
+             MapSegment{make_shared<TeardownTask>(std::move(entities)),
+                        MapLinkContainer{ std::get<GridOfViews>(triangles_and_grid) }});
     });
 
     next_state.set_next_state<Expired>();
     return loader;
+}
+
+void MapSegmentContainer::add_all_triangles(point_and_plane::Driver & ppdriver) {
+    ppdriver.clear_all_triangles();
+    for (auto & pair : m_segments) {
+        for (auto & link : pair.second) {
+            ppdriver.add_triangle(link);
+        }
+    }
+}
+
+void MapLoadingDirector::on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent) {
+    for (auto & loader : m_active_loaders) {
+        auto loader_task = loader.update_progress();
+        if (loader_task) {
+            callbacks.add(loader_task);
+        }
+        // remove map loader somehow
+    }
+    // have to update segment container somehow
+    auto is_removable_segment =
+        [&physics_ent](const MapSegment &, const Rectangle &)
+    {
+        return false;
+    };
+    m_segment_container.remove_segments_if(callbacks, is_removable_segment);
+    if (m_segment_container.has_changed()) {
+        // do ppdriver things
+        m_segment_container.add_all_triangles(*m_ppdriver);
+    }
 }
