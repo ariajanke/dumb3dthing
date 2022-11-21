@@ -62,9 +62,9 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
         (LoaderTask::Callbacks & callbacks)
     {
         std::vector<Entity> entities;
-        auto triangles_and_grid =
-            add_triangles_and_link_(m_layer.width(), m_layer.height(),
-            [&] (Vector2I r, TriangleAdder & adder)
+        auto triangles_and_grid = add_triangles_and_link
+            (cul::Rectangle{0, 0, m_layer.width(), m_layer.height()},
+             [&] (Vector2I r, TriangleAdder & adder)
         {
             auto gid = m_layer(r);
             if (gid == 0) return;
@@ -466,13 +466,16 @@ SharedPtr<LoaderTask> MapLoaderN::WaitingForTileSets::update_progress
 
 class MapLoaderTask final : public LoaderTask {
 public:
+    using Rectangle = MapLoaderN::Rectangle;
     MapLoaderTask
         (Grid<int> && layer, GidTidTranslator && idtrans_,
-         MapSegmentContainer & segment_container, const Vector2I & offset):
+         MapSegmentContainer & segment_container, const Vector2I & offset,
+         const Rectangle & target_range):
         m_layer(std::move(layer)),
         m_idtranslator(std::move(idtrans_)),
         m_segment_container(segment_container),
-        m_offset(offset)
+        m_offset(offset),
+        m_target_range(target_range)
     {}
 
     void operator () (Callbacks &) const final;
@@ -482,12 +485,13 @@ private:
     GidTidTranslator m_idtranslator;
     MapSegmentContainer & m_segment_container;
     Vector2I m_offset;
+    Rectangle m_target_range;
 };
 
 void MapLoaderTask::operator () (Callbacks & callbacks) const {
     std::vector<Entity> entities;
     auto triangles_and_grid =
-        add_triangles_and_link_(m_layer.width(), m_layer.height(),
+        add_triangles_and_link(m_target_range,
         [&] (Vector2I r, TriangleAdder & adder)
     {
         auto gid = m_layer(r);
@@ -540,6 +544,7 @@ void MapLoaderTask::operator () (Callbacks & callbacks) const {
         callbacks.add(ent);
     using GridOfViews = MapLinkContainer::GridOfViews;
 
+
     m_segment_container.emplace_segment
         (m_offset,
          MapSegment{make_shared<MapLoaderN::TeardownTask>(std::move(entities)),
@@ -551,7 +556,7 @@ SharedPtr<LoaderTask> MapLoaderN::Ready::update_progress
 {
     auto loader = make_shared<MapLoaderTask>
         (std::move(m_layer), std::move(m_tidgid_translator),
-         target(), map_offset());
+         target(), map_offset(), target_tile_range());
 
     next_state.set_next_state<Expired>();
     return loader;
@@ -569,7 +574,9 @@ void MapSegmentContainer::add_all_triangles(point_and_plane::Driver & ppdriver) 
     m_has_changed = false;
 }
 
-void MapLoadingDirector::on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent) {
+void MapLoadingDirector::on_every_frame
+    (TaskCallbacks & callbacks, const Entity & physics_ent)
+{
     for (auto & loader : m_active_loaders) {
         auto loader_task = loader.update_progress();
         if (loader_task) {
@@ -578,6 +585,10 @@ void MapLoadingDirector::on_every_frame(TaskCallbacks & callbacks, const Entity 
         }
         // remove map loader somehow
     }
+    m_active_loaders.erase
+        (std::remove_if(m_active_loaders.begin(), m_active_loaders.end(),
+                        [](const MapLoaderN & loader) { return loader.is_expired(); }),
+         m_active_loaders.end());
     // have to update segment container somehow
     auto is_removable_segment =
         [&physics_ent](const MapSegment &, const Rectangle &)
@@ -590,6 +601,10 @@ void MapLoadingDirector::on_every_frame(TaskCallbacks & callbacks, const Entity 
         m_segment_container.add_all_triangles(*m_ppdriver);
     }
 }
+
+/* private */ void MapLoadingDirector::check_for_other_map_segments
+    (TaskCallbacks & callbacks, const Entity & physics_ent)
+{}
 
 /* private static */ void PlayerUpdateTask::check_fall_below(Entity & ent) {
     auto * ppair = get_if<PpInAir>(&ent.get<PpState>());

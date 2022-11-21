@@ -402,7 +402,7 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform, point_and_plane::D
     });
 #   else
     auto player_update_task = make_shared<PlayerUpdateTask>
-        (MapLoadingDirector{&ppdriver, cul::Size2<int>{20, 20}},
+        (MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
          EntityRef{physics_ent});
     player_update_task->load_initial_map(k_testmap_filename, platform);
     physics_ent.add<SharedPtr<EveryFrameTask>>() = player_update_task;

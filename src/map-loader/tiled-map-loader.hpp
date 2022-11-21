@@ -199,16 +199,6 @@ public:
 
     class State {
     public:
-        State() {}
-
-        State
-            (Platform & platform, MapSegmentContainer & target_container,
-             const Vector2I & offset, const Rectangle & tiles_to_load):
-            m_platform(&platform),
-            m_target_container(&target_container),
-            m_offset(offset),
-            m_tiles_to_load(tiles_to_load) {}
-
         virtual ~State() {}
 
         virtual SharedPtr<LoaderTask> update_progress(StateHolder &)
@@ -228,6 +218,16 @@ public:
             std::vector<SharedPtr<TileSet>> tilesets;
             std::vector<Tuple<std::size_t, FutureStringPtr>> pending_tilesets;
         };
+
+        State() {}
+
+        State
+            (Platform & platform, MapSegmentContainer & target_container,
+             const Vector2I & offset, const Rectangle & tiles_to_load):
+            m_platform(&platform),
+            m_target_container(&target_container),
+            m_offset(offset),
+            m_tiles_to_load(tiles_to_load) {}
 
         Platform & platform() const {
             verify_shared_set();
@@ -325,8 +325,14 @@ public:
             return std::get<NextState>(m_space);
         }
 
-        void move_if_state(State *& state_ptr, StateSpace & space) {
-            if (!m_get_state) return;
+        bool has_next_state() const noexcept
+            { return m_get_state; }
+
+        void move_state(State *& state_ptr, StateSpace & space) {
+            using namespace cul::exceptions_abbr;
+            if (!m_get_state) {
+                throw RtError{"No state to move"};
+            }
 
             space = std::move(m_space);
             state_ptr = m_get_state(space);
@@ -348,11 +354,14 @@ public:
 
     SharedPtr<LoaderTask> update_progress() {
         StateHolder next;
-        auto rv = m_state->update_progress(next);
-        // probably should write to allow as many updates as possible per call
-        int should_write_to_allow_many_updates_per_call;
-        next.move_if_state(m_state, m_state_space);
+        SharedPtr<LoaderTask> rv;
+        while (true) {
+            rv = m_state->update_progress(next);
+            if (!next.has_next_state()) break;
 
+            next.move_state(m_state, m_state_space);
+            if (rv) break;
+        }
         return rv;
     }
 
@@ -553,12 +562,16 @@ public:
 
     void load_map(const char * initial_map, Platform & platform) {
         m_active_loaders.emplace_back
-            (platform, m_segment_container, initial_map, Vector2I{}, Rectangle{});
+            (platform, m_segment_container, initial_map, Vector2I{},
+             Rectangle{Vector2I{2, 2}, m_chunk_size});
     }
 
     void on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent);
 
 private:
+    void check_for_other_map_segments
+        (TaskCallbacks & callbacks, const Entity & physics_ent);
+
     // there's only one per game and it never changes
     PpDriver * m_ppdriver = nullptr;
     Size2I m_chunk_size;
