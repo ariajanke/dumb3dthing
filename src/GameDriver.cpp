@@ -101,15 +101,30 @@ void Driver::update(Real seconds, Platform & callbacks) {
     for (auto & task : m_every_frame_tasks) {
         task->on_every_frame(callbacks_, seconds);
     }
+#   if 0
     for (auto & task : m_occasional_tasks) {
         // v same bug?
         m_scene.update_entities();
         task->on_occasion(callbacks_);
     }
+#   endif
     for (auto & task : m_loader_tasks) {
         (*task)(callbacks_);
     }
+
+    for (auto & task : m_background_tasks) {
+        // v same bug?
+        m_scene.update_entities();
+
+        if ((*task)(callbacks_) == BackgroundCompletion::finished)
+            task = nullptr;
+    }
+    m_background_tasks.erase
+        (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),
+         m_background_tasks.end());
+#   if 0
     m_occasional_tasks.clear();
+#   endif
     m_loader_tasks.clear();
 
     on_entities_changed(entities);
@@ -269,7 +284,7 @@ Entity make_sample_loop
 static constexpr const Vector k_player_start{2, 5.1, -2};
 
 // model entity, physical entity
-Tuple<Entity, Entity> make_sample_player(Platform & platform, point_and_plane::Driver & ppdriver) {
+Tuple<Entity, Entity> make_sample_player(TaskCallbacks & callbacks, point_and_plane::Driver & ppdriver) {
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
         constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
@@ -312,14 +327,14 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform, point_and_plane::D
         4, 6, 7, /**/ 4, 5, 6  // bottom faces
     };
 
-    auto model = platform.make_render_model();
+    auto model = callbacks.platform().make_render_model();
     model->load(&verticies.front(), &verticies.front() + verticies.size(),
                 &elements .front(), &elements .front() + elements.size());
 
     auto physics_ent = Entity::make_sceneless_entity();
-    auto model_ent   = platform.make_renderable_entity();
+    auto model_ent   = callbacks.platform().make_renderable_entity();
 
-    auto tx = platform.make_texture();
+    auto tx = callbacks.platform().make_texture();
     tx->load_from_file("ground.png");
     model_ent.add
         <SharedPtr<const Texture>, SharedPtr<const RenderModel>, Translation,
@@ -401,11 +416,15 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform, point_and_plane::D
         loaded_maps.erase(loaded_maps.begin(), loaded_maps.begin() + n_too_many);
     });
 #   else
+    PlayerUpdateTask
+        {MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
+         EntityRef{physics_ent}};
     auto player_update_task = make_shared<PlayerUpdateTask>
         (MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
          EntityRef{physics_ent});
-    player_update_task->load_initial_map(k_testmap_filename, platform);
-    physics_ent.add<SharedPtr<EveryFrameTask>>() = player_update_task;
+    player_update_task->load_initial_map(callbacks, k_testmap_filename, callbacks.platform());
+    SharedPtr<EveryFrameTask> & ptrref = physics_ent.add<SharedPtr<EveryFrameTask>>();
+    ptrref = SharedPtr<EveryFrameTask>{player_update_task};
 #   endif
 
 
@@ -429,7 +448,7 @@ void GameDriverComplete::release_key(KeyControl ky) {
 }
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
-    auto [renderable, physical] = make_sample_player(callbacks.platform(), ppdriver()); {}
+    auto [renderable, physical] = make_sample_player(callbacks, ppdriver()); {}
     callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.set_player_entities(PlayerEntities{physical, renderable});
     callbacks.add(physical);

@@ -64,25 +64,34 @@ protected:
             Impl(std::vector<Entity> & entities_,
                  PlayerEntities & player_entities_,
                  std::vector<EveryFrameTaskPtr> & every_frame_tasks_,
+#               if 0
                  std::vector<OccasionalTaskPtr> & occasional_tasks_,
+#               endif
                  std::vector<LoaderTaskPtr> & loader_tasks_,
+                 std::vector<SharedPtr<BackgroundTask>> & background_tasks_,
                  Platform & platform_):
                 m_entities(entities_),
                 m_player_entities(player_entities_),
                 m_every_frame_tasks(every_frame_tasks_),
+#               if 0
                 m_occasional_tasks(occasional_tasks_),
+#               endif
                 m_loader_tasks(loader_tasks_),
+                m_background_tasks(background_tasks_),
                 m_platform(platform_)
             {}
 
             void add(const SharedPtr<EveryFrameTask> & ptr) final
-                { m_every_frame_tasks.push_back(ptr); }
-
+                { if (ptr) m_every_frame_tasks.push_back(ptr); }
+#           if 0
             void add(const SharedPtr<OccasionalTask> & ptr) final
-                { m_occasional_tasks.push_back(ptr); }
-
+                { if (ptr) m_occasional_tasks.push_back(ptr); }
+#           endif
             void add(const SharedPtr<LoaderTask> & ptr) final
-                { m_loader_tasks.push_back(ptr); }
+                { if (ptr) m_loader_tasks.push_back(ptr); }
+
+            void add(const SharedPtr<BackgroundTask> & ptr) final
+                { if (ptr) m_background_tasks.push_back(ptr); }
 
             void add(const Entity & ent) final
                 { m_entities.push_back(ent); }
@@ -98,12 +107,19 @@ protected:
             std::vector<Entity> & m_entities;
             PlayerEntities & m_player_entities;
             std::vector<EveryFrameTaskPtr> & m_every_frame_tasks;
+#           if 0
             std::vector<OccasionalTaskPtr> & m_occasional_tasks;
+#           endif
             std::vector<LoaderTaskPtr> & m_loader_tasks;
+            std::vector<SharedPtr<BackgroundTask>> & m_background_tasks;
             Platform & m_platform;
         };
         return Impl{entities, m_player_entities, m_every_frame_tasks,
-                    m_occasional_tasks, m_loader_tasks, platform};
+#                   if 0
+                    m_occasional_tasks,
+#                   endif
+                    m_loader_tasks, m_background_tasks,
+                    platform};
     }
 
     // have to break design a little here for this iteration
@@ -126,8 +142,11 @@ private:
     Scene m_scene;
     PlayerEntities m_player_entities;
     std::vector<EveryFrameTaskPtr> m_every_frame_tasks;
+#   if 0
     std::vector<OccasionalTaskPtr> m_occasional_tasks;
+#   endif
     std::vector<LoaderTaskPtr> m_loader_tasks;
+    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
 };
 
 inline void Driver::setup(Platform & forloaders) {

@@ -102,6 +102,15 @@ Vector location_of(const State & state) {
     return on_surf.segment->point_at(on_surf.location);
 }
 
+Vector displaced_location_of(const State & state) {
+    if (auto * on_air = get_if<InAir>(&state)) {
+        return on_air->location + on_air->displacement;
+    }
+    auto & on_segment = std::get<OnSegment>(state);
+    return on_segment.segment->point_at(  on_segment.location
+                                        + on_segment.displacement);
+}
+
 /* static */ UniquePtr<EventHandler> EventHandler::make_test_handler() {
     class TestHandler final : public point_and_plane::EventHandler {
         Variant<Vector2, Vector>

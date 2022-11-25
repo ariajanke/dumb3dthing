@@ -65,6 +65,8 @@ class Platform {
 public:
     static Platform & null_callbacks();
 
+    static Platform & instance();
+
     virtual ~Platform();
 
     /** Renders an entire scene, all entities that you wish to render, will

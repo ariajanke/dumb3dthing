@@ -239,16 +239,19 @@ private:
 class EveryFrameTask;
 class OccasionalTask;
 class LoaderTask;
+class BackgroundTask;
 
 class TaskCallbacks {
 public:
     virtual ~TaskCallbacks() {}
 
     virtual void add(const SharedPtr<EveryFrameTask> &) = 0;
-
+#   if 0
     virtual void add(const SharedPtr<OccasionalTask> &) = 0;
-
+#   endif
     virtual void add(const SharedPtr<LoaderTask> &) = 0;
+
+    virtual void add(const SharedPtr<BackgroundTask> &) = 0;
 
     virtual void add(const Entity &) = 0;
 
@@ -272,11 +275,28 @@ public:
     static SharedPtr<EveryFrameTask> make(Func && f_);
 };
 
+
+enum class BackgroundCompletion {
+    finished, in_progress
+};
+
+class BackgroundTask {
+public:
+    using Callbacks = TaskCallbacks;
+
+    virtual ~BackgroundTask() {}
+
+    virtual BackgroundCompletion operator () (Callbacks &) = 0;
+
+    template <typename Func>
+    static SharedPtr<BackgroundTask> make(Func && f_);
+};
+
 // An occasional task, is called only once, before being removed by the
 // scheduler/driver. It should not be possible that driver/scheduler is the
 // sole owner, as the owning entity should survive until the end of the frame,
 // when usual frame clean up occurs.
-class OccasionalTask {
+class OccasionalTask : public BackgroundTask {
 public:
     using Callbacks = TaskCallbacks;
 
@@ -286,6 +306,12 @@ public:
 
     template <typename Func>
     static SharedPtr<OccasionalTask> make(Func && f_);
+
+private:
+    BackgroundCompletion operator () (Callbacks & callbacks) final {
+        on_occasion(callbacks);
+        return BackgroundCompletion::finished;
+    }
 };
 
 class LoaderTask {
@@ -355,6 +381,21 @@ template <typename Func>
 
         void on_occasion(Callbacks & callbacks) final
             { m_f(callbacks); }
+
+    private:
+        Func m_f;
+    };
+    return make_shared<Impl>(std::move(f_));
+}
+
+template <typename Func>
+/* static */ SharedPtr<BackgroundTask> BackgroundTask::make(Func && f_) {
+    class Impl final : public BackgroundTask {
+    public:
+        Impl(Func && f_): m_f(std::move(f_)) {}
+
+        BackgroundCompletion operator () (Callbacks & callbacks) final
+            { return m_f(callbacks); }
 
     private:
         Func m_f;

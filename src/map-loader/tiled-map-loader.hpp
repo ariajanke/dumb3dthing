@@ -26,6 +26,25 @@
 #include "ParseHelpers.hpp"
 
 #include <ariajanke/cul/StringUtil.hpp>
+#include <ariajanke/cul/SubGrid.hpp>
+
+#include <unordered_map>
+
+class TeardownTask final : public OccasionalTask {
+public:
+    TeardownTask() {}
+
+    explicit TeardownTask(std::vector<Entity> && entities):
+        m_entities(std::move(entities)) {}
+
+    void on_occasion(Callbacks &) final {
+        for (auto & ent : m_entities)
+            { ent.request_deletion(); }
+    }
+
+private:
+    std::vector<Entity> m_entities;
+};
 
 class MapEdgeLinks final {
 public:
@@ -101,6 +120,7 @@ private:
 
 class MapLoader final {
 public:
+#   if 0
     class TeardownTask final : public OccasionalTask {
     public:
         TeardownTask() {}
@@ -116,7 +136,7 @@ public:
     private:
         std::vector<Entity> m_entities;
     };
-
+#   endif
     explicit MapLoader(Platform & platform):
         m_platform(&platform) {}
 
@@ -175,25 +195,35 @@ inline MapEdgeLinks::TileRange operator + (Vector2I rhs, const MapEdgeLinks::Til
 
 class MapSegmentContainer;
 
-class MapLoaderN final {
+using TileFactorySubGrid = cul::ConstSubGrid<TileFactory *>;
+
+class TileFactoryGrid final {
 public:
     using Rectangle = cul::Rectangle<int>;
 
-    class TeardownTask final : public OccasionalTask {
-    public:
-        TeardownTask() {}
+    void load_layer(const Grid<int> & gids, const GidTidTranslator &);
 
-        explicit TeardownTask(std::vector<Entity> && entities):
-            m_entities(std::move(entities)) {}
+    auto height() const { return m_factories.height(); }
 
-        void on_occasion(Callbacks &) final {
-            for (auto & ent : m_entities)
-                { ent.request_deletion(); }
-        }
+    auto width() const { return m_factories.width(); }
 
-    private:
-        std::vector<Entity> m_entities;
-    };
+    auto is_empty() const { return m_factories.is_empty(); }
+
+    /** this object must live at least as long as the return value */
+    TileFactorySubGrid make_subgrid(const Rectangle & range) const {
+        return TileFactorySubGrid{m_factories, cul::top_left_of(range),
+                                  range.width, range.height};
+    }
+
+private:
+    std::vector<SharedPtr<const TileSet>> m_tilesets;
+    Grid<TileFactory *> m_factories;
+};
+
+/// loads a TiledMap asset file
+class TiledMapLoader final {
+public:
+    using Rectangle = cul::Rectangle<int>;
 
     class StateHolder;
 
@@ -201,12 +231,14 @@ public:
     public:
         virtual ~State() {}
 
-        virtual SharedPtr<LoaderTask> update_progress(StateHolder &)
-            { return nullptr; }
+        virtual TileFactoryGrid update_progress(StateHolder &)
+            { return TileFactoryGrid{}; }
 
         State & set_others_stuff(State & lhs) const {
             lhs.m_platform = m_platform;
+#           if 0
             lhs.m_target_container = m_target_container;
+#           endif
             lhs.m_offset = m_offset;
             lhs.m_tiles_to_load = m_tiles_to_load;
             return lhs;
@@ -222,10 +254,15 @@ public:
         State() {}
 
         State
-            (Platform & platform, MapSegmentContainer & target_container,
+            (Platform & platform,
+#           if 0
+             MapSegmentContainer & target_container,
+#           endif
              const Vector2I & offset, const Rectangle & tiles_to_load):
             m_platform(&platform),
+#           if 0
             m_target_container(&target_container),
+#           endif
             m_offset(offset),
             m_tiles_to_load(tiles_to_load) {}
 
@@ -233,12 +270,12 @@ public:
             verify_shared_set();
             return *m_platform;
         }
-
+#       if 0
         MapSegmentContainer & target() {
             verify_shared_set();
             return *m_target_container;
         }
-
+#       endif
         Vector2I map_offset() const {
             verify_shared_set();
             return m_offset;
@@ -257,7 +294,9 @@ public:
         }
 
         Platform * m_platform = nullptr;
+#       if 0
         MapSegmentContainer * m_target_container = nullptr;
+#       endif
         Vector2I m_offset;
         Rectangle m_tiles_to_load;
     };
@@ -265,13 +304,16 @@ public:
     class WaitingForFileContents final : public State {
     public:
         WaitingForFileContents
-            (Platform & platform, MapSegmentContainer & target_container,
+            (Platform & platform,
+#            if 0
+             MapSegmentContainer & target_container,
+#            endif
              const char * filename, const Vector2I & offset,
              const Rectangle & tiles_to_load):
-             State(platform, target_container, offset, tiles_to_load)
+             State(platform, /*target_container, */offset, tiles_to_load)
         { m_file_contents = platform.promise_file_contents(filename); }
 
-        SharedPtr<LoaderTask> update_progress(StateHolder & next_state) final;
+        TileFactoryGrid update_progress(StateHolder & next_state) final;
 
     private:
         void add_tileset(const TiXmlElement & tileset, TileSetsContainer &);
@@ -286,7 +328,7 @@ public:
             m_tilesets_container(std::move(cont_)),
             m_layer(std::move(layer_)) {}
 
-        SharedPtr<LoaderTask> update_progress(StateHolder & next_state) final;
+        TileFactoryGrid update_progress(StateHolder & next_state) final;
 
     private:
         TileSetsContainer m_tilesets_container;
@@ -300,7 +342,7 @@ public:
             m_tidgid_translator(std::move(idtrans_)),
             m_layer(std::move(layer_)) {}
 
-        SharedPtr<LoaderTask> update_progress(StateHolder & next_state) final;
+        TileFactoryGrid update_progress(StateHolder & next_state) final;
 
     private:
         GidTidTranslator m_tidgid_translator;
@@ -317,6 +359,8 @@ public:
 
     class StateHolder final {
     public:
+        using StatePtrGetter = State * (*)(StateSpace &);
+
         template <typename NextState, typename ... Types>
         NextState & set_next_state(Types && ...args) {
             m_space = NextState{std::forward<Types>(args)...};
@@ -328,39 +372,40 @@ public:
         bool has_next_state() const noexcept
             { return m_get_state; }
 
-        void move_state(State *& state_ptr, StateSpace & space) {
+        void move_state(StatePtrGetter & state_getter_ptr, StateSpace & space) {
             using namespace cul::exceptions_abbr;
             if (!m_get_state) {
                 throw RtError{"No state to move"};
             }
 
             space = std::move(m_space);
-            state_ptr = m_get_state(space);
+            state_getter_ptr = m_get_state;
             m_get_state = nullptr;
         }
 
     private:
-        using StatePtrGetter = State * (*)(StateSpace &);
         StatePtrGetter m_get_state = nullptr;
         StateSpace m_space = Expired{};
     };
 
     template <typename ... Types>
-    MapLoaderN
+    TiledMapLoader
         (Types && ... args):
          m_state_space(WaitingForFileContents{ std::forward<Types>(args)... }),
-         m_state(&std::get<WaitingForFileContents>(m_state_space))
+         m_get_state([] (StateSpace & space) -> State * { return &std::get<WaitingForFileContents>(space); })
     {}
 
-    SharedPtr<LoaderTask> update_progress() {
+    // return instead a grid of tile factories
+    // (note: that grid must own tilesets)
+    TileFactoryGrid update_progress() {
         StateHolder next;
-        SharedPtr<LoaderTask> rv;
+        TileFactoryGrid rv;
         while (true) {
-            rv = m_state->update_progress(next);
+            rv = m_get_state(m_state_space)->update_progress(next);
             if (!next.has_next_state()) break;
 
-            next.move_state(m_state, m_state_space);
-            if (rv) break;
+            next.move_state(m_get_state, m_state_space);
+            if (!rv.is_empty()) break;
         }
         return rv;
     }
@@ -369,12 +414,24 @@ public:
         { return std::holds_alternative<Expired>(m_state_space); }
 
 private:
+    using StatePtrGetter = State * (*)(StateSpace &);
     StateSpace m_state_space;
-    State * m_state = nullptr;
+    StatePtrGetter m_get_state = nullptr;
+};
+#if 0
+// Triangle links, link to three triangles
+// Map links, link to four map "segments"
+class MapLink final {
+
 };
 
+class InterMapLinkContainer final {
 
-class MapLinkContainer final {
+};
+#endif
+
+/// container of triangle links, used to glue segment triangles together
+class InterTriangleLinkContainer final {
 public:
     using Iterator = std::vector<SharedPtr<TriangleLink>>::iterator;
     using GridOfViews = Grid<View<TriangleLinks::const_iterator>>;
@@ -384,13 +441,15 @@ public:
         Vector2I{-1, 0}, Vector2I{0, -1},
     };
 
-    explicit MapLinkContainer(const GridOfViews & views) {
+    InterTriangleLinkContainer() {}
+
+    explicit InterTriangleLinkContainer(const GridOfViews & views) {
         append_links_by_predicate<is_not_edge_tile>(views, m_links);
         auto idx_for_edge = m_links.size();
         append_links_by_predicate<is_edge_tile>(views, m_links);
         m_edge_begin = m_links.begin() + idx_for_edge;
     }
-
+#   if 0
     Iterator edge_begin() { return m_edge_begin; }
 
     Iterator edge_end() { return m_links.end(); }
@@ -398,6 +457,9 @@ public:
     Iterator all_begin() { return m_links.begin(); }
 
     Iterator all_end() { return m_links.end(); }
+#   endif
+
+    void glue_to(InterTriangleLinkContainer &);
 
 private:
     static bool is_edge_tile(const GridOfViews & grid, const Vector2I & r) {
@@ -426,12 +488,314 @@ private:
     Iterator m_edge_begin;
 };
 
+
+struct LoadedMapRegion final {
+    InterTriangleLinkContainer link_edge_container;
+    SharedPtr<TeardownTask> teardown;
+};
+#if 1
+class MapRegionPreparer : public OccasionalTask {
+public:
+    template <typename Func>
+    static SharedPtr<MapRegionPreparer> make(LoadedMapRegion & target, Func && f_) {
+        class Impl final : public MapRegionPreparer {
+        public:
+            Impl(LoadedMapRegion & target, Func && f_):
+                MapRegionPreparer(target),
+                m_f(std::move(f_)) {}
+
+            void finish_map
+                (const TileFactorySubGrid & factory_grid, LoadedMapRegion & target,
+                 Callbacks & callbacks) final
+                { m_f(factory_grid, target, callbacks); }
+
+        private:
+            Func m_f;
+        };
+        return make_shared<Impl>(target, std::move(f_));
+    }
+
+    void set_tile_factory_subgrid(TileFactorySubGrid && tile_factory_grid)
+        { m_tile_factory_grid = std::move(tile_factory_grid); }
+
+protected:
+    MapRegionPreparer(LoadedMapRegion & target):
+        m_target_region(target)
+    {}
+
+    virtual void finish_map(const TileFactorySubGrid &, LoadedMapRegion & target, Callbacks & callbacks) = 0;
+
+    void on_occasion(Callbacks & callbacks) final
+        { finish_map(m_tile_factory_grid, m_target_region, callbacks); }
+
+#   if 0
+    void set_edge_container(InterTriangleLinkContainer && container)
+        { m_target_region.link_edge_container = std::move(container); }
+
+    void set_teardown_task(const SharedPtr<TeardownTask> & teardown)
+        { m_target_region.teardown = teardown; }
+#   endif
+private:
+    TileFactorySubGrid m_tile_factory_grid;
+    LoadedMapRegion & m_target_region;
+};
+#endif
+/// a map region is a grid of task pairs, one to load, one to teardown
+class MapRegion {
+public:
+    static UniquePtr<MapRegion> make_null_instance() {
+        class Impl final : public MapRegion {
+            void request_region_load
+                (const Vector2I &, const SharedPtr<MapRegionPreparer> &,
+                 TaskCallbacks &) final
+            {}
+        };
+        return make_unique<Impl>();
+    }
+#   if 0
+    struct TaskPair final {
+        SharedPtr<LoaderTask> loader;
+        SharedPtr<TeardownTask> teardown;
+    };
+#   endif
+    virtual ~MapRegion() {}
+
+    virtual void request_region_load
+        (const Vector2I & local_position,
+         const SharedPtr<MapRegionPreparer> & region_preparer, TaskCallbacks &) = 0;
+};
+
+/// is a map region, built off a TiledMap asset
+class TiledMapRegion final : public MapRegion {
+public:
+    using Size2I = cul::Size2<int>;
+    using Rectangle = cul::Rectangle<int>;
+
+    TiledMapRegion
+        (TileFactoryGrid && full_factory_grid,
+         const Size2I & region_size_in_tiles):
+         m_region_size(region_size_in_tiles),
+         m_factory_grid(std::move(full_factory_grid)) {}
+
+    void request_region_load
+        (const Vector2I & local_region_position,
+         const SharedPtr<MapRegionPreparer> & region_preparer,
+         TaskCallbacks & callbacks) final
+    {
+        auto region_left   = std::max
+            (local_region_position.x*m_region_size.width, 0);
+        auto region_top    = std::max
+            (local_region_position.y*m_region_size.height, 0);
+        auto region_right  = std::min
+            (region_left + m_region_size.width, m_factory_grid.width());
+        auto region_bottom = std::min
+            (region_top + m_region_size.height, m_factory_grid.height());
+        if (region_left == region_right || region_top == region_bottom) {
+            return;
+        }
+        auto factory_subgrid = m_factory_grid.make_subgrid(Rectangle
+            {region_left, region_top,
+             region_right - region_left, region_bottom - region_top});
+        region_preparer->set_tile_factory_subgrid(std::move(factory_subgrid));
+        callbacks.add(region_preparer);
+    }
+
+private:
+    Size2I m_region_size;
+    TileFactoryGrid m_factory_grid;
+};
+
+// I still need to link triangles together
+
+
+struct Vector2IHasher final {
+    std::size_t operator () (const Vector2I & r) const {
+        using IntHash = std::hash<int>;
+        return IntHash{}(r.x) ^ IntHash{}(r.y);
+    }
+};
+
+template <typename T>
+class GridViewInserter final {
+public:
+    using ElementContainer = std::vector<T>;
+    using ElementIterator  = typename std::vector<T>::const_iterator;
+    using ElementView      = View<ElementIterator>;
+    using Size2I           = cul::Size2<int>;
+
+    GridViewInserter(int width, int height)
+        { m_index_pairs.set_size(width, height, make_tuple(0, 0)); }
+
+    explicit GridViewInserter(Size2I size):
+        GridViewInserter(size.width, size.height) {}
+
+    void advance() {
+        using namespace cul::exceptions_abbr;
+        if (filled()) {
+            throw RtError{""};
+        }
+        auto el_count = m_elements.size();
+        std::get<1>(m_index_pairs(m_position)) = el_count;
+        auto next_position = m_index_pairs.next(m_position);
+        if (next_position != m_index_pairs.end_position())
+            m_index_pairs(next_position) = make_tuple(el_count, el_count);
+        m_position = next_position;
+    }
+
+    void push(const T & obj)
+        { m_elements.push_back(obj); }
+
+    Vector2I position() const noexcept
+        { return m_position; }
+
+    bool filled() const noexcept
+        { return m_position == m_index_pairs.end_position(); }
+
+    Tuple<ElementContainer, Grid<ElementView>>
+        move_out_container_and_grid_view()
+    {
+        Grid<View<ElementIterator>> views;
+        views.set_size
+            (m_index_pairs.width(), m_index_pairs.height(),
+             ElementView{m_elements.end(), m_elements.end()});
+        for (Vector2I r; r != m_index_pairs.end_position(); r = m_index_pairs.next(r)) {
+            auto [beg_idx, end_idx] = m_index_pairs(r);
+            views(r) = ElementView
+                {m_elements.begin() + beg_idx, m_elements.begin() + end_idx};
+        }
+        return make_tuple(std::move(m_elements), std::move(views));
+    }
+
+private:
+    Vector2I m_position;
+    std::vector<T> m_elements;
+    Grid<Tuple<std::size_t, std::size_t>> m_index_pairs;
+};
+
+/// keeps track of already loaded map regions
+///
+/// regions are treated as one flat collection by this class through a root
+/// region
+class MapRegionTracker final {
+public:
+    MapRegionTracker() {}
+
+    explicit MapRegionTracker(UniquePtr<MapRegion> && root_region):
+        m_root_region(std::move(root_region)) {}
+
+    void frame_refresh() { /* lets just get them loading for now */ }
+
+    void frame_hit(const Vector2I & global_region_location, TaskCallbacks & callbacks) {
+        if (!m_root_region) return;
+        auto itr = m_loaded_regions.find(global_region_location);
+        if (itr == m_loaded_regions.end()) {
+            // I've a task that creates the triangles, entities, and links the
+            // edges. This task is for a fully loaded region.
+
+            // In order to do this I need a target map region.
+
+            auto & loaded_region = m_loaded_regions[global_region_location];
+            auto region_preparer = MapRegionPreparer::make(loaded_region,
+                [global_region_location]
+                // I need everything I need to build my tiles
+                (const TileFactorySubGrid & factory_grid,
+                 LoadedMapRegion & target, TaskCallbacks & callbacks)
+            {
+                class GridIntfImpl final : public SlopesGridInterface {
+                public:
+                    GridIntfImpl(const TileFactorySubGrid & factory_subgrid):
+                        m_grid(factory_subgrid) {}
+
+                    Slopes operator () (Vector2I r) const {
+                        static const Slopes k_all_inf{k_inf, k_inf, k_inf, k_inf};
+                        if (!m_grid.has_position(r)) return k_all_inf;
+                        if (!m_grid(r)) return k_all_inf;
+                        return m_grid(r)->tile_elevations();
+                    }
+                private:
+                    const TileFactorySubGrid & m_grid;
+                };
+                class Impl final : public EntityAndTrianglesAdder {
+                public:
+                    Impl(GridViewInserter<SharedPtr<TriangleLink>> & link_inserter_):
+                        m_link_inserter(link_inserter_) {}
+
+                    void add_triangle(const TriangleSegment & triangle) final {
+                        m_link_inserter.push(make_shared<TriangleLink>(triangle));
+                    }
+
+                    void add_entity(const Entity & ent) final
+                        { m_entities.push_back(ent); }
+
+                    auto move_out_entities() { return std::move(m_entities); }
+
+                private:
+                    GridViewInserter<SharedPtr<TriangleLink>> & m_link_inserter;
+                    std::vector<Entity> m_entities;
+                };
+                GridViewInserter<SharedPtr<TriangleLink>> link_inserter{factory_grid.size2()};
+
+                GridIntfImpl grid_intf{factory_grid};
+                Impl triangle_entities_adder{link_inserter};
+                for (; !link_inserter.filled(); link_inserter.advance()) {
+                    TileFactory::NeighborInfo neighbor_stuff
+                        {grid_intf, link_inserter.position(), global_region_location};
+                    (*factory_grid(link_inserter.position()))
+                        (triangle_entities_adder, neighbor_stuff, callbacks.platform());
+                }
+                auto [link_container, link_view_grid] =
+                    link_inserter.move_out_container_and_grid_view();
+
+                target.link_edge_container =
+                    InterTriangleLinkContainer{link_view_grid};
+                auto ents = triangle_entities_adder.move_out_entities();
+                auto links_ent = Entity::make_sceneless_entity();
+                links_ent.add<TriangleLinks>() = std::move(link_container);
+                callbacks.add(links_ent);
+                for (auto & ent : ents) {
+                    callbacks.add(ent);
+                }
+                target.teardown = make_shared<TeardownTask>(std::move(ents));
+            });
+
+            // A call into region, may do two things:
+            // 1.) generate a task itself (which can then do 2)
+            // 2.) immediately launch the aforementioned creation task
+            m_root_region->request_region_load(global_region_location, region_preparer, callbacks);
+
+            // start loading the map
+
+            //callbacks.add();
+        } else {
+            // move to top of LRU or whatever
+        }
+    }
+
+private:
+
+    using LoadedRegionMap = std::unordered_map<Vector2I, LoadedMapRegion, Vector2IHasher>;
+
+    LoadedRegionMap m_loaded_regions;
+    UniquePtr<MapRegion> m_root_region;
+};
+
+#if 0 // later
+struct MapPreview final {
+    using Size2I = cul::Size2<int>;
+    Size2I size;
+    // something describing the image
+};
+
+MapPreview make_map_preview(const TiXmlDocument & tilemap);
+#endif
+// next I'd need to pack them (shouldn't be too hard with libraries)
+
+#if 0
+// a segment of map presently loaded in game
 class MapSegment final {
 public:
-    using TeardownTask = MapLoaderN::TeardownTask;
-
     MapSegment
-        (const SharedPtr<TeardownTask> & teardown, MapLinkContainer && link_container):
+        (const SharedPtr<TeardownTask> & teardown, InterTriangleLinkContainer && link_container):
         m_teardown(teardown),
         m_links(std::move(link_container)) {}
 
@@ -454,13 +818,13 @@ public:
 
 private:
     SharedPtr<TeardownTask> m_teardown;
-    MapLinkContainer m_links;
+    InterTriangleLinkContainer m_links;
 };
-
+#endif
 namespace point_and_plane {
     class Driver;
 } // end of point_and_plane namespace
-
+#if 0
 // target object
 class MapSegmentContainer final {
 public:
@@ -509,6 +873,9 @@ public:
     //
     // I may have to take them *all* out, and then add them back in (yuck)
 
+    bool segment_loaded_at(const Vector2I & r) const
+        { return m_segments.find(r) != m_segments.end(); }
+
 private:
     struct Vector2IHasher final {
         std::size_t operator () (const Vector2I & r) const {
@@ -517,7 +884,7 @@ private:
         }
     };
     static constexpr const auto k_neighbor_offsets =
-        MapLinkContainer::k_neighbor_offsets;
+        InterTriangleLinkContainer::k_neighbor_offsets;
 
     void verify_chunk_size_set() const {
         using namespace cul::exceptions_abbr;
@@ -544,7 +911,7 @@ private:
     bool m_has_changed = false;
     std::vector<Vector2I> m_unglued_segments;
 };
-
+#endif
 /** @brief The MapLoadingDirector is responsible for loading map segments.
  *
  *  Map segments are loaded depending on the player's state.
@@ -559,11 +926,37 @@ public:
         m_ppdriver(ppdriver),
         m_chunk_size(chunk_size)
     {}
-
+#   if 0
     void load_map(const char * initial_map, Platform & platform) {
         m_active_loaders.emplace_back
             (platform, m_segment_container, initial_map, Vector2I{},
-             Rectangle{Vector2I{2, 2}, m_chunk_size});
+             Rectangle{Vector2I{}, m_chunk_size});
+    }
+#   endif
+    SharedPtr<EveryFrameTask> begin_initial_map_loading
+        (const char * initial_map, Platform & platform, const Entity & player_physics)
+    {
+#       if 0
+        TiledMapLoader map_loader
+            {platform, m_segment_container, initial_map, Vector2I{},
+             Rectangle{Vector2I{}, m_chunk_size}};
+#       endif
+        TiledMapLoader map_loader
+            {platform, initial_map, Vector2I{},
+             Rectangle{Vector2I{}, m_chunk_size}};
+        // presently: task will be lost without completing
+        return EveryFrameTask::make(
+            [this, map_loader = std::move(map_loader),
+             player_physics_ = player_physics]
+            (TaskCallbacks &, Real) mutable {
+                auto grid = map_loader.update_progress();
+                if (!grid.is_empty()) {
+                    player_physics_.ensure<Velocity>();
+                    m_region_tracker = MapRegionTracker
+                        {make_unique<TiledMapRegion>
+                            (std::move(grid), m_chunk_size)};
+                }
+            });
     }
 
     void on_every_frame(TaskCallbacks & callbacks, const Entity & physics_ent);
@@ -572,11 +965,20 @@ private:
     void check_for_other_map_segments
         (TaskCallbacks & callbacks, const Entity & physics_ent);
 
+    static Vector2I to_segment_location
+        (const Vector & location, const Size2I & segment_size);
+
     // there's only one per game and it never changes
     PpDriver * m_ppdriver = nullptr;
     Size2I m_chunk_size;
-    MapSegmentContainer m_segment_container;
-    std::vector<MapLoaderN> m_active_loaders;
+#   if 0
+    //MapSegmentContainer m_segment_container;
+#   endif
+    std::vector<TiledMapLoader> m_active_loaders;
+#   if 0
+    UniquePtr<MapRegion> m_root_region = MapRegion::make_null_instance();
+#   endif
+    MapRegionTracker m_region_tracker;
 };
 
 class PlayerUpdateTask final : public EveryFrameTask {
@@ -587,8 +989,8 @@ public:
         m_physics_ent(physics_ent)
     {}
 
-    void load_initial_map(const char * initial_map, Platform & platform) {
-        m_map_director.load_map(initial_map, platform);
+    void load_initial_map(Callbacks & callbacks, const char * initial_map, Platform & platform) {
+         callbacks.add(m_map_director.begin_initial_map_loading(initial_map, platform, Entity{m_physics_ent}));
     }
 
     void on_every_frame(Callbacks & callbacks, Real) final {
