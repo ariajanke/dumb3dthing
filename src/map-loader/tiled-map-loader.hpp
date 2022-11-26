@@ -45,7 +45,7 @@ public:
 private:
     std::vector<Entity> m_entities;
 };
-
+#if 0
 class MapEdgeLinks final {
 public:
 
@@ -190,7 +190,7 @@ inline MapEdgeLinks::TileRange operator + (const MapEdgeLinks::TileRange & lhs, 
 
 inline MapEdgeLinks::TileRange operator + (Vector2I rhs, const MapEdgeLinks::TileRange & lhs)
     { return lhs.displace(rhs); }
-
+#endif
 // ----------------------------------------------------------------------------
 
 class MapSegmentContainer;
@@ -236,9 +236,6 @@ public:
 
         State & set_others_stuff(State & lhs) const {
             lhs.m_platform = m_platform;
-#           if 0
-            lhs.m_target_container = m_target_container;
-#           endif
             lhs.m_offset = m_offset;
             lhs.m_tiles_to_load = m_tiles_to_load;
             return lhs;
@@ -255,14 +252,8 @@ public:
 
         State
             (Platform & platform,
-#           if 0
-             MapSegmentContainer & target_container,
-#           endif
              const Vector2I & offset, const Rectangle & tiles_to_load):
             m_platform(&platform),
-#           if 0
-            m_target_container(&target_container),
-#           endif
             m_offset(offset),
             m_tiles_to_load(tiles_to_load) {}
 
@@ -270,12 +261,7 @@ public:
             verify_shared_set();
             return *m_platform;
         }
-#       if 0
-        MapSegmentContainer & target() {
-            verify_shared_set();
-            return *m_target_container;
-        }
-#       endif
+
         Vector2I map_offset() const {
             verify_shared_set();
             return m_offset;
@@ -294,9 +280,6 @@ public:
         }
 
         Platform * m_platform = nullptr;
-#       if 0
-        MapSegmentContainer * m_target_container = nullptr;
-#       endif
         Vector2I m_offset;
         Rectangle m_tiles_to_load;
     };
@@ -305,9 +288,6 @@ public:
     public:
         WaitingForFileContents
             (Platform & platform,
-#            if 0
-             MapSegmentContainer & target_container,
-#            endif
              const char * filename, const Vector2I & offset,
              const Rectangle & tiles_to_load):
              State(platform, /*target_container, */offset, tiles_to_load)
@@ -418,17 +398,6 @@ private:
     StateSpace m_state_space;
     StatePtrGetter m_get_state = nullptr;
 };
-#if 0
-// Triangle links, link to three triangles
-// Map links, link to four map "segments"
-class MapLink final {
-
-};
-
-class InterMapLinkContainer final {
-
-};
-#endif
 
 /// container of triangle links, used to glue segment triangles together
 class InterTriangleLinkContainer final {
@@ -449,15 +418,6 @@ public:
         append_links_by_predicate<is_edge_tile>(views, m_links);
         m_edge_begin = m_links.begin() + idx_for_edge;
     }
-#   if 0
-    Iterator edge_begin() { return m_edge_begin; }
-
-    Iterator edge_end() { return m_links.end(); }
-
-    Iterator all_begin() { return m_links.begin(); }
-
-    Iterator all_end() { return m_links.end(); }
-#   endif
 
     void glue_to(InterTriangleLinkContainer &);
 
@@ -494,7 +454,7 @@ struct LoadedMapRegion final {
     SharedPtr<TeardownTask> teardown;
 };
 #if 1
-class MapRegionPreparer : public OccasionalTask {
+class MapRegionPreparer : public LoaderTask {
 public:
     template <typename Func>
     static SharedPtr<MapRegionPreparer> make(LoadedMapRegion & target, Func && f_) {
@@ -506,7 +466,7 @@ public:
 
             void finish_map
                 (const TileFactorySubGrid & factory_grid, LoadedMapRegion & target,
-                 Callbacks & callbacks) final
+                 Callbacks & callbacks) const final
                 { m_f(factory_grid, target, callbacks); }
 
         private:
@@ -523,23 +483,17 @@ protected:
         m_target_region(target)
     {}
 
-    virtual void finish_map(const TileFactorySubGrid &, LoadedMapRegion & target, Callbacks & callbacks) = 0;
+    virtual void finish_map(const TileFactorySubGrid &, LoadedMapRegion & target, Callbacks & callbacks) const = 0;
 
-    void on_occasion(Callbacks & callbacks) final
+    void operator () (LoaderTask::Callbacks & callbacks) const final
         { finish_map(m_tile_factory_grid, m_target_region, callbacks); }
 
-#   if 0
-    void set_edge_container(InterTriangleLinkContainer && container)
-        { m_target_region.link_edge_container = std::move(container); }
-
-    void set_teardown_task(const SharedPtr<TeardownTask> & teardown)
-        { m_target_region.teardown = teardown; }
-#   endif
 private:
     TileFactorySubGrid m_tile_factory_grid;
     LoadedMapRegion & m_target_region;
 };
 #endif
+
 /// a map region is a grid of task pairs, one to load, one to teardown
 class MapRegion {
 public:
@@ -552,12 +506,7 @@ public:
         };
         return make_unique<Impl>();
     }
-#   if 0
-    struct TaskPair final {
-        SharedPtr<LoaderTask> loader;
-        SharedPtr<TeardownTask> teardown;
-    };
-#   endif
+
     virtual ~MapRegion() {}
 
     virtual void request_region_load
@@ -604,9 +553,6 @@ private:
     Size2I m_region_size;
     TileFactoryGrid m_factory_grid;
 };
-
-// I still need to link triangles together
-
 
 struct Vector2IHasher final {
     std::size_t operator () (const Vector2I & r) const {
@@ -678,10 +624,15 @@ private:
 /// region
 class MapRegionTracker final {
 public:
+    using Size2I = cul::Size2<int>;
+
     MapRegionTracker() {}
 
-    explicit MapRegionTracker(UniquePtr<MapRegion> && root_region):
-        m_root_region(std::move(root_region)) {}
+    MapRegionTracker
+        (UniquePtr<MapRegion> && root_region,
+         const Size2I & region_size_in_tiles):
+        m_root_region(std::move(root_region)),
+        m_region_size_in_tiles(region_size_in_tiles) {}
 
     void frame_refresh() { /* lets just get them loading for now */ }
 
@@ -695,11 +646,14 @@ public:
             // In order to do this I need a target map region.
 
             auto & loaded_region = m_loaded_regions[global_region_location];
+            Vector2I region_tile_offset
+                {global_region_location.x*m_region_size_in_tiles.width,
+                 global_region_location.y*m_region_size_in_tiles.height};
             auto region_preparer = MapRegionPreparer::make(loaded_region,
-                [global_region_location]
+                [region_tile_offset]
                 // I need everything I need to build my tiles
                 (const TileFactorySubGrid & factory_grid,
-                 LoadedMapRegion & target, TaskCallbacks & callbacks)
+                 LoadedMapRegion & target, LoaderTask::Callbacks & callbacks)
             {
                 class GridIntfImpl final : public SlopesGridInterface {
                 public:
@@ -739,19 +693,24 @@ public:
                 Impl triangle_entities_adder{link_inserter};
                 for (; !link_inserter.filled(); link_inserter.advance()) {
                     TileFactory::NeighborInfo neighbor_stuff
-                        {grid_intf, link_inserter.position(), global_region_location};
+                        {grid_intf, link_inserter.position(), region_tile_offset};
                     (*factory_grid(link_inserter.position()))
                         (triangle_entities_adder, neighbor_stuff, callbacks.platform());
                 }
                 auto [link_container, link_view_grid] =
                     link_inserter.move_out_container_and_grid_view();
-
+                link_triangles(link_view_grid);
                 target.link_edge_container =
                     InterTriangleLinkContainer{link_view_grid};
                 auto ents = triangle_entities_adder.move_out_entities();
+#               if 0
                 auto links_ent = Entity::make_sceneless_entity();
                 links_ent.add<TriangleLinks>() = std::move(link_container);
                 callbacks.add(links_ent);
+#               endif
+                for (auto & link : link_container) {
+                    callbacks.add(link);
+                }
                 for (auto & ent : ents) {
                     callbacks.add(ent);
                 }
@@ -777,141 +736,13 @@ private:
 
     LoadedRegionMap m_loaded_regions;
     UniquePtr<MapRegion> m_root_region;
+    Size2I m_region_size_in_tiles;
 };
 
-#if 0 // later
-struct MapPreview final {
-    using Size2I = cul::Size2<int>;
-    Size2I size;
-    // something describing the image
-};
-
-MapPreview make_map_preview(const TiXmlDocument & tilemap);
-#endif
-// next I'd need to pack them (shouldn't be too hard with libraries)
-
-#if 0
-// a segment of map presently loaded in game
-class MapSegment final {
-public:
-    MapSegment
-        (const SharedPtr<TeardownTask> & teardown, InterTriangleLinkContainer && link_container):
-        m_teardown(teardown),
-        m_links(std::move(link_container)) {}
-
-    void glue_to(MapSegment & other_segment) {
-#       if 0
-        for (auto itr = m_links.edge_begin(); itr != m_links.edge_end(); ++itr) {
-
-        }
-#       endif
-    }
-
-    void trigger_teardown(TaskCallbacks & callbacks) {
-        callbacks.add(m_teardown);
-        m_teardown = nullptr; // <- prevent accidental dbl sending
-    }
-
-    auto begin() { return m_links.all_begin(); }
-
-    auto end() { return m_links.all_end(); }
-
-private:
-    SharedPtr<TeardownTask> m_teardown;
-    InterTriangleLinkContainer m_links;
-};
-#endif
 namespace point_and_plane {
     class Driver;
 } // end of point_and_plane namespace
-#if 0
-// target object
-class MapSegmentContainer final {
-public:
-    using Size2I = cul::Size2<int>;
-    using Rectangle = cul::Rectangle<int>;
 
-    MapSegmentContainer() {}
-
-    void set_chunk_size(const Size2I & chunk_size)
-        { m_chunk_size = chunk_size; }
-
-    void emplace_segment(const Vector2I & r, MapSegment && segment) {
-        using namespace cul::exceptions_abbr;
-        auto pair = m_segments.insert({ r, segment });
-        if (pair.second) {
-            m_has_changed = true;
-            m_unglued_segments.push_back(r);
-            return;
-        }
-        throw InvArg{"MapSegmentContainer::emplace_segment: conflict map "
-                     "segments at location: " + std::to_string(r.x) +
-                     ", " + std::to_string(r.y)};
-    }
-
-    bool has_changed() const { return m_has_changed; }
-
-    void add_all_triangles(point_and_plane::Driver &);
-
-    template <typename RemovePred>
-    void remove_segments_if(TaskCallbacks & callbacks, RemovePred && pred) {
-        for (auto itr = m_segments.begin(); itr != m_segments.end(); ) {
-            auto & [location, segment] = *itr;
-            const auto & csegment = segment;
-            if (!pred(csegment, Rectangle{location, m_chunk_size})) {
-                ++itr;
-                continue;
-            }
-            segment.trigger_teardown(callbacks);
-            m_has_changed = true;
-            itr = m_segments.erase(itr);
-        }
-    }
-
-    // at some point, I'm going to have to handle new segment triangles and
-    // push them to the pp driver
-    //
-    // I may have to take them *all* out, and then add them back in (yuck)
-
-    bool segment_loaded_at(const Vector2I & r) const
-        { return m_segments.find(r) != m_segments.end(); }
-
-private:
-    struct Vector2IHasher final {
-        std::size_t operator () (const Vector2I & r) const {
-            using IntHash = std::hash<int>;
-            return IntHash{}(r.x) ^ IntHash{}(r.y);
-        }
-    };
-    static constexpr const auto k_neighbor_offsets =
-        InterTriangleLinkContainer::k_neighbor_offsets;
-
-    void verify_chunk_size_set() const {
-        using namespace cul::exceptions_abbr;
-        if (m_chunk_size.width > 0 && m_chunk_size.height > 0) return;
-        throw RtError{"MapSegmentContainer: chunk width and height must be positive integers"};
-    }
-
-    void glue_together_new_segments() {
-        for (auto r : m_unglued_segments) {
-            auto itr = m_segments.find(r);
-            assert(itr != m_segments.end());
-            for (auto offset : k_neighbor_offsets) {
-                auto jtr = m_segments.find(r + offset);
-                if (jtr == m_segments.end()) continue;
-                itr->second.glue_to(jtr->second);
-            }
-        }
-
-        m_unglued_segments.clear();
-    }
-
-    std::unordered_map<Vector2I, MapSegment, Vector2IHasher> m_segments;
-    Size2I m_chunk_size;
-    bool m_has_changed = false;
-    std::vector<Vector2I> m_unglued_segments;
-};
-#endif
 /** @brief The MapLoadingDirector is responsible for loading map segments.
  *
  *  Map segments are loaded depending on the player's state.
@@ -926,36 +757,26 @@ public:
         m_ppdriver(ppdriver),
         m_chunk_size(chunk_size)
     {}
-#   if 0
-    void load_map(const char * initial_map, Platform & platform) {
-        m_active_loaders.emplace_back
-            (platform, m_segment_container, initial_map, Vector2I{},
-             Rectangle{Vector2I{}, m_chunk_size});
-    }
-#   endif
-    SharedPtr<EveryFrameTask> begin_initial_map_loading
+
+    SharedPtr<BackgroundTask> begin_initial_map_loading
         (const char * initial_map, Platform & platform, const Entity & player_physics)
     {
-#       if 0
-        TiledMapLoader map_loader
-            {platform, m_segment_container, initial_map, Vector2I{},
-             Rectangle{Vector2I{}, m_chunk_size}};
-#       endif
         TiledMapLoader map_loader
             {platform, initial_map, Vector2I{},
              Rectangle{Vector2I{}, m_chunk_size}};
         // presently: task will be lost without completing
-        return EveryFrameTask::make(
+        return BackgroundTask::make(
             [this, map_loader = std::move(map_loader),
              player_physics_ = player_physics]
-            (TaskCallbacks &, Real) mutable {
+            (TaskCallbacks &) mutable {
                 auto grid = map_loader.update_progress();
-                if (!grid.is_empty()) {
-                    player_physics_.ensure<Velocity>();
-                    m_region_tracker = MapRegionTracker
-                        {make_unique<TiledMapRegion>
-                            (std::move(grid), m_chunk_size)};
-                }
+                if (grid.is_empty()) return BackgroundCompletion::in_progress;
+                player_physics_.ensure<Velocity>();
+                m_region_tracker = MapRegionTracker
+                    {make_unique<TiledMapRegion>
+                        (std::move(grid), m_chunk_size),
+                     m_chunk_size};
+                return BackgroundCompletion::finished;
             });
     }
 
@@ -971,13 +792,7 @@ private:
     // there's only one per game and it never changes
     PpDriver * m_ppdriver = nullptr;
     Size2I m_chunk_size;
-#   if 0
-    //MapSegmentContainer m_segment_container;
-#   endif
     std::vector<TiledMapLoader> m_active_loaders;
-#   if 0
-    UniquePtr<MapRegion> m_root_region = MapRegion::make_null_instance();
-#   endif
     MapRegionTracker m_region_tracker;
 };
 
@@ -989,8 +804,8 @@ public:
         m_physics_ent(physics_ent)
     {}
 
-    void load_initial_map(Callbacks & callbacks, const char * initial_map, Platform & platform) {
-         callbacks.add(m_map_director.begin_initial_map_loading(initial_map, platform, Entity{m_physics_ent}));
+    SharedPtr<BackgroundTask> load_initial_map(const char * initial_map, Platform & platform) {
+        return m_map_director.begin_initial_map_loading(initial_map, platform, Entity{m_physics_ent});
     }
 
     void on_every_frame(Callbacks & callbacks, Real) final {

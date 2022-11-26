@@ -82,12 +82,99 @@ auto make_sole_owner_pred() {
 
 } // end of <anonymous> namespace
 
+void TriangleLinksReceiver::add_triangle_links_to
+    (point_and_plane::Driver & ppdriver)
+{
+    ppdriver.add_triangles(m_links);
+    m_links.clear();
+}
+
+// ----------------------------------------------------------------------------
+
+void TasksControllerPart::run_existing_tasks
+    (LoaderTask::Callbacks & callbacks_, Real seconds)
+{
+    {
+    auto enditr = m_every_frame_tasks.begin();
+    m_every_frame_tasks.erase
+        (std::remove_if
+            (m_every_frame_tasks.begin(), enditr,
+             make_sole_owner_pred<EveryFrameTask>()),
+         enditr);
+    }
+
+    for (auto & task : m_every_frame_tasks) {
+        task->on_every_frame(callbacks_, seconds);
+    }
+
+    for (auto & task : m_loader_tasks) {
+        (*task)(callbacks_);
+    }
+
+    for (auto & task : m_background_tasks) {
+        if ((*task)(callbacks_) == BackgroundCompletion::finished)
+            task = nullptr;
+    }
+    m_background_tasks.erase
+        (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),
+         m_background_tasks.end());
+    m_loader_tasks.clear();
+}
+
+void TasksControllerPart::replace_tasks_with(TasksReceiver & receiver) {
+    m_every_frame_tasks.clear();
+    m_background_tasks .clear();
+    m_loader_tasks     .clear();
+
+    insert_moved_shared_ptrs(m_every_frame_tasks, receiver.every_frame_tasks());
+    insert_moved_shared_ptrs(m_background_tasks , receiver.background_tasks ());
+    insert_moved_shared_ptrs(m_loader_tasks     , receiver.loader_tasks     ());
+    receiver.clear_all();
+}
+
+void TasksControllerPart::take_tasks_from(TasksControllerPart & rhs) {
+    insert_moved_shared_ptrs(m_every_frame_tasks, view_of(rhs.m_every_frame_tasks));
+    insert_moved_shared_ptrs(m_background_tasks , view_of(rhs.m_background_tasks ));
+    insert_moved_shared_ptrs(m_loader_tasks     , view_of(rhs.m_loader_tasks     ));
+
+    rhs.m_background_tasks.clear();
+    rhs.m_every_frame_tasks.clear();
+    rhs.m_loader_tasks.clear();
+}
+
+// ----------------------------------------------------------------------------
+#if 0
+void TasksController::add_triangles_and_entities_to
+    (Scene &, point_and_plane::Driver &)
+{}
+#endif
+// ----------------------------------------------------------------------------
+
 /* static */ UniquePtr<Driver> Driver::make_instance()
     { return make_unique<GameDriverComplete>(); }
 
+void Driver::setup(Platform & platform_) {
+#   if 0
+    std::vector<Entity> entities;
+    auto callbacks = get_callbacks(forloaders, entities);
+    initial_load(callbacks);
+    on_entities_changed(entities);
+    m_scene.add_entities(entities);
+#   endif
+    m_tasks_controller.assign_platform(platform_);
+    initial_load(m_tasks_controller);
+    m_tasks_controller.add_entities_to(m_scene);
+    m_tasks_controller.add_triangle_links_to(ppdriver());
+}
+
 void Driver::update(Real seconds, Platform & callbacks) {
     update_(seconds);
+    m_tasks_controller.assign_platform(callbacks);
+    m_tasks_controller.run_tasks(seconds);
+    m_tasks_controller.add_entities_to(m_scene);
+    m_tasks_controller.add_triangle_links_to(ppdriver());
 
+#   if 0
     std::vector<Entity> entities;
     auto callbacks_ = get_callbacks(callbacks, entities);
     {
@@ -126,7 +213,8 @@ void Driver::update(Real seconds, Platform & callbacks) {
     m_occasional_tasks.clear();
 #   endif
     m_loader_tasks.clear();
-
+#   endif
+#   if 0
     on_entities_changed(entities);
     m_scene.add_entities(entities);
     if (!entities.empty()) {
@@ -134,10 +222,12 @@ void Driver::update(Real seconds, Platform & callbacks) {
     }
 
     m_scene.update_entities();
+#   endif
     callbacks.render_scene(m_scene);
 }
 
 /* protected */ void Driver::on_entities_changed(std::vector<Entity> & new_entities) {
+#   if 0
     if (new_entities.empty()) return;
     // I need to peak at new entities?
     for (auto & ent : new_entities) {
@@ -159,7 +249,7 @@ void Driver::update(Real seconds, Platform & callbacks) {
         // searching for it inside the scene fails
     }
     std::cout << "Added " << new_triangles << " new triangles." << std::endl;
-
+#   endif
 }
 
 namespace {
@@ -284,7 +374,10 @@ Entity make_sample_loop
 static constexpr const Vector k_player_start{2, 5.1, -2};
 
 // model entity, physical entity
-Tuple<Entity, Entity> make_sample_player(TaskCallbacks & callbacks, point_and_plane::Driver & ppdriver) {
+Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
+    make_sample_player
+    (Platform & platform, point_and_plane::Driver & ppdriver)
+{
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
         constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
@@ -327,14 +420,14 @@ Tuple<Entity, Entity> make_sample_player(TaskCallbacks & callbacks, point_and_pl
         4, 6, 7, /**/ 4, 5, 6  // bottom faces
     };
 
-    auto model = callbacks.platform().make_render_model();
+    auto model = platform.make_render_model();
     model->load(&verticies.front(), &verticies.front() + verticies.size(),
                 &elements .front(), &elements .front() + elements.size());
 
     auto physics_ent = Entity::make_sceneless_entity();
-    auto model_ent   = callbacks.platform().make_renderable_entity();
+    auto model_ent   = platform.make_renderable_entity();
 
-    auto tx = callbacks.platform().make_texture();
+    auto tx = platform.make_texture();
     tx->load_from_file("ground.png");
     model_ent.add
         <SharedPtr<const Texture>, SharedPtr<const RenderModel>, Translation,
@@ -348,7 +441,7 @@ Tuple<Entity, Entity> make_sample_player(TaskCallbacks & callbacks, point_and_pl
 
     // This sort of is "temporary" code.
     // So not subjecting to testing.
-    {
+
 
 
 
@@ -422,15 +515,16 @@ Tuple<Entity, Entity> make_sample_player(TaskCallbacks & callbacks, point_and_pl
     auto player_update_task = make_shared<PlayerUpdateTask>
         (MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
          EntityRef{physics_ent});
-    player_update_task->load_initial_map(callbacks, k_testmap_filename, callbacks.platform());
+    auto map_loader_task = player_update_task->load_initial_map
+        (k_testmap_filename, platform);
     SharedPtr<EveryFrameTask> & ptrref = physics_ent.add<SharedPtr<EveryFrameTask>>();
     ptrref = SharedPtr<EveryFrameTask>{player_update_task};
 #   endif
 
 
-    }
 
-    return make_tuple(model_ent, physics_ent);
+
+    return make_tuple(model_ent, physics_ent, map_loader_task);
 }
 
 // ----------------------------------------------------------------------------
@@ -448,11 +542,18 @@ void GameDriverComplete::release_key(KeyControl ky) {
 }
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
-    auto [renderable, physical] = make_sample_player(callbacks, ppdriver()); {}
+    auto [renderable, physical, loader_task] =
+        make_sample_player(callbacks.platform(), ppdriver());
     callbacks.platform().set_camera_entity(EntityRef{physical});
+    callbacks.add(loader_task);
+#   if 0
     callbacks.set_player_entities(PlayerEntities{physical, renderable});
+#   endif
     callbacks.add(physical);
     callbacks.add(renderable);
+
+    player_entities().physical   = physical;
+    player_entities().renderable = renderable;
 #   if 0
     // let's... head north... starting 0.5+ ues north
     auto west = make_tuple(

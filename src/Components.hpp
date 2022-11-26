@@ -326,9 +326,13 @@ public:
 
     class Callbacks : public TaskCallbacks {
     public:
+        using TaskCallbacks::add;
+#       if 0
         virtual PlayerEntities player_entites() const = 0;
 
         virtual void set_player_entities(const PlayerEntities & entities) = 0;
+#       endif
+        virtual void add(const SharedPtr<TriangleLink> &) = 0;
     };
 
     virtual ~LoaderTask() {}

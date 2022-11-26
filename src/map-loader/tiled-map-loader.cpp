@@ -37,12 +37,12 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
-
+#if 0
 using MapSide = MapEdgeLinks::Side;
 using TileRange = MapEdgeLinks::TileRange;
-
+#endif
 } // end of <anonymous> namespace
-
+#if 0
 Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     (const Vector2I & map_offset)
 {
@@ -157,7 +157,7 @@ Tuple<SharedPtr<LoaderTask>, SharedPtr<TeardownTask>> MapLoader::operator ()
     }
     return !m_pending_tilesets.empty();
 }
-
+#endif
 template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
 void on_key_found(const std::map<Key, Value, Comparator> & map, const Key2 & key, Func && f_) {
     auto itr = map.find(key);
@@ -212,7 +212,7 @@ int distance(IterBeg beg, IterEnd end) {
 
 inline bool is_dash(char c) { return c == '-'; }
 static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
-
+#if 0
 TileRange to_range
     (const TileRange & range, const View<const char *> & arg_)
 {
@@ -244,9 +244,9 @@ TileRange to_range
     return TileRange{ range.begin_location() + dir*start,
                       range.begin_location() + dir*end  };
 }
-
+#endif
 bool is_colon(char c) { return c == ':'; }
-
+#if 0
 /* private */ void MapLoader::do_content_load(std::string && contents) {
     TiXmlDocument document;
     if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
@@ -351,7 +351,7 @@ bool is_colon(char c) { return c == ':'; }
         r = m_layer.next(r);
     }
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
 TileFactoryGrid TiledMapLoader::WaitingForFileContents::update_progress
@@ -376,7 +376,6 @@ TileFactoryGrid TiledMapLoader::WaitingForFileContents::update_progress
     XmlPropertiesReader propreader;
     propreader.load(root);
 
-    std::vector<MapEdgeLinks::MapLinks> links;
     TileSetsContainer tilesets_container;
     for (auto & tileset : XmlRange{root, "tileset"}) {
         add_tileset(tileset, tilesets_container);
@@ -475,162 +474,25 @@ void TileFactoryGrid::load_layer
         m_factories(r) = (*tileset)(tid);
         m_tilesets.push_back(tileset);
     }
-#   if 0 // not useful unless I shrink, still paying for all the destructors
-    std::sort(m_tilesets.begin(), m_tilesets.end());
-    m_tilesets.erase
-        (std::unique(m_tilesets.begin(), m_tilesets.end()),
-         m_tilesets.end());
-#   endif
 }
-#if 0
-class MapLoaderTask final : public LoaderTask {
-public:
-    using Rectangle = TiledMapLoader::Rectangle;
-    MapLoaderTask
-        (Grid<int> && layer, GidTidTranslator && idtrans_,
-         MapSegmentContainer & segment_container, const Vector2I & offset,
-         const Rectangle & target_range):
-        m_layer(std::move(layer)),
-        m_idtranslator(std::move(idtrans_)),
-        m_segment_container(segment_container),
-        m_offset(offset),
-        m_target_range(target_range)
-    {}
 
-    void operator () (Callbacks &) const final;
-
-private:
-    Grid<int> m_layer;
-    GidTidTranslator m_idtranslator;
-    MapSegmentContainer & m_segment_container;
-    Vector2I m_offset;
-    Rectangle m_target_range;
-};
-
-void MapLoaderTask::operator () (Callbacks & callbacks) const {
-    std::vector<Entity> entities;
-    auto triangles_and_grid =
-        add_triangles_and_link(m_target_range,
-        [&] (Vector2I r, TriangleAdder & adder)
-    {
-        auto gid = m_layer(r);
-        if (gid == 0) return;
-        auto [tid, tileset] = m_idtranslator.gid_to_tid(m_layer(r));
-        auto * factory = (*tileset)(tid);
-        if (!factory) return;
-
-        class Impl final : public EntityAndTrianglesAdder {
-        public:
-            Impl(std::vector<Entity> & entities,
-                 TriangleAdder & triangles_):
-                m_tri_adder(triangles_), m_entities(entities) {}
-
-            void add_triangle(const TriangleSegment & triangle) final
-                { m_tri_adder( triangle ); }
-
-            void add_entity(const Entity & ent) final { m_entities.push_back(ent); }
-
-        private:
-            TriangleAdder & m_tri_adder;
-            std::vector<Entity> & m_entities;
-        };
-
-        class GridIntfImpl final : public SlopesGridInterface {
-        public:
-            GridIntfImpl(const GidTidTranslator & translator, const Grid<int> & grid):
-                m_translator(translator), m_grid(grid) {}
-
-            Slopes operator () (Vector2I r) const {
-                static const Slopes k_all_inf{k_inf, k_inf, k_inf, k_inf};
-                if (!m_grid.has_position(r)) return k_all_inf;
-                auto [tid, tileset] = m_translator.gid_to_tid(m_grid(r));
-                auto factory = (*tileset)(tid);
-                if (!factory) return k_all_inf;
-                return factory->tile_elevations();
-            }
-
-        private:
-            const GidTidTranslator & m_translator;
-            const Grid<int> & m_grid;
-        };
-
-        GridIntfImpl gridintf{m_idtranslator, m_layer};
-        Impl etadder{entities, adder};
-        (*factory)(etadder, TileFactory::NeighborInfo{gridintf, r, m_offset},
-                   callbacks.platform());
-    });
-    for (auto & ent : entities)
-        callbacks.add(ent);
-    using GridOfViews = InterTriangleLinkContainer::GridOfViews;
-
-
-    m_segment_container.emplace_segment
-        (m_offset,
-         MapSegment{make_shared<TiledMapLoader::TeardownTask>(std::move(entities)),
-                    InterTriangleLinkContainer{ std::get<GridOfViews>(triangles_and_grid) }});
-}
-#endif
 TileFactoryGrid TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
     TileFactoryGrid rv;
     rv.load_layer(m_layer, m_tidgid_translator);
-#   if 0
-    auto loader = make_shared<MapLoaderTask>
-        (std::move(m_layer), std::move(m_tidgid_translator),
-         target(), map_offset(), target_tile_range());
-#   endif
     next_state.set_next_state<Expired>();
     return rv;
 }
-#if 0
-void MapSegmentContainer::add_all_triangles(point_and_plane::Driver & ppdriver) {
-    glue_together_new_segments();
-    ppdriver.clear_all_triangles();
-    for (auto & pair : m_segments) {
-        for (auto & link : pair.second) {
-            ppdriver.add_triangle(link);
-        }
-    }
 
-    m_has_changed = false;
-}
-#endif
 void MapLoadingDirector::on_every_frame
     (TaskCallbacks & callbacks, const Entity & physic_ent)
 {
-#       if 0
-    for (auto & loader : m_active_loaders) {
-        auto loader_task = loader.update_progress();
-        if (loader_task) {
-            Entity{physics_ent}.ensure<Velocity>();
-            callbacks.add(loader_task);
-        }
-
-        // remove map loader somehow
-    }
-#   elif 0
-    auto player_loc = point_and_plane::location_of(physic_ent.get<PpState>());
-    callbacks.add(m_root_region->make_loader_at(to_segment_location(player_loc, m_chunk_size)));
-#       endif
-
     m_active_loaders.erase
         (std::remove_if(m_active_loaders.begin(), m_active_loaders.end(),
                         [](const TiledMapLoader & loader) { return loader.is_expired(); }),
          m_active_loaders.end());
-    // have to update segment container somehow
-#   if 0
-    auto is_removable_segment =
-        [](const MapSegment &, const Rectangle &)
-    {
-        return false;
-    };
-    m_segment_container.remove_segments_if(callbacks, is_removable_segment);
-    if (m_segment_container.has_changed()) {
-        // do ppdriver things
-        m_segment_container.add_all_triangles(*m_ppdriver);
-    }
-#   endif
+
     check_for_other_map_segments(callbacks, physic_ent);
 }
 
@@ -639,18 +501,7 @@ void MapLoadingDirector::on_every_frame
 {
     // this may turn into its own class
     // there's just so much behavior potential here
-#   if 0
-    auto handle_new_location = [this] (const Vector & r) {
-        if (m_segment_container.segment_loaded_at
-            (to_segment_location(r, m_chunk_size)))
-        { return; }
-#       if 0
-        m_active_loaders.emplace_back
-            (Platform::instance(), m_segment_container, initial_map, Vector2I{},
-             Rectangle{Vector2I{}, m_chunk_size})
-#       endif
-    };
-#   endif
+
     // good enough for now
     using namespace point_and_plane;
     auto & pstate = physics_ent.get<PpState>();
@@ -658,17 +509,6 @@ void MapLoadingDirector::on_every_frame
         m_region_tracker.frame_hit(to_segment_location(pt, m_chunk_size), callbacks);
     }
     m_region_tracker.frame_refresh();
-#   if 0
-    const auto * ppstate = physics_ent.ptr<PpState>();
-    if (auto * on_air = get_if<PpInAir>(ppstate)) {
-        handle_new_location(on_air->location + on_air->displacement);
-    }
-    if (auto * on_segment = get_if<PpOnSegment>(ppstate)) {
-        handle_new_location
-            (on_segment->segment->point_at(  on_segment->location
-                                           + on_segment->displacement));
-    }
-#   endif
 }
 
 /* private static */ Vector2I MapLoadingDirector::to_segment_location
