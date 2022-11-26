@@ -21,6 +21,7 @@
 #include "GameDriver.hpp"
 #include "Components.hpp"
 #include "RenderModel.hpp"
+#include "TasksController.hpp"
 #include "map-loader/map-loader.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
@@ -56,201 +57,36 @@ private:
     bool m_paused = false, m_advance_frame = false;
 };
 
-class GameDriverComplete final : public Driver {
+class GameDriverComplete final : public GameDriver {
 public:
     void press_key(KeyControl) final;
 
     void release_key(KeyControl) final;
 
+    void setup(Platform &) final;
+
+    void update(Real seconds, Platform &) final;
+
 private:
-    void initial_load(LoaderCallbacks &) final;
+    using PlayerEntities = LoaderTask::PlayerEntities;
+    using LoaderCallbacks   = LoaderTask::Callbacks;
 
-    void update_(Real seconds) final;
+    void initial_load(LoaderCallbacks &);
 
-    point_and_plane::Driver & ppdriver() final
-        { return *m_ppdriver; }
+    void update_(Real seconds);
 
-    Vector m_camera_target;
     UniquePtr<point_and_plane::Driver> m_ppdriver = point_and_plane::Driver::make_driver();
     TimeControl m_time_controller;
+    Scene m_scene;
+    PlayerEntities m_player_entities;
+    TasksController m_tasks_controller;
 };
 
-template <typename T>
-auto make_sole_owner_pred() {
-    return [](const SharedPtr<T> & ptr) { return ptr.use_count() == 1; };
-}
 
 } // end of <anonymous> namespace
 
-void TriangleLinksReceiver::add_triangle_links_to
-    (point_and_plane::Driver & ppdriver)
-{
-    ppdriver.add_triangles(m_links);
-    m_links.clear();
-}
-
-// ----------------------------------------------------------------------------
-
-void TasksControllerPart::run_existing_tasks
-    (LoaderTask::Callbacks & callbacks_, Real seconds)
-{
-    {
-    auto enditr = m_every_frame_tasks.begin();
-    m_every_frame_tasks.erase
-        (std::remove_if
-            (m_every_frame_tasks.begin(), enditr,
-             make_sole_owner_pred<EveryFrameTask>()),
-         enditr);
-    }
-
-    for (auto & task : m_every_frame_tasks) {
-        task->on_every_frame(callbacks_, seconds);
-    }
-
-    for (auto & task : m_loader_tasks) {
-        (*task)(callbacks_);
-    }
-
-    for (auto & task : m_background_tasks) {
-        if ((*task)(callbacks_) == BackgroundCompletion::finished)
-            task = nullptr;
-    }
-    m_background_tasks.erase
-        (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),
-         m_background_tasks.end());
-    m_loader_tasks.clear();
-}
-
-void TasksControllerPart::replace_tasks_with(TasksReceiver & receiver) {
-    m_every_frame_tasks.clear();
-    m_background_tasks .clear();
-    m_loader_tasks     .clear();
-
-    insert_moved_shared_ptrs(m_every_frame_tasks, receiver.every_frame_tasks());
-    insert_moved_shared_ptrs(m_background_tasks , receiver.background_tasks ());
-    insert_moved_shared_ptrs(m_loader_tasks     , receiver.loader_tasks     ());
-    receiver.clear_all();
-}
-
-void TasksControllerPart::take_tasks_from(TasksControllerPart & rhs) {
-    insert_moved_shared_ptrs(m_every_frame_tasks, view_of(rhs.m_every_frame_tasks));
-    insert_moved_shared_ptrs(m_background_tasks , view_of(rhs.m_background_tasks ));
-    insert_moved_shared_ptrs(m_loader_tasks     , view_of(rhs.m_loader_tasks     ));
-
-    rhs.m_background_tasks.clear();
-    rhs.m_every_frame_tasks.clear();
-    rhs.m_loader_tasks.clear();
-}
-
-// ----------------------------------------------------------------------------
-#if 0
-void TasksController::add_triangles_and_entities_to
-    (Scene &, point_and_plane::Driver &)
-{}
-#endif
-// ----------------------------------------------------------------------------
-
-/* static */ UniquePtr<Driver> Driver::make_instance()
+/* static */ UniquePtr<GameDriver> GameDriver::make_instance()
     { return make_unique<GameDriverComplete>(); }
-
-void Driver::setup(Platform & platform_) {
-#   if 0
-    std::vector<Entity> entities;
-    auto callbacks = get_callbacks(forloaders, entities);
-    initial_load(callbacks);
-    on_entities_changed(entities);
-    m_scene.add_entities(entities);
-#   endif
-    m_tasks_controller.assign_platform(platform_);
-    initial_load(m_tasks_controller);
-    m_tasks_controller.add_entities_to(m_scene);
-    m_tasks_controller.add_triangle_links_to(ppdriver());
-}
-
-void Driver::update(Real seconds, Platform & callbacks) {
-    update_(seconds);
-    m_tasks_controller.assign_platform(callbacks);
-    m_tasks_controller.run_tasks(seconds);
-    m_tasks_controller.add_entities_to(m_scene);
-    m_tasks_controller.add_triangle_links_to(ppdriver());
-
-#   if 0
-    std::vector<Entity> entities;
-    auto callbacks_ = get_callbacks(callbacks, entities);
-    {
-    auto enditr = m_every_frame_tasks.begin();
-    m_every_frame_tasks.erase
-        (std::remove_if
-            (m_every_frame_tasks.begin(), enditr,
-             make_sole_owner_pred<EveryFrameTask>()),
-         enditr);
-    }
-    for (auto & task : m_every_frame_tasks) {
-        task->on_every_frame(callbacks_, seconds);
-    }
-#   if 0
-    for (auto & task : m_occasional_tasks) {
-        // v same bug?
-        m_scene.update_entities();
-        task->on_occasion(callbacks_);
-    }
-#   endif
-    for (auto & task : m_loader_tasks) {
-        (*task)(callbacks_);
-    }
-
-    for (auto & task : m_background_tasks) {
-        // v same bug?
-        m_scene.update_entities();
-
-        if ((*task)(callbacks_) == BackgroundCompletion::finished)
-            task = nullptr;
-    }
-    m_background_tasks.erase
-        (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),
-         m_background_tasks.end());
-#   if 0
-    m_occasional_tasks.clear();
-#   endif
-    m_loader_tasks.clear();
-#   endif
-#   if 0
-    on_entities_changed(entities);
-    m_scene.add_entities(entities);
-    if (!entities.empty()) {
-        std::cout << "There are now " << m_scene.count() << " entities." << std::endl;
-    }
-
-    m_scene.update_entities();
-#   endif
-    callbacks.render_scene(m_scene);
-}
-
-/* protected */ void Driver::on_entities_changed(std::vector<Entity> & new_entities) {
-#   if 0
-    if (new_entities.empty()) return;
-    // I need to peak at new entities?
-    for (auto & ent : new_entities) {
-        if (auto * every_frame = ent.ptr<SharedPtr<EveryFrameTask>>()) {
-            m_every_frame_tasks.push_back(*every_frame);
-        }
-    }
-
-    int new_triangles = 0;
-    for (auto & ent : new_entities) {
-        auto * vec = ent.ptr<TriangleLinks>();
-        if (!vec) continue;
-        ppdriver().add_triangles(*vec);
-        new_triangles += vec->size();
-        // ecs has a bug/design flaw...
-        // when adding entities directly, requesting deletion can cause a
-        // confusing error to be thrown
-        // this is because the entities are not yet in order, and so binary
-        // searching for it inside the scene fails
-    }
-    std::cout << "Added " << new_triangles << " new triangles." << std::endl;
-#   endif
-}
 
 namespace {
 
@@ -530,30 +366,43 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
 // ----------------------------------------------------------------------------
 
 void GameDriverComplete::press_key(KeyControl ky) {
-    player_entities().physical.get<PlayerControl>().press(ky);
+    m_player_entities.physical.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
-        player_entities().physical.get<PpState>() = PpInAir{k_player_start, Vector{}};
+        m_player_entities.physical.get<PpState>() = PpInAir{k_player_start, Vector{}};
     }
 }
 
 void GameDriverComplete::release_key(KeyControl ky) {
-    player_entities().physical.get<PlayerControl>().release(ky);
+    m_player_entities.physical.get<PlayerControl>().release(ky);
+}
+
+void GameDriverComplete::setup(Platform & platform_) {
+    m_tasks_controller.assign_platform(platform_);
+    initial_load(m_tasks_controller);
+    m_tasks_controller.add_entities_to(m_scene);
+    m_tasks_controller.add_triangle_links_to(*m_ppdriver);
+}
+
+void GameDriverComplete::update(Real seconds, Platform & platform) {
+    update_(seconds);
+    m_tasks_controller.assign_platform(platform);
+    m_tasks_controller.run_tasks(seconds);
+    m_tasks_controller.add_entities_to(m_scene);
+    m_tasks_controller.add_triangle_links_to(*m_ppdriver);
+    platform.render_scene(m_scene);
 }
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
     auto [renderable, physical, loader_task] =
-        make_sample_player(callbacks.platform(), ppdriver());
+        make_sample_player(callbacks.platform(), *m_ppdriver);
     callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.add(loader_task);
-#   if 0
-    callbacks.set_player_entities(PlayerEntities{physical, renderable});
-#   endif
     callbacks.add(physical);
     callbacks.add(renderable);
 
-    player_entities().physical   = physical;
-    player_entities().renderable = renderable;
+    m_player_entities.physical   = physical;
+    m_player_entities.renderable = renderable;
 #   if 0
     // let's... head north... starting 0.5+ ues north
     auto west = make_tuple(
@@ -617,8 +466,8 @@ void GameDriverComplete::update_(Real seconds) {
     VelocitiesToDisplacement{seconds},
     UpdatePpState{*m_ppdriver},
     CheckJump{},
-    [ppstate = player_entities().physical.get<PpState>(),
-     plyvel  = player_entities().physical.ptr<Velocity>()]
+    [ppstate = m_player_entities.physical.get<PpState>(),
+     plyvel  = m_player_entities.physical.ptr<Velocity>()]
         (Translation & trans, Opt<Visible> vis)
     {
         using point_and_plane::location_of;
@@ -626,10 +475,9 @@ void GameDriverComplete::update_(Real seconds) {
         Vector vel = plyvel ? plyvel->value*0.4 : Vector{};
         auto dist = magnitude(location_of(ppstate) + vel - trans.value);
         *vis = dist < 12;
-    })(scene());
+    })(m_scene);
 
-    // this code here is a good candidate for a "Trigger" system
-    auto player = player_entities().physical;
+    auto player = m_player_entities.physical;
     player.get<PlayerControl>().frame_update();
 
     auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};

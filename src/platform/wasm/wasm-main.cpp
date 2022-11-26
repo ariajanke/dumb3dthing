@@ -51,7 +51,7 @@ EM_JS(void, from_js_load_texture, (int handle, const char * filename), {
     texture.setUnit(0); // all 0 for now...
 });
 
-EM_JS(void, from_js_destroy_texture, (int handle), {    
+EM_JS(void, from_js_destroy_texture, (int handle), {
     jsPlatform.destroyTexture(handle);
 });
 
@@ -226,7 +226,7 @@ private:
         positions.clear();
         txPositions.clear();
         elements.clear();
-        
+
         positions  .reserve((vertex_end - vertex_beg)*3);
         txPositions.reserve((vertex_end - vertex_beg)*2);
         elements   .reserve(elements_end - elements_beg);
@@ -358,7 +358,7 @@ private:
     EntityRef m_camera_ent;
 };
 
-static UniquePtr<Driver> s_driver;
+static UniquePtr<GameDriver> s_driver;
 
 } // end of <anonymous> namespace
 
@@ -370,7 +370,7 @@ extern "C" {
 
 EMSCRIPTEN_KEEPALIVE void to_js_start_up() {
     from_js_log_line("[cpp]: driver started");
-    s_driver = Driver::make_instance();
+    s_driver = GameDriver::make_instance();
     s_driver->setup(WebGlPlatform::instance());
 }
 

@@ -703,11 +703,6 @@ public:
                 target.link_edge_container =
                     InterTriangleLinkContainer{link_view_grid};
                 auto ents = triangle_entities_adder.move_out_entities();
-#               if 0
-                auto links_ent = Entity::make_sceneless_entity();
-                links_ent.add<TriangleLinks>() = std::move(link_container);
-                callbacks.add(links_ent);
-#               endif
                 for (auto & link : link_container) {
                     callbacks.add(link);
                 }
