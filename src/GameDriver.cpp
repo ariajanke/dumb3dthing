@@ -25,7 +25,7 @@
 #include "map-loader/map-loader.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
-#include "map-loader/tiled-map-loader.hpp"
+#include "map-loader/MapLoadingDirector.hpp"
 
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>

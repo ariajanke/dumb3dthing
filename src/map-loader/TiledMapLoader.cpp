@@ -18,27 +18,20 @@
 
 *****************************************************************************/
 
-#include "tiled-map-loader.hpp"
-#include "map-loader.hpp"
-#include "../Components.hpp"
-#include "../RenderModel.hpp"
-#include "../Texture.hpp"
-#include "TileSet.hpp"
-#include "TileFactory.hpp"
-#include "../PointAndPlaneDriver.hpp"
-
-#include <ariajanke/cul/StringUtil.hpp>
-
-#include <map>
-#include <unordered_map>
+#include "TiledMapLoader.hpp"
 
 #include <tinyxml2.h>
 
 namespace {
 
 using namespace cul::exceptions_abbr;
-
-} // end of <anonymous> namespace
+using State = MapLoadingState;
+using WaitingForFileContents = MapLoadingWaitingForFileContents;
+using WaitingForTileSets = MapLoadingWaitingForTileSets;
+using Ready = MapLoadingReady;
+using Expired = MapLoadingExpired;
+using StateHolder = MapLoadingStateHolder;
+using Rectangle = cul::Rectangle<int>;
 
 template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
 void on_key_found(const std::map<Key, Value, Comparator> & map, const Key2 & key, Func && f_) {
@@ -83,50 +76,33 @@ private:
     std::map<std::string, const char *> m_properties;
 };
 
-// std::distance requires using the same iterator type
-template <typename IterBeg, typename IterEnd>
-int distance(IterBeg beg, IterEnd end) {
-    int i = 0;
-    for (; beg != end; ++beg)
-        { ++i; }
-    return i;
-};
-
-inline bool is_dash(char c) { return c == '-'; }
 static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
-bool is_colon(char c) { return c == ':'; }
+} // end of <anonymous> namespace
 
-void TiledMapRegion::request_region_load
-    (const Vector2I & local_region_position,
-     const SharedPtr<MapRegionPreparer> & region_preparer,
-     TaskCallbacks & callbacks)
-{
-    Vector2I lrp{local_region_position.x % 2, local_region_position.y % 2};
-    auto region_left   = std::max
-        (lrp.x*m_region_size.width, 0);
-    auto region_top    = std::max
-        (lrp.y*m_region_size.height, 0);
-    auto region_right  = std::min
-        (region_left + m_region_size.width, m_factory_grid.width());
-    auto region_bottom = std::min
-        (region_top + m_region_size.height, m_factory_grid.height());
-    if (region_left == region_right || region_top == region_bottom) {
-        return;
-    }
-#   if 1
-    auto factory_subgrid = m_factory_grid.make_subgrid(Rectangle
-        {region_left, region_top,
-         region_right - region_left, region_bottom - region_top});
+Platform & State::platform() const {
+    verify_shared_set();
+    return *m_platform;
+}
 
-    region_preparer->set_tile_factory_subgrid(std::move(factory_subgrid));
-#   endif
-    callbacks.add(region_preparer);
+Vector2I State::map_offset() const {
+    verify_shared_set();
+    return m_offset;
+}
+
+Rectangle State::target_tile_range() const {
+    verify_shared_set();
+    return m_tiles_to_load;
+}
+
+/* private */ void State::verify_shared_set() const {
+    if (m_platform) return;
+    throw RtError{"Unset stuff"};
 }
 
 // ----------------------------------------------------------------------------
 
-TileFactoryGrid TiledMapLoader::WaitingForFileContents::update_progress
+TileFactoryGrid WaitingForFileContents::update_progress
     (StateHolder & next_state)
 {
     if (!m_file_contents->is_ready()) return TileFactoryGrid{};
@@ -180,7 +156,7 @@ TileFactoryGrid TiledMapLoader::WaitingForFileContents::update_progress
     return TileFactoryGrid{};
 }
 
-/* private */ void TiledMapLoader::WaitingForFileContents::add_tileset
+/* private */ void WaitingForFileContents::add_tileset
     (const TiXmlElement & tileset, TileSetsContainer & tilesets_container)
 {
     tilesets_container.tilesets.emplace_back(make_shared<TileSet>());
@@ -195,7 +171,9 @@ TileFactoryGrid TiledMapLoader::WaitingForFileContents::update_progress
     }
 }
 
-TileFactoryGrid TiledMapLoader::WaitingForTileSets::update_progress
+// ----------------------------------------------------------------------------
+
+TileFactoryGrid WaitingForTileSets::update_progress
     (StateHolder & next_state)
 {
     // no short circuting permitted, therefore STL sequence algorithms
@@ -234,19 +212,7 @@ TileFactoryGrid TiledMapLoader::WaitingForTileSets::update_progress
     return TileFactoryGrid{};
 }
 
-void TileFactoryGrid::load_layer
-    (const Grid<int> & gids, const GidTidTranslator & idtranslator)
-{
-    m_factories.set_size(gids.width(), gids.height(), nullptr);
-    for (Vector2I r; r != gids.end_position(); r = gids.next(r)) {
-        auto gid = gids(r);
-        if (gid == 0) continue;
-
-        auto [tid, tileset] = idtranslator.gid_to_tid(gid);
-        m_factories(r) = (*tileset)(tid);
-        m_tilesets.push_back(tileset);
-    }
-}
+// ----------------------------------------------------------------------------
 
 TileFactoryGrid TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
@@ -257,46 +223,32 @@ TileFactoryGrid TiledMapLoader::Ready::update_progress
     return rv;
 }
 
-void MapLoadingDirector::on_every_frame
-    (TaskCallbacks & callbacks, const Entity & physic_ent)
-{
-    m_active_loaders.erase
-        (std::remove_if(m_active_loaders.begin(), m_active_loaders.end(),
-                        [](const TiledMapLoader & loader) { return loader.is_expired(); }),
-         m_active_loaders.end());
+// ----------------------------------------------------------------------------
 
-    check_for_other_map_segments(callbacks, physic_ent);
-}
+bool StateHolder::has_next_state() const noexcept
+    { return m_get_state; }
 
-/* private */ void MapLoadingDirector::check_for_other_map_segments
-    (TaskCallbacks & callbacks, const Entity & physics_ent)
-{
-    // this may turn into its own class
-    // there's just so much behavior potential here
-
-    // good enough for now
-    using namespace point_and_plane;
-    auto & pstate = physics_ent.get<PpState>();
-    for (auto pt : { location_of(pstate), displaced_location_of(pstate) }) {
-        m_region_tracker.frame_hit(to_segment_location(pt, m_chunk_size), callbacks);
+void StateHolder::move_state(StatePtrGetter & state_getter_ptr, StateSpace & space) {
+    if (!m_get_state) {
+        throw RtError{"No state to move"};
     }
-    m_region_tracker.frame_refresh();
+
+    space = std::move(m_space);
+    state_getter_ptr = m_get_state;
+    m_get_state = nullptr;
 }
 
-/* private static */ Vector2I MapLoadingDirector::to_segment_location
-    (const Vector & location, const Size2I & segment_size)
-{
-    return Vector2I
-        {int(std::floor( location.x / segment_size.width )),
-         int(std::floor(-location.z / segment_size.height))};
-}
+// ----------------------------------------------------------------------------
 
-/* private static */ void PlayerUpdateTask::check_fall_below(Entity & ent) {
-    auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
-    if (!ppair) return;
-    auto & loc = ppair->location;
-    if (loc.y < -10) {
-        loc = Vector{loc.x, 4, loc.z};
-        ent.get<Velocity>() = Velocity{};
+TileFactoryGrid TiledMapLoader::update_progress() {
+    StateHolder next;
+    TileFactoryGrid rv;
+    while (true) {
+        rv = m_get_state(m_state_space)->update_progress(next);
+        if (!next.has_next_state()) break;
+
+        next.move_state(m_get_state, m_state_space);
+        if (!rv.is_empty()) break;
     }
+    return rv;
 }
