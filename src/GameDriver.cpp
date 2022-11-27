@@ -275,76 +275,8 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
-    // This sort of is "temporary" code.
-    // So not subjecting to testing.
-
-
-
-
     static constexpr const auto k_testmap_filename = "demo-map.tmx";
-#   if 0
-    using TeardownTask = MapLoader::TeardownTask;
-    std::map<std::string, MapLoader> map_loaders;
-    using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
-    std::vector<MpTuple> loaded_maps;
-    static constexpr const auto k_load_limit = 3;
 
-    static auto check_fall_below = [](Entity & ent) {
-        auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
-        if (!ppair) return;
-        auto & loc = ppair->location;
-        if (loc.y < -10) {
-            loc = Vector{loc.x, 4, loc.z};
-            ent.get<Velocity>() = Velocity{};
-        }
-    };
-
-    physics_ent.add<SharedPtr<EveryFrameTask>>() =
-        EveryFrameTask::make(
-        [loaded_maps = std::move(loaded_maps),
-         map_loaders = std::move(map_loaders),
-         physics_ent]
-        (TaskCallbacks & callbacks, Real) mutable
-    {
-        check_fall_below(physics_ent);
-
-        static constexpr const auto k_base_map_size = 20;
-        // if there's no teardown task... then it's pending
-        for (auto & [gpos, loader, teardown] : loaded_maps) {
-            if (teardown) continue;
-
-            auto [task_ptr, teardown_ptr] = (*loader)(gpos*k_base_map_size); {}
-            if (!task_ptr) continue;
-            callbacks.add(task_ptr);
-            teardown = teardown_ptr;
-            physics_ent.ensure<Velocity>();
-        }
-
-        using namespace point_and_plane;
-        auto player_loc = location_of(physics_ent.get<PpState>());
-        auto gposv3 =
-            (Vector{0.5, 0, -0.5} + player_loc)*
-            ( 1. / k_base_map_size );
-        Vector2I gpos{ int(std::floor(gposv3.x)), int(std::floor(-gposv3.z)) };
-
-        bool current_posisition_loaded = std::any_of(
-            loaded_maps.begin(), loaded_maps.end(),
-            [gpos](const MpTuple & tup) { return std::get<Vector2I>(tup) == gpos; });
-        if (current_posisition_loaded) return;
-        auto itr = map_loaders.find(k_testmap_filename);
-        if (itr == map_loaders.end()) {
-            itr = map_loaders.insert(std::make_pair(k_testmap_filename, MapLoader{callbacks.platform()})).first;
-            itr->second.start_preparing(k_testmap_filename);
-        }
-        loaded_maps.emplace_back( gpos, &itr->second, nullptr);
-        int n_too_many = std::max(int(loaded_maps.size()) - k_load_limit, 0);
-        for (auto itr = loaded_maps.begin(); itr != loaded_maps.begin() + n_too_many; ++itr) {
-            auto & teardown_task = std::get<SharedPtr<TeardownTask>>(*itr);
-            callbacks.add(teardown_task);
-        }
-        loaded_maps.erase(loaded_maps.begin(), loaded_maps.begin() + n_too_many);
-    });
-#   else
     PlayerUpdateTask
         {MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
          EntityRef{physics_ent}};
@@ -355,10 +287,6 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
         (k_testmap_filename, platform);
     SharedPtr<EveryFrameTask> & ptrref = physics_ent.add<SharedPtr<EveryFrameTask>>();
     ptrref = SharedPtr<EveryFrameTask>{player_update_task};
-#   endif
-
-
-
 
     return make_tuple(model_ent, physics_ent, map_loader_task);
 }
