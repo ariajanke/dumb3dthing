@@ -275,7 +275,7 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
-    static constexpr const auto k_testmap_filename = "demo-map.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
 
     PlayerUpdateTask
         {MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
@@ -307,17 +307,16 @@ void GameDriverComplete::release_key(KeyControl ky) {
 
 void GameDriverComplete::setup(Platform & platform_) {
     m_tasks_controller.assign_platform(platform_);
+    m_tasks_controller.assign_point_and_plane_driver(*m_ppdriver);
     initial_load(m_tasks_controller);
     m_tasks_controller.add_entities_to(m_scene);
-    m_tasks_controller.add_triangle_links_to(*m_ppdriver);
 }
 
 void GameDriverComplete::update(Real seconds, Platform & platform) {
     update_(seconds);
-    m_tasks_controller.assign_platform(platform);
+    m_tasks_controller.assign_platform(platform);    
     m_tasks_controller.run_tasks(seconds);
     m_tasks_controller.add_entities_to(m_scene);
-    m_tasks_controller.add_triangle_links_to(*m_ppdriver);
     platform.render_scene(m_scene);
 }
 

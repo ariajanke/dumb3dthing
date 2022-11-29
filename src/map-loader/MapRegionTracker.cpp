@@ -32,9 +32,22 @@ MapRegionTracker::MapRegionTracker
     m_root_region(std::move(root_region)),
     m_region_size_in_tiles(region_size_in_tiles) {}
 
-void MapRegionTracker::frame_refresh() { /* lets just get them loading for now */ }
+void MapRegionTracker::frame_refresh(TaskCallbacks & callbacks) {
+    for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
+        if (itr->second.keep_on_refresh) {
+            itr->second.keep_on_refresh = false;
+            ++itr;
+        } else {
+            // teardown task handles removal of entities and physical triangles
+            callbacks.add(itr->second.teardown);
+            itr = m_loaded_regions.erase(itr);
+        }
+    }
+}
 
-void MapRegionTracker::frame_hit(const Vector2I & global_region_location, TaskCallbacks & callbacks) {
+void MapRegionTracker::frame_hit
+    (const Vector2I & global_region_location, TaskCallbacks & callbacks)
+{
     if (!m_root_region) return;
     auto itr = m_loaded_regions.find(global_region_location);
     if (itr == m_loaded_regions.end()) {
@@ -56,15 +69,18 @@ void MapRegionTracker::frame_hit(const Vector2I & global_region_location, TaskCa
         m_root_region->request_region_load(global_region_location, region_preparer, callbacks);
     } else {
         // move to top of LRU or whatever
+        itr->second.keep_on_refresh = true;
     }
 }
 
 /* private */ NeighborRegions MapRegionTracker::get_neighbors_for(const Vector2I & r) {
+    // no easy way to do this in C++ :c
+    static constexpr const auto k_neighbors = k_plus_shape_neighbor_offsets;
     return NeighborRegions{
-        location_to_pointer(r + Vector2I{ 0,  1}),
-        location_to_pointer(r + Vector2I{ 0, -1}),
-        location_to_pointer(r + Vector2I{ 1,  0}),
-        location_to_pointer(r + Vector2I{-1,  0})
+        location_to_pointer(r + k_neighbors[0]),
+        location_to_pointer(r + k_neighbors[1]),
+        location_to_pointer(r + k_neighbors[2]),
+        location_to_pointer(r + k_neighbors[3])
     };
 }
 

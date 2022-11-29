@@ -77,10 +77,15 @@ void MapLoadingDirector::on_every_frame
     // good enough for now
     using namespace point_and_plane;
     auto & pstate = physics_ent.get<PpState>();
-    for (auto pt : { location_of(pstate), displaced_location_of(pstate) }) {
-        m_region_tracker.frame_hit(to_segment_location(pt, m_chunk_size), callbacks);
+    auto delta = physics_ent.has<Velocity>() ? physics_ent.get<Velocity>()*0.5 : Vector{};
+    for (auto pt : { location_of(pstate), location_of(pstate) + delta }) {
+        auto target_region = to_segment_location(pt, m_chunk_size);
+        m_region_tracker.frame_hit(target_region, callbacks);
+        for (auto offset : k_plus_shape_neighbor_offsets) {
+            m_region_tracker.frame_hit(offset + target_region, callbacks);
+        }
     }
-    m_region_tracker.frame_refresh();
+    m_region_tracker.frame_refresh(callbacks);
 }
 
 // ----------------------------------------------------------------------------

@@ -20,12 +20,19 @@
 
 #include "MapRegion.hpp"
 
+namespace {
+
+using Size2I = TiledMapRegion::Size2I;
+
+} // end of <anonymous> namespace
+
 void TiledMapRegion::request_region_load
     (const Vector2I & local_region_position,
      const SharedPtr<MapRegionPreparer> & region_preparer,
      TaskCallbacks & callbacks)
 {
-    Vector2I lrp{local_region_position.x % 2, local_region_position.y % 2};
+    Vector2I lrp{local_region_position.x % map_size_in_regions().width,
+                 local_region_position.y % map_size_in_regions().height};
     auto region_left   = std::max
         (lrp.x*m_region_size.width, 0);
     auto region_top    = std::max
@@ -44,6 +51,15 @@ void TiledMapRegion::request_region_load
 
     region_preparer->set_tile_factory_subgrid(std::move(factory_subgrid));
     callbacks.add(region_preparer);
+}
+
+/* private */ Size2I TiledMapRegion::map_size_in_regions() const {
+    auto dim_to_size = [] (int grid_len_in_tiles, int region_len) {
+        return   grid_len_in_tiles / region_len
+               + (grid_len_in_tiles % region_len ? 1 : 0);
+    };
+    return Size2I{dim_to_size(m_factory_grid.width (), m_region_size.width ),
+                  dim_to_size(m_factory_grid.height(), m_region_size.height)};
 }
 
 // ----------------------------------------------------------------------------
@@ -116,7 +132,8 @@ void MapRegionPreparer::set_tile_factory_subgrid
     for (auto & ent : ents) {
         callbacks.add(ent);
     }
-    target.teardown = make_shared<TeardownTask>(std::move(ents));
+    target.teardown = make_shared<TeardownTask>
+        (std::move(ents), std::move(link_container));
     for (auto * region_ptr : m_neighbor_regions) {
         if (!region_ptr) continue;
         region_ptr->link_edge_container.glue_to(target.link_edge_container);

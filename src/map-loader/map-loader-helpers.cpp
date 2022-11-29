@@ -26,9 +26,11 @@ using GridOfViews = InterTriangleLinkContainer::GridOfViews;
 
 } // end of <anonymous> namespace
 
-void TeardownTask::on_occasion(Callbacks &) {
-    for (auto & ent : m_entities)
+void TeardownTask::operator () (Callbacks & callbacks) const {
+    for (auto ent : m_entities)
         { ent.request_deletion(); }
+    for (auto & triptr : m_triangles)
+        { callbacks.remove(triptr); }
 }
 
 // ----------------------------------------------------------------------------
@@ -66,7 +68,8 @@ void InterTriangleLinkContainer::glue_to
     (const GridOfViews & grid, const Vector2I & r)
 {
     return std::any_of
-        (k_neighbor_offsets.begin(), k_neighbor_offsets.end(),
+        (k_plus_shape_neighbor_offsets.begin(),
+         k_plus_shape_neighbor_offsets.end(),
          [&] (const Vector2I & offset)
          { return !grid.has_position(offset + r); });
 }

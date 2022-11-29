@@ -246,9 +246,7 @@ public:
     virtual ~TaskCallbacks() {}
 
     virtual void add(const SharedPtr<EveryFrameTask> &) = 0;
-#   if 0
-    virtual void add(const SharedPtr<OccasionalTask> &) = 0;
-#   endif
+
     virtual void add(const SharedPtr<LoaderTask> &) = 0;
 
     virtual void add(const SharedPtr<BackgroundTask> &) = 0;
@@ -327,33 +325,15 @@ public:
     class Callbacks : public TaskCallbacks {
     public:
         using TaskCallbacks::add;
-#       if 0
-        virtual PlayerEntities player_entites() const = 0;
 
-        virtual void set_player_entities(const PlayerEntities & entities) = 0;
-#       endif
         virtual void add(const SharedPtr<TriangleLink> &) = 0;
+
+        virtual void remove(const SharedPtr<const TriangleLink> &) = 0;
     };
 
     virtual ~LoaderTask() {}
 
-    /** When the driver uses a loader it does several things with the values
-     *  returned to it.
-     *
-     *  - If the player entities returned are different from what's passed,
-     *    then it deletes the old player entities from the scene.
-     *  - All new entities are added to the scene
-     *  - All non-builtin single systems, and trigger systems are deleted and
-     *    replaced with what's returned in the tuple
-     *
-     *  @note if you want to delete any old entities, the trigger system
-     *        responsible for creating this loader should make calls to
-     *        request_deletion for each entity to delete
-     *
-     *  @param player_entities old player entities before this loader was
-     *         called, they will be "null" if player entities haven't been
-     *         created yet (driver startup)
-     *  @param callbacks provided functions by the platform for loaders
+    /**
      *
      */
     virtual void operator () (Callbacks &) const = 0;

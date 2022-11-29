@@ -72,10 +72,14 @@ public:
 
     void add(const SharedPtr<TriangleLink> & ptr) final;
 
-    void add_triangle_links_to(point_and_plane::Driver &);
+    void assign_point_and_plane_driver(point_and_plane::Driver &);
+
+    void remove(const SharedPtr<const TriangleLink> &) final;
 
 private:
-    std::vector<SharedPtr<TriangleLink>> m_links;
+    void verify_driver_set(const char *) const;
+
+    point_and_plane::Driver * m_ppdriver = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -150,13 +154,7 @@ private:
 
 class TasksController final : public LoaderTask::Callbacks {
 public:
-    void run_tasks(Real elapsed_time);
-
-    void assign_platform(Platform & platform_);
-
     void add_entities_to(Scene & scene);
-
-    void add_triangle_links_to(point_and_plane::Driver & driver);
 
     void add(const SharedPtr<EveryFrameTask> & ptr) final;
 
@@ -168,7 +166,15 @@ public:
 
     void add(const SharedPtr<TriangleLink> & tri) final;
 
+    void assign_platform(Platform & platform_);
+
+    void assign_point_and_plane_driver(point_and_plane::Driver &);
+
     Platform & platform();
+
+    void remove(const SharedPtr<const TriangleLink> &) final;
+
+    void run_tasks(Real elapsed_time);
 
 private:
     MultiReceiver m_multireceiver;

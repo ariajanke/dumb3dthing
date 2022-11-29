@@ -52,6 +52,8 @@ public:
          TaskCallbacks & callbacks) final;
 
 private:
+    Size2I map_size_in_regions() const;
+
     Size2I m_region_size;
     TileFactoryGrid m_factory_grid;
 };
@@ -59,9 +61,13 @@ private:
 /// all information pertaining to a loaded map region
 ///
 /// (used by the region tracker)
-struct LoadedMapRegion final {
+class LoadedMapRegion {
+public:
     InterTriangleLinkContainer link_edge_container;
     SharedPtr<TeardownTask> teardown;
+
+protected:
+    LoadedMapRegion() {}
 };
 
 /// a loader task that prepares a region of the map

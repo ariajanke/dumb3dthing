@@ -26,17 +26,21 @@
 
 #include <ariajanke/cul/SubGrid.hpp>
 
-class TeardownTask final : public OccasionalTask {
+class TeardownTask final : public LoaderTask {
 public:
     TeardownTask() {}
 
-    explicit TeardownTask(std::vector<Entity> && entities):
-        m_entities(std::move(entities)) {}
+    explicit TeardownTask
+        (std::vector<Entity> && entities,
+         std::vector<SharedPtr<TriangleLink>> && triangles):
+        m_entities (std::move(entities )),
+        m_triangles(std::move(triangles)) {}
 
-    void on_occasion(Callbacks &) final;
+    void operator () (Callbacks &) const final;
 
 private:
     std::vector<Entity> m_entities;
+    std::vector<SharedPtr<TriangleLink>> m_triangles;
 };
 
 using TileFactorySubGrid = cul::ConstSubGrid
@@ -68,11 +72,6 @@ class InterTriangleLinkContainer final {
 public:
     using Iterator = std::vector<SharedPtr<TriangleLink>>::iterator;
     using GridOfViews = Grid<View<TriangleLinks::const_iterator>>;
-
-    static constexpr const std::array k_neighbor_offsets = {
-        Vector2I{ 1, 0}, Vector2I{0,  1},
-        Vector2I{-1, 0}, Vector2I{0, -1},
-    };
 
     InterTriangleLinkContainer() {}
 

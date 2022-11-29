@@ -20,8 +20,8 @@
 
 #include <ariajanke/cul/TestSuite.hpp>
 
+#include "../../map-loader/TileSet.hpp"
 #include "../../map-loader/WallTileFactory.hpp"
-#include "../../map-loader/tiled-map-loader.hpp"
 
 #include <tinyxml2.h>
 

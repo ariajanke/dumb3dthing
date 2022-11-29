@@ -20,6 +20,7 @@
 
 #include "PointAndPlaneDriver.hpp"
 #include "point-and-plane/SpatialPartitionMap.hpp"
+#include "point-and-plane/FrameTimeLinkContainer.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -60,9 +61,7 @@ private:
 
     State handle_tracker(const OnSegment &, const EventHandler &) const;
 
-    std::vector<SharedPtr<const TriangleLink>> m_links;
-    bool m_spm_dirty = false;
-    ProjectedSpatialMap m_spm;
+    FrameTimeLinkContainer m_frametime_link_container;
 };
 
 bool new_invert_normal
@@ -148,35 +147,19 @@ void verify_decreasing_displacement
 
 // should/add remove fast
 void DriverComplete::add_triangle(const SharedPtr<const TriangleLink> & link) {
-    m_links.push_back(link);
-    m_spm_dirty = true;
+    m_frametime_link_container.defer_addition_of(link);
 }
 
-void DriverComplete::remove_triangle(const SharedPtr<const TriangleLink> &) {
-    throw RtError{"unimplemented"};
+void DriverComplete::remove_triangle(const SharedPtr<const TriangleLink> & link) {
+    m_frametime_link_container.defer_removal_of(link);
 }
 
 void DriverComplete::clear_all_triangles() {
-    m_links.clear();
+    m_frametime_link_container.clear();
 }
 
 Driver & DriverComplete::update() {
-    auto new_end = std::remove_if(m_links.begin(), m_links.end(),
-        [](const SharedPtr<const TriangleLink> & link)
-    { return link.use_count() < 2; });
-
-    if (new_end != m_links.end()) {
-        auto triangles_dropped = m_links.end() - new_end;
-        std::cout << "Dropeed " << triangles_dropped << " triangles." << std::endl;
-        m_spm_dirty = true;
-    }
-    m_links.erase(new_end, m_links.end());
-
-    if (m_spm_dirty) {
-        m_spm_dirty = false;
-        m_spm.populate(m_links);
-    }
-
+    m_frametime_link_container.update();
     return *this;
 }
 
@@ -186,9 +169,6 @@ State DriverComplete::operator ()
     // before returning, this must be true:
     //
     // are_very_close(/* something */.displacement, make_zero_vector<Vector>())
-    if (m_spm_dirty) {
-        throw RtError{"Driver::operator(): update must be called first"};
-    }
 
     auto next_state = [this](const State & state, const EventHandler & env) {
         if (auto * freebody = get_if<InAir>(&state)) {
@@ -222,7 +202,7 @@ State DriverComplete::operator ()
 {
 
     const auto new_loc = freebody.location + freebody.displacement;
-    auto view = m_spm.view_for(freebody.location, new_loc);
+    auto view = m_frametime_link_container.view_for(freebody.location, new_loc);
     const auto beg = view.begin();
     const auto end = view.end();
 
@@ -232,7 +212,7 @@ State DriverComplete::operator ()
 
     constexpr const auto k_caller_name = "DriverComplete::handle_freebody";
     for (auto itr = beg; itr != end; ++itr) {
-        auto link_ptr = itr->lock();
+        auto link_ptr = *itr;
         const auto & triangle = link_ptr->segment();
 
         auto liminx = triangle.limit_with_intersection(freebody.location, new_loc);

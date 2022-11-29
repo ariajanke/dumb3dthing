@@ -37,12 +37,18 @@ public:
         (UniquePtr<MapRegion> && root_region,
          const Size2I & region_size_in_tiles);
 
-    void frame_refresh();
+    void frame_refresh(TaskCallbacks & callbacks);
 
     void frame_hit(const Vector2I & global_region_location, TaskCallbacks & callbacks);
 
 private:
-    using LoadedRegionMap = std::unordered_map<Vector2I, LoadedMapRegion, Vector2IHasher>;
+    class TrackerLoadedRegion final : public LoadedMapRegion {
+    public:
+        bool keep_on_refresh = true;
+    };
+
+    using LoadedRegionMap = std::unordered_map
+        <Vector2I, TrackerLoadedRegion, Vector2IHasher>;
 
     NeighborRegions get_neighbors_for(const Vector2I & r);
 

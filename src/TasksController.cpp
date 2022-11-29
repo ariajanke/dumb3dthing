@@ -76,14 +76,26 @@ template <typename T>
 
 void TriangleLinksReceiver::add(const SharedPtr<TriangleLink> & ptr) {
     assert(ptr);
-    m_links.push_back(ptr);
+    verify_driver_set("add");
+    m_ppdriver->add_triangle(ptr);
 }
 
-void TriangleLinksReceiver::add_triangle_links_to
-    (point_and_plane::Driver & ppdriver)
+void TriangleLinksReceiver::remove(const SharedPtr<const TriangleLink> & ptr) {
+    assert(ptr);
+    verify_driver_set("remove");
+    m_ppdriver->remove_triangle(ptr);
+}
+
+void TriangleLinksReceiver::assign_point_and_plane_driver
+    (point_and_plane::Driver & driver)
+    { m_ppdriver = &driver; }
+
+/* private */ void TriangleLinksReceiver::verify_driver_set
+    (const char * caller) const
 {
-    ppdriver.add_triangles(m_links);
-    m_links.clear();
+    if (m_ppdriver) return;
+    throw RtError{  "TriangleLinksReceiver::" + std::string{caller}
+                  + ": point and plane driver needs to be set"};
 }
 
 // ----------------------------------------------------------------------------
@@ -191,14 +203,8 @@ void TasksController::run_tasks(Real elapsed_time) {
     m_old_part.take_tasks_from(m_new_part);
 }
 
-void TasksController::assign_platform(Platform & platform_)
-    { m_multireceiver.assign_platform(platform_); }
-
 void TasksController::add_entities_to(Scene & scene)
     { m_multireceiver.add_entities_to(scene); }
-
-void TasksController::add_triangle_links_to(point_and_plane::Driver & driver)
-    { m_multireceiver.add_triangle_links_to(driver); }
 
 void TasksController::add(const SharedPtr<EveryFrameTask> & ptr)
     { m_multireceiver.add(ptr); }
@@ -215,5 +221,15 @@ void TasksController::add(const Entity & ent)
 void TasksController::add(const SharedPtr<TriangleLink> & tri)
     { m_multireceiver.add(tri); }
 
+void TasksController::assign_platform(Platform & platform_)
+    { m_multireceiver.assign_platform(platform_); }
+
+void TasksController::assign_point_and_plane_driver
+    (point_and_plane::Driver & ppdriver)
+    { m_multireceiver.assign_point_and_plane_driver(ppdriver); }
+
 Platform & TasksController::platform()
     { return m_multireceiver.platform(); }
+
+void TasksController::remove(const SharedPtr<const TriangleLink> & ptr)
+    { m_multireceiver.remove(ptr); }
