@@ -44,5 +44,5 @@ private:
     std::vector<SharedPtr<const TriangleLink>> m_to_add_links;
     std::vector<SharedPtr<const TriangleLink>> m_to_remove_links;
     bool m_add_dirty = false;
-    ProjectedSpatialMap m_spm; // < lets have this container own
+    ProjectedSpatialMap m_spm;
 };

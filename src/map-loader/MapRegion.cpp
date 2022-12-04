@@ -90,7 +90,7 @@ Slopes MapRegionPreparer::SlopesGridFromTileFactories::
 }
 
 // ----------------------------------------------------------------------------
-
+#if 0
 MapRegionPreparer::MapRegionPreparer
     (LoadedMapRegion & target, Vector2I tile_offset,
      const NeighborRegions & neighbors):
@@ -98,16 +98,37 @@ MapRegionPreparer::MapRegionPreparer
     m_tile_offset(tile_offset),
     m_neighbor_regions(neighbors)
 {}
+#endif
 
 void MapRegionPreparer::operator () (LoaderTask::Callbacks & callbacks) const
-    { finish_map(m_tile_factory_grid, m_target_region, callbacks); }
+    { finish_map(m_tile_factory_grid, callbacks); }
+
+MapRegionPreparer::MapRegionPreparer
+    (const Vector2I & tile_offset):
+    m_tile_offset(tile_offset) {}
 
 void MapRegionPreparer::set_tile_factory_subgrid
     (TileFactorySubGrid && tile_factory_grid)
     { m_tile_factory_grid = std::move(tile_factory_grid); }
 
+void MapRegionPreparer::set_completer(const RegionCompleter & completer)
+    { m_completer = completer; }
+#if 0
+void MapRegionPreparer::glue_triangles_to(const NeighborRegions & regions) {
+    for (auto other_preparer : regions) {
+        if (!other_preparer) continue;
+        other_preparer->m_link_edge_container.glue_to(m_link_edge_container);
+    }
+}
+
+void MapRegionPreparer::start_teardown_task(Callbacks & callbacks) {
+    if (!m_teardown) return;
+    callbacks.add(m_teardown);
+    m_teardown = nullptr;
+}
+#endif
 /* private */ void MapRegionPreparer::finish_map
-    (const TileFactorySubGrid & factory_grid, LoadedMapRegion & target,
+    (const TileFactorySubGrid & factory_grid,
      Callbacks & callbacks) const
 {
     GridViewInserter<SharedPtr<TriangleLink>> link_inserter{factory_grid.size2()};
@@ -123,8 +144,10 @@ void MapRegionPreparer::set_tile_factory_subgrid
     auto [link_container, link_view_grid] =
         link_inserter.move_out_container_and_grid_view();
     link_triangles(link_view_grid);
+#   if 0
     target.link_edge_container =
         InterTriangleLinkContainer{link_view_grid};
+#   endif
     auto ents = triangle_entities_adder.move_out_entities();
     for (auto & link : link_container) {
         callbacks.add(link);
@@ -132,10 +155,18 @@ void MapRegionPreparer::set_tile_factory_subgrid
     for (auto & ent : ents) {
         callbacks.add(ent);
     }
+
+    m_completer.on_complete
+        (InterTriangleLinkContainer{link_view_grid},
+         make_shared<TeardownTask>(std::move(ents), std::move(link_container)));
+
+#   if 0
     target.teardown = make_shared<TeardownTask>
         (std::move(ents), std::move(link_container));
+
     for (auto * region_ptr : m_neighbor_regions) {
         if (!region_ptr) continue;
         region_ptr->link_edge_container.glue_to(target.link_edge_container);
     }
+#   endif
 }

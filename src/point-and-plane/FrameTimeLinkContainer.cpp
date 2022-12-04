@@ -75,7 +75,6 @@ void FrameTimeLinkContainer::update() {
         m_spm.populate(m_to_add_links);
         m_add_dirty = false;
     }
-
 }
 
 View<Iterator> FrameTimeLinkContainer::view_for

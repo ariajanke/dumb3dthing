@@ -23,6 +23,10 @@
 #include <array>
 #include <algorithm>
 
+#include <vector>
+#include <memory>
+#include <atomic>
+
 int main() {
     // I *could* just dump all my test functions here I guess...
     const std::array k_test_functions = {
@@ -38,5 +42,51 @@ int main() {
         results[i] = k_test_functions[i]();
     bool all_ok = std::all_of(results.begin(), results.end(),
                 [](bool b){ return b; });
+#   if 0
+    {
+    std::vector<int> shit;
+    shit.resize(100, 120);
+    std::vector<std::shared_ptr<int>> shit_ptrs;
+    shit_ptrs.reserve(100);
+
+    class SharedOwner final {
+    public:
+        SharedOwner() {}
+#       if 0
+        explicit SharedOwner(std::vector<std::shared_ptr<int>> && vec):
+            shit_ptrs(std::move(vec))
+        { counter = shit_ptrs.size(); }
+#       endif
+        ~SharedOwner() {
+            int i = 0;
+            ++i;
+        }
+#       if 0
+        std::vector<std::shared_ptr<int>> shit_ptrs;
+#       endif
+        std::atomic_int counter = 0;
+    };
+
+    class SharedDeleter final {
+    public:
+        SharedDeleter(SharedOwner * ptr): owner(ptr) {}
+
+        void operator () (int *) const {
+            --owner->counter;
+            if (!owner->counter) {
+                delete owner;
+            }
+        }
+
+        mutable SharedOwner * owner;
+    };
+
+    auto vec_owner = new SharedOwner;
+    for (auto & shit_ : shit) {
+        shit_ptrs.push_back(std::shared_ptr<int>{&shit_, SharedDeleter{vec_owner}});
+    }
+    vec_owner->counter = shit_ptrs.size();
+    }
+#   endif
     return all_ok ? 0 : ~0;
 }

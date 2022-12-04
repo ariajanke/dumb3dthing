@@ -22,6 +22,7 @@
 #include "../../Components.hpp"
 #include "../../map-loader/map-loader.hpp"
 #include "../../PointAndPlaneDriver.hpp"
+#include "../../point-and-plane/FrameTimeLinkContainer.hpp"
 
 #include <ariajanke/cul/TestSuite.hpp>
 
@@ -39,7 +40,7 @@ using namespace cul::exceptions_abbr;
 using cul::is_real;
 using LinksGrid = Grid<View<TriangleLinks::const_iterator, TriangleLinks::const_iterator>>;
 using Triangle = TriangleSegment;
-
+#if 0
 class TestLoaderTaskCallbacks final : public LoaderTask::Callbacks {
 public:
     void add(const SharedPtr<EveryFrameTask> &) final {}
@@ -60,7 +61,7 @@ public:
 
     std::vector<Entity> entities;
 };
-
+#endif
 bool run_tiled_map_loader_tests();
 
 } // end of <anonymous> namespace
@@ -347,6 +348,29 @@ bool run_tiled_map_loader_tests() {
         return test(false);
     });
 #   endif
+    using namespace cul::ts;
+
+    TestSuite suite;
+    suite.start_series("FrameTimeLinkContainer");
+    mark(suite).test([] {
+        FrameTimeLinkContainer ftlc;
+        auto a = make_shared<TriangleLink>();
+        auto b = make_shared<TriangleLink>();
+        auto c = make_shared<TriangleLink>();
+        for (auto p : { a, c, b })
+            ftlc.defer_addition_of(p);
+        ftlc.defer_removal_of(b);
+        ftlc.update();
+
+        auto view = ftlc.view_for(-Vector{1, 1, 1}*1000, Vector{1, 1, 1}*1000);
+        auto a_res = std::find(view.begin(), view.end(), a);
+        auto b_res = std::find(view.begin(), view.end(), b);
+        auto c_res = std::find(view.begin(), view.end(), c);
+        return test(   a_res != view.end() && b_res == view.end()
+                    && c_res != view.end());
+    });
+
+
     return true; //suite.has_successes_only();
 }
 
