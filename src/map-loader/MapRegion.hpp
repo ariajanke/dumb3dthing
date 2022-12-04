@@ -58,16 +58,33 @@ private:
     TileFactoryGrid m_factory_grid;
 };
 
-/// all information pertaining to a loaded map region
-///
-/// (used by the region tracker)
-class LoadedMapRegion {
+class GridMapRegionCompleter {
 public:
-    InterTriangleLinkContainer link_edge_container;
-    SharedPtr<TeardownTask> teardown;
+    virtual ~GridMapRegionCompleter() {}
 
-protected:
-    LoadedMapRegion() {}
+    virtual void on_complete
+        (const Vector2I & region_position,
+         InterTriangleLinkContainer && link_container,
+         SharedPtr<TeardownTask> && teardown_task) = 0;
+};
+
+class MapRegionCompleter final {
+public:
+    MapRegionCompleter() {}
+
+    MapRegionCompleter
+        (const Vector2I & region_position,
+         GridMapRegionCompleter & grid_completer);
+
+    template <typename ... Types>
+    void on_complete(Types && ... args) const
+        { verify_completer().on_complete(m_pos, std::forward<Types>(args)...); }
+
+private:
+    GridMapRegionCompleter & verify_completer() const;
+
+    Vector2I m_pos;
+    GridMapRegionCompleter * m_completer = nullptr;
 };
 
 /// a loader task that prepares a region of the map
@@ -104,78 +121,19 @@ public:
         std::vector<Entity> m_entities;
     };
 
-    class GridRegionCompleter {
-    public:
-        virtual ~GridRegionCompleter() {}
-
-        virtual void on_complete
-            (const Vector2I & region_position,
-             InterTriangleLinkContainer && link_container,
-             SharedPtr<TeardownTask> && teardown_task) = 0;
-    };
-
-    class RegionCompleter final {
-    public:
-        RegionCompleter() {}
-
-        RegionCompleter
-            (const Vector2I & region_position,
-             GridRegionCompleter & grid_completer):
-            m_pos(region_position),
-            m_completer(&grid_completer)
-        {}
-
-        template <typename ... Types>
-        void on_complete(Types && ... args) const
-            { verify_completer().on_complete(m_pos, std::forward<Types>(args)...); }
-
-    private:
-        GridRegionCompleter & verify_completer() const {
-            using namespace cul::exceptions_abbr;
-            if (m_completer) return *m_completer;
-            throw RtError{""};
-        }
-
-        Vector2I m_pos;
-        GridRegionCompleter * m_completer = nullptr;
-    };
-#   if 0
-    using NeighborRegions = std::array<SharedPtr<MapRegionPreparer>, 4>;
-
-    MapRegionPreparer
-        (const LoadedMapRegion & target, Vector2I tile_offset,
-         const NeighborRegions & neighbors);
-#   endif
     explicit MapRegionPreparer(const Vector2I & tile_offset);
 
     void operator () (LoaderTask::Callbacks & callbacks) const final;
 
     void set_tile_factory_subgrid(TileFactorySubGrid && tile_factory_grid);
 
-    void set_completer(const RegionCompleter &);
-#   if 0
-    void glue_triangles_to(const NeighborRegions &);
+    void set_completer(const MapRegionCompleter &);
 
-    void start_teardown_task(Callbacks &);
-#   endif
 private:
     void finish_map
         (const TileFactorySubGrid & factory_grid, Callbacks & callbacks) const;
-#   if 0
-    LoadedMapRegion & m_target_region;
-#   endif
-    TileFactorySubGrid m_tile_factory_grid;
-#   if 0
-    // LoadedMapRegion m_target_region;
-    // | link container can just live here (and this belong to the region data
-    // v as a shared ptr)
-    InterTriangleLinkContainer m_link_edge_container;
 
-    SharedPtr<TeardownTask> m_teardown;
-#   endif
-    RegionCompleter m_completer;
+    TileFactorySubGrid m_tile_factory_grid;
+    MapRegionCompleter m_completer;
     Vector2I m_tile_offset;
-#   if 0
-    NeighborRegions m_neighbor_regions;
-#   endif
 };
