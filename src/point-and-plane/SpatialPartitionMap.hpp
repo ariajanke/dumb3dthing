@@ -216,7 +216,7 @@ private:
 class SpatialPartitionMap final {
 public:
     using Interval = ProjectionLine::Interval;
-    using Element = WeakPtr<const TriangleLink>;
+    using Element = SharedPtr<const TriangleLink>;
     using Helpers = SpatialPartitionMapHelpers<Element>;
     using Entry = Helpers::Entry;
     using EntryContainer = Helpers::EntryContainer;

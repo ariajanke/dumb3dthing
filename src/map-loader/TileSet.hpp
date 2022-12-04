@@ -32,8 +32,8 @@ class TileFactory;
 
 class TileSet final {
 public:
-    using ConstTileSetPtr = std::shared_ptr<const TileSet>;
-    using TileSetPtr      = std::shared_ptr<TileSet>;
+    using ConstTileSetPtr = SharedPtr<const TileSet>;
+    using TileSetPtr      = SharedPtr<TileSet>;
 
     // there may, or may not be a factory for a particular id
     TileFactory * operator () (int tid) const;

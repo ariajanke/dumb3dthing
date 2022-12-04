@@ -23,6 +23,10 @@
 #include <array>
 #include <algorithm>
 
+#include <vector>
+#include <memory>
+#include <atomic>
+
 int main() {
     // I *could* just dump all my test functions here I guess...
     const std::array k_test_functions = {

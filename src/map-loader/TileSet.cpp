@@ -21,7 +21,6 @@
 #include "TileSet.hpp"
 #include "../Texture.hpp"
 #include "../RenderModel.hpp"
-#include "tiled-map-loader.hpp"
 
 #include "WallTileFactory.hpp"
 #include "TileFactory.hpp"

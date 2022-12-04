@@ -22,6 +22,7 @@
 
 #include "TileFactory.hpp"
 #include "../RenderModel.hpp"
+#include "../platform.hpp"
 
 #include <bitset>
 
@@ -149,28 +150,9 @@ private:
     Real m_ytrans;
 };
 
-class TriangleAdder {
-public:
-    virtual ~TriangleAdder() {}
-
-    virtual void operator () (const TriangleSegment &) const = 0;
-
-    template <typename Func>
-    static auto make(Func && f) {
-        class Impl final : public TriangleAdder {
-        public:
-            explicit Impl(Func && f_): m_f(std::move(f_)) {}
-
-            void operator () (const TriangleSegment & tri) const final
-                { m_f(tri); }
-        private:
-            Func m_f;
-        };
-        return Impl{std::move(f)};
-    }
-};
-
 // class is too god like
+// well what are the responsiblities this class is handling?
+// and how should I seperate them?
 class WallTileFactoryBase : public TranslatableTileFactory {
 public:
     // to make a tile:

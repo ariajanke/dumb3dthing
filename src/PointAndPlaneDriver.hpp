@@ -53,6 +53,8 @@ using State = Variant<InAir, OnSegment>;
 
 Vector location_of(const State &);
 
+Vector displaced_location_of(const State &);
+
 inline Vector segment_displacement_to_v3(const State & state) {
     using std::get;
     auto pt_at = [&state](Vector2 r)

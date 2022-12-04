@@ -109,6 +109,9 @@ void SpatialPartitionMap::populate(const EntryContainer & sorted_entries) {
 View<SpatialPartitionMap::Iterator>
     SpatialPartitionMap::view_for(const Interval & interval) const
 {
+    if (m_divisions.count() == 0) {
+        return View{Iterator{m_container.end()}, Iterator{m_container.end()}};
+    }
     auto [beg, end] = m_divisions.pair_for(interval);
     return View{Iterator{beg}, Iterator{end}};
 }

@@ -21,10 +21,11 @@
 #include "GameDriver.hpp"
 #include "Components.hpp"
 #include "RenderModel.hpp"
+#include "TasksController.hpp"
 #include "map-loader/map-loader.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
-#include "map-loader/tiled-map-loader.hpp"
+#include "map-loader/MapLoadingDirector.hpp"
 
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
@@ -56,96 +57,36 @@ private:
     bool m_paused = false, m_advance_frame = false;
 };
 
-class GameDriverComplete final : public Driver {
+class GameDriverComplete final : public GameDriver {
 public:
     void press_key(KeyControl) final;
 
     void release_key(KeyControl) final;
 
+    void setup(Platform &) final;
+
+    void update(Real seconds, Platform &) final;
+
 private:
-    void initial_load(LoaderCallbacks &) final;
+    using PlayerEntities = LoaderTask::PlayerEntities;
+    using LoaderCallbacks   = LoaderTask::Callbacks;
 
-    void update_(Real seconds) final;
+    void initial_load(LoaderCallbacks &);
 
-    point_and_plane::Driver & ppdriver() final
-        { return *m_ppdriver; }
+    void update_(Real seconds);
 
-    Vector m_camera_target;
     UniquePtr<point_and_plane::Driver> m_ppdriver = point_and_plane::Driver::make_driver();
     TimeControl m_time_controller;
+    Scene m_scene;
+    PlayerEntities m_player_entities;
+    TasksController m_tasks_controller;
 };
 
-template <typename T>
-auto make_sole_owner_pred() {
-    return [](const SharedPtr<T> & ptr) { return ptr.use_count() == 1; };
-}
 
 } // end of <anonymous> namespace
 
-/* static */ UniquePtr<Driver> Driver::make_instance()
+/* static */ UniquePtr<GameDriver> GameDriver::make_instance()
     { return make_unique<GameDriverComplete>(); }
-
-void Driver::update(Real seconds, Platform & callbacks) {
-    update_(seconds);
-
-    std::vector<Entity> entities;
-    auto callbacks_ = get_callbacks(callbacks, entities);
-    {
-    auto enditr = m_every_frame_tasks.begin();
-    m_every_frame_tasks.erase
-        (std::remove_if
-            (m_every_frame_tasks.begin(), enditr,
-             make_sole_owner_pred<EveryFrameTask>()),
-         enditr);
-    }
-    for (auto & task : m_every_frame_tasks) {
-        task->on_every_frame(callbacks_, seconds);
-    }
-    for (auto & task : m_occasional_tasks) {
-        // v same bug?
-        m_scene.update_entities();
-        task->on_occasion(callbacks_);
-    }
-    for (auto & task : m_loader_tasks) {
-        (*task)(callbacks_);
-    }
-    m_occasional_tasks.clear();
-    m_loader_tasks.clear();
-
-    on_entities_changed(entities);
-    m_scene.add_entities(entities);
-    if (!entities.empty()) {
-        std::cout << "There are now " << m_scene.count() << " entities." << std::endl;
-    }
-
-    m_scene.update_entities();
-    callbacks.render_scene(m_scene);
-}
-
-/* protected */ void Driver::on_entities_changed(std::vector<Entity> & new_entities) {
-    if (new_entities.empty()) return;
-    // I need to peak at new entities?
-    for (auto & ent : new_entities) {
-        if (auto * every_frame = ent.ptr<SharedPtr<EveryFrameTask>>()) {
-            m_every_frame_tasks.push_back(*every_frame);
-        }
-    }
-
-    int new_triangles = 0;
-    for (auto & ent : new_entities) {
-        auto * vec = ent.ptr<TriangleLinks>();
-        if (!vec) continue;
-        ppdriver().add_triangles(*vec);
-        new_triangles += vec->size();
-        // ecs has a bug/design flaw...
-        // when adding entities directly, requesting deletion can cause a
-        // confusing error to be thrown
-        // this is because the entities are not yet in order, and so binary
-        // searching for it inside the scene fails
-    }
-    std::cout << "Added " << new_triangles << " new triangles." << std::endl;
-
-}
 
 namespace {
 
@@ -266,10 +207,13 @@ Entity make_sample_loop
     return rv;
 }
 
-static constexpr const Vector k_player_start{2, 5.1, 2};
+static constexpr const Vector k_player_start{200, 5.1, -200};
 
 // model entity, physical entity
-Tuple<Entity, Entity> make_sample_player(Platform & platform) {
+Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
+    make_sample_player
+    (Platform & platform, point_and_plane::Driver & ppdriver)
+{
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
         constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
@@ -331,142 +275,61 @@ Tuple<Entity, Entity> make_sample_player(Platform & platform) {
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
-    // This sort of is "temporary" code.
-    // So not subjecting to testing.
-    {
+    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
 
-    using TeardownTask = MapLoader::TeardownTask;
-    std::map<std::string, MapLoader> map_loaders;
-    using MpTuple = Tuple<Vector2I, MapLoader *, SharedPtr<TeardownTask>>;
-    std::vector<MpTuple> loaded_maps;
+    PlayerUpdateTask
+        {MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
+         EntityRef{physics_ent}};
+    auto player_update_task = make_shared<PlayerUpdateTask>
+        (MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
+         EntityRef{physics_ent});
+    auto map_loader_task = player_update_task->load_initial_map
+        (k_testmap_filename, platform);
+    SharedPtr<EveryFrameTask> & ptrref = physics_ent.add<SharedPtr<EveryFrameTask>>();
+    ptrref = SharedPtr<EveryFrameTask>{player_update_task};
 
-    static constexpr const auto k_testmap_filename = "demo-map.tmx";
-    static constexpr const auto k_load_limit = 3;
-
-    static auto check_fall_below = [](Entity & ent) {
-        auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
-        if (!ppair) return;
-        auto & loc = ppair->location;
-        if (loc.y < -10) {
-            loc = Vector{loc.x, 4, loc.z};
-            ent.get<Velocity>() = Velocity{};
-        }
-    };
-
-    physics_ent.add<SharedPtr<EveryFrameTask>>() =
-        EveryFrameTask::make(
-        [loaded_maps = std::move(loaded_maps),
-         map_loaders = std::move(map_loaders),
-         physics_ent]
-        (TaskCallbacks & callbacks, Real) mutable
-    {
-        check_fall_below(physics_ent);
-
-        static constexpr const auto k_base_map_size = 20;
-        // if there's no teardown task... then it's pending
-        for (auto & [gpos, loader, teardown] : loaded_maps) {
-            if (teardown) continue;
-
-            auto [task_ptr, teardown_ptr] = (*loader)(gpos*k_base_map_size); {}
-            if (!task_ptr) continue;
-            callbacks.add(task_ptr);
-            teardown = teardown_ptr;
-            physics_ent.ensure<Velocity>();
-        }
-
-        using namespace point_and_plane;
-        auto player_loc = location_of(physics_ent.get<PpState>());
-        auto gposv3 =
-            (Vector{0.5, 0, -0.5} + player_loc)*
-            ( 1. / k_base_map_size );
-        Vector2I gpos{ int(std::floor(gposv3.x)), int(std::floor(-gposv3.z)) };
-
-        bool current_posisition_loaded = std::any_of(
-            loaded_maps.begin(), loaded_maps.end(),
-            [gpos](const MpTuple & tup) { return std::get<Vector2I>(tup) == gpos; });
-        if (current_posisition_loaded) return;
-        auto itr = map_loaders.find(k_testmap_filename);
-        if (itr == map_loaders.end()) {
-            itr = map_loaders.insert(std::make_pair(k_testmap_filename, MapLoader{callbacks.platform()})).first;
-            itr->second.start_preparing(k_testmap_filename);
-        }
-        loaded_maps.emplace_back( gpos, &itr->second, nullptr);
-        int n_too_many = std::max(int(loaded_maps.size()) - k_load_limit, 0);
-        for (auto itr = loaded_maps.begin(); itr != loaded_maps.begin() + n_too_many; ++itr) {
-            auto & teardown_task = std::get<SharedPtr<TeardownTask>>(*itr);
-            callbacks.add(teardown_task);
-        }
-        loaded_maps.erase(loaded_maps.begin(), loaded_maps.begin() + n_too_many);
-    });
-    }
-
-    return make_tuple(model_ent, physics_ent);
+    return make_tuple(model_ent, physics_ent, map_loader_task);
 }
-
-static constexpr auto k_layout =
-    "xx   xx\n"
-    "  avb  \n"
-    "x >1<  \n"
-    "  c^d x\n"
-    "       \n"
-    "x  1  x\n"
-    "x1   1x\n";
-static constexpr auto k_layout2 =
-    "xxxxxxx\n"
-    "xxxxxxx\n"
-    "xxx xxx\n"
-    "xxxxxxx\n"
-    "xxxxxxx\n";
-static constexpr auto k_layout3 =
-    "xx   xx\n"
-    "       \n"
-    "x      \n"
-    "      x\n"
-    "       \n"
-    "1     1\n"
-    "x11111x\n";
-static constexpr auto k_layout4 =
-    "xx1111111111111111111111111111111111111111111111111111111111xx\n"
-    "xx^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^xx\n"
-    "1<                                                          >1\n"
-    "1<                                                                                                                              >1\n"
-    "1<                                                                                                                              >1\n"
-    "1<                                                          >1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxvvxx\n"
-    "xxvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
-    "xx1111111111111111111111111111111111111111111111111111111111xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1xxxxxxxxxxxxxxxxxxxxxxxxx11xx\n"
-    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx111111111111111111111111111111111111111111111111111111111111111111111xx\n";
 
 // ----------------------------------------------------------------------------
 
 void GameDriverComplete::press_key(KeyControl ky) {
-    player_entities().physical.get<PlayerControl>().press(ky);
+    m_player_entities.physical.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
-        player_entities().physical.get<PpState>() = PpInAir{k_player_start, Vector{}};
+        m_player_entities.physical.get<PpState>() = PpInAir{k_player_start, Vector{}};
     }
 }
 
 void GameDriverComplete::release_key(KeyControl ky) {
-    player_entities().physical.get<PlayerControl>().release(ky);
+    m_player_entities.physical.get<PlayerControl>().release(ky);
+}
+
+void GameDriverComplete::setup(Platform & platform_) {
+    m_tasks_controller.assign_platform(platform_);
+    m_tasks_controller.assign_point_and_plane_driver(*m_ppdriver);
+    initial_load(m_tasks_controller);
+    m_tasks_controller.add_entities_to(m_scene);
+}
+
+void GameDriverComplete::update(Real seconds, Platform & platform) {
+    update_(seconds);
+    m_tasks_controller.assign_platform(platform);    
+    m_tasks_controller.run_tasks(seconds);
+    m_tasks_controller.add_entities_to(m_scene);
+    platform.render_scene(m_scene);
 }
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
-#   if 0
-    std::vector<Entity> entities;
-    std::vector<SharedPtr<TriangleSegment>> triangles;
-    auto tgg_ptr = TileGraphicGenerator{triangles, callbacks};
-    tgg_ptr.setup();
-    auto [tlinks] = load_map_graphics(tgg_ptr, load_map_cell(k_layout2, CharToCell::default_instance())); {}
-
-    // v kinda icky v
-    m_ppdriver->clear_all_triangles();
-    m_ppdriver->add_triangles(tlinks);
-#   endif
-    auto [renderable, physical] = make_sample_player(callbacks.platform()); {}
+    auto [renderable, physical, loader_task] =
+        make_sample_player(callbacks.platform(), *m_ppdriver);
     callbacks.platform().set_camera_entity(EntityRef{physical});
-    callbacks.set_player_entities(PlayerEntities{physical, renderable});
+    callbacks.add(loader_task);
     callbacks.add(physical);
     callbacks.add(renderable);
+
+    m_player_entities.physical   = physical;
+    m_player_entities.renderable = renderable;
 #   if 0
     // let's... head north... starting 0.5+ ues north
     auto west = make_tuple(
@@ -530,8 +393,8 @@ void GameDriverComplete::update_(Real seconds) {
     VelocitiesToDisplacement{seconds},
     UpdatePpState{*m_ppdriver},
     CheckJump{},
-    [ppstate = player_entities().physical.get<PpState>(),
-     plyvel  = player_entities().physical.ptr<Velocity>()]
+    [ppstate = m_player_entities.physical.get<PpState>(),
+     plyvel  = m_player_entities.physical.ptr<Velocity>()]
         (Translation & trans, Opt<Visible> vis)
     {
         using point_and_plane::location_of;
@@ -539,10 +402,9 @@ void GameDriverComplete::update_(Real seconds) {
         Vector vel = plyvel ? plyvel->value*0.4 : Vector{};
         auto dist = magnitude(location_of(ppstate) + vel - trans.value);
         *vis = dist < 12;
-    })(scene());
+    })(m_scene);
 
-    // this code here is a good candidate for a "Trigger" system
-    auto player = player_entities().physical;
+    auto player = m_player_entities.physical;
     player.get<PlayerControl>().frame_update();
 
     auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};

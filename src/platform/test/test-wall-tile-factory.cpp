@@ -20,8 +20,8 @@
 
 #include <ariajanke/cul/TestSuite.hpp>
 
+#include "../../map-loader/TileSet.hpp"
 #include "../../map-loader/WallTileFactory.hpp"
-#include "../../map-loader/tiled-map-loader.hpp"
 
 #include <tinyxml2.h>
 
@@ -67,10 +67,10 @@ public:
 
     Slopes operator () (Vector2I r) const final {
         if (!m_grid.has_position(r))
-            return Slopes{0, k_inf, k_inf, k_inf, k_inf};
+            return Slopes{k_inf, k_inf, k_inf, k_inf};
         auto factory = m_tileset(m_grid(r));
         if (!factory)
-            return Slopes{0, k_inf, k_inf, k_inf, k_inf};
+            return Slopes{k_inf, k_inf, k_inf, k_inf};
         return factory->tile_elevations();
     }
 

@@ -81,7 +81,7 @@ void print_out_type_info() {
 // "cleans up" events before sending them to the driver
 class EventProcessor final {
 public:
-    EventProcessor(Driver & driver): m_driver(driver) {}
+    EventProcessor(GameDriver & driver): m_driver(driver) {}
 
     void process_input(GLFWwindow * window);
 
@@ -97,7 +97,7 @@ private:
     };
 
     std::map<KeyControl, KeyState, KeyLessThan> m_key_state;
-    Driver & m_driver;
+    GameDriver & m_driver;
 };
 
 void EventProcessor::process_input(GLFWwindow * window) {
@@ -245,7 +245,7 @@ int main() {
     // glfw: initialize and configure
     // ------------------------------
     GlfwLibraryRAII glfw_raii; (void)glfw_raii;
-    auto gamedriver = Driver::make_instance();
+    auto gamedriver = GameDriver::make_instance();
     EventProcessor events{*gamedriver};
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);

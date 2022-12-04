@@ -20,21 +20,29 @@
 
 #pragma once
 
-#include "Defs.hpp"
-#include "platform.hpp"
+#include "../TriangleLink.hpp"
+#include "SpatialPartitionMap.hpp"
 
-class GameDriver {
+class FrameTimeLinkContainer final {
 public:
-    static UniquePtr<GameDriver> make_instance();
+    using Iterator = ProjectedSpatialMap::Iterator;
 
-    virtual ~GameDriver() {}
+    void defer_addition_of(const SharedPtr<const TriangleLink> &);
 
-    // events may trigger loaders
-    virtual void press_key(KeyControl) = 0;
+    void defer_removal_of(const SharedPtr<const TriangleLink> &);
 
-    virtual void release_key(KeyControl) = 0;
+    void update();
 
-    virtual void setup(Platform &) = 0;
+    View<Iterator> view_for(const Vector &, const Vector &) const;
 
-    virtual void update(Real seconds, Platform &) = 0;
+    void clear();
+
+private:
+    bool is_dirty() const noexcept
+        { return m_add_dirty || !m_to_remove_links.empty(); }
+
+    std::vector<SharedPtr<const TriangleLink>> m_to_add_links;
+    std::vector<SharedPtr<const TriangleLink>> m_to_remove_links;
+    bool m_add_dirty = false;
+    ProjectedSpatialMap m_spm;
 };

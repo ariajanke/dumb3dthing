@@ -21,6 +21,7 @@
 #pragma once
 
 #include "../Defs.hpp"
+#include "../platform.hpp"
 #include "map-loader.hpp"
 #include "ParseHelpers.hpp"
 #include "TileTexture.hpp"
@@ -33,9 +34,9 @@ class EntityAndTrianglesAdder {
 public:
     virtual ~EntityAndTrianglesAdder() {}
 
-    virtual void add_triangle(const TriangleSegment &) = 0;
-
     virtual void add_entity(const Entity &) = 0;
+
+    virtual void add_triangle(const TriangleSegment &) = 0;
 };
 
 enum class CardinalDirection {
@@ -98,7 +99,7 @@ public:
         class Impl final : public SlopesGridInterface {
         public:
             Slopes operator () (Vector2I) const final
-                { return Slopes{0, k_inf, k_inf, k_inf, k_inf}; }
+                { return Slopes{k_inf, k_inf, k_inf, k_inf}; }
         };
         static Impl impl;
         return impl;
@@ -153,6 +154,10 @@ protected:
 
     static Vector grid_position_to_v3(Vector2I r)
         { return Vector{r.x, 0, -r.y}; }
+
+    static std::array<Vector, 4> get_points_for(const Slopes &);
+
+    static const std::vector<unsigned> & get_common_elements();
 
     SharedPtr<const Texture> common_texture() const
         { return m_texture_ptr; }
