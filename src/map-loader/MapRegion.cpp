@@ -123,21 +123,20 @@ void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
     { m_completer = completer; }
 
 /* private */ void MapRegionPreparer::finish_map
-    (const TileFactorySubGrid & factory_grid,
-     Callbacks & callbacks) const
+    (const TileFactorySubGrid & factory_grid, Callbacks & callbacks) const
 {
-    GridViewInserter<SharedPtr<TriangleLink>> link_inserter{factory_grid.size2()};
-
     SlopesGridFromTileFactories grid_intf{factory_grid};
-    EntityAndLinkInsertingAdder triangle_entities_adder{link_inserter};
-    for (; !link_inserter.filled(); link_inserter.advance()) {
+    EntityAndLinkInsertingAdder triangle_entities_adder{factory_grid.size2()};
+    for (Vector2I r; r != factory_grid.end_position(); r = factory_grid.next(r)) {
         TileFactory::NeighborInfo neighbor_stuff
-            {grid_intf, link_inserter.position(), m_tile_offset};
-        (*factory_grid(link_inserter.position()))
+            {grid_intf, r, m_tile_offset};
+        (*factory_grid(r))
             (triangle_entities_adder, neighbor_stuff, callbacks.platform());
+        triangle_entities_adder.advance_grid_position();
     }
+
     auto [link_container, link_view_grid] =
-        link_inserter.move_out_container_and_grid_view();
+        triangle_entities_adder.move_out_container_and_grid_view();
     link_triangles(link_view_grid);
 
     auto ents = triangle_entities_adder.move_out_entities();

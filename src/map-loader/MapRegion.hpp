@@ -103,12 +103,14 @@ public:
 
     class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
     public:
-        EntityAndLinkInsertingAdder
-            (GridViewInserter<SharedPtr<TriangleLink>> & link_inserter_):
-            m_link_inserter(link_inserter_) {}
+        using Size2I           = cul::Size2<int>;
+        using GridViewTriangleInserter = GridViewInserter<SharedPtr<TriangleLink>>;
+
+        explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
+            m_triangle_inserter(grid_size) {}
 
         void add_triangle(const TriangleSegment & triangle) final
-            { m_link_inserter.push(make_shared<TriangleLink>(triangle)); }
+            { m_triangle_inserter.push(triangle); }
 
         void add_entity(const Entity & ent) final
             { m_entities.push_back(ent); }
@@ -116,8 +118,22 @@ public:
         std::vector<Entity> move_out_entities()
             { return std::move(m_entities); }
 
+        void advance_grid_position()
+            { m_triangle_inserter.advance(); }
+
+        Tuple<GridViewTriangleInserter::ElementContainer,
+              Grid<GridViewTriangleInserter::ElementView>>
+            move_out_container_and_grid_view()
+        {
+            return m_triangle_inserter.
+                transform_values<SharedPtr<TriangleLink>>(to_link).
+                move_out_container_and_grid_view();
+        }
     private:
-        GridViewInserter<SharedPtr<TriangleLink>> & m_link_inserter;
+        static SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
+            { return make_shared<TriangleLink>(segment); }
+
+        GridViewInserter<TriangleSegment> m_triangle_inserter;
         std::vector<Entity> m_entities;
     };
 

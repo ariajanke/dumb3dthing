@@ -106,6 +106,7 @@ public:
     }
 };
 
+/// A tile factory is a thing that produces tiles.
 class TileFactory {
 public:
     class NeighborInfo final {

@@ -104,6 +104,9 @@ struct Vector2IHasher final {
 };
 
 template <typename T>
+class GridViewInserterAttn;
+
+template <typename T>
 class GridViewInserter final {
 public:
     using ElementContainer = std::vector<T>;
@@ -128,10 +131,36 @@ public:
     Tuple<ElementContainer, Grid<ElementView>>
         move_out_container_and_grid_view();
 
+    template <typename U, typename Func>
+    GridViewInserter<U> transform_values(Func && f);
+
 private:
+    template <typename U>
+    friend class GridViewInserterAttn;
+
+    GridViewInserter(const Vector2I & position, std::vector<T> && elements,
+                     Grid<Tuple<std::size_t, std::size_t>> && tuple_grid):
+        m_position   (position),
+        m_elements   (std::move(elements  )),
+        m_index_pairs(std::move(tuple_grid)) {}
+
     Vector2I m_position;
     std::vector<T> m_elements;
     Grid<Tuple<std::size_t, std::size_t>> m_index_pairs;
+};
+
+template <typename T>
+class GridViewInserterAttn final {
+    template <typename U>
+    friend class GridViewInserter;
+
+    static GridViewInserter<T> make_new
+        (const Vector2I & position, std::vector<T> && elements,
+         Grid<Tuple<std::size_t, std::size_t>> && tuple_grid)
+    {
+        return GridViewInserter<T>
+            {position, std::move(elements), std::move(tuple_grid)};
+    }
 };
 
 // ----------------------------------------------------------------------------
@@ -177,4 +206,23 @@ template <typename T>
             {m_elements.begin() + beg_idx, m_elements.begin() + end_idx};
     }
     return make_tuple(std::move(m_elements), std::move(views));
+}
+
+template <typename T>
+template <typename U, typename Func>
+GridViewInserter<U> GridViewInserter<T>::transform_values(Func && f) {
+    std::vector<U> new_values;
+    new_values.reserve(m_elements.size());
+    std::transform
+        (m_elements.begin(), m_elements.end(),
+         std::back_inserter(new_values), std::move(f));
+
+    auto rv = GridViewInserterAttn<U>::make_new
+        (m_position, std::move(new_values), std::move(m_index_pairs));
+    // reset this instance
+    m_elements.clear();
+    m_index_pairs.clear();
+    m_position = Vector2I{};
+
+    return rv;
 }
