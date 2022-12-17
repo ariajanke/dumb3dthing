@@ -125,6 +125,7 @@ void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
 /* private */ void MapRegionPreparer::finish_map
     (const TileFactorySubGrid & factory_grid, Callbacks & callbacks) const
 {
+    // v vectorize
     SlopesGridFromTileFactories grid_intf{factory_grid};
     EntityAndLinkInsertingAdder triangle_entities_adder{factory_grid.size2()};
     for (Vector2I r; r != factory_grid.end_position(); r = factory_grid.next(r)) {
@@ -138,6 +139,7 @@ void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
     auto [link_container, link_view_grid] =
         triangle_entities_adder.move_out_container_and_grid_view();
     link_triangles(link_view_grid);
+    // ^ vectorize
 
     auto ents = triangle_entities_adder.move_out_entities();
     for (auto & link : link_container) {

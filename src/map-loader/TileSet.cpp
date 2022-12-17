@@ -177,6 +177,9 @@ GidTidTranslator::GidTidTranslator
 }
 
 std::pair<int, ConstTileSetPtr> GidTidTranslator::gid_to_tid(int gid) const {
+    if (gid == 0) {
+        return std::make_pair(0, nullptr);
+    }
     if (gid < 1 || gid >= m_gid_end) {
         throw InvArg{"Given gid is either the empty tile or not contained in "
                      "this map; translatable gids: [1 " + std::to_string(m_gid_end)

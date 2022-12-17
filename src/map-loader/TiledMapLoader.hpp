@@ -110,29 +110,30 @@ private:
 class MapLoadingWaitingForTileSets final : public MapLoadingState {
 public:
     MapLoadingWaitingForTileSets
-        (TileSetsContainer && cont_, Grid<int> && layer_):
+        (TileSetsContainer && cont_, std::vector<Grid<int>> && layers_):
         m_tilesets_container(std::move(cont_)),
-        m_layer(std::move(layer_)) {}
+        m_layers(std::move(layers_)) {}
 
     TileFactoryGrid update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     TileSetsContainer m_tilesets_container;
-    Grid<int> m_layer;
+    std::vector<Grid<int>> m_layers;
     GidTidTranslator m_tidgid_translator;
 };
 
 class MapLoadingReady final : public MapLoadingState {
 public:
-    MapLoadingReady(GidTidTranslator && idtrans_, Grid<int> && layer_):
+    MapLoadingReady
+        (GidTidTranslator && idtrans_, std::vector<Grid<int>> && layers_):
         m_tidgid_translator(std::move(idtrans_)),
-        m_layer(std::move(layer_)) {}
+        m_layers(std::move(layers_)) {}
 
     TileFactoryGrid update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     GidTidTranslator m_tidgid_translator;
-    Grid<int> m_layer;
+    std::vector<Grid<int>> m_layers;
 };
 
 class MapLoadingExpired final : public MapLoadingState {

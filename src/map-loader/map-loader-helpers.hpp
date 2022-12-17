@@ -143,7 +143,6 @@ private:
         m_position   (position),
         m_elements   (std::move(elements  )),
         m_index_pairs(std::move(tuple_grid)) {}
-
     Vector2I m_position;
     std::vector<T> m_elements;
     Grid<Tuple<std::size_t, std::size_t>> m_index_pairs;
@@ -161,6 +160,137 @@ class GridViewInserterAttn final {
         return GridViewInserter<T>
             {position, std::move(elements), std::move(tuple_grid)};
     }
+};
+
+// ----------------------------------------------------------------------------
+
+template <typename T>
+class GridView final {
+public:
+    using ElementContainer  = typename GridViewInserter<T>::ElementContainer;
+    using ElementIterator   = typename ElementContainer::const_iterator;
+    using ElementView       = View<ElementIterator>;
+    using Size2I            = cul::Size2<int>;
+    using GridViewContainer = Grid<ElementView>;
+    using Iterator          = typename GridViewContainer::Iterator;
+    using ConstIterator     = typename GridViewContainer::ConstIterator;
+    using Rectangle         = cul::Rectangle<int>;
+    using SubGrid           = cul::ConstSubGrid
+        <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
+
+    explicit GridView(GridViewInserter<T> && inserter) {
+        verify_filled_inserter(inserter);
+        std::tie(m_owning_container, m_views)
+            = inserter.move_out_container_and_grid_view();
+    }
+
+    GridView(const GridView & rhs) {
+        copy(rhs);
+    }
+
+    GridView(GridView && rhs):
+        m_owning_container(std::move(rhs.m_owning_container)),
+        m_views(std::move(rhs.m_views))
+    {}
+
+    GridView & operator = (const GridView & rhs) {
+        if (this != &rhs) {
+            copy(rhs);
+        }
+        return *this;
+    }
+
+    GridView & operator = (GridView && rhs) {
+        m_owning_container = std::move(rhs.m_owning_container);
+        m_views = std::move(rhs.m_views);
+        return *this;
+    }
+
+    int width() const noexcept { return m_views.width(); }
+
+    int height() const noexcept { return m_views.height(); }
+
+    bool has_position(int x, int y) const noexcept { return m_views.has_position(x, y); }
+
+    bool has_position(const Vector & r) const noexcept { return m_views.has_position(r); }
+
+    Vector2I next(const Vector & r) const noexcept { return m_views.next(r); }
+
+    Vector2I end_position() const noexcept { return m_views.end_position(); }
+
+    Size2I size2() const noexcept { return m_views.size2(); }
+
+    ElementView operator () (const Vector & r) const { return m_views(r); }
+
+    ElementView operator () (int x, int y) const { return m_views(x, y); }
+
+    Iterator begin() { return m_views.begin(); }
+    Iterator end  () { return m_views.end  (); }
+
+    ConstIterator begin() const { return m_views.begin(); }
+    ConstIterator end  () const { return m_views.end  (); }
+
+    std::size_t size() const noexcept { return m_views.size(); }
+
+    void swap(GridView<T> & rhs) noexcept {
+        m_owning_container.swap(rhs.m_owning_container);
+        m_views.swap(rhs.m_views);
+    }
+
+    SubGrid make_subgrid(const Rectangle & rect) const {
+        return SubGrid{m_views, cul::top_left_of(rect), rect.width, rect.height};
+    }
+
+private:
+    void copy(const GridView & gridview) {
+        // copying is much harder
+        m_owning_container = gridview.m_owning_container;
+        auto other_beg = gridview.m_owning_container.begin();
+        m_views.clear();
+        auto owning_beg = m_owning_container.begin();
+        auto owning_end = m_owning_container.end();
+        m_views.set_size(gridview.m_views.size2(), View{owning_end, owning_end});
+        for (Vector2I r; r != gridview.end_position(); r = gridview.next(r)) {
+            m_views = View{owning_beg + (gridview(r).beg() - other_beg),
+                           owning_beg + (gridview(r).end() - other_beg)};
+        }
+    }
+
+    void verify_filled_inserter
+        (const char * caller, const GridViewInserter<T> & inserter)
+    {
+        using namespace cul::exceptions_abbr;
+        if (inserter.filled()) return;
+        throw InvArg{"GridView::" + std::string{caller} + ": "
+                     "only accepts a filled grid view inserter"};
+    }
+    ElementContainer m_owning_container;
+    GridViewContainer m_views;
+};
+
+// ----------------------------------------------------------------------------
+
+using TileFactoryViewSubGrid = GridView<TileFactory *>::SubGrid;
+
+class TileFactoryViewGrid final {
+public:
+    using Rectangle = cul::Rectangle<int>;
+
+    void load_layers
+        (const std::vector<Grid<int>> & gid_layers, GidTidTranslator &&);
+
+    auto height() const { return m_factories.height(); }
+
+    auto width() const { return m_factories.width(); }
+
+    /** this object must live at least as long as the return value */
+    TileFactoryViewSubGrid make_subgrid(const Rectangle & range) const {
+        return m_factories.make_subgrid(range);
+    }
+
+private:
+    GridView<TileFactory *> m_factories;
+    GidTidTranslator m_gidtid_translator;
 };
 
 // ----------------------------------------------------------------------------

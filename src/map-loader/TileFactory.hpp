@@ -109,6 +109,8 @@ public:
 /// A tile factory is a thing that produces tiles.
 class TileFactory {
 public:
+    // this is useful for a subclass of tile factories (not all)
+    // some factories do not use this at all
     class NeighborInfo final {
     public:
         NeighborInfo

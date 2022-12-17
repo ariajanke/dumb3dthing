@@ -78,6 +78,8 @@ private:
 
 static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
+Grid<int> load_layer(const TiXmlElement &);
+
 } // end of <anonymous> namespace
 
 Platform & State::platform() const {
@@ -108,7 +110,7 @@ TileFactoryGrid WaitingForFileContents::update_progress
     if (!m_file_contents->is_ready()) return TileFactoryGrid{};
 
     std::string contents = m_file_contents->retrieve();
-    Grid<int> layer;
+    std::vector<Grid<int>> layers;
 
     TiXmlDocument document;
     if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
@@ -117,10 +119,10 @@ TileFactoryGrid WaitingForFileContents::update_progress
     }
 
     auto * root = document.RootElement();
-
+#   if 0
     int width  = root->IntAttribute("width");
     int height = root->IntAttribute("height");
-
+#   endif
     XmlPropertiesReader propreader;
     propreader.load(root);
 
@@ -129,6 +131,7 @@ TileFactoryGrid WaitingForFileContents::update_progress
         add_tileset(tileset, tilesets_container);
     }
 
+#   if 0
     layer.set_size(width, height);
     auto * layer_el = root->FirstChildElement("layer");
     assert(layer_el);
@@ -148,10 +151,15 @@ TileFactoryGrid WaitingForFileContents::update_progress
         layer(r) = tile_id;
         r = layer.next(r);
     }
+#   else
+    for (auto & layer_el : XmlRange{root, "layer"}) {
+        layers.emplace_back(load_layer(layer_el));
+    }
+#   endif
 
     set_others_stuff
         (next_state.set_next_state<WaitingForTileSets>
-            (std::move(tilesets_container), std::move(layer)));
+            (std::move(tilesets_container), std::move(layers)));
 
     return TileFactoryGrid{};
 }
@@ -208,7 +216,7 @@ TileFactoryGrid WaitingForTileSets::update_progress
     // no more tilesets pending
     set_others_stuff
         (next_state.set_next_state<Ready>
-            (std::move(m_tidgid_translator), std::move(m_layer)));
+            (std::move(m_tidgid_translator), std::move(m_layers)));
     return TileFactoryGrid{};
 }
 
@@ -218,7 +226,7 @@ TileFactoryGrid TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
     TileFactoryGrid rv;
-    rv.load_layer(m_layer, m_tidgid_translator);
+    rv.load_layer(m_layers.front(), m_tidgid_translator);
     next_state.set_next_state<Expired>();
     return rv;
 }
@@ -252,3 +260,37 @@ TileFactoryGrid TiledMapLoader::update_progress() {
     }
     return rv;
 }
+
+namespace {
+
+Grid<int> load_layer(const TiXmlElement & layer_el) {
+    Grid<int> layer;
+    layer.set_size
+        (layer_el.IntAttribute("width"), layer_el.IntAttribute("height"), 0);
+
+    auto * data = layer_el.FirstChildElement("data");
+    if (!data) {
+        throw RtError{"load_layer: layer must have a <data> element"};
+    } else if (::strcmp(data->Attribute( "encoding" ), "csv")) {
+        throw RtError{"load_layer: only csv layer data is supported"};
+    }
+
+    auto data_text = data->GetText();
+    if (!data_text)
+        { return layer; }
+
+    Vector2I r;
+    for (auto value_str : split_range(data_text, data_text + ::strlen(data_text),
+                                      is_comma, k_whitespace_trimmer))
+    {
+        int tile_id = 0;
+        cul::string_to_number(value_str.begin(), value_str.end(), tile_id);
+
+        // should warn if not a number
+        layer(r) = tile_id;
+        r = layer.next(r);
+    }
+    return layer;
+}
+
+} // end of <anonymous> namespace

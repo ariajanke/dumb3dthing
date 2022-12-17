@@ -41,6 +41,30 @@ TileFactorySubGrid TileFactoryGrid::make_subgrid
     return TileFactorySubGrid{m_factories, cul::top_left_of(range),
                               range.width, range.height};
 }
+// ----------------------------------------------------------------------------
+
+void TileFactoryViewGrid::load_layers
+    (const std::vector<Grid<int>> & gid_layers, GidTidTranslator && gidtid_translator)
+{
+    m_gidtid_translator = std::move(gidtid_translator);
+    if (gid_layers.empty()) return;
+
+
+    GridViewInserter<TileFactory *> factory_inserter{gid_layers.front().size2()};
+
+    for ( ;!factory_inserter.filled(); factory_inserter.advance()) {
+        auto r = factory_inserter.position();
+        for (auto & layer : gid_layers) {
+            auto [tid, tset] = m_gidtid_translator.gid_to_tid(layer(r));
+            if (!tset) continue;
+            auto * factory = (*tset)(tid);
+            if (!factory) continue;
+            factory_inserter.push(factory);
+        }
+    }
+
+    m_factories = GridView<TileFactory *>{std::move(factory_inserter)};
+}
 
 // ----------------------------------------------------------------------------
 
