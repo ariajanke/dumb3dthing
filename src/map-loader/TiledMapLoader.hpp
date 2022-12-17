@@ -24,12 +24,17 @@
 
 #include <ariajanke/cul/RectangleUtils.hpp>
 
+#include <optional>
+
 class MapLoadingStateHolder;
 class MapLoadingState;
 class MapLoadingWaitingForFileContents;
 class MapLoadingWaitingForTileSets;
 class MapLoadingReady;
 class MapLoadingExpired;
+
+template <typename T>
+using Optional = std::optional<T>;
 
 class MapLoadingContext {
 public:
@@ -50,8 +55,9 @@ public:
 
     virtual ~MapLoadingState() {}
 
-    virtual TileFactoryGrid update_progress(MapLoadingStateHolder &)
-        { return TileFactoryGrid{}; }
+    virtual Optional<TileFactoryViewGrid>
+        update_progress(MapLoadingStateHolder &)
+        { return {}; }
 
     MapLoadingState & set_others_stuff(MapLoadingState & lhs) const {
         lhs.m_platform = m_platform;
@@ -99,7 +105,8 @@ public:
          MapLoadingState(platform, offset, tiles_to_load)
     { m_file_contents = platform.promise_file_contents(filename); }
 
-    TileFactoryGrid update_progress(MapLoadingStateHolder & next_state) final;
+    Optional<TileFactoryViewGrid>
+        update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     void add_tileset(const TiXmlElement & tileset, TileSetsContainer &);
@@ -114,7 +121,7 @@ public:
         m_tilesets_container(std::move(cont_)),
         m_layers(std::move(layers_)) {}
 
-    TileFactoryGrid update_progress(MapLoadingStateHolder & next_state) final;
+    Optional<TileFactoryViewGrid> update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     TileSetsContainer m_tilesets_container;
@@ -129,7 +136,7 @@ public:
         m_tidgid_translator(std::move(idtrans_)),
         m_layers(std::move(layers_)) {}
 
-    TileFactoryGrid update_progress(MapLoadingStateHolder & next_state) final;
+    Optional<TileFactoryViewGrid> update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     GidTidTranslator m_tidgid_translator;
@@ -184,7 +191,7 @@ public:
 
     // return instead a grid of tile factories
     // (note: that grid must own tilesets)
-    TileFactoryGrid update_progress();
+    Optional<TileFactoryViewGrid> update_progress();
 
     bool is_expired() const
         { return std::holds_alternative<Expired>(m_state_space); }

@@ -104,10 +104,10 @@ Rectangle State::target_tile_range() const {
 
 // ----------------------------------------------------------------------------
 
-TileFactoryGrid WaitingForFileContents::update_progress
+Optional<TileFactoryViewGrid> WaitingForFileContents::update_progress
     (StateHolder & next_state)
 {
-    if (!m_file_contents->is_ready()) return TileFactoryGrid{};
+    if (!m_file_contents->is_ready()) return {};
 
     std::string contents = m_file_contents->retrieve();
     std::vector<Grid<int>> layers;
@@ -161,7 +161,7 @@ TileFactoryGrid WaitingForFileContents::update_progress
         (next_state.set_next_state<WaitingForTileSets>
             (std::move(tilesets_container), std::move(layers)));
 
-    return TileFactoryGrid{};
+    return {};
 }
 
 /* private */ void WaitingForFileContents::add_tileset
@@ -181,7 +181,7 @@ TileFactoryGrid WaitingForFileContents::update_progress
 
 // ----------------------------------------------------------------------------
 
-TileFactoryGrid WaitingForTileSets::update_progress
+Optional<TileFactoryViewGrid> WaitingForTileSets::update_progress
     (StateHolder & next_state)
 {
     // no short circuting permitted, therefore STL sequence algorithms
@@ -211,22 +211,22 @@ TileFactoryGrid WaitingForTileSets::update_progress
     }
 
     if (!pending_tilesets.empty()) {
-        return TileFactoryGrid{};
+        return {};
     }
     // no more tilesets pending
     set_others_stuff
         (next_state.set_next_state<Ready>
             (std::move(m_tidgid_translator), std::move(m_layers)));
-    return TileFactoryGrid{};
+    return {};
 }
 
 // ----------------------------------------------------------------------------
 
-TileFactoryGrid TiledMapLoader::Ready::update_progress
+Optional<TileFactoryViewGrid> TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
-    TileFactoryGrid rv;
-    rv.load_layer(m_layers.front(), m_tidgid_translator);
+    TileFactoryViewGrid rv;
+    rv.load_layers(m_layers, std::move(m_tidgid_translator));
     next_state.set_next_state<Expired>();
     return rv;
 }
@@ -248,15 +248,15 @@ void StateHolder::move_state(StatePtrGetter & state_getter_ptr, StateSpace & spa
 
 // ----------------------------------------------------------------------------
 
-TileFactoryGrid TiledMapLoader::update_progress() {
+Optional<TileFactoryViewGrid> TiledMapLoader::update_progress() {
     StateHolder next;
-    TileFactoryGrid rv;
+    Optional<TileFactoryViewGrid> rv;
     while (true) {
         rv = m_get_state(m_state_space)->update_progress(next);
         if (!next.has_next_state()) break;
 
         next.move_state(m_get_state, m_state_space);
-        if (!rv.is_empty()) break;
+        if (rv) break;
     }
     return rv;
 }

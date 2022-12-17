@@ -178,8 +178,10 @@ public:
     using SubGrid           = cul::ConstSubGrid
         <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
 
+    GridView() {}
+
     explicit GridView(GridViewInserter<T> && inserter) {
-        verify_filled_inserter(inserter);
+        verify_filled_inserter("GridView", inserter);
         std::tie(m_owning_container, m_views)
             = inserter.move_out_container_and_grid_view();
     }

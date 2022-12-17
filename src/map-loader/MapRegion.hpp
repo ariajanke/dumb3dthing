@@ -41,7 +41,7 @@ public:
     using Rectangle = cul::Rectangle<int>;
 
     TiledMapRegion
-        (TileFactoryGrid && full_factory_grid,
+        (TileFactoryViewGrid && full_factory_grid,
          const Size2I & region_size_in_tiles):
          m_region_size(region_size_in_tiles),
          m_factory_grid(std::move(full_factory_grid)) {}
@@ -55,7 +55,7 @@ private:
     Size2I map_size_in_regions() const;
 
     Size2I m_region_size;
-    TileFactoryGrid m_factory_grid;
+    TileFactoryViewGrid m_factory_grid;
 };
 
 class GridMapRegionCompleter {
@@ -92,13 +92,14 @@ class MapRegionPreparer final : public LoaderTask {
 public:
     class SlopesGridFromTileFactories final : public SlopesGridInterface {
     public:
-        SlopesGridFromTileFactories(const TileFactorySubGrid & factory_subgrid):
+        SlopesGridFromTileFactories
+            (const TileFactoryViewSubGrid & factory_subgrid):
             m_grid(factory_subgrid) {}
 
         Slopes operator () (Vector2I r) const final;
 
     private:
-        const TileFactorySubGrid & m_grid;
+        TileFactoryViewSubGrid m_grid;
     };
 
     class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
@@ -141,15 +142,15 @@ public:
 
     void operator () (LoaderTask::Callbacks & callbacks) const final;
 
-    void set_tile_factory_subgrid(TileFactorySubGrid && tile_factory_grid);
+    void set_tile_factory_subgrid(TileFactoryViewSubGrid && tile_factory_grid);
 
     void set_completer(const MapRegionCompleter &);
 
 private:
     void finish_map
-        (const TileFactorySubGrid & factory_grid, Callbacks & callbacks) const;
+        (const TileFactoryViewSubGrid & factory_grid, Callbacks & callbacks) const;
 
-    TileFactorySubGrid m_tile_factory_grid;
+    TileFactoryViewSubGrid m_tile_factory_grid;
     MapRegionCompleter m_completer;
     Vector2I m_tile_offset;
 };

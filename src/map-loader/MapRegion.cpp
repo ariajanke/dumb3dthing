@@ -86,8 +86,13 @@ Slopes MapRegionPreparer::SlopesGridFromTileFactories::
 {
     static const Slopes k_all_inf{k_inf, k_inf, k_inf, k_inf};
     if (!m_grid.has_position(r)) return k_all_inf;
+    auto view = m_grid(r);
+    if (view.end() == view.begin()) return k_all_inf;
+#   if 0
     if (!m_grid(r)) return k_all_inf;
     return m_grid(r)->tile_elevations();
+#   endif
+    return (**view.begin()).tile_elevations();
 }
 
 // ----------------------------------------------------------------------------
@@ -116,14 +121,14 @@ MapRegionPreparer::MapRegionPreparer
     m_tile_offset(tile_offset) {}
 
 void MapRegionPreparer::set_tile_factory_subgrid
-    (TileFactorySubGrid && tile_factory_grid)
+    (TileFactoryViewSubGrid && tile_factory_grid)
     { m_tile_factory_grid = std::move(tile_factory_grid); }
 
 void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
     { m_completer = completer; }
 
 /* private */ void MapRegionPreparer::finish_map
-    (const TileFactorySubGrid & factory_grid, Callbacks & callbacks) const
+    (const TileFactoryViewSubGrid & factory_grid, Callbacks & callbacks) const
 {
     // v vectorize
     SlopesGridFromTileFactories grid_intf{factory_grid};
@@ -131,8 +136,15 @@ void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
     for (Vector2I r; r != factory_grid.end_position(); r = factory_grid.next(r)) {
         TileFactory::NeighborInfo neighbor_stuff
             {grid_intf, r, m_tile_offset};
+#       if 0
         (*factory_grid(r))
             (triangle_entities_adder, neighbor_stuff, callbacks.platform());
+#       else
+        for (auto * factory : factory_grid(r)) {
+            (*factory)
+                (triangle_entities_adder, neighbor_stuff, callbacks.platform());
+        }
+#       endif
         triangle_entities_adder.advance_grid_position();
     }
 

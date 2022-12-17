@@ -39,11 +39,11 @@ SharedPtr<BackgroundTask> MapLoadingDirector::begin_initial_map_loading
          player_physics_ = player_physics]
         (TaskCallbacks &) mutable {
             auto grid = map_loader.update_progress();
-            if (grid.is_empty()) return BackgroundCompletion::in_progress;
+            if (!grid) return BackgroundCompletion::in_progress;
             player_physics_.ensure<Velocity>();
             m_region_tracker = MapRegionTracker
                 {make_unique<TiledMapRegion>
-                    (std::move(grid), m_chunk_size),
+                    (std::move(*grid), m_chunk_size),
                  m_chunk_size};
             return BackgroundCompletion::finished;
         });
