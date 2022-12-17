@@ -275,7 +275,7 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
-    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map5.tmx";
 
     PlayerUpdateTask
         {MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
