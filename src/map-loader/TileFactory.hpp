@@ -106,11 +106,28 @@ public:
     }
 };
 
+// there's a type of group'
+// each group type is close to each type of tile factory
+// therefore a tile factory knows how to create its own group
+// TileFactory: virtual NeighborGroup * create_group() const = 0;
+//
+// do layers have positioning/information that accompany them that affects the
+// production of tiles?
+// possibly
+// is a tile factory local to a tileset? local to a tileset & layer?
+
+
+
 /// A tile factory is a thing that produces tiles.
 class TileFactory {
 public:
     // this is useful for a subclass of tile factories (not all)
     // some factories do not use this at all
+    // a better idea:
+    // tiles may "group" themselves based on their neighbor's identities
+    // this works for all: tile wall structures, mobius strips, loops, etc
+    //
+    // but groups will have to be created before factory time it seems
     class NeighborInfo final {
     public:
         NeighborInfo
