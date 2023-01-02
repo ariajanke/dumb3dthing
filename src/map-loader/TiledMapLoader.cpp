@@ -80,6 +80,8 @@ static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
 Grid<int> load_layer(const TiXmlElement &);
 
+auto group_tile_factories(const Grid<TileFactory *> &);
+
 } // end of <anonymous> namespace
 
 Platform & State::platform() const {
@@ -175,7 +177,7 @@ Optional<TileFactoryViewGrid> WaitingForFileContents::update_progress
             platform().promise_file_contents(source));
     } else {
         tilesets_container.tilesets.back()->
-            load_information(platform(), tileset);
+            load(platform(), tileset);
     }
 }
 
@@ -195,7 +197,7 @@ Optional<TileFactoryViewGrid> WaitingForTileSets::update_progress
         TiXmlDocument document;
         auto contents = future->retrieve();
         document.Parse(contents.c_str());
-        tilesets[idx]->load_information(platform(), *document.RootElement());
+        tilesets[idx]->load(platform(), *document.RootElement());
         idx = k_no_idx;
     }
 

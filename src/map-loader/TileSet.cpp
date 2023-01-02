@@ -61,9 +61,7 @@ TileFactory & TileSet::insert_factory(UniquePtr<TileFactory> uptr, int tid) {
     return factory;
 }
 
-void TileSet::load_information
-    (Platform & platform, const TiXmlElement & tileset)
-{
+void TileSet::load(Platform & platform, const TiXmlElement & tileset) {
     int tile_width = tileset.IntAttribute("tilewidth");
     int tile_height = tileset.IntAttribute("tileheight");
     int tile_count = tileset.IntAttribute("tilecount");
@@ -116,6 +114,26 @@ void TileSet::set_texture_information
         s_map["out-ramp"    ] = &TileSet::load_usual_factory<OutRampTileFactory>;
         s_map["ramp"        ] = &TileSet::load_usual_factory<TwoRampTileFactory>;
         s_map["flat"        ] = &TileSet::load_usual_factory<FlatTileFactory>;
+        return s_map;
+    } ();
+    return s_map;
+}
+
+/* private static */ const TileSet::TileGroupFuncMap &
+    TileSet::tilegroup_handlers()
+{
+    static const auto s_map = [] {
+        TileGroupFuncMap s_map;
+        auto ramp_list = {
+            "in-wall", "out-wall", "wall", "in-ramp", "out-ramp", "ramp",
+            "flat"
+        };
+        for (const auto ramp_type : ramp_list) {
+            s_map[ramp_type] = [] (ProcessedLayer && processed_layer) -> Tuple<UniquePtr<TileGroup>, ProcessedLayer> {
+                assert(processed_layer.remaining_ids > 0);
+                // ids of all like type, type strings are lost at this point...
+            };
+        }
         return s_map;
     } ();
     return s_map;

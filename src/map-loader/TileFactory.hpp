@@ -116,7 +116,8 @@ public:
 // possibly
 // is a tile factory local to a tileset? local to a tileset & layer?
 
-
+struct TileLocation;
+class TileGroup;
 
 /// A tile factory is a thing that produces tiles.
 class TileFactory {
@@ -155,6 +156,10 @@ public:
 
     virtual void operator ()
         (EntityAndTrianglesAdder &, const NeighborInfo &, Platform &) const = 0;
+
+    virtual void make_tile
+        (const TileLocation &, const TileGroup &,
+         EntityAndTrianglesAdder &, Platform &) const = 0;
 
     void set_shared_texture_information
         (const SharedPtr<const Texture> & texture_ptr_, const Size2 & texture_size_,

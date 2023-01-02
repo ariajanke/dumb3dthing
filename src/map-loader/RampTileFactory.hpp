@@ -22,6 +22,10 @@
 
 #include "WallTileFactory.hpp"
 
+class SlopedTileFactory {
+
+};
+
 class SlopesBasedModelTileFactory : public TranslatableTileFactory {
 public:
     void operator ()

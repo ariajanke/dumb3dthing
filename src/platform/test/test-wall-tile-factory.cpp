@@ -133,7 +133,7 @@ bool run_wall_tile_factory_tests() {
         TiXmlDocument document;
         document.LoadFile(fn);
         auto & platform = Platform::null_callbacks();
-        tileset.load_information(platform, *document.RootElement());
+        tileset.load(platform, *document.RootElement());
     };
     static constexpr const int k_connecting_tile = 16;
     static constexpr const int k_north_wall_no_translation = 34;
