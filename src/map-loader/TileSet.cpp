@@ -44,7 +44,21 @@ const TiXmlElement * get_first_property(const TiXmlElement & el) {
 } // end of <anonymous> namespace
 
 // there may, or may not be a factory for a particular id
-TileFactory * TileSet::operator () (int tid) const {
+Tuple<TileFactory *, TileGroupFiller *> TileSet::operator () (int tid) const {
+    return make_tuple(factory_for_id(tid), &group_filler_for_id(tid));
+}
+
+TileGroupFiller & TileSet::group_filler_for_id(int tid) const {
+    auto itr = m_group_factory_map.find(tid);
+    if (itr == m_group_factory_map.end()) {
+        throw InvArg{  "TileSet::group_filler_for_id: tid " + std::to_string(tid)
+                     + " is not a valid id for this tileset"};
+    }
+    assert(itr->second);
+    return *itr->second;
+}
+
+TileFactory * TileSet::factory_for_id(int tid) const {
     auto itr = m_factory_map.find(tid);
     if (itr == m_factory_map.end()) return nullptr;
     return itr->second.get();

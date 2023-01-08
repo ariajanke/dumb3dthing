@@ -32,7 +32,30 @@ class TileFactory;
 class TileGroup;
 class SlopedTileGroup;
 
-class TileGroupFactory {
+class UnfinishedTileGroupGrid final {
+public:
+    using Size2I = cul::Size2<int>;
+
+    // may only be set once
+    void set_size(const Size2I &);
+
+    // may only be called once per tile location
+    void set(Vector2I, TileFactory *, SharedPtr<TileGroup>);
+
+    bool filled(Vector2I) const;
+
+    Vector2I next(Vector2I) const noexcept;
+
+    Vector2I end_position() const noexcept;
+
+    // may only be called once
+    auto finish();
+
+private:
+    Grid<Tuple<bool, TileFactory *, SharedPtr<TileGroup>>> m_target_grid;
+};
+
+class TileGroupFiller {
 public:
     struct ProcessedLayer final {
         int remaining_ids = 0;
@@ -40,30 +63,44 @@ public:
         Grid<Tuple<TileFactory *, SharedPtr<TileGroup>>> factory_group_tuples;
     };
 
-    static TileGroupFactory * ramp_group_factory();
+    static TileGroupFiller * ramp_group_factory();
 
-    virtual ~TileGroupFactory() {}
+    virtual ~TileGroupFiller() {}
 
-    virtual Tuple<UniquePtr<TileGroup>, ProcessedLayer> operator ()
-        (const Grid<TileGroupFactory *> &, ProcessedLayer &&) const = 0;
+    virtual UnfinishedTileGroupGrid operator ()
+        (const Grid<TileGroupFiller *> &, UnfinishedTileGroupGrid &&) const = 0;
 };
 
 
 class TileSet final {
 public:
-    using ProcessedLayer  = TileGroupFactory::ProcessedLayer;
+    using ProcessedLayer  = TileGroupFiller::ProcessedLayer;
     using ConstTileSetPtr = SharedPtr<const TileSet>;
     using TileSetPtr      = SharedPtr<TileSet>;
 
     // there may, or may not be a factory for a particular id
-    TileFactory * operator () (int tid) const;
+    Tuple<TileFactory *, TileGroupFiller *> operator () (int tid) const;
+
+    TileGroupFiller & group_filler_for_id(int tid) const;
+
+    TileFactory * factory_for_id(int tid) const;
 
     void load(Platform &, const TiXmlElement & tileset);
 
     int total_tile_count() const { return m_tile_count; }
-
+#   if 0 // this is a SRP violation from hell
     ProcessedLayer process_layer(ProcessedLayer && layer) const {
-
+        auto & tile_ids = layer.tile_ids;
+        auto & factory_group_tuples = layer.factory_group_tuples;
+        for (Vector2I r; r != tile_ids.end_position(); r = tile_ids.next(r)) {
+            auto itr = m_group_factory_map.find(tile_ids(r));
+            if (itr == m_group_factory_map.end()) {
+                --layer.remaining_ids;
+                continue;
+            }
+            layer = (*itr->second)(  )
+            ;
+        }
     }
 
     ProcessedLayer process_layer(Grid<int> && layer) const {
@@ -74,7 +111,7 @@ public:
             (starting_layer.tile_ids.size2(), make_tuple(nullptr, nullptr));
         return process_layer(std::move(starting_layer));
     }
-
+#   endif
 private:
 
     using TileTextureMap = std::map<std::string, TileTexture>;
@@ -94,7 +131,7 @@ private:
     //using LoadTileGroupFactoryFunc = ProcessedLayer(*)(ProcessedLayer &&);
 
     using TileTypeFuncMap = std::map<std::string, LoadTileTypeFunc>;
-    using TileGroupFuncMap = std::map<std::string, TileGroupFactory>;
+    using TileGroupFuncMap = std::map<std::string, TileGroupFiller>;
 
     static const TileTypeFuncMap & tiletype_handlers();
 
@@ -131,7 +168,7 @@ private:
     }
 
     std::map<int, UniquePtr<TileFactory>> m_factory_map;
-    std::map<int, TileGroupFactory> m_group_factory_map;
+    std::map<int, TileGroupFiller *> m_group_factory_map;
     TileTextureMap m_tile_texture_map;
 
     SharedPtr<const Texture> m_texture;
@@ -168,8 +205,8 @@ private:
     //const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
 };
 
-inline /* static */ TileGroupFactory * TileGroupFactory::ramp_group_factory() {
-    class RampGroupFactory final : public TileGroupFactory {
+inline /* static */ TileGroupFiller * TileGroupFiller::ramp_group_factory() {
+    class RampGroupFactory final : public TileGroupFiller {
     public:
         // fuck you Singleton
         static RampGroupFactory & instance() {
@@ -177,8 +214,8 @@ inline /* static */ TileGroupFactory * TileGroupFactory::ramp_group_factory() {
             return inst;
         }
 
-        Tuple<UniquePtr<TileGroup>, ProcessedLayer> operator ()
-            (const Grid<TileGroupFactory *> & group_layer,
+        ProcessedLayer operator ()
+            (const Grid<TileGroupFiller *> & group_layer,
              ProcessedLayer && inprogress_layer) const final
         {
             using namespace cul::exceptions_abbr;
@@ -204,7 +241,7 @@ inline /* static */ TileGroupFactory * TileGroupFactory::ramp_group_factory() {
                     std::get<SharedPtr<TileGroup>>(inprogress_layer.factory_group_tuples(r)) = stg;
                 }
             }
-            return make_tuple(nullptr, std::move(inprogress_layer));
+            return std::move(inprogress_layer);
         }
 
     private:
@@ -219,6 +256,7 @@ struct TileLocation final {
 };
 
 // straight up yoinked from tmap
+// this is just used wrong I think...
 class GidTidTranslator final {
 public:
     using ConstTileSetPtr = TileSet::ConstTileSetPtr;

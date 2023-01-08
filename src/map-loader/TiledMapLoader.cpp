@@ -80,7 +80,15 @@ static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
 Grid<int> load_layer(const TiXmlElement &);
 
-auto group_tile_factories(const Grid<TileFactory *> &);
+Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
+    (const Grid<int> &, const GidTidTranslator &);
+
+auto group_tile_factories
+    (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tid_tiles,
+     UnfinishedTileGroupGrid &&)
+{
+    ;
+}
 
 } // end of <anonymous> namespace
 
