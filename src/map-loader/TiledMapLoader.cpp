@@ -82,13 +82,31 @@ Grid<int> load_layer(const TiXmlElement &);
 
 Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
     (const Grid<int> &, const GidTidTranslator &);
-
-auto group_tile_factories
-    (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tid_tiles,
-     UnfinishedTileGroupGrid &&)
+#if 0
+Grid<Tuple<TileFactory *, TileProducableFiller *>> tid_layer_to_factory_and_groups
+    (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tid_tiles)
 {
-    ;
+    Grid<Tuple<TileFactory *, TileProducableFiller *>> rv;
+    rv.set_size(tid_tiles.size2(), make_tuple(nullptr, nullptr));
+    for (Vector2I r; r != tid_tiles.end_position(); r = tid_tiles.next(r)) {
+        auto [tid, tileset] = tid_tiles(r);
+        rv(r) = tileset->factory_for_id(tid);
+    }
+    return rv;
 }
+#endif
+auto group_tile_factories
+    (const Grid<Tuple<TileFactory *, TileProducableFiller *>> & factory_and_groups,
+     UnfinishedTileGroupGrid && group_and_factory_grid)
+{
+}
+
+// grid ids, to filler groups and specific types
+// groups provide specific factory types
+// what's difficult here:
+// I need to instantiate specificly typed factories, much like tileset does now
+// Each group will have to do this for a subset of tileset.
+//
 
 } // end of <anonymous> namespace
 

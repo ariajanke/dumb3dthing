@@ -57,7 +57,7 @@ void TileFactoryViewGrid::load_layers
         for (auto & layer : gid_layers) {
             auto [tid, tset] = m_gidtid_translator.gid_to_tid(layer(r));
             if (!tset) continue;
-            auto * factory = (*tset)(tid);
+            auto * factory = tset->factory_for_id(tid);
             if (!factory) continue;
             factory_inserter.push(factory);
         }

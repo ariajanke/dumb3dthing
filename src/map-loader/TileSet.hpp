@@ -32,6 +32,73 @@ class TileFactory;
 class TileGroup;
 class SlopedTileGroup;
 
+// Shit name, but "TileTileFactory" and "TileSetTileFactory" kinda pattern will
+// have to come later
+// This is a something that produces a tile instance at a specific location
+// somewhere in the game.
+class ProducableTile {
+public:
+    virtual ~ProducableTile() {}
+
+    virtual void operator () (const Vector2I & maps_offset,
+                              EntityAndTrianglesAdder &, Platform &) const = 0;
+};
+
+class ProducableGroup_ {
+public:
+    virtual ~ProducableGroup_() {}
+};
+
+template <typename T>
+class ProducableGroup : public ProducableGroup_ {
+public:
+    static_assert(std::is_base_of_v<ProducableTile, T>);
+
+    ProducableGroup & at_position(const Vector2I &);
+
+    template <typename ... Types>
+    void make_producable(Types && ... args) {
+        m_producables.emplace_back(std::forward<Types>(args)...);
+        set_producable(m_current_position, &m_producables.back());
+    }
+
+protected:
+    virtual void set_producable(Vector2I, ProducableTile *) = 0;
+
+private:
+    Vector2I m_current_position;
+    std::vector<T> m_producables;
+};
+
+class FinishedTileGroupGrid final {
+public:
+    FinishedTileGroupGrid
+        (Grid<ProducableTile *> && target,
+         std::vector<SharedPtr<ProducableGroup_>> && groups):
+        m_target(std::move(target)),
+        m_groups(std::move(groups))
+    {}
+
+    void operator ()
+        (const Vector2I & map_position, const Vector2I & maps_offset,
+         EntityAndTrianglesAdder & adder, Platform & platform)
+    {
+        verify_tile("operator()", m_target(map_position))
+            (maps_offset, adder, platform);
+    }
+
+    // merging multiple instances into a view grid, for
+    // use with region preparers:
+    // who's going to own the groups?
+
+
+private:
+    static ProducableTile & verify_tile(const char * caller, ProducableTile *);
+
+    Grid<ProducableTile *> m_target;
+    std::vector<SharedPtr<ProducableGroup_>> m_groups;
+};
+
 class UnfinishedTileGroupGrid final {
 public:
     using Size2I = cul::Size2<int>;
@@ -39,50 +106,114 @@ public:
     // may only be set once
     void set_size(const Size2I &);
 
-    // may only be called once per tile location
-    void set(Vector2I, TileFactory *, SharedPtr<TileGroup>);
+    template <typename T>
+    SharedPtr<ProducableGroup<T>> start_group_for_type() {
+        class Impl final : public ProducableGroup<T> {
+        public:
+            Impl(Grid<ProducableTile *> & target_, Grid<bool> & filleds_):
+                m_target(target_),
+                m_filleds(filleds_)
+            {}
 
-    bool filled(Vector2I) const;
+            void set_producable(Vector2I r, ProducableTile * producable) final {
+                using namespace cul::exceptions_abbr;
+                if (m_filleds(r)) {
+                    throw RtError{"cannot fill tile twice"};
+                }
+                m_target(r) = producable;
+                m_filleds(r) = true;
+            }
 
-    Vector2I next(Vector2I) const noexcept;
-
-    Vector2I end_position() const noexcept;
-
+            Grid<ProducableTile *> & m_target;
+            Grid<bool> & m_filleds;
+        };
+        auto rv = make_shared<Impl>(m_target, m_filleds);
+        m_groups.push_back(rv);
+        return rv;
+    }
     // may only be called once
-    auto finish();
+    FinishedTileGroupGrid finish();
+
+    std::vector<Vector2I> filter_filleds(std::vector<Vector2I> &&) const;
 
 private:
-    Grid<Tuple<bool, TileFactory *, SharedPtr<TileGroup>>> m_target_grid;
+    Grid<ProducableTile *> m_target;
+    std::vector<SharedPtr<ProducableGroup_>> m_groups;
+    // catch myself if I set a producable twice
+    Grid<bool> m_filleds;
 };
 
-class TileGroupFiller {
+class TileSetXmlGrid;
+
+// a subset of a tile set, focused on groups, which converts
+class TileProducableFiller {
 public:
-    struct ProcessedLayer final {
-        int remaining_ids = 0;
-        Grid<int> tile_ids;
-        Grid<Tuple<TileFactory *, SharedPtr<TileGroup>>> factory_group_tuples;
+    static SharedPtr<TileProducableFiller> make_ramp_group_filler
+        (const TileSetXmlGrid & xml_grid);
+
+    struct TileLocation final {
+        Vector2I location_on_map;
+        Vector2I location_on_tileset;
     };
 
-    static TileGroupFiller * ramp_group_factory();
-
-    virtual ~TileGroupFiller() {}
+    virtual ~TileProducableFiller() {}
 
     virtual UnfinishedTileGroupGrid operator ()
-        (const Grid<TileGroupFiller *> &, UnfinishedTileGroupGrid &&) const = 0;
+        (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const = 0;
 };
 
+class TileSetXmlGrid final {
+public:
+    using Size2I = cul::Size2<int>;
+    void load(Platform &, const TiXmlElement &);
+
+    TiXmlElement & operator() (const Vector2I &) const;
+
+    Size2 tile_size() const;
+
+    Size2 image_size() const;
+
+    SharedPtr<const Texture> texture() const;
+
+    Vector2I next(const Vector2I &) const;
+
+    Vector2I end_position() const;
+
+    Size2I size2() const;
+
+private:
+    void load_texture(Platform &, const TiXmlElement &);
+
+    Size2 m_tile_size;
+};
+
+class TileSetN final {
+public:
+    using FillerFactory = SharedPtr<TileProducableFiller>(*)(const TileSetXmlGrid &);
+    using FillerFactoryMap = std::map<std::string, FillerFactory>;
+
+    static const FillerFactoryMap & builtin_fillers();
+
+    // groups shared between tilesets? <- yup this idea is stupid
+    // shelve it fucker
+
+    void load(Platform &, const TiXmlElement &, const FillerFactoryMap & = builtin_fillers());
+
+    SharedPtr<TileProducableFiller> find_filler(int tid) const;
+    SharedPtr<TileProducableFiller> find_filler(Vector2I) const;
+};
 
 class TileSet final {
 public:
-    using ProcessedLayer  = TileGroupFiller::ProcessedLayer;
     using ConstTileSetPtr = SharedPtr<const TileSet>;
     using TileSetPtr      = SharedPtr<TileSet>;
-
+#   if 0
     // there may, or may not be a factory for a particular id
-    Tuple<TileFactory *, TileGroupFiller *> operator () (int tid) const;
-
-    TileGroupFiller & group_filler_for_id(int tid) const;
-
+    Tuple<TileFactory *, TileProducableFiller *> operator () (int tid) const;
+#   endif
+#   if 0
+    TileProducableFiller & group_filler_for_id(int tid) const;
+#   endif
     TileFactory * factory_for_id(int tid) const;
 
     void load(Platform &, const TiXmlElement & tileset);
@@ -131,12 +262,13 @@ private:
     //using LoadTileGroupFactoryFunc = ProcessedLayer(*)(ProcessedLayer &&);
 
     using TileTypeFuncMap = std::map<std::string, LoadTileTypeFunc>;
-    using TileGroupFuncMap = std::map<std::string, TileGroupFiller>;
-
+#   if 0
+    using TileGroupFuncMap = std::map<std::string, TileProducableFiller>;
+#   endif
     static const TileTypeFuncMap & tiletype_handlers();
-
+#   if 0
     static const TileGroupFuncMap & tilegroup_handlers();
-
+#   endif
     TileFactory & insert_factory(UniquePtr<TileFactory> uptr, int tid);
 
     void load_pure_texture(const TiXmlElement &, int, Vector2I, TileParams &);
@@ -168,7 +300,9 @@ private:
     }
 
     std::map<int, UniquePtr<TileFactory>> m_factory_map;
-    std::map<int, TileGroupFiller *> m_group_factory_map;
+#   if 0
+    std::map<int, TileProducableFiller *> m_group_factory_map;
+#   endif
     TileTextureMap m_tile_texture_map;
 
     SharedPtr<const Texture> m_texture;
@@ -204,7 +338,7 @@ private:
     Grid<TileFactory *> m_factory_grid;
     //const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
 };
-
+#if 0
 inline /* static */ TileGroupFiller * TileGroupFiller::ramp_group_factory() {
     class RampGroupFactory final : public TileGroupFiller {
     public:
@@ -249,7 +383,7 @@ inline /* static */ TileGroupFiller * TileGroupFiller::ramp_group_factory() {
     };
     return &RampGroupFactory::instance();
 }
-
+#endif
 struct TileLocation final {
     Vector2I on_map;
     Vector2I on_field;

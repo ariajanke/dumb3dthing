@@ -74,7 +74,7 @@ void TileFactoryGrid::load_layer
         if (gid == 0) continue;
 
         auto [tid, tileset] = idtranslator.gid_to_tid(gid);
-        m_factories(r) = (*tileset)(tid);
+        m_factories(r) = tileset->factory_for_id(tid);
         m_tilesets.push_back(tileset);
     }
 }

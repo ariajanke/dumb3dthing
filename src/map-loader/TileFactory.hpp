@@ -156,11 +156,11 @@ public:
 
     virtual void operator ()
         (EntityAndTrianglesAdder &, const NeighborInfo &, Platform &) const = 0;
-
+#   if 0
     virtual void make_tile
         (const TileLocation &, const TileGroup &,
          EntityAndTrianglesAdder &, Platform &) const = 0;
-
+#   endif
     void set_shared_texture_information
         (const SharedPtr<const Texture> & texture_ptr_, const Size2 & texture_size_,
          const Size2 & tile_size_);
