@@ -70,6 +70,18 @@ private:
     std::vector<T> m_producables;
 };
 
+class UnfinishedProducableViewGrid final {
+public:
+    void add_layer
+        (Grid<ProducableTile *> && target,
+         const std::vector<SharedPtr<ProducableGroup_>> & groups);
+
+    // the grid view object will need to own groups as well...
+private:
+    std::vector<Grid<ProducableTile *>> m_layers;
+    std::vector<SharedPtr<ProducableGroup_>> m_groups;
+};
+
 class FinishedTileGroupGrid final {
 public:
     FinishedTileGroupGrid
@@ -89,7 +101,9 @@ public:
 
     // merging multiple instances into a view grid, for
     // use with region preparers:
-    // who's going to own the groups?
+    // who's going to own the groups? (the special grid type)
+    // yeah, I don't have a good solution for vertical maps...
+
 
 
 private:
@@ -133,9 +147,9 @@ public:
     }
     // may only be called once
     FinishedTileGroupGrid finish();
-
+#   if 0
     std::vector<Vector2I> filter_filleds(std::vector<Vector2I> &&) const;
-
+#   endif
 private:
     Grid<ProducableTile *> m_target;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
@@ -149,7 +163,7 @@ class TileSetXmlGrid;
 class TileProducableFiller {
 public:
     static SharedPtr<TileProducableFiller> make_ramp_group_filler
-        (const TileSetXmlGrid & xml_grid);
+        (const TileSetXmlGrid & xml_grid, Platform &);
 
     struct TileLocation final {
         Vector2I location_on_map;
@@ -162,35 +176,51 @@ public:
         (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const = 0;
 };
 
+// Grid of xml elements, plus info on tileset
 class TileSetXmlGrid final {
 public:
     using Size2I = cul::Size2<int>;
+
     void load(Platform &, const TiXmlElement &);
 
-    TiXmlElement & operator() (const Vector2I &) const;
+    const TiXmlElement * operator() (const Vector2I & r) const
+        { return m_elements(r); }
 
-    Size2 tile_size() const;
+    Size2 tile_size() const
+        { return m_tile_size; }
 
-    Size2 image_size() const;
+    Size2 texture_size() const
+        { return m_texture_size; }
 
-    SharedPtr<const Texture> texture() const;
+    SharedPtr<const Texture> texture() const
+        { return m_texture; }
 
-    Vector2I next(const Vector2I &) const;
+    Vector2I next(const Vector2I & r) const
+        { return m_elements.next(r); }
 
-    Vector2I end_position() const;
+    Vector2I end_position() const
+        { return m_elements.end_position(); }
 
-    Size2I size2() const;
+    Size2I size2() const
+        { return m_elements.size2(); }
+
+    auto size() const { return m_elements.size(); }
 
 private:
-    void load_texture(Platform &, const TiXmlElement &);
+    static Tuple<SharedPtr<const Texture>, Size2>
+        load_texture(Platform &, const TiXmlElement &);
 
+    Grid<const TiXmlElement *> m_elements;
+    SharedPtr<const Texture> m_texture;
     Size2 m_tile_size;
+    Size2 m_texture_size;
 };
 
 class TileSetN final {
 public:
-    using FillerFactory = SharedPtr<TileProducableFiller>(*)(const TileSetXmlGrid &);
+    using FillerFactory = SharedPtr<TileProducableFiller>(*)(const TileSetXmlGrid &, Platform &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
+    using TileLocation = TileProducableFiller::TileLocation;
 
     static const FillerFactoryMap & builtin_fillers();
 
@@ -200,13 +230,18 @@ public:
     void load(Platform &, const TiXmlElement &, const FillerFactoryMap & = builtin_fillers());
 
     SharedPtr<TileProducableFiller> find_filler(int tid) const;
+
     SharedPtr<TileProducableFiller> find_filler(Vector2I) const;
+
+    Vector2I tile_id_to_tileset_location(int tid) const;
+
+private:
+    Grid<SharedPtr<TileProducableFiller>> m_filler_grid;
 };
 
 class TileSet final {
 public:
-    using ConstTileSetPtr = SharedPtr<const TileSet>;
-    using TileSetPtr      = SharedPtr<TileSet>;
+
 #   if 0
     // there may, or may not be a factory for a particular id
     Tuple<TileFactory *, TileProducableFiller *> operator () (int tid) const;
@@ -393,8 +428,13 @@ struct TileLocation final {
 // this is just used wrong I think...
 class GidTidTranslator final {
 public:
-    using ConstTileSetPtr = TileSet::ConstTileSetPtr;
-    using TileSetPtr      = TileSet::TileSetPtr;
+#   if 1//MACRO_BIG_RED_BUTTON
+    using ConstTileSetPtr = SharedPtr<const TileSetN>;
+    using TileSetPtr      = SharedPtr<TileSetN>;
+#   else
+    using ConstTileSetPtr = SharedPtr<const TileSet>;
+    using TileSetPtr      = SharedPtr<TileSet>;
+#   endif
 
     GidTidTranslator() {}
 

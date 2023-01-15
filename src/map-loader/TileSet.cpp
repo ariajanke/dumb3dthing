@@ -50,47 +50,126 @@ void TileSetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
         tile_grid.set_size
             (tileset.IntAttribute("tilecount") / columns, columns, nullptr);
     }
-    m_tile_size = Size2
+    Size2 tile_size
         {tileset.IntAttribute("tilewidth"), tileset.IntAttribute("tileheight")};
+    load_texture(platform, tileset);
 
-#   if 0
-    int tile_width = tileset.IntAttribute("tilewidth");
-    int tile_height = tileset.IntAttribute("tileheight");
-    int tile_count = tileset.IntAttribute("tilecount");
-    auto to_ts_loc = [&tileset] {
-        int columns = tileset.IntAttribute("columns");
-        return [columns] (int n) { return Vector2I{n % columns, n / columns}; };
-    } ();
-
-    auto image_el = tileset.FirstChildElement("image");
-    int tx_width = image_el->IntAttribute("width");
-    int tx_height = image_el->IntAttribute("height");
-
-    auto tx = platform.make_texture();
-    (*tx).load_from_file(image_el->Attribute("source"));
-
-    set_texture_information(tx, Size2{tile_width, tile_height}, Size2{tx_width, tx_height});
-    m_tile_count = tile_count;
-
-    TileParams tparams{Size2(tile_width, tile_height), platform};
+    auto to_ts_loc = [&tile_grid] (int n)
+        { return Vector2I{n % tile_grid.height(), n / tile_grid.width()}; };
     for (auto & el : XmlRange{tileset, "tile"}) {
-        auto * type = el.Attribute("type");
-        if (!type) continue;
-        auto itr = tiletype_handlers().find(type);
-        if (itr == tiletype_handlers().end()) continue;
-
-        int id = el.IntAttribute("id");
-        (this->*itr->second)(el, id, to_ts_loc(id), tparams);
+        static constexpr const int k_no_id = -1;
+        int id = el.IntAttribute("id", k_no_id);
+        if (id == k_no_id) {
+            throw RtError{"TileSetXmlGrid::load: all tile elements must have an id attribute"};
+        }
+        tile_grid(to_ts_loc(id)) = &el;
     }
-#   endif
+
+    // following load_texture call, no more exceptions should be possible
+    std::tie(m_texture, m_texture_size) = load_texture(platform, tileset);
+    m_tile_size = tile_size;
+    m_elements = std::move(tile_grid);
+
 }
 
-void TileSetXmlGrid::load_texture(Platform & platform, const TiXmlElement & tileset) {
-    auto image_el = tileset.FirstChildElement("image");
-    int tx_width = image_el->IntAttribute("width");
-    int tx_height = image_el->IntAttribute("height");
+/* private static */ Tuple<SharedPtr<const Texture>, Size2>
+    TileSetXmlGrid::load_texture
+        (Platform & platform, const TiXmlElement & tileset)
+{
+    auto el_ptr = tileset.FirstChildElement("image");
+    if (!el_ptr) {
+        throw RtError{"TileSetXmlGrid::load_texture: no texture associated with this tileset"};
+    }
+
+    const auto & image_el = *el_ptr;
     auto tx = platform.make_texture();
-    (*tx).load_from_file(image_el->Attribute("source"));
+    (*tx).load_from_file(image_el.Attribute("source"));
+    return make_tuple(tx, Size2
+        {image_el.IntAttribute("width"), image_el.IntAttribute("height")});
+}
+
+/* static */ const TileSetN::FillerFactoryMap & TileSetN::builtin_fillers() {
+    static auto s_map = [] {
+        FillerFactoryMap s_map;
+        auto ramp_group_type_list =
+            { "in-wall", "out-wall", "wall", "in-ramp", "out-ramp", "ramp",
+              "flat" };
+        for (auto type : ramp_group_type_list) {
+            s_map[type] = TileProducableFiller::make_ramp_group_filler;
+        }
+        return s_map;
+    } ();
+    return s_map;
+}
+
+void TileSetN::load
+    (Platform & platform, const TiXmlElement & tileset,
+     const FillerFactoryMap & filler_factories)
+{
+    // tileset loc,
+
+    std::vector<Tuple<Vector2I, FillerFactory>> factory_grid_positions;
+
+    TileSetXmlGrid xml_grid;
+    xml_grid.load(platform, tileset);
+    {
+    factory_grid_positions.reserve(xml_grid.size());
+    for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
+        auto el_ptr = xml_grid(r);
+        if (!el_ptr) continue;
+        auto type = el_ptr->Attribute("type");
+        auto itr = filler_factories.find(type);
+        if (itr == filler_factories.end()) {
+            // warn maybe, but don't error
+        }
+        if (!itr->second) {
+            throw InvArg{"TileSetN::load: no filler factory maybe nullptr"};
+        }
+        factory_grid_positions.emplace_back(r, itr->second);
+    }
+    }
+
+    std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> factory_and_locations;
+    {
+    using Tup = Tuple<Vector2I, FillerFactory>;
+    auto comp = [](const Tup & lhs, const Tup & rhs) {
+        return std::less<FillerFactory>{}
+            ( std::get<FillerFactory>(lhs), std::get<FillerFactory>(rhs) );
+    };
+    std::sort
+        (factory_grid_positions.begin(), factory_grid_positions.end(),
+         comp);
+    FillerFactory filler_factory = nullptr;
+    for (auto [r, factory] : factory_grid_positions) {
+        if (filler_factory != factory) {
+            factory_and_locations.emplace_back(factory, std::vector<Vector2I>{});
+            filler_factory = factory;
+        }
+        std::get<std::vector<Vector2I>>(factory_and_locations.back()).push_back(r);
+    }
+    }
+
+    Grid<SharedPtr<TileProducableFiller>> filler_grid;
+    filler_grid.set_size(xml_grid.size2(), nullptr);
+    for (auto [factory, locations] : factory_and_locations) {
+        auto filler = (*factory)(xml_grid, platform);
+        for (auto r : locations) {
+            filler_grid(r) = filler;
+        }
+    }
+    m_filler_grid = std::move(filler_grid);
+}
+
+SharedPtr<TileProducableFiller> TileSetN::find_filler(int tid) const {
+    return find_filler( tile_id_to_tileset_location(tid) );
+}
+
+SharedPtr<TileProducableFiller> TileSetN::find_filler(Vector2I r) const {
+    return m_filler_grid(r);
+}
+
+Vector2I TileSetN::tile_id_to_tileset_location(int tid) const {
+    return Vector2I{tid % m_filler_grid.width(), tid / m_filler_grid.height()};
 }
 
 
@@ -326,9 +405,11 @@ int GidTidTranslator::tid_to_gid(int tid, ConstTileSetPtr tileset) const {
 class ProducableRampTile final : public ProducableTile {
 public:
     using NeighborInfo = TileFactory::NeighborInfo;
+    using TileFactoryGridPtr = SharedPtr<Grid<TileFactory *>>;
+
     ProducableRampTile
         (const Vector2I & map_position,
-         const SharedPtr<SharedPtr<Grid<TileFactory *>>> & factory_map_layer):
+         const TileFactoryGridPtr & factory_map_layer):
         m_map_position(map_position),
         m_factory_map_layer(factory_map_layer)
     {}
@@ -337,25 +418,28 @@ public:
         (const Vector2I & maps_offset, EntityAndTrianglesAdder & adder,
          Platform & platform) const final
     {
-#       if 0 // yay, time for another layer of indirection!
         class Impl final : public SlopesGridInterface {
         public:
-            explicit Impl( );
+            explicit Impl(const TileFactoryGridPtr & grid_ptr):
+                m_grid(grid_ptr) {}
 
-            Slopes operator () (Vector2I) const;
+            Slopes operator () (Vector2I r) const
+                { return (*m_grid)(r)->tile_elevations(); }
+
+        private:
+            const TileFactoryGridPtr & m_grid;
         };
-        Impl intf_impl{m_slopes_grid};
+        Impl intf_impl{m_factory_map_layer};
         NeighborInfo ninfo{intf_impl, m_map_position,maps_offset};
 
 
-        (*(*m_slopes_grid)(m_map_position))(adder, ninfo, platform);
-#       endif
+        (*(*m_factory_map_layer)(m_map_position))(adder, ninfo, platform);
     }
 
 private:
     Vector2I m_map_position;
 
-    SharedPtr<SharedPtr<Grid<TileFactory *>>> m_factory_map_layer;
+    TileFactoryGridPtr m_factory_map_layer;
 };
 #if 0
 class RampGroupFiller final : public TileProducableFiller {
@@ -381,7 +465,11 @@ class RampGroupFiller final : public TileProducableFiller {
 
 class RampGroupFiller final : public TileProducableFiller {
 public:
-
+    using RampGroupFactoryMakeFunc = UniquePtr<TileFactory>(*)();
+    using RampGroupFactoryMap = std::map<std::string, RampGroupFactoryMakeFunc>;
+    using TileTextureMap = std::map<std::string, TileTexture>;
+    using SpecialTypeFunc = void(RampGroupFiller::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
+    using SpecialTypeFuncMap = std::map<std::string, SpecialTypeFunc>;
     static SharedPtr<Grid<TileFactory *>> make_factory_grid_for_map(const std::vector<TileLocation> & tile_locations, const Grid<UniquePtr<TileFactory>> & tile_factories);
 
     UnfinishedTileGroupGrid operator ()
@@ -397,28 +485,107 @@ public:
         return std::move(group_grid);
     }
 
-    void load(const TileSetXmlGrid & xml_grid) {
+    void load
+        (const TileSetXmlGrid & xml_grid, Platform & platform,
+         const RampGroupFactoryMap & factory_type_map = builtin_tile_factory_maker_map())
+    {
         // I know how large the grid should be
-
         m_tile_factories.set_size(xml_grid.size2(), nullptr);
+
+        // this should be a function
         for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
-            const auto & el = xml_grid(r);
-
+            const auto * el = xml_grid(r);
             // I know the specific tile factory type
-            ;
+            auto * tile_type = el->Attribute("type");
+            if (!tile_type) continue;
+            auto itr = factory_type_map.find(tile_type);
+            if (itr != factory_type_map.end()) {
+                auto & factory = m_tile_factories(r) = (*itr->second)();
+                factory->set_shared_texture_information
+                    (xml_grid.texture(), xml_grid.texture_size(), xml_grid.tile_size());
+            }
+            auto jtr = special_type_funcs().find(tile_type);
+            if (jtr != special_type_funcs().end()) {
+                (this->*jtr->second)(xml_grid, r);
+            }
+        }
 
+        for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
+            auto & factory = m_tile_factories(r);
+            factory->setup(r, xml_grid(r), platform);
+            factory->set_shared_texture_information
+                (xml_grid.texture(), xml_grid.texture_size(), xml_grid.tile_size());
+            auto * wall_factory = dynamic_cast<WallTileFactoryBase *>(factory.get());
+            auto wall_tx_itr = m_pure_textures.find("wall");
+            if (wall_factory && wall_tx_itr != m_pure_textures.end()) {
+                wall_factory->assign_wall_texture(wall_tx_itr->second);
+            }
         }
     }
 
+    // dangler hazard while moving shit around
+
+
+    static const RampGroupFactoryMap & builtin_tile_factory_maker_map() {
+        static auto s_map = [] {
+            RampGroupFactoryMap s_map;
+            s_map["in-wall"     ] = make_unique_base_factory<InWallTileFactory>;
+            s_map["out-wall"    ] = make_unique_base_factory<OutWallTileFactory>;
+            s_map["wall"        ] = make_unique_base_factory<TwoWayWallTileFactory>;
+            s_map["in-ramp"     ] = make_unique_base_factory<InRampTileFactory>;
+            s_map["out-ramp"    ] = make_unique_base_factory<OutRampTileFactory>;
+            s_map["ramp"        ] = make_unique_base_factory<TwoRampTileFactory>;
+            s_map["flat"        ] = make_unique_base_factory<FlatTileFactory>;
+            return s_map;
+        } ();
+        return s_map;
+    }
+
 private:
+    template <typename T>
+    static UniquePtr<TileFactory> make_unique_base_factory() {
+        static_assert(std::is_base_of_v<TileFactory, T>);
+        return make_unique<T>();
+    }
+
+    void setup_pure_texture
+        (const TileSetXmlGrid & xml_grid, const Vector2I & r)
+    {
+        const auto & el = *xml_grid(r);
+        TiXmlIter itr{get_first_property(el), "property"};
+        itr = std::find_if(itr, TiXmlIter{}, [](const TiXmlElement & el) {
+            auto attr = el.Attribute("name");
+            return attr ? std::strcmp(attr, "assignment") == 0 : false;
+        });
+        if (!(itr != TiXmlIter{})) return;
+
+        auto * assignment = (*itr).Attribute("value");
+        if (!assignment) return;
+        using cul::convert_to;
+        Size2 scale{xml_grid.tile_size().width  / xml_grid.texture_size().width ,
+                    xml_grid.tile_size().height / xml_grid.texture_size().height};
+        Vector2 pos{r.x*scale.width, r.y*scale.height};
+        m_pure_textures[assignment] =
+            TileTexture{pos, pos + convert_to<Vector2>(scale)};
+    }
+
+    static const SpecialTypeFuncMap & special_type_funcs() {
+        static auto s_map = [] {
+            SpecialTypeFuncMap s_map;
+            s_map["pure-texture"] = &RampGroupFiller::setup_pure_texture;
+            return s_map;
+        } ();
+        return s_map;
+    }
+
+    TileTextureMap m_pure_textures;
     Grid<UniquePtr<TileFactory>> m_tile_factories; // <- right here for tileset factory stuff...
 };
 
-static SharedPtr<TileProducableFiller> make_ramp_group_filler
-        (const TileSetXmlGrid & xml_grid)
-    {
-
-        auto rv = make_shared<RampGroupFiller>();
-        rv->load(xml_grid);
-        return rv;
-    }
+/* static */ SharedPtr<TileProducableFiller> TileProducableFiller::make_ramp_group_filler
+    (const TileSetXmlGrid & xml_grid, Platform & platform)
+{
+    auto rv = make_shared<RampGroupFiller>();
+    rv->load(xml_grid, platform);
+    return rv;
+}

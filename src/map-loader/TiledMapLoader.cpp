@@ -80,25 +80,67 @@ static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
 Grid<int> load_layer(const TiXmlElement &);
 
-Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
-    (const Grid<int> &, const GidTidTranslator &);
-#if 0
-Grid<Tuple<TileFactory *, TileProducableFiller *>> tid_layer_to_factory_and_groups
-    (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tid_tiles)
+Grid<Tuple<int, SharedPtr<const TileSetN>>> gid_layer_to_tid_layer
+    (const Grid<int> & gids, const GidTidTranslator & gidtid_translator)
 {
-    Grid<Tuple<TileFactory *, TileProducableFiller *>> rv;
-    rv.set_size(tid_tiles.size2(), make_tuple(nullptr, nullptr));
-    for (Vector2I r; r != tid_tiles.end_position(); r = tid_tiles.next(r)) {
-        auto [tid, tileset] = tid_tiles(r);
-        rv(r) = tileset->factory_for_id(tid);
+    Grid<Tuple<int, SharedPtr<const TileSetN>>> rv;
+    rv.set_size(gids.size2(), make_tuple(0, nullptr));
+
+    for (Vector2I r; r != rv.end_position(); r = rv.next(r)) {
+        // (change rt to tuple from pair)
+        auto [tid, tileset] = gidtid_translator.gid_to_tid(gids(r));
+        rv(r) = make_tuple(tid, tileset);
+    }
+
+    return rv;
+}
+
+struct FillerAndLocations final {
+    SharedPtr<TileProducableFiller> filler;
+    std::vector<TileProducableFiller::TileLocation> tile_locations;
+};
+
+std::vector<FillerAndLocations>
+    tid_layer_to_fillables_and_locations
+    (const Grid<Tuple<int, SharedPtr<const TileSetN>>> & tids_and_tilesets)
+{
+    std::map<
+        SharedPtr<TileProducableFiller>,
+        std::vector<TileProducableFiller::TileLocation>> fillers_to_locs;
+    for (Vector2I layer_loc; layer_loc != tids_and_tilesets.end_position();
+         layer_loc = tids_and_tilesets.next(layer_loc))
+    {
+        auto [tid, tileset] = tids_and_tilesets(layer_loc);
+        auto filler = tileset->find_filler(tid);
+        TileProducableFiller::TileLocation tile_loc;
+        tile_loc.location_on_map     = layer_loc;
+        tile_loc.location_on_tileset = tileset->tile_id_to_tileset_location(tid);
+        fillers_to_locs[filler].push_back(tile_loc);
+    }
+
+
+    std::vector<FillerAndLocations> rv;
+    rv.reserve(fillers_to_locs.size());
+    for (auto & [filler, locs] : fillers_to_locs) {
+        FillerAndLocations filler_and_locs;
+        filler_and_locs.filler = filler;
+        filler_and_locs.tile_locations = std::move(locs);
     }
     return rv;
 }
-#endif
-auto group_tile_factories
-    (const Grid<Tuple<TileFactory *, TileProducableFiller *>> & factory_and_groups,
-     UnfinishedTileGroupGrid && group_and_factory_grid)
+
+FinishedTileGroupGrid finish_tile_group_grid
+    (const std::vector<FillerAndLocations> & fillers_and_locs,
+     const cul::Size2<int> & layer_size)
 {
+    UnfinishedTileGroupGrid unfinished_grid;
+    unfinished_grid.set_size(layer_size);
+    for (auto & filler_and_locs : fillers_and_locs) {
+        unfinished_grid = (*filler_and_locs.filler)
+            (filler_and_locs.tile_locations, std::move(unfinished_grid));
+    }
+
+    return unfinished_grid.finish();
 }
 
 // grid ids, to filler groups and specific types
