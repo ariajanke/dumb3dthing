@@ -82,15 +82,40 @@ private:
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
 
-class FinishedTileGroupGrid final {
+template <typename T>
+class GridView;
+
+class TileProducableViewGrid;
+class UnfinishedProducableTileGridView final {
 public:
-    FinishedTileGroupGrid
+    void add_layer
+        (Grid<ProducableTile *> && target,
+         const std::vector<SharedPtr<ProducableGroup_>> & groups)
+    {
+        m_groups.insert(m_groups.end(), groups.begin(), groups.end());
+        m_targets.emplace_back(std::move(target));
+    }
+
+    Tuple
+        <GridView<ProducableTile *>,
+         std::vector<SharedPtr<ProducableGroup_>>>
+        move_out_producables_and_groups();
+
+private:
+    std::vector<Grid<ProducableTile *>> m_targets;
+    std::vector<SharedPtr<ProducableGroup_>> m_groups;
+};
+
+class TileGroupGrid final {
+public:
+    TileGroupGrid
         (Grid<ProducableTile *> && target,
          std::vector<SharedPtr<ProducableGroup_>> && groups):
         m_target(std::move(target)),
         m_groups(std::move(groups))
     {}
-
+#   if 0
+    // but this will not be used...
     void operator ()
         (const Vector2I & map_position, const Vector2I & maps_offset,
          EntityAndTrianglesAdder & adder, Platform & platform)
@@ -98,17 +123,21 @@ public:
         verify_tile("operator()", m_target(map_position))
             (maps_offset, adder, platform);
     }
-
+#   endif
+    // as of Jan 15, 2023:
     // merging multiple instances into a view grid, for
     // use with region preparers:
     // who's going to own the groups? (the special grid type)
     // yeah, I don't have a good solution for vertical maps...
 
+    UnfinishedProducableTileGridView
+        add_producables_to(UnfinishedProducableTileGridView && unfinished_grid_view);
 
 
 private:
+#   if 0
     static ProducableTile & verify_tile(const char * caller, ProducableTile *);
-
+#   endif
     Grid<ProducableTile *> m_target;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
@@ -146,7 +175,7 @@ public:
         return rv;
     }
     // may only be called once
-    FinishedTileGroupGrid finish();
+    TileGroupGrid finish();
 #   if 0
     std::vector<Vector2I> filter_filleds(std::vector<Vector2I> &&) const;
 #   endif
@@ -234,6 +263,9 @@ public:
     SharedPtr<TileProducableFiller> find_filler(Vector2I) const;
 
     Vector2I tile_id_to_tileset_location(int tid) const;
+
+    std::size_t total_tile_count() const
+        { return m_filler_grid.size(); }
 
 private:
     Grid<SharedPtr<TileProducableFiller>> m_filler_grid;
@@ -428,7 +460,7 @@ struct TileLocation final {
 // this is just used wrong I think...
 class GidTidTranslator final {
 public:
-#   if 1//MACRO_BIG_RED_BUTTON
+#   if MACRO_BIG_RED_BUTTON
     using ConstTileSetPtr = SharedPtr<const TileSetN>;
     using TileSetPtr      = SharedPtr<TileSetN>;
 #   else

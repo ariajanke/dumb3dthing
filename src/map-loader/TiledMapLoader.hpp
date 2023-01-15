@@ -44,7 +44,11 @@ public:
     using Ready = MapLoadingReady;
     using Expired = MapLoadingExpired;
     using StateHolder = MapLoadingStateHolder;
-
+#   if MACRO_BIG_RED_BUTTON
+    using OptionalTileViewGrid = Optional<TileProducableViewGrid>;
+#   else
+    using OptionalTileViewGrid = Optional<TileFactoryViewGrid>;
+#   endif
 protected:
     MapLoadingContext() {}
 };
@@ -52,10 +56,11 @@ protected:
 class MapLoadingState {
 public:
     using Rectangle = cul::Rectangle<int>;
+    using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
 
     virtual ~MapLoadingState() {}
 
-    virtual Optional<TileFactoryViewGrid>
+    virtual OptionalTileViewGrid
         update_progress(MapLoadingStateHolder &)
         { return {}; }
 
@@ -69,7 +74,11 @@ public:
 protected:
     struct TileSetsContainer final {
         std::vector<int> startgids;
+#       if MACRO_BIG_RED_BUTTON
+        std::vector<SharedPtr<TileSetN>> tilesets;
+#       else
         std::vector<SharedPtr<TileSet>> tilesets;
+#       endif
         std::vector<Tuple<std::size_t, FutureStringPtr>> pending_tilesets;
     };
 
@@ -105,7 +114,7 @@ public:
          MapLoadingState(platform, offset, tiles_to_load)
     { m_file_contents = platform.promise_file_contents(filename); }
 
-    Optional<TileFactoryViewGrid>
+    OptionalTileViewGrid
         update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
@@ -121,7 +130,7 @@ public:
         m_tilesets_container(std::move(cont_)),
         m_layers(std::move(layers_)) {}
 
-    Optional<TileFactoryViewGrid> update_progress(MapLoadingStateHolder & next_state) final;
+    OptionalTileViewGrid update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     TileSetsContainer m_tilesets_container;
@@ -136,7 +145,7 @@ public:
         m_tidgid_translator(std::move(idtrans_)),
         m_layers(std::move(layers_)) {}
 
-    Optional<TileFactoryViewGrid> update_progress(MapLoadingStateHolder & next_state) final;
+    OptionalTileViewGrid update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     GidTidTranslator m_tidgid_translator;
@@ -191,7 +200,7 @@ public:
 
     // return instead a grid of tile factories
     // (note: that grid must own tilesets)
-    Optional<TileFactoryViewGrid> update_progress();
+    OptionalTileViewGrid update_progress();
 
     bool is_expired() const
         { return std::holds_alternative<Expired>(m_state_space); }

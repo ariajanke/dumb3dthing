@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "TileSet.hpp"
+#include "map-loader-helpers.hpp"
 #include "../Texture.hpp"
 #include "../RenderModel.hpp"
 
@@ -32,8 +33,8 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 
-using ConstTileSetPtr = TileSet::ConstTileSetPtr;
-using TileSetPtr      = TileSet::TileSetPtr;
+using ConstTileSetPtr = GidTidTranslator::ConstTileSetPtr;
+using TileSetPtr      = GidTidTranslator::TileSetPtr;
 using Triangle        = TriangleSegment;
 
 const TiXmlElement * get_first_property(const TiXmlElement & el) {
@@ -365,7 +366,11 @@ std::pair<int, ConstTileSetPtr> GidTidTranslator::gid_to_tid(int gid) const {
 std::pair<int, TileSetPtr> GidTidTranslator::gid_to_tid(int gid) {
     const auto & const_this = *this;
     auto gv = const_this.gid_to_tid(gid);
+#   if MACRO_BIG_RED_BUTTON
+    return std::make_pair(gv.first, std::const_pointer_cast<TileSetN>(gv.second));
+#   else
     return std::make_pair(gv.first, std::const_pointer_cast<TileSet>(gv.second));
+#   endif
 }
 
 void GidTidTranslator::swap(GidTidTranslator & rhs) {
@@ -490,7 +495,7 @@ public:
          const RampGroupFactoryMap & factory_type_map = builtin_tile_factory_maker_map())
     {
         // I know how large the grid should be
-        m_tile_factories.set_size(xml_grid.size2(), nullptr);
+        m_tile_factories.set_size(xml_grid.size2(), UniquePtr<TileFactory>{});
 
         // this should be a function
         for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
@@ -588,4 +593,29 @@ private:
     auto rv = make_shared<RampGroupFiller>();
     rv->load(xml_grid, platform);
     return rv;
+}
+
+Tuple
+    <GridView<ProducableTile *>,
+     std::vector<SharedPtr<ProducableGroup_>>>
+    UnfinishedProducableTileGridView::move_out_producables_and_groups()
+{
+    GridViewInserter<ProducableTile *> producables_inserter{m_targets.front().size2()};
+    for (Vector2I r; r != m_targets.front().end_position(); r = m_targets.front().next(r)) {
+        for (auto & target : m_targets) {
+            if (!target(r)) continue;
+            producables_inserter.push(target(r));
+        }
+        producables_inserter.advance();
+    }
+    m_targets.clear();
+    return make_tuple(GridView{std::move(producables_inserter)}, std::move(m_groups));
+}
+
+UnfinishedProducableTileGridView
+    TileGroupGrid::add_producables_to
+    (UnfinishedProducableTileGridView && unfinished_grid_view)
+{
+    unfinished_grid_view.add_layer(std::move(m_target), m_groups);
+    return std::move(unfinished_grid_view);
 }

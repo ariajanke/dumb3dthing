@@ -49,8 +49,11 @@ void TiledMapRegion::request_region_load
     auto factory_subgrid = m_factory_grid.make_subgrid(Rectangle
         {region_left, region_top,
          region_right - region_left, region_bottom - region_top});
-
+#   if MACRO_BIG_RED_BUTTON
+    region_preparer->set_tile_producable_subgrid(std::move(factory_subgrid));
+#   else
     region_preparer->set_tile_factory_subgrid(std::move(factory_subgrid));
+#   endif
     callbacks.add(region_preparer);
 }
 
@@ -62,7 +65,7 @@ void TiledMapRegion::request_region_load
     return Size2I{dim_to_size(m_factory_grid.width (), m_region_size.width ),
                   dim_to_size(m_factory_grid.height(), m_region_size.height)};
 }
-
+#if 0
 // ----------------------------------------------------------------------------
 
 void TileFactoryGrid::load_layer
@@ -78,9 +81,10 @@ void TileFactoryGrid::load_layer
         m_tilesets.push_back(tileset);
     }
 }
-
+#endif
 // ----------------------------------------------------------------------------
-
+#if MACRO_BIG_RED_BUTTON
+#else
 Slopes MapRegionPreparer::SlopesGridFromTileFactories::
     operator () (Vector2I r) const
 {
@@ -94,7 +98,7 @@ Slopes MapRegionPreparer::SlopesGridFromTileFactories::
 #   endif
     return (**view.begin()).tile_elevations();
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
 MapRegionCompleter::MapRegionCompleter
@@ -113,20 +117,57 @@ MapRegionCompleter::MapRegionCompleter
 
 // ----------------------------------------------------------------------------
 
-void MapRegionPreparer::operator () (LoaderTask::Callbacks & callbacks) const
-    { finish_map(m_tile_factory_grid, callbacks); }
+void MapRegionPreparer::operator () (LoaderTask::Callbacks & callbacks) const {
+#   if MACRO_BIG_RED_BUTTON
+    EntityAndLinkInsertingAdder triangle_entities_adder{m_tile_factory_grid.size2()};
+    for (Vector2I r; r != m_tile_factory_grid.end_position();
+         r = m_tile_factory_grid.next(r)                     )
+    {
+        for (auto producable : m_tile_factory_grid(r)) {
+            if (!producable) continue;
+            (*producable)(m_tile_offset, triangle_entities_adder, callbacks.platform());
+        }
+    }
+
+    auto [link_container, link_view_grid] =
+        triangle_entities_adder.move_out_container_and_grid_view();
+    link_triangles(link_view_grid);
+    // ^ vectorize
+
+    auto ents = triangle_entities_adder.move_out_entities();
+    for (auto & link : link_container) {
+        callbacks.add(link);
+    }
+    for (auto & ent : ents) {
+        callbacks.add(ent);
+    }
+
+    m_completer.on_complete
+        (InterTriangleLinkContainer{link_view_grid},
+         make_shared<TeardownTask>(std::move(ents), std::move(link_container)));
+#   else
+    finish_map(m_tile_factory_grid, callbacks);
+#   endif
+}
 
 MapRegionPreparer::MapRegionPreparer
     (const Vector2I & tile_offset):
     m_tile_offset(tile_offset) {}
 
+#if MACRO_BIG_RED_BUTTON
+void MapRegionPreparer::set_tile_producable_subgrid
+    (ProducableTileViewSubGrid && tile_factory_grid)
+    { m_tile_factory_grid = std::move(tile_factory_grid); }
+#else
 void MapRegionPreparer::set_tile_factory_subgrid
     (TileFactoryViewSubGrid && tile_factory_grid)
     { m_tile_factory_grid = std::move(tile_factory_grid); }
-
+#endif
 void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
     { m_completer = completer; }
 
+#if MACRO_BIG_RED_BUTTON
+#else
 /* private */ void MapRegionPreparer::finish_map
     (const TileFactoryViewSubGrid & factory_grid, Callbacks & callbacks) const
 {
@@ -165,3 +206,4 @@ void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
         (InterTriangleLinkContainer{link_view_grid},
          make_shared<TeardownTask>(std::move(ents), std::move(link_container)));
 }
+#endif

@@ -32,6 +32,7 @@ using Ready = MapLoadingReady;
 using Expired = MapLoadingExpired;
 using StateHolder = MapLoadingStateHolder;
 using Rectangle = cul::Rectangle<int>;
+using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
 
 template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
 void on_key_found(const std::map<Key, Value, Comparator> & map, const Key2 & key, Func && f_) {
@@ -129,7 +130,7 @@ std::vector<FillerAndLocations>
     return rv;
 }
 
-FinishedTileGroupGrid finish_tile_group_grid
+TileGroupGrid finish_tile_group_grid
     (const std::vector<FillerAndLocations> & fillers_and_locs,
      const cul::Size2<int> & layer_size)
 {
@@ -174,7 +175,7 @@ Rectangle State::target_tile_range() const {
 
 // ----------------------------------------------------------------------------
 
-Optional<TileFactoryViewGrid> WaitingForFileContents::update_progress
+OptionalTileViewGrid WaitingForFileContents::update_progress
     (StateHolder & next_state)
 {
     if (!m_file_contents->is_ready()) return {};
@@ -237,7 +238,11 @@ Optional<TileFactoryViewGrid> WaitingForFileContents::update_progress
 /* private */ void WaitingForFileContents::add_tileset
     (const TiXmlElement & tileset, TileSetsContainer & tilesets_container)
 {
+#   ifdef MACRO_BIG_RED_BUTTON
+    tilesets_container.tilesets.emplace_back(make_shared<TileSetN>());
+#   else
     tilesets_container.tilesets.emplace_back(make_shared<TileSet>());
+#   endif
     tilesets_container.startgids.emplace_back(tileset.IntAttribute("firstgid"));
     if (const auto * source = tileset.Attribute("source")) {
         tilesets_container.pending_tilesets.emplace_back(
@@ -251,7 +256,7 @@ Optional<TileFactoryViewGrid> WaitingForFileContents::update_progress
 
 // ----------------------------------------------------------------------------
 
-Optional<TileFactoryViewGrid> WaitingForTileSets::update_progress
+OptionalTileViewGrid WaitingForTileSets::update_progress
     (StateHolder & next_state)
 {
     // no short circuting permitted, therefore STL sequence algorithms
@@ -292,13 +297,28 @@ Optional<TileFactoryViewGrid> WaitingForTileSets::update_progress
 
 // ----------------------------------------------------------------------------
 
-Optional<TileFactoryViewGrid> TiledMapLoader::Ready::update_progress
+OptionalTileViewGrid TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
+#   if MACRO_BIG_RED_BUTTON
+
+    UnfinishedProducableTileGridView unfinished_grid_view;
+    for (auto & layer : m_layers) {
+        unfinished_grid_view =
+            finish_tile_group_grid
+                (tid_layer_to_fillables_and_locations
+                    (gid_layer_to_tid_layer(layer, m_tidgid_translator)),
+                 layer.size2()).
+                add_producables_to(std::move(unfinished_grid_view));
+    }
+
+
+#   else
     TileFactoryViewGrid rv;
     rv.load_layers(m_layers, std::move(m_tidgid_translator));
     next_state.set_next_state<Expired>();
     return rv;
+#   endif
 }
 
 // ----------------------------------------------------------------------------
@@ -318,9 +338,9 @@ void StateHolder::move_state(StatePtrGetter & state_getter_ptr, StateSpace & spa
 
 // ----------------------------------------------------------------------------
 
-Optional<TileFactoryViewGrid> TiledMapLoader::update_progress() {
+OptionalTileViewGrid TiledMapLoader::update_progress() {
     StateHolder next;
-    Optional<TileFactoryViewGrid> rv;
+    OptionalTileViewGrid rv;
     while (true) {
         rv = m_get_state(m_state_space)->update_progress(next);
         if (!next.has_next_state()) break;

@@ -32,7 +32,7 @@ void TeardownTask::operator () (Callbacks & callbacks) const {
     for (auto & triptr : m_triangles)
         { callbacks.remove(triptr); }
 }
-
+#if 0
 // ----------------------------------------------------------------------------
 
 TileFactorySubGrid TileFactoryGrid::make_subgrid
@@ -41,8 +41,16 @@ TileFactorySubGrid TileFactoryGrid::make_subgrid
     return TileFactorySubGrid{m_factories, cul::top_left_of(range),
                               range.width, range.height};
 }
+#endif
 // ----------------------------------------------------------------------------
-
+#if MACRO_BIG_RED_BUTTON
+void TileProducableViewGrid::set_layers
+    (UnfinishedProducableTileGridView && unfinished_grid)
+{
+    std::tie(m_factories, m_groups)
+        = unfinished_grid.move_out_producables_and_groups();
+}
+#else
 void TileFactoryViewGrid::load_layers
     (const std::vector<Grid<int>> & gid_layers, GidTidTranslator && gidtid_translator)
 {
@@ -65,6 +73,7 @@ void TileFactoryViewGrid::load_layers
 
     m_factories = GridView<TileFactory *>{std::move(factory_inserter)};
 }
+#endif
 
 // ----------------------------------------------------------------------------
 
