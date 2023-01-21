@@ -91,10 +91,3 @@ template <bool (*meets_pred)(const GridOfViews &, const Vector2I &)>
         }
     }
 }
-#if 0//MACRO_BIG_RED_BUTTON
-ProducableTileViewGrid::ProducableTileViewGrid
-    (UnfinishedProducableTileGridView && inserter)
-{
-    std::tie(m_grid_view, m_groups) = inserter.move_out_producables_and_groups();
-}
-#endif

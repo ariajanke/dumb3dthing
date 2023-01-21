@@ -117,18 +117,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
         elements.emplace_back(el++);
         elements.emplace_back(el++);
     }
-#   if 0
-    std::vector<SharedPtr<TriangleLink>> links;
-    if (triangles.size() > 1) {
-        links.emplace_back( triangles.front() );
-        for (auto itr = triangles.begin() + 1; itr != triangles.end(); ++itr) {
 
-            links.back()->attempt_attachment_to( *itr );
-            links.emplace_back( *itr );
-            links.back()->attempt_attachment_to( *(itr - 1) );
-        }
-    }
-#   endif
     auto mod = platform.make_render_model();
     mod->load<int>(verticies, elements);
 

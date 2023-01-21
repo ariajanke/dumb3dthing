@@ -146,12 +146,12 @@ void TileFactory::set_shared_texture_information
 }
 
 /* protected static */ const char * TileFactory::find_property
-    (const char * name_, const TileData * properties)
+    (const char * name_, const TileProperties * properties)
 {
     if (!properties) return nullptr;
-    auto itr = properties->properties.find(name_);
-    if (itr == properties->properties.end()) return nullptr;
-    return itr->second.c_str();
+    auto str = properties->find_value(name_);
+    if (!str) return nullptr;
+    return str->c_str();
 }
 
 /* protected static */ std::array<Vector, 4>

@@ -105,42 +105,6 @@ private:
 };
 
 template <typename T>
-class ProducableGroup : public ProducableGroup_ {
-public:
-    static_assert(std::is_base_of_v<ProducableTile, T>);
-
-    ProducableGroup & at_position(const Vector2I & r) {
-        m_current_position = r;
-        return *this;
-    }
-
-    template <typename ... Types>
-    void make_producable(Types && ... args) {
-        m_producables.emplace_back(std::forward<Types>(args)...);
-        set_producable(m_current_position, &m_producables.back());
-    }
-
-protected:
-    virtual void set_producable(Vector2I, ProducableTile *) = 0;
-
-private:
-    Vector2I m_current_position;
-    std::vector<T> m_producables;
-};
-
-class UnfinishedProducableViewGrid final {
-public:
-    void add_layer
-        (Grid<ProducableTile *> && target,
-         const std::vector<SharedPtr<ProducableGroup_>> & groups);
-
-    // the grid view object will need to own groups as well...
-private:
-    std::vector<Grid<ProducableTile *>> m_layers;
-    std::vector<SharedPtr<ProducableGroup_>> m_groups;
-};
-
-template <typename T>
 class GridView;
 
 class TileProducableViewGrid;
@@ -164,26 +128,8 @@ private:
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
 
-class TileGroupGrid final {
-public:
-    TileGroupGrid
-        (Grid<ProducableTile *> && target,
-         std::vector<SharedPtr<ProducableGroup_>> && groups):
-        m_target(std::move(target)),
-        m_groups(std::move(groups))
-    {}
-
-    UnfinishedProducableTileGridView
-        add_producables_to(UnfinishedProducableTileGridView && unfinished_grid_view);
-
-private:
-    Grid<ProducableTile *> m_target;
-    std::vector<SharedPtr<ProducableGroup_>> m_groups;
-};
-
 class UnfinishedTileGroupGrid final {
 public:
-
 
     // may only be set once
     void set_size(const Size2I & sz) {
@@ -196,13 +142,14 @@ public:
         m_groups.emplace_back(unfinished_pgroup.finish(m_target));
     }
 
-    // may only be called once
-    TileGroupGrid finish() {
+    UnfinishedProducableTileGridView
+        finish(UnfinishedProducableTileGridView && unfinished_grid_view)
+    {
         m_filleds.clear();
-        TileGroupGrid rv{std::move(m_target), std::move(m_groups)};
+        unfinished_grid_view.add_layer(std::move(m_target), m_groups);
         m_target.clear();
         m_groups.clear();
-        return rv;
+        return std::move(unfinished_grid_view);
     }
 
 private:
@@ -231,12 +178,37 @@ public:
         (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const = 0;
 };
 
-// great fucking name 10/10
-struct TileData final {
+class TileProperties final {
+public:
+    using PropertiesMap = std::map<std::string, std::string>;
+
+    TileProperties() {}
+
+    explicit TileProperties(const TiXmlElement & tile_el)
+        { load(tile_el); }
+
+    void load(const TiXmlElement & tile_el);
+
+    bool is_empty() const noexcept { return m_id == k_no_id; }
+
+    int id() const { return m_id; }
+
+    const std::string & type() const { return m_type; }
+
+    template <typename KeyType>
+    const std::string * find_value(const KeyType & key) const {
+        auto itr = m_properties.find(key);
+        if (itr == m_properties.end()) return nullptr;
+        return &itr->second;
+    }
+
+private:
     static constexpr const int k_no_id = -1;
-    int id = k_no_id;
-    std::string type;
-    std::map<std::string, std::string> properties;
+
+    int m_id = k_no_id;
+    std::string m_type;
+
+    PropertiesMap m_properties;
 };
 
 // Grid of xml elements, plus info on tileset
@@ -244,9 +216,10 @@ class TileSetXmlGrid final {
 public:
     void load(Platform &, const TiXmlElement &);
 
-    const TileData * operator() (const Vector2I & r) const {
-        static constexpr auto k_no_id = TileData::k_no_id;
-        return m_elements(r).id == k_no_id ? nullptr : &m_elements(r);
+    const TileProperties * operator() (const Vector2I & r) const {
+        const auto & props = m_elements(r);
+        if (props.is_empty()) return nullptr;
+        return &props;
     }
 
     Size2 tile_size() const
@@ -274,7 +247,7 @@ private:
         load_texture(Platform &, const TiXmlElement &);
 
     // there's something weird going on with ownership of TiXmlElements
-    Grid<TileData> m_elements;
+    Grid<TileProperties> m_elements;
     SharedPtr<const Texture> m_texture;
     Size2 m_tile_size;
     Size2 m_texture_size;
@@ -292,14 +265,14 @@ public:
 
     SharedPtr<TileProducableFiller> find_filler(int tid) const;
 
-    SharedPtr<TileProducableFiller> find_filler(Vector2I) const;
-
     Vector2I tile_id_to_tileset_location(int tid) const;
 
     std::size_t total_tile_count() const
         { return m_filler_grid.size(); }
 
 private:
+    SharedPtr<TileProducableFiller> find_filler(Vector2I) const;
+
     Grid<SharedPtr<TileProducableFiller>> m_filler_grid;
 };
 
@@ -323,19 +296,14 @@ public:
 
     std::pair<int, ConstTileSetPtr> gid_to_tid(int gid) const;
 
-    std::pair<int, TileSetPtr> gid_to_tid(int gid);
-
-    int tid_to_gid(int tid, ConstTileSetPtr tileset) const;
-
     void swap(GidTidTranslator &);
 
     std::vector<SharedPtr<const TileSet>> move_out_tilesets() {
         std::vector<SharedPtr<const TileSet>> rv;
-        rv.reserve(m_ptr_map.size());
-        for (auto & tl : m_ptr_map) {
+        rv.reserve(m_gid_map.size());
+        for (auto & tl : m_gid_map) {
             rv.emplace_back(std::move(tl.tileset));
         }
-        m_ptr_map.clear();
         m_gid_map.clear();
         m_gid_end = 0;
         return rv;
@@ -360,9 +328,7 @@ private:
     using GidAndConstTileSetPtr = GidAndTileSetPtrImpl<true>;
 
     static bool order_by_gids(const GidAndTileSetPtr &, const GidAndTileSetPtr &);
-    static bool order_by_ptrs(const GidAndConstTileSetPtr &, const GidAndConstTileSetPtr &);
 
-    std::vector<GidAndConstTileSetPtr> m_ptr_map;
     std::vector<GidAndTileSetPtr> m_gid_map;
     int m_gid_end = 0;
 };

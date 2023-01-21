@@ -132,7 +132,7 @@ std::vector<FillerAndLocations>
     return rv;
 }
 
-TileGroupGrid finish_tile_group_grid
+UnfinishedTileGroupGrid make_unfinsihed_tile_group_grid
     (const std::vector<FillerAndLocations> & fillers_and_locs,
      const Size2I & layer_size)
 {
@@ -143,8 +143,9 @@ TileGroupGrid finish_tile_group_grid
             (filler_and_locs.tile_locations, std::move(unfinished_grid));
     }
 
-    return unfinished_grid.finish();
+    return unfinished_grid;
 }
+
 
 // grid ids, to filler groups and specific types
 // groups provide specific factory types
@@ -276,10 +277,8 @@ OptionalTileViewGrid TiledMapLoader::Ready::update_progress
     for (auto & layer : m_layers) {
         auto tid_layer = gid_layer_to_tid_layer(layer, m_tidgid_translator);
         auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
-        auto finished_group_grid = finish_tile_group_grid
-            (fillables_layer, layer.size2());
-        unfinished_grid_view = finished_group_grid.
-            add_producables_to(std::move(unfinished_grid_view));
+        unfinished_grid_view = make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
+            finish(std::move(unfinished_grid_view));
     }
     TileProducableViewGrid rv;
     next_state.set_next_state<Expired>();
