@@ -20,9 +20,10 @@
 
 #include "MapRegion.hpp"
 
+#include <iostream>
+
 namespace {
 
-using Size2I = TiledMapRegion::Size2I;
 using namespace cul::exceptions_abbr;
 
 } // end of <anonymous> namespace
@@ -42,16 +43,15 @@ void TiledMapRegion::request_region_load
         (region_left + m_region_size.width, m_factory_grid.width());
     auto region_bottom = std::min
         (region_top + m_region_size.height, m_factory_grid.height());
-    if (region_left == region_right || region_top == region_bottom) {
-        return;
-    }
+    if (region_left == region_right || region_top == region_bottom)
+        { return; }
 
-    auto factory_subgrid = m_factory_grid.make_subgrid(Rectangle
-        {region_left, region_top,
-         region_right - region_left, region_bottom - region_top});
+    region_preparer->assign_tile_producable_grid
+        (RectangleI
+            {region_left, region_top,
+             region_right - region_left, region_bottom - region_top},
+         m_factory_grid                                             );
 
-    region_preparer->set_tile_producable_subgrid
-        (Vector2I{region_left, region_top}, std::move(factory_subgrid));
     callbacks.add(region_preparer);
 }
 
@@ -83,13 +83,18 @@ MapRegionCompleter::MapRegionCompleter
 // ----------------------------------------------------------------------------
 
 void MapRegionPreparer::operator () (LoaderTask::Callbacks & callbacks) const {
-    EntityAndLinkInsertingAdder triangle_entities_adder{m_tile_factory_grid.size2()};
-    for (Vector2I r; r != m_tile_factory_grid.end_position();
-         r = m_tile_factory_grid.next(r)                     )
-    {
-        for (auto producable : m_tile_factory_grid(r)) {
+    if (!m_tile_producable_grid) {
+        throw RtError{"Grid not set"};
+    }
+    EntityAndLinkInsertingAdder triangle_entities_adder
+        {cul::size_of(m_producable_grid_range)};
+    auto producables_subgrid = m_tile_producable_grid->make_subgrid
+        (m_producable_grid_range);
+    auto spawn_offset = m_tile_offset - cul::top_left_of(m_producable_grid_range);
+    for (auto & producables_view : producables_subgrid) {
+        for (auto producable : producables_view) {
             if (!producable) continue;
-            (*producable)(m_tile_offset - m_subgrid_offset, triangle_entities_adder, callbacks.platform());
+            (*producable)(spawn_offset, triangle_entities_adder, callbacks.platform());
         }
         triangle_entities_adder.advance_grid_position();
     }
@@ -116,11 +121,12 @@ MapRegionPreparer::MapRegionPreparer
     (const Vector2I & tile_offset):
     m_tile_offset(tile_offset) {}
 
-void MapRegionPreparer::set_tile_producable_subgrid
-    (const Vector2I & subgrid_tl, ProducableTileViewSubGrid && tile_factory_grid)
+void MapRegionPreparer::assign_tile_producable_grid
+    (const RectangleI & region_range,
+     const TileProducableViewGrid & tile_factory_grid)
 {
-    m_subgrid_offset = subgrid_tl;
-    m_tile_factory_grid = std::move(tile_factory_grid);
+    m_producable_grid_range = region_range;
+    m_tile_producable_grid = &tile_factory_grid;
 }
 
 void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)

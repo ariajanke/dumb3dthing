@@ -183,7 +183,7 @@ private:
 
 class UnfinishedTileGroupGrid final {
 public:
-    using Size2I = cul::Size2<int>;
+
 
     // may only be set once
     void set_size(const Size2I & sz) {
@@ -242,8 +242,6 @@ struct TileData final {
 // Grid of xml elements, plus info on tileset
 class TileSetXmlGrid final {
 public:
-    using Size2I = cul::Size2<int>;
-
     void load(Platform &, const TiXmlElement &);
 
     const TileData * operator() (const Vector2I & r) const {
@@ -290,9 +288,6 @@ public:
 
     static const FillerFactoryMap & builtin_fillers();
 
-    // groups shared between tilesets? <- yup this idea is stupid
-    // shelve it fucker
-
     void load(Platform &, const TiXmlElement &, const FillerFactoryMap & = builtin_fillers());
 
     SharedPtr<TileProducableFiller> find_filler(int tid) const;
@@ -309,31 +304,6 @@ private:
 };
 
 class SlopedTileFactory;
-
-class TileGroup {
-public:
-    // neighbors...
-    // double dispatch?
-    virtual ~TileGroup() {}
-
-    virtual void on_sloped_tile_factory(const SlopedTileFactory &) const = 0;
-};
-
-class SlopedTileGroup final : public TileGroup {
-public:
-    using Size2I = cul::Size2<int>;
-
-    void on_sloped_tile_factory(const SlopedTileFactory &) const final;
-
-    Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
-
-    void set_size(const Size2I &);
-
-    void set_factory_at(TileFactory *, const Vector2I &);
-
-private:
-    Grid<TileFactory *> m_factory_grid;
-};
 
 struct TileLocation final {
     Vector2I on_map;

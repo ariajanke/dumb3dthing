@@ -32,18 +32,9 @@ void TeardownTask::operator () (Callbacks & callbacks) const {
     for (auto & triptr : m_triangles)
         { callbacks.remove(triptr); }
 }
-#if 0
+
 // ----------------------------------------------------------------------------
 
-TileFactorySubGrid TileFactoryGrid::make_subgrid
-    (const Rectangle & range) const
-{
-    return TileFactorySubGrid{m_factories, cul::top_left_of(range),
-                              range.width, range.height};
-}
-#endif
-// ----------------------------------------------------------------------------
-#if MACRO_BIG_RED_BUTTON
 void TileProducableViewGrid::set_layers
     (UnfinishedProducableTileGridView && unfinished_grid,
      GidTidTranslator && gidtid_translator)
@@ -52,30 +43,6 @@ void TileProducableViewGrid::set_layers
         = unfinished_grid.move_out_producables_and_groups();
     m_tilesets = gidtid_translator.move_out_tilesets();
 }
-#else
-void TileFactoryViewGrid::load_layers
-    (const std::vector<Grid<int>> & gid_layers, GidTidTranslator && gidtid_translator)
-{
-    m_gidtid_translator = std::move(gidtid_translator);
-    if (gid_layers.empty()) return;
-
-
-    GridViewInserter<TileFactory *> factory_inserter{gid_layers.front().size2()};
-
-    for ( ;!factory_inserter.filled(); factory_inserter.advance()) {
-        auto r = factory_inserter.position();
-        for (auto & layer : gid_layers) {
-            auto [tid, tset] = m_gidtid_translator.gid_to_tid(layer(r));
-            if (!tset) continue;
-            auto * factory = tset->factory_for_id(tid);
-            if (!factory) continue;
-            factory_inserter.push(factory);
-        }
-    }
-
-    m_factories = GridView<TileFactory *>{std::move(factory_inserter)};
-}
-#endif
 
 // ----------------------------------------------------------------------------
 

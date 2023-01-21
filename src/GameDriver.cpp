@@ -278,10 +278,10 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     static constexpr const auto k_testmap_filename = "demo-map5.tmx";
 
     PlayerUpdateTask
-        {MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
+        {MapLoadingDirector{&ppdriver, Size2I{10, 10}},
          EntityRef{physics_ent}};
     auto player_update_task = make_shared<PlayerUpdateTask>
-        (MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
+        (MapLoadingDirector{&ppdriver, Size2I{10, 10}},
          EntityRef{physics_ent});
     auto map_loader_task = player_update_task->load_initial_map
         (k_testmap_filename, platform);

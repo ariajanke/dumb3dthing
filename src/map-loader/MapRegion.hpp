@@ -37,9 +37,6 @@ public:
 /// a map region for tiled maps
 class TiledMapRegion final : public MapRegion {
 public:
-    using Size2I = cul::Size2<int>;
-    using Rectangle = cul::Rectangle<int>;
-
     TiledMapRegion
         (TileProducableViewGrid && full_factory_grid,
          const Size2I & region_size_in_tiles):
@@ -92,7 +89,6 @@ class MapRegionPreparer final : public LoaderTask {
 public:
     class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
     public:
-        using Size2I           = cul::Size2<int>;
         using GridViewTriangleInserter = GridViewInserter<SharedPtr<TriangleLink>>;
 
         explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
@@ -130,13 +126,15 @@ public:
 
     void operator () (LoaderTask::Callbacks & callbacks) const final;
 
-    void set_tile_producable_subgrid(const Vector2I & subgrid_tl, ProducableTileViewSubGrid && tile_factory_grid);
+    void assign_tile_producable_grid
+        (const RectangleI & region_range,
+         const TileProducableViewGrid & tile_factory_grid);
 
     void set_completer(const MapRegionCompleter &);
 
 private:
-    ProducableTileViewSubGrid m_tile_factory_grid;
-    Vector2I m_subgrid_offset;
+    const TileProducableViewGrid * m_tile_producable_grid = nullptr;
+    RectangleI m_producable_grid_range;
 
     MapRegionCompleter m_completer;
     Vector2I m_tile_offset;

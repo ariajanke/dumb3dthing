@@ -92,7 +92,6 @@ public:
     using ElementContainer = std::vector<T>;
     using ElementIterator  = typename std::vector<T>::const_iterator;
     using ElementView      = View<ElementIterator>;
-    using Size2I           = cul::Size2<int>;
 
     GridViewInserter(int width, int height)
         { m_index_pairs.set_size(width, height, make_tuple(0, 0)); }
@@ -150,11 +149,9 @@ public:
     using ElementContainer  = typename GridViewInserter<T>::ElementContainer;
     using ElementIterator   = typename ElementContainer::const_iterator;
     using ElementView       = View<ElementIterator>;
-    using Size2I            = cul::Size2<int>;
     using GridViewContainer = Grid<ElementView>;
     using Iterator          = typename GridViewContainer::Iterator;
     using ConstIterator     = typename GridViewContainer::ConstIterator;
-    using Rectangle         = cul::Rectangle<int>;
     using SubGrid           = cul::ConstSubGrid
         <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
 
@@ -219,7 +216,7 @@ public:
         m_views.swap(rhs.m_views);
     }
 
-    SubGrid make_subgrid(const Rectangle & rect) const {
+    SubGrid make_subgrid(const RectangleI & rect) const {
         return SubGrid{m_views, cul::top_left_of(rect), rect.width, rect.height};
     }
 
@@ -259,8 +256,6 @@ using ProducableTileViewSubGrid = GridView<ProducableTile *>::SubGrid;
 
 class TileProducableViewGrid final {
 public:
-    using Rectangle = cul::Rectangle<int>;
-
     // can reverse dependancy things later
     void set_layers(UnfinishedProducableTileGridView &&,
                     GidTidTranslator &&);
@@ -270,7 +265,7 @@ public:
     auto width() const { return m_factories.width(); }
 
     /** this object must live at least as long as the return value */
-    auto make_subgrid(const Rectangle & range) const
+    auto make_subgrid(const RectangleI & range) const
         { return m_factories.make_subgrid(range); }
 
 private:

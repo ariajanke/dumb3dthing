@@ -32,7 +32,6 @@ using WaitingForTileSets = MapLoadingWaitingForTileSets;
 using Ready = MapLoadingReady;
 using Expired = MapLoadingExpired;
 using StateHolder = MapLoadingStateHolder;
-using Rectangle = cul::Rectangle<int>;
 using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
 
 template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
@@ -135,7 +134,7 @@ std::vector<FillerAndLocations>
 
 TileGroupGrid finish_tile_group_grid
     (const std::vector<FillerAndLocations> & fillers_and_locs,
-     const cul::Size2<int> & layer_size)
+     const Size2I & layer_size)
 {
     UnfinishedTileGroupGrid unfinished_grid;
     unfinished_grid.set_size(layer_size);
@@ -166,7 +165,7 @@ Vector2I State::map_offset() const {
     return m_offset;
 }
 
-Rectangle State::target_tile_range() const {
+RectangleI State::target_tile_range() const {
     verify_shared_set();
     return m_tiles_to_load;
 }

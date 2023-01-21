@@ -36,7 +36,6 @@ using namespace cul::exceptions_abbr;
 using ConstTileSetPtr = GidTidTranslator::ConstTileSetPtr;
 using TileSetPtr      = GidTidTranslator::TileSetPtr;
 using Triangle        = TriangleSegment;
-using Size2I          = cul::Size2<int>;
 
 const TiXmlElement * get_first_property(const TiXmlElement & el) {
     auto props = el.FirstChildElement("properties");
@@ -326,7 +325,6 @@ public:
         (const std::vector<TileLocation> & tile_locations,
          const Grid<SharedPtr<TileFactory>> & tile_factories)
     {
-        using Size2I = cul::Size2<int>;
         // I don't know how big things are... so I have to figure it out
         // This will need to change to ensure that the grid is large enough to
         // subgrid creation

@@ -36,8 +36,6 @@ namespace point_and_plane {
  */
 class MapLoadingDirector final {
 public:
-    using Size2I = cul::Size2<int>;
-    using Rectangle = cul::Rectangle<int>;
     using PpDriver = point_and_plane::Driver;
 
     MapLoadingDirector(PpDriver * ppdriver, Size2I chunk_size):

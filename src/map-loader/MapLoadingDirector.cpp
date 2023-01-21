@@ -32,7 +32,7 @@ SharedPtr<BackgroundTask> MapLoadingDirector::begin_initial_map_loading
 {
     TiledMapLoader map_loader
         {platform, initial_map, Vector2I{},
-         Rectangle{Vector2I{}, m_chunk_size}};
+         RectangleI{Vector2I{}, m_chunk_size}};
     // presently: task will be lost without completing
     return BackgroundTask::make(
         [this, map_loader = std::move(map_loader),

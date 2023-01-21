@@ -57,7 +57,6 @@ private:
 /// region
 class MapRegionTracker final {
 public:
-    using Size2I = cul::Size2<int>;
 
     MapRegionTracker() {}
 

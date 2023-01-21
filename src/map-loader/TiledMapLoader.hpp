@@ -52,7 +52,6 @@ protected:
 
 class MapLoadingState {
 public:
-    using Rectangle = cul::Rectangle<int>;
     using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
 
     virtual ~MapLoadingState() {}
@@ -79,7 +78,7 @@ protected:
 
     MapLoadingState
         (Platform & platform,
-         const Vector2I & offset, const Rectangle & tiles_to_load):
+         const Vector2I & offset, const RectangleI & tiles_to_load):
         m_platform(&platform),
         m_offset(offset),
         m_tiles_to_load(tiles_to_load) {}
@@ -88,14 +87,14 @@ protected:
 
     Vector2I map_offset() const;
 
-    Rectangle target_tile_range() const;
+    RectangleI target_tile_range() const;
 
 private:
     void verify_shared_set() const;
 
     Platform * m_platform = nullptr;
     Vector2I m_offset;
-    Rectangle m_tiles_to_load;
+    RectangleI m_tiles_to_load;
 };
 
 class MapLoadingWaitingForFileContents final : public MapLoadingState {
@@ -103,7 +102,7 @@ public:
     MapLoadingWaitingForFileContents
         (Platform & platform,
          const char * filename, const Vector2I & offset,
-         const Rectangle & tiles_to_load):
+         const RectangleI & tiles_to_load):
          MapLoadingState(platform, offset, tiles_to_load)
     { m_file_contents = platform.promise_file_contents(filename); }
 
@@ -181,7 +180,6 @@ private:
 /// loads a TiledMap asset file
 class TiledMapLoader final : public MapLoadingContext {
 public:
-    using Rectangle = cul::Rectangle<int>;
     using StateHolder = MapLoadingStateHolder;
     using StateSpace = Variant
         <WaitingForFileContents, WaitingForTileSets, Ready, Expired>;
