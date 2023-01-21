@@ -29,7 +29,7 @@
 class TranslatableTileFactory : public TileFactory {
 public:
     void setup
-        (Vector2I, const tinyxml2::XMLElement * properties, Platform &) override;
+        (Vector2I, const TileData * properties, Platform &) override;
 
 protected:
     Vector translation() const { return m_translation; }
@@ -191,7 +191,7 @@ public:
         (const NeighborInfo &, EntityAndTrianglesAdder &) const;
 
     void setup
-        (Vector2I loc_in_ts, const TiXmlElement * properties, Platform &) final;
+        (Vector2I loc_in_ts, const TileData * properties, Platform &) final;
 
     Slopes tile_elevations() const final;
 

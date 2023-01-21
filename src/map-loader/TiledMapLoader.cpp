@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "TiledMapLoader.hpp"
+#include "map-loader-helpers.hpp"
 
 #include <tinyxml2.h>
 
@@ -112,6 +113,7 @@ std::vector<FillerAndLocations>
          layer_loc = tids_and_tilesets.next(layer_loc))
     {
         auto [tid, tileset] = tids_and_tilesets(layer_loc);
+        if (!tileset) continue;
         auto filler = tileset->find_filler(tid);
         TileProducableFiller::TileLocation tile_loc;
         tile_loc.location_on_map     = layer_loc;
@@ -126,6 +128,7 @@ std::vector<FillerAndLocations>
         FillerAndLocations filler_and_locs;
         filler_and_locs.filler = filler;
         filler_and_locs.tile_locations = std::move(locs);
+        rv.emplace_back(std::move(filler_and_locs));
     }
     return rv;
 }
@@ -304,15 +307,18 @@ OptionalTileViewGrid TiledMapLoader::Ready::update_progress
 
     UnfinishedProducableTileGridView unfinished_grid_view;
     for (auto & layer : m_layers) {
-        unfinished_grid_view =
-            finish_tile_group_grid
-                (tid_layer_to_fillables_and_locations
-                    (gid_layer_to_tid_layer(layer, m_tidgid_translator)),
-                 layer.size2()).
-                add_producables_to(std::move(unfinished_grid_view));
+        auto tid_layer = gid_layer_to_tid_layer(layer, m_tidgid_translator);
+        auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
+        auto finished_group_grid = finish_tile_group_grid
+            (fillables_layer, layer.size2());
+        unfinished_grid_view = finished_group_grid.
+            add_producables_to(std::move(unfinished_grid_view));
     }
+    TileProducableViewGrid rv;
+    next_state.set_next_state<Expired>();
+    rv.set_layers(std::move(unfinished_grid_view), std::move(m_tidgid_translator));
 
-
+    return rv;
 #   else
     TileFactoryViewGrid rv;
     rv.load_layers(m_layers, std::move(m_tidgid_translator));

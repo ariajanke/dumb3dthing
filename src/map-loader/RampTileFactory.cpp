@@ -43,7 +43,7 @@ void SlopesBasedModelTileFactory::operator ()
 }
 
 /* protected */ void SlopesBasedModelTileFactory::setup
-    (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
+    (Vector2I loc_in_ts, const TileData * properties,
      Platform & platform)
 {
     TranslatableTileFactory::setup(loc_in_ts, properties, platform);
@@ -54,7 +54,7 @@ void SlopesBasedModelTileFactory::operator ()
 // ----------------------------------------------------------------------------
 
 /* protected */ void RampTileFactory::setup
-    (Vector2I loc_in_ts, const tinyxml2::XMLElement * properties,
+    (Vector2I loc_in_ts, const TileData *properties,
      Platform & platform)
 {
     if (const auto * val = find_property("direction", properties)) {

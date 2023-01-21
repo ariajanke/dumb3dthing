@@ -272,17 +272,13 @@ private:
 
 // this will need to be moved too
 class ProducableGroup_;
-#if 0
-class ProducableTileGridView final {
+#if 0// MACRO_BIG_RED_BUTTON
+class ProducableTileViewGrid final {
 public:
     using GroupGridView = GridView<ProducableTile *>;
 
-    ProducableTileGridView
-        (GridViewInserter<ProducableTile *> && inserter,
-         std::vector<SharedPtr<ProducableGroup_>> && group_owners):
-        m_grid_view(std::move(inserter)),
-        m_groups(std::move(group_owners))
-    {}
+    explicit ProducableTileViewGrid
+        (UnfinishedProducableTileGridView && inserter);
 
     GroupGridView & operator * ()
         { return m_grid_view; }
@@ -319,7 +315,8 @@ public:
     using Rectangle = cul::Rectangle<int>;
 #   if MACRO_BIG_RED_BUTTON
     // can reverse dependancy things later
-    void set_layers(UnfinishedProducableTileGridView &&);
+    void set_layers(UnfinishedProducableTileGridView &&,
+                    GidTidTranslator &&);
 #   else
     void load_layers
         (const std::vector<Grid<int>> & gid_layers, GidTidTranslator &&);
@@ -336,6 +333,7 @@ private:
 #   if MACRO_BIG_RED_BUTTON
     GridView<ProducableTile *> m_factories;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
+    std::vector<SharedPtr<const TileSetN>> m_tilesets;
 #   else
     GridView<TileFactory *> m_factories;
     GidTidTranslator m_gidtid_translator;

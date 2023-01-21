@@ -29,6 +29,7 @@
 #include <map>
 
 class TileSet;
+struct TileData;
 
 class EntityAndTrianglesAdder {
 public:
@@ -122,6 +123,7 @@ class TileGroup;
 /// A tile factory is a thing that produces tiles.
 class TileFactory {
 public:
+
     // this is useful for a subclass of tile factories (not all)
     // some factories do not use this at all
     // a better idea:
@@ -166,7 +168,7 @@ public:
          const Size2 & tile_size_);
 
     virtual void setup
-        (Vector2I loc_in_ts, const TiXmlElement * properties, Platform &) = 0;
+        (Vector2I loc_in_ts, const TileData * properties, Platform &) = 0;
 
     virtual Slopes tile_elevations() const = 0;
 
@@ -175,7 +177,7 @@ protected:
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
          EntityAndTrianglesAdder & adder);
 
-    static const char * find_property(const char * name_, const TiXmlElement * properties);
+    static const char * find_property(const char * name_, const TileData * properties);
 
     static Vector grid_position_to_v3(Vector2I r)
         { return Vector{r.x, 0, -r.y}; }

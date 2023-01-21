@@ -141,7 +141,9 @@ private:
 class MapLoadingReady final : public MapLoadingState {
 public:
     MapLoadingReady
-        (GidTidTranslator && idtrans_, std::vector<Grid<int>> && layers_):
+        (
+        GidTidTranslator && idtrans_,
+        std::vector<Grid<int>> && layers_):
         m_tidgid_translator(std::move(idtrans_)),
         m_layers(std::move(layers_)) {}
 

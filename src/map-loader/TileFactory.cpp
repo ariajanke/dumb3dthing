@@ -22,6 +22,7 @@
 #include "WallTileFactory.hpp"
 #include "../RenderModel.hpp"
 #include "../Components.hpp"
+#include "TileSet.hpp"
 
 #include <tinyxml2.h>
 
@@ -145,8 +146,13 @@ void TileFactory::set_shared_texture_information
 }
 
 /* protected static */ const char * TileFactory::find_property
-    (const char * name_, const tinyxml2::XMLElement * properties)
+    (const char * name_, const TileData * properties)
 {
+    if (!properties) return nullptr;
+    auto itr = properties->properties.find(name_);
+    if (itr == properties->properties.end()) return nullptr;
+    return itr->second.c_str();
+#   if 0
     for (auto itr = properties; itr; itr = itr->NextSiblingElement("property")) {
         auto name = itr->Attribute("name");
         auto val = itr->Attribute("value");
@@ -155,6 +161,7 @@ void TileFactory::set_shared_texture_information
         return val;
     }
     return nullptr;
+#   endif
 }
 
 /* protected static */ std::array<Vector, 4>
@@ -247,6 +254,10 @@ void TileFactory::set_shared_texture_information
 CardinalDirection cardinal_direction_from(const char * str) {
     auto seq = [str](const char * s) { return !::strcmp(str, s); };
     using Cd = CardinalDirection;
+    if (!str) {
+        throw InvArg{"cardinal_direction_from: cannot convert nullptr to a "
+                     "cardinal direction"                                   };
+    }
     if (seq("n" )) return Cd::n;
     if (seq("s" )) return Cd::s;
     if (seq("e" )) return Cd::e;

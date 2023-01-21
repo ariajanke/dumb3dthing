@@ -88,7 +88,7 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
 } // end of wall namespace
 
 void TranslatableTileFactory::setup
-    (Vector2I, const TiXmlElement * properties, Platform &)
+    (Vector2I, const TileData * properties, Platform &)
 {
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
@@ -222,7 +222,7 @@ void WallTileFactoryBase::make_physical_triangles
 }
 
 void WallTileFactoryBase::setup
-    (Vector2I loc_in_ts, const TiXmlElement * properties, Platform & platform)
+    (Vector2I loc_in_ts, const TileData * properties, Platform & platform)
 {
     TranslatableTileFactory::setup(loc_in_ts, properties, platform);
     m_dir = verify_okay_wall_direction

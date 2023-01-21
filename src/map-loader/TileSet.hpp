@@ -49,15 +49,76 @@ public:
     virtual ~ProducableGroup_() {}
 };
 
+class TileGroupGrid;
+
+template <typename T>
+class UnfinishedProducableGroup final {
+public:
+    UnfinishedProducableGroup & at_position(const Vector2I & r) {
+        m_positions.push_back(r);
+        return *this;
+    }
+
+    template <typename ... Types>
+    void make_producable(Types && ... args) {
+        verify_container_sizes("make_producable");
+        m_producables.emplace_back(std::forward<Types>(args)...);
+    }
+
+    SharedPtr<ProducableGroup_> finish(Grid<ProducableTile *> & target) {
+        verify_finishable("finish");
+        class Impl final : public ProducableGroup_ {
+        public:
+            explicit Impl(std::vector<T> && producables_):
+                producables(std::move(producables_)) {}
+
+            std::vector<T> producables;
+        };
+        auto rv = make_shared<Impl>(std::move(m_producables));
+        m_producables.clear();
+        for (std::size_t i = 0; i != m_positions.size(); ++i) {
+            target(m_positions[i]) = &rv->producables[i];
+        }
+        m_positions.clear();
+        return rv;
+    }
+
+private:
+    void verify_finishable(const char * caller) const {
+        using namespace cul::exceptions_abbr;
+        if (m_positions.size() == m_producables.size()) return;
+        throw RtError{  "UnfinishedProducableGroup::" + std::string{caller}
+                      + ": to finish a group, both every call to 'at_position' "
+                        "must be followed by exactly one call to 'make_producable'"};
+    }
+
+    void verify_container_sizes(const char * caller) const {
+        using namespace cul::exceptions_abbr;
+        if (m_positions.size() == m_producables.size() + 1) return;
+        throw RtError{  "UnfinishedProducableGroup::" + std::string{caller}
+                      + ": at_position must be called exactly once before this "
+                        "method is called"};
+    }
+
+    std::vector<T> m_producables;
+    std::vector<Vector2I> m_positions;
+};
+
 template <typename T>
 class ProducableGroup : public ProducableGroup_ {
 public:
     static_assert(std::is_base_of_v<ProducableTile, T>);
 
-    ProducableGroup & at_position(const Vector2I &);
+    ProducableGroup & at_position(const Vector2I & r) {
+        m_current_position = r;
+        return *this;
+    }
 
     template <typename ... Types>
     void make_producable(Types && ... args) {
+        // | this is why you have danglers
+        // | pointers in the grid go bad, because the address for your
+        // v producables change
         m_producables.emplace_back(std::forward<Types>(args)...);
         set_producable(m_current_position, &m_producables.back());
     }
@@ -96,7 +157,7 @@ public:
         m_targets.emplace_back(std::move(target));
     }
 
-    Tuple
+    [[nodiscard]] Tuple
         <GridView<ProducableTile *>,
          std::vector<SharedPtr<ProducableGroup_>>>
         move_out_producables_and_groups();
@@ -133,7 +194,6 @@ public:
     UnfinishedProducableTileGridView
         add_producables_to(UnfinishedProducableTileGridView && unfinished_grid_view);
 
-
 private:
 #   if 0
     static ProducableTile & verify_tile(const char * caller, ProducableTile *);
@@ -147,8 +207,11 @@ public:
     using Size2I = cul::Size2<int>;
 
     // may only be set once
-    void set_size(const Size2I &);
-
+    void set_size(const Size2I & sz) {
+        m_target.set_size(sz, nullptr);
+        m_filleds.set_size(sz, false);
+    }
+#   if 0
     template <typename T>
     SharedPtr<ProducableGroup<T>> start_group_for_type() {
         class Impl final : public ProducableGroup<T> {
@@ -174,8 +237,20 @@ public:
         m_groups.push_back(rv);
         return rv;
     }
+#   endif
+    template <typename T>
+    void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup) {
+        m_groups.emplace_back(unfinished_pgroup.finish(m_target));
+    }
+
     // may only be called once
-    TileGroupGrid finish();
+    TileGroupGrid finish() {
+        m_filleds.clear();
+        TileGroupGrid rv{std::move(m_target), std::move(m_groups)};
+        m_target.clear();
+        m_groups.clear();
+        return rv;
+    }
 #   if 0
     std::vector<Vector2I> filter_filleds(std::vector<Vector2I> &&) const;
 #   endif
@@ -205,6 +280,14 @@ public:
         (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const = 0;
 };
 
+// great fucking name 10/10
+struct TileData final {
+    static constexpr const int k_no_id = -1;
+    int id = k_no_id;
+    std::string type;
+    std::map<std::string, std::string> properties;
+};
+
 // Grid of xml elements, plus info on tileset
 class TileSetXmlGrid final {
 public:
@@ -212,8 +295,10 @@ public:
 
     void load(Platform &, const TiXmlElement &);
 
-    const TiXmlElement * operator() (const Vector2I & r) const
-        { return m_elements(r); }
+    const TileData * operator() (const Vector2I & r) const {
+        static constexpr auto k_no_id = TileData::k_no_id;
+        return m_elements(r).id == k_no_id ? nullptr : &m_elements(r);
+    }
 
     Size2 tile_size() const
         { return m_tile_size; }
@@ -239,7 +324,8 @@ private:
     static Tuple<SharedPtr<const Texture>, Size2>
         load_texture(Platform &, const TiXmlElement &);
 
-    Grid<const TiXmlElement *> m_elements;
+    // there's something weird going on with ownership of TiXmlElements
+    Grid<TileData> m_elements;
     SharedPtr<const Texture> m_texture;
     Size2 m_tile_size;
     Size2 m_texture_size;
@@ -479,7 +565,19 @@ public:
     int tid_to_gid(int tid, ConstTileSetPtr tileset) const;
 
     void swap(GidTidTranslator &);
-
+#   if MACRO_BIG_RED_BUTTON
+    std::vector<SharedPtr<const TileSetN>> move_out_tilesets() {
+        std::vector<SharedPtr<const TileSetN>> rv;
+        rv.reserve(m_ptr_map.size());
+        for (auto & tl : m_ptr_map) {
+            rv.emplace_back(std::move(tl.tileset));
+        }
+        m_ptr_map.clear();
+        m_gid_map.clear();
+        m_gid_end = 0;
+        return rv;
+    }
+#   endif
 private:
     template <bool kt_is_const>
     struct GidAndTileSetPtrImpl {

@@ -45,10 +45,12 @@ TileFactorySubGrid TileFactoryGrid::make_subgrid
 // ----------------------------------------------------------------------------
 #if MACRO_BIG_RED_BUTTON
 void TileProducableViewGrid::set_layers
-    (UnfinishedProducableTileGridView && unfinished_grid)
+    (UnfinishedProducableTileGridView && unfinished_grid,
+     GidTidTranslator && gidtid_translator)
 {
     std::tie(m_factories, m_groups)
         = unfinished_grid.move_out_producables_and_groups();
+    m_tilesets = gidtid_translator.move_out_tilesets();
 }
 #else
 void TileFactoryViewGrid::load_layers
@@ -122,3 +124,10 @@ template <bool (*meets_pred)(const GridOfViews &, const Vector2I &)>
         }
     }
 }
+#if 0//MACRO_BIG_RED_BUTTON
+ProducableTileViewGrid::ProducableTileViewGrid
+    (UnfinishedProducableTileGridView && inserter)
+{
+    std::tie(m_grid_view, m_groups) = inserter.move_out_producables_and_groups();
+}
+#endif
