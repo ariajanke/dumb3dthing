@@ -82,10 +82,10 @@ static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
 Grid<int> load_layer(const TiXmlElement &);
 
-Grid<Tuple<int, SharedPtr<const TileSetN>>> gid_layer_to_tid_layer
+Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
     (const Grid<int> & gids, const GidTidTranslator & gidtid_translator)
 {
-    Grid<Tuple<int, SharedPtr<const TileSetN>>> rv;
+    Grid<Tuple<int, SharedPtr<const TileSet>>> rv;
     rv.set_size(gids.size2(), make_tuple(0, nullptr));
 
     for (Vector2I r; r != rv.end_position(); r = rv.next(r)) {
@@ -104,7 +104,7 @@ struct FillerAndLocations final {
 
 std::vector<FillerAndLocations>
     tid_layer_to_fillables_and_locations
-    (const Grid<Tuple<int, SharedPtr<const TileSetN>>> & tids_and_tilesets)
+    (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tids_and_tilesets)
 {
     std::map<
         SharedPtr<TileProducableFiller>,
@@ -193,10 +193,6 @@ OptionalTileViewGrid WaitingForFileContents::update_progress
     }
 
     auto * root = document.RootElement();
-#   if 0
-    int width  = root->IntAttribute("width");
-    int height = root->IntAttribute("height");
-#   endif
     XmlPropertiesReader propreader;
     propreader.load(root);
 
@@ -205,31 +201,9 @@ OptionalTileViewGrid WaitingForFileContents::update_progress
         add_tileset(tileset, tilesets_container);
     }
 
-#   if 0
-    layer.set_size(width, height);
-    auto * layer_el = root->FirstChildElement("layer");
-    assert(layer_el);
-    auto * data = layer_el->FirstChildElement("data");
-    assert(data);
-    assert(!::strcmp(data->Attribute( "encoding" ), "csv"));
-    auto data_text = data->GetText();
-    assert(data_text);
-    ; // and now I need a parsing helper for CSV strings
-    Vector2I r;
-    for (auto value_str : split_range(data_text, data_text + ::strlen(data_text),
-                                      is_comma, k_whitespace_trimmer))
-    {
-        int tile_id = 0;
-        bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), tile_id);
-        assert(is_num);
-        layer(r) = tile_id;
-        r = layer.next(r);
-    }
-#   else
     for (auto & layer_el : XmlRange{root, "layer"}) {
         layers.emplace_back(load_layer(layer_el));
     }
-#   endif
 
     set_others_stuff
         (next_state.set_next_state<WaitingForTileSets>
@@ -241,11 +215,7 @@ OptionalTileViewGrid WaitingForFileContents::update_progress
 /* private */ void WaitingForFileContents::add_tileset
     (const TiXmlElement & tileset, TileSetsContainer & tilesets_container)
 {
-#   ifdef MACRO_BIG_RED_BUTTON
-    tilesets_container.tilesets.emplace_back(make_shared<TileSetN>());
-#   else
     tilesets_container.tilesets.emplace_back(make_shared<TileSet>());
-#   endif
     tilesets_container.startgids.emplace_back(tileset.IntAttribute("firstgid"));
     if (const auto * source = tileset.Attribute("source")) {
         tilesets_container.pending_tilesets.emplace_back(
@@ -303,8 +273,6 @@ OptionalTileViewGrid WaitingForTileSets::update_progress
 OptionalTileViewGrid TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
-#   if MACRO_BIG_RED_BUTTON
-
     UnfinishedProducableTileGridView unfinished_grid_view;
     for (auto & layer : m_layers) {
         auto tid_layer = gid_layer_to_tid_layer(layer, m_tidgid_translator);
@@ -319,12 +287,6 @@ OptionalTileViewGrid TiledMapLoader::Ready::update_progress
     rv.set_layers(std::move(unfinished_grid_view), std::move(m_tidgid_translator));
 
     return rv;
-#   else
-    TileFactoryViewGrid rv;
-    rv.load_layers(m_layers, std::move(m_tidgid_translator));
-    next_state.set_next_state<Expired>();
-    return rv;
-#   endif
 }
 
 // ----------------------------------------------------------------------------

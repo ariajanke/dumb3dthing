@@ -152,16 +152,6 @@ void TileFactory::set_shared_texture_information
     auto itr = properties->properties.find(name_);
     if (itr == properties->properties.end()) return nullptr;
     return itr->second.c_str();
-#   if 0
-    for (auto itr = properties; itr; itr = itr->NextSiblingElement("property")) {
-        auto name = itr->Attribute("name");
-        auto val = itr->Attribute("value");
-        if (!val || !name) continue;
-        if (strcmp(name, name_)) continue;
-        return val;
-    }
-    return nullptr;
-#   endif
 }
 
 /* protected static */ std::array<Vector, 4>

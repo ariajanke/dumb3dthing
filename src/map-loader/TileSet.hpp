@@ -116,9 +116,6 @@ public:
 
     template <typename ... Types>
     void make_producable(Types && ... args) {
-        // | this is why you have danglers
-        // | pointers in the grid go bad, because the address for your
-        // v producables change
         m_producables.emplace_back(std::forward<Types>(args)...);
         set_producable(m_current_position, &m_producables.back());
     }
@@ -175,29 +172,11 @@ public:
         m_target(std::move(target)),
         m_groups(std::move(groups))
     {}
-#   if 0
-    // but this will not be used...
-    void operator ()
-        (const Vector2I & map_position, const Vector2I & maps_offset,
-         EntityAndTrianglesAdder & adder, Platform & platform)
-    {
-        verify_tile("operator()", m_target(map_position))
-            (maps_offset, adder, platform);
-    }
-#   endif
-    // as of Jan 15, 2023:
-    // merging multiple instances into a view grid, for
-    // use with region preparers:
-    // who's going to own the groups? (the special grid type)
-    // yeah, I don't have a good solution for vertical maps...
 
     UnfinishedProducableTileGridView
         add_producables_to(UnfinishedProducableTileGridView && unfinished_grid_view);
 
 private:
-#   if 0
-    static ProducableTile & verify_tile(const char * caller, ProducableTile *);
-#   endif
     Grid<ProducableTile *> m_target;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
@@ -211,33 +190,7 @@ public:
         m_target.set_size(sz, nullptr);
         m_filleds.set_size(sz, false);
     }
-#   if 0
-    template <typename T>
-    SharedPtr<ProducableGroup<T>> start_group_for_type() {
-        class Impl final : public ProducableGroup<T> {
-        public:
-            Impl(Grid<ProducableTile *> & target_, Grid<bool> & filleds_):
-                m_target(target_),
-                m_filleds(filleds_)
-            {}
 
-            void set_producable(Vector2I r, ProducableTile * producable) final {
-                using namespace cul::exceptions_abbr;
-                if (m_filleds(r)) {
-                    throw RtError{"cannot fill tile twice"};
-                }
-                m_target(r) = producable;
-                m_filleds(r) = true;
-            }
-
-            Grid<ProducableTile *> & m_target;
-            Grid<bool> & m_filleds;
-        };
-        auto rv = make_shared<Impl>(m_target, m_filleds);
-        m_groups.push_back(rv);
-        return rv;
-    }
-#   endif
     template <typename T>
     void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup) {
         m_groups.emplace_back(unfinished_pgroup.finish(m_target));
@@ -251,9 +204,7 @@ public:
         m_groups.clear();
         return rv;
     }
-#   if 0
-    std::vector<Vector2I> filter_filleds(std::vector<Vector2I> &&) const;
-#   endif
+
 private:
     Grid<ProducableTile *> m_target;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
@@ -331,7 +282,7 @@ private:
     Size2 m_texture_size;
 };
 
-class TileSetN final {
+class TileSet final {
 public:
     using FillerFactory = SharedPtr<TileProducableFiller>(*)(const TileSetXmlGrid &, Platform &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
@@ -355,113 +306,6 @@ public:
 
 private:
     Grid<SharedPtr<TileProducableFiller>> m_filler_grid;
-};
-
-class TileSet final {
-public:
-
-#   if 0
-    // there may, or may not be a factory for a particular id
-    Tuple<TileFactory *, TileProducableFiller *> operator () (int tid) const;
-#   endif
-#   if 0
-    TileProducableFiller & group_filler_for_id(int tid) const;
-#   endif
-    TileFactory * factory_for_id(int tid) const;
-
-    void load(Platform &, const TiXmlElement & tileset);
-
-    int total_tile_count() const { return m_tile_count; }
-#   if 0 // this is a SRP violation from hell
-    ProcessedLayer process_layer(ProcessedLayer && layer) const {
-        auto & tile_ids = layer.tile_ids;
-        auto & factory_group_tuples = layer.factory_group_tuples;
-        for (Vector2I r; r != tile_ids.end_position(); r = tile_ids.next(r)) {
-            auto itr = m_group_factory_map.find(tile_ids(r));
-            if (itr == m_group_factory_map.end()) {
-                --layer.remaining_ids;
-                continue;
-            }
-            layer = (*itr->second)(  )
-            ;
-        }
-    }
-
-    ProcessedLayer process_layer(Grid<int> && layer) const {
-        ProcessedLayer starting_layer;
-        starting_layer.tile_ids = std::move(layer);
-        starting_layer.remaining_ids = starting_layer.tile_ids.size();
-        starting_layer.factory_group_tuples.set_size
-            (starting_layer.tile_ids.size2(), make_tuple(nullptr, nullptr));
-        return process_layer(std::move(starting_layer));
-    }
-#   endif
-private:
-
-    using TileTextureMap = std::map<std::string, TileTexture>;
-    struct TileParams final {
-        TileParams(Size2 tile_size_, Platform & platform_):
-            tile_size(tile_size_),
-            platform(platform_) {}
-
-        Size2 tile_size;
-        Platform & platform;
-    };
-    // still really airy
-    using LoadTileTypeFunc = void (TileSet::*)
-        (const TiXmlElement &, int, Vector2I, TileParams &);
-
-    //using TileGroupFactory = Tuple<UniquePtr<TileGroup>, ProcessedLayer> (*)(ProcessedLayer &&);
-    //using LoadTileGroupFactoryFunc = ProcessedLayer(*)(ProcessedLayer &&);
-
-    using TileTypeFuncMap = std::map<std::string, LoadTileTypeFunc>;
-#   if 0
-    using TileGroupFuncMap = std::map<std::string, TileProducableFiller>;
-#   endif
-    static const TileTypeFuncMap & tiletype_handlers();
-#   if 0
-    static const TileGroupFuncMap & tilegroup_handlers();
-#   endif
-    TileFactory & insert_factory(UniquePtr<TileFactory> uptr, int tid);
-
-    void load_pure_texture(const TiXmlElement &, int, Vector2I, TileParams &);
-
-    void set_texture_information
-        (const SharedPtr<const Texture> & texture, const Size2 & tile_size,
-         const Size2 & texture_size);
-
-    void load_factory
-        (const TiXmlElement &, UniquePtr<TileFactory> factory, int, Vector2I,
-         Platform &);
-
-    template <typename T>
-    void load_usual_factory
-        (const TiXmlElement & el, int id, Vector2I r, TileParams & tp)
-    {
-        static_assert(std::is_base_of_v<TileFactory, T>);
-        load_factory(el, make_unique<T>(), id, r, tp.platform);
-    }
-
-    template <typename T>
-    void load_usual_wall_factory
-        (const TiXmlElement & el, int id, Vector2I r, TileParams & tp)
-    {
-        static_assert(std::is_base_of_v<WallTileFactoryBase, T>);
-        auto wall_factory = make_unique<T>();
-        wall_factory->assign_wall_texture(m_tile_texture_map["wall"]);
-        load_factory(el, std::move(wall_factory), id, r, tp.platform);
-    }
-
-    std::map<int, UniquePtr<TileFactory>> m_factory_map;
-#   if 0
-    std::map<int, TileProducableFiller *> m_group_factory_map;
-#   endif
-    TileTextureMap m_tile_texture_map;
-
-    SharedPtr<const Texture> m_texture;
-    Size2 m_texture_size;
-    Size2 m_tile_size;
-    int m_tile_count = 0;
 };
 
 class SlopedTileFactory;
@@ -489,54 +333,8 @@ public:
 
 private:
     Grid<TileFactory *> m_factory_grid;
-    //const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
 };
-#if 0
-inline /* static */ TileGroupFiller * TileGroupFiller::ramp_group_factory() {
-    class RampGroupFactory final : public TileGroupFiller {
-    public:
-        // fuck you Singleton
-        static RampGroupFactory & instance() {
-            static RampGroupFactory inst;
-            return inst;
-        }
 
-        ProcessedLayer operator ()
-            (const Grid<TileGroupFiller *> & group_layer,
-             ProcessedLayer && inprogress_layer) const final
-        {
-            using namespace cul::exceptions_abbr;
-            if (   group_layer.size2() != inprogress_layer.tile_ids.size2()
-                || group_layer.size2() != inprogress_layer.factory_group_tuples.size2())
-            {
-                throw InvArg{"inconsistent layer sizes"};
-            }
-            SharedPtr<SlopedTileGroup> stg;
-            for (Vector2I r; r != group_layer.end_position(); r = group_layer.next(r)) {
-                if (inprogress_layer.tile_ids(r) == 0)
-                    continue;
-                // uncondtional for now; all existing types are ramps
-                if (true || group_layer(r) == &RampGroupFactory::instance()) {
-                    if (!stg) {
-                        stg = make_shared<SlopedTileGroup>();
-                        stg->set_size(group_layer.size2());
-                    }
-                    --inprogress_layer.remaining_ids;
-                    inprogress_layer.tile_ids(r) = 0;
-                    // this feels smelly?
-                    stg->set_factory_at(std::get<TileFactory *>(/* downcasted */ inprogress_layer.factory_group_tuples(r)), r);
-                    std::get<SharedPtr<TileGroup>>(inprogress_layer.factory_group_tuples(r)) = stg;
-                }
-            }
-            return std::move(inprogress_layer);
-        }
-
-    private:
-        RampGroupFactory() {}
-    };
-    return &RampGroupFactory::instance();
-}
-#endif
 struct TileLocation final {
     Vector2I on_map;
     Vector2I on_field;
@@ -546,13 +344,8 @@ struct TileLocation final {
 // this is just used wrong I think...
 class GidTidTranslator final {
 public:
-#   if MACRO_BIG_RED_BUTTON
-    using ConstTileSetPtr = SharedPtr<const TileSetN>;
-    using TileSetPtr      = SharedPtr<TileSetN>;
-#   else
     using ConstTileSetPtr = SharedPtr<const TileSet>;
     using TileSetPtr      = SharedPtr<TileSet>;
-#   endif
 
     GidTidTranslator() {}
 
@@ -565,9 +358,9 @@ public:
     int tid_to_gid(int tid, ConstTileSetPtr tileset) const;
 
     void swap(GidTidTranslator &);
-#   if MACRO_BIG_RED_BUTTON
-    std::vector<SharedPtr<const TileSetN>> move_out_tilesets() {
-        std::vector<SharedPtr<const TileSetN>> rv;
+
+    std::vector<SharedPtr<const TileSet>> move_out_tilesets() {
+        std::vector<SharedPtr<const TileSet>> rv;
         rv.reserve(m_ptr_map.size());
         for (auto & tl : m_ptr_map) {
             rv.emplace_back(std::move(tl.tileset));
@@ -577,7 +370,7 @@ public:
         m_gid_end = 0;
         return rv;
     }
-#   endif
+
 private:
     template <bool kt_is_const>
     struct GidAndTileSetPtrImpl {

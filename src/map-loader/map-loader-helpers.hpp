@@ -46,27 +46,7 @@ private:
 using TileFactorySubGrid = cul::ConstSubGrid
     <TileFactory *,
      cul::SubGridParentAccess::allow_access_to_parent_elements>;
-#if 0 // unused isfaik
-class TileFactoryGrid final {
-public:
-    using Rectangle = cul::Rectangle<int>;
 
-    void load_layer(const Grid<int> & gids, const GidTidTranslator &);
-
-    auto height() const { return m_factories.height(); }
-
-    auto width() const { return m_factories.width(); }
-
-    auto is_empty() const { return m_factories.is_empty(); }
-
-    /** this object must live at least as long as the return value */
-    TileFactorySubGrid make_subgrid(const Rectangle & range) const;
-
-private:
-    std::vector<SharedPtr<const TileSet>> m_tilesets;
-    Grid<TileFactory *> m_factories;
-};
-#endif
 /// container of triangle links, used to glue segment triangles together
 class InterTriangleLinkContainer final {
 public:
@@ -272,55 +252,19 @@ private:
 
 // this will need to be moved too
 class ProducableGroup_;
-#if 0// MACRO_BIG_RED_BUTTON
-class ProducableTileViewGrid final {
-public:
-    using GroupGridView = GridView<ProducableTile *>;
-
-    explicit ProducableTileViewGrid
-        (UnfinishedProducableTileGridView && inserter);
-
-    GroupGridView & operator * ()
-        { return m_grid_view; }
-
-    const GroupGridView & operator * () const
-        { return m_grid_view; }
-
-    GroupGridView * operator -> ()
-        { return &m_grid_view; }
-
-    const GroupGridView * operator -> () const
-        { return &m_grid_view; }
-
-private:
-    GroupGridView m_grid_view;
-    // this container needs to own the groups
-    std::vector<SharedPtr<ProducableGroup_>> m_groups;
-};
-#endif
 
 // ----------------------------------------------------------------------------
 
-#if MACRO_BIG_RED_BUTTON
 using ProducableTileViewSubGrid = GridView<ProducableTile *>::SubGrid;
-#else
-using TileFactoryViewSubGrid = GridView<TileFactory *>::SubGrid;
-#endif
-#if MACRO_BIG_RED_BUTTON
+
 class TileProducableViewGrid final {
-#else
-class TileFactoryViewGrid final {
-#endif
 public:
     using Rectangle = cul::Rectangle<int>;
-#   if MACRO_BIG_RED_BUTTON
+
     // can reverse dependancy things later
     void set_layers(UnfinishedProducableTileGridView &&,
                     GidTidTranslator &&);
-#   else
-    void load_layers
-        (const std::vector<Grid<int>> & gid_layers, GidTidTranslator &&);
-#   endif
+
     auto height() const { return m_factories.height(); }
 
     auto width() const { return m_factories.width(); }
@@ -330,14 +274,9 @@ public:
         { return m_factories.make_subgrid(range); }
 
 private:
-#   if MACRO_BIG_RED_BUTTON
     GridView<ProducableTile *> m_factories;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
-    std::vector<SharedPtr<const TileSetN>> m_tilesets;
-#   else
-    GridView<TileFactory *> m_factories;
-    GidTidTranslator m_gidtid_translator;
-#   endif
+    std::vector<SharedPtr<const TileSet>> m_tilesets;
 };
 
 // ----------------------------------------------------------------------------

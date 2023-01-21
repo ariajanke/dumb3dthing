@@ -44,11 +44,8 @@ public:
     using Ready = MapLoadingReady;
     using Expired = MapLoadingExpired;
     using StateHolder = MapLoadingStateHolder;
-#   if MACRO_BIG_RED_BUTTON
     using OptionalTileViewGrid = Optional<TileProducableViewGrid>;
-#   else
-    using OptionalTileViewGrid = Optional<TileFactoryViewGrid>;
-#   endif
+
 protected:
     MapLoadingContext() {}
 };
@@ -74,11 +71,7 @@ public:
 protected:
     struct TileSetsContainer final {
         std::vector<int> startgids;
-#       if MACRO_BIG_RED_BUTTON
-        std::vector<SharedPtr<TileSetN>> tilesets;
-#       else
         std::vector<SharedPtr<TileSet>> tilesets;
-#       endif
         std::vector<Tuple<std::size_t, FutureStringPtr>> pending_tilesets;
     };
 
