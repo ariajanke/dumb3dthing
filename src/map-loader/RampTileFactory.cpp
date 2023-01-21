@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "RampTileFactory.hpp"
+#include "TileSet.hpp"
 
 namespace {
 
@@ -27,40 +28,35 @@ using namespace cul::exceptions_abbr;
 } // end of <anonymous> namespace
 
 void SlopesBasedModelTileFactory::operator ()
-    (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
+    (EntityAndTrianglesAdder & adder, const SlopeGroupNeighborhood & nhood,
      Platform & platform) const
 {
-    auto r = ninfo.tile_location();
-    add_triangles_based_on_model_details(r, adder);
+    auto r = nhood.tile_location_on_field();
+
+    TileFactory::add_triangles_based_on_model_details
+        (r, translation(), model_tile_elevations(), adder);
     adder.add_entity(make_entity(platform, r));
 }
 
-/* protected */ void SlopesBasedModelTileFactory::add_triangles_based_on_model_details
-    (Vector2I gridloc, EntityAndTrianglesAdder & adder) const
-{
-    TileFactory::add_triangles_based_on_model_details
-        (gridloc, translation(), model_tile_elevations(), adder);
-}
-
-/* protected */ void SlopesBasedModelTileFactory::setup
-    (Vector2I loc_in_ts, const TileProperties * properties,
+/* protected */ void SlopesBasedModelTileFactory::setup_
+    (const Vector2I & loc_in_ts, const TileProperties & properties,
      Platform & platform)
 {
-    TranslatableTileFactory::setup(loc_in_ts, properties, platform);
+    TranslatableTileFactory::setup_(loc_in_ts, properties, platform);
     m_render_model = make_render_model_with_common_texture_positions(
         platform, model_tile_elevations(), loc_in_ts);
 }
 
 // ----------------------------------------------------------------------------
 
-/* protected */ void RampTileFactory::setup
-    (Vector2I loc_in_ts, const TileProperties * properties,
+/* private */ void RampTileFactory::setup_
+    (const Vector2I & loc_in_ts, const TileProperties & properties,
      Platform & platform)
 {
-    if (const auto * val = find_property("direction", properties)) {
-        set_direction(val);
+    if (const auto * val = properties.find_value("direction")) {
+        set_direction(val->c_str());
     }
-    SlopesBasedModelTileFactory::setup(loc_in_ts, properties, platform);
+    SlopesBasedModelTileFactory::setup_(loc_in_ts, properties, platform);
 }
 
 // --------------------------- <anonymous> namespace --------------------------

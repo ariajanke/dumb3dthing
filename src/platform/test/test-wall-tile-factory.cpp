@@ -165,13 +165,14 @@ bool run_wall_tile_factory_tests() {
     suite.start_series("TileFactory :: NeighborInfo");
     // fundemental problem with neighbor info
 
-
+#   if 0
     // no neighbor, no real number is returned
     mark(suite).test([] {
         auto res = NeighborInfo::make_no_neighbor()
             .neighbor_elevation(CardinalDirection::nw);
         return test(!cul::is_real(res));
     });
+#   endif
     // yes neighbor, return real number
     mark(suite).test([] {
         TileSet tileset;

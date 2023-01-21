@@ -47,10 +47,6 @@ enum class CardinalDirection {
 
 struct WallElevationAndDirection final {
     CardinalDirection direction;
-    // | I don't think I like there being a location to it
-    // | but if I remove it, I break the old implementation
-    // v and I don't want to do that right now, so soon
-    Vector2I tileset_location;
     std::array<Real, 4> dip_heights;
 };
 
@@ -77,11 +73,7 @@ public:
         if (diff) return diff < 0;
 
         auto slopes_diff = difference_between(lhs.dip_heights, rhs.dip_heights);
-        if (!are_very_close(slopes_diff, 0)) return slopes_diff < 0;
-        auto tileset_location_diff = difference_between(
-            tileset_location_list(lhs.tileset_location),
-            tileset_location_list(rhs.tileset_location));
-        return tileset_location_diff < 0;
+        return slopes_diff < 0;
     }
 };
 
@@ -120,62 +112,51 @@ public:
 struct TileLocation;
 class TileGroup;
 
+/// describes neighbors and an address for a tile
+class SlopeGroupNeighborhood final {
+public:
+    SlopeGroupNeighborhood
+        (const SlopesGridInterface &, Vector2I tile_loc_on_map,
+         Vector2I maps_spawner_offset);
+
+    Real neighbor_elevation(CardinalDirection) const;
+
+    Vector2I tile_location_on_field() const { return m_loc + m_offset; }
+
+    // bad name: is actually more local
+    Vector2I tile_location_on_map() const { return m_loc; }
+
+private:
+    Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
+
+    const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
+    Vector2I m_loc;
+    Vector2I m_offset;
+};
+class TileSetXmlGrid;
+
 /// A tile factory is a thing that produces tiles.
+/// It is local to the tileset
 class TileFactory {
 public:
-
-    // this is useful for a subclass of tile factories (not all)
-    // some factories do not use this at all
-    // a better idea:
-    // tiles may "group" themselves based on their neighbor's identities
-    // this works for all: tile wall structures, mobius strips, loops, etc
-    //
-    // but groups will have to be created before factory time it seems
-    class NeighborInfo final {
-    public:
-        NeighborInfo
-            (const SlopesGridInterface &, Vector2I tilelocmap,
-             Vector2I spawner_offset);
-
-        static NeighborInfo make_no_neighbor();
-
-        Real neighbor_elevation(CardinalDirection) const;
-
-        Vector2I tile_location() const { return m_loc + m_offset; }
-
-        // bad name: is actually more local
-        Vector2I tile_location_in_map() const { return m_loc; }
-
-    private:
-        Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
-
-        const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
-        Vector2I m_loc;
-        Vector2I m_offset;
-    };
-
     virtual ~TileFactory() {}
 
+    // removing slopes things... would remove this operator
     virtual void operator ()
-        (EntityAndTrianglesAdder &, const NeighborInfo &, Platform &) const = 0;
+        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &, Platform &) const = 0;
 
-    void set_shared_texture_information
-        (const SharedPtr<const Texture> & texture_ptr_, const Size2 & texture_size_,
-         const Size2 & tile_size_);
-
-    virtual void setup
-        (Vector2I loc_in_ts, const TileProperties * properties, Platform &) = 0;
+    void setup(const TileSetXmlGrid &, Platform &,
+               const Vector2I & location_on_tileset);
 
     virtual Slopes tile_elevations() const = 0;
 
 protected:
+
     static void add_triangles_based_on_model_details
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
          EntityAndTrianglesAdder & adder);
 
-    static const char * find_property(const char * name_, const TileProperties * properties);
-
-    static Vector grid_position_to_v3(Vector2I r)
+    static Vector grid_position_to_v3(const Vector2I & r)
         { return Vector{r.x, 0, -r.y}; }
 
     static std::array<Vector, 4> get_points_for(const Slopes &);
@@ -199,10 +180,19 @@ protected:
 
     TileTexture floor_texture_at(Vector2I) const;
 
+    virtual void setup_
+        (const Vector2I & loc_in_ts, const TileProperties & properties, Platform &) = 0;
+
 private:
+    void set_shared_texture_information
+        (const SharedPtr<const Texture> & texture_ptr_, const Size2 & texture_size_,
+         const Size2 & tile_size_);
+
     SharedPtr<const Texture> m_texture_ptr;
     Size2 m_texture_size;
     Size2 m_tile_size;
 };
+
+CardinalDirection cardinal_direction_from(const std::string * str);
 
 CardinalDirection cardinal_direction_from(const char * str);

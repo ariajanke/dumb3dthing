@@ -41,7 +41,7 @@ static const constexpr std::array k_flat_points = {
 
 } // end of <anonymous> namespace
 
-TileFactory::NeighborInfo::NeighborInfo
+SlopeGroupNeighborhood::SlopeGroupNeighborhood
     (const SlopesGridInterface & slopesintf, Vector2I tilelocmap,
      Vector2I spawner_offset):
     m_grid(&slopesintf),
@@ -49,15 +49,7 @@ TileFactory::NeighborInfo::NeighborInfo
     m_offset(spawner_offset)
 {}
 
-/* static */ TileFactory::NeighborInfo
-    TileFactory::NeighborInfo::make_no_neighbor()
-{
-    return NeighborInfo{
-        SlopesGridInterface::null_instance(),
-        Vector2I{}, Vector2I{}};
-}
-
-Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const {
+Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
     using Cd = CardinalDirection;
 
     using VecCdTup = Tuple<Vector2I, Cd>;
@@ -106,7 +98,7 @@ Real TileFactory::NeighborInfo::neighbor_elevation(CardinalDirection dir) const 
     throw BadBranchException{__LINE__, __FILE__};
 }
 
-/* private */ Real TileFactory::NeighborInfo::neighbor_elevation
+/* private */ Real SlopeGroupNeighborhood::neighbor_elevation
     (const Vector2I & r, CardinalDirection dir) const
 {
     using Cd = CardinalDirection;
@@ -132,6 +124,16 @@ void TileFactory::set_shared_texture_information
     m_tile_size = tile_size_;
 }
 
+void TileFactory::setup
+    (const TileSetXmlGrid & xml_grid, Platform & platform,
+     const Vector2I & location_on_tileset)
+{
+    m_texture_ptr = xml_grid.texture();
+    m_texture_size = xml_grid.texture_size();
+    m_tile_size = xml_grid.tile_size();
+    setup_(location_on_tileset, xml_grid(location_on_tileset), platform);
+}
+
 /* protected static */ void TileFactory::add_triangles_based_on_model_details
     (Vector2I gridloc, Vector translation, const Slopes & slopes,
      EntityAndTrianglesAdder & adder)
@@ -143,15 +145,6 @@ void TileFactory::set_shared_texture_information
         pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset});
     adder.add_triangle(TriangleSegment{
         pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset});
-}
-
-/* protected static */ const char * TileFactory::find_property
-    (const char * name_, const TileProperties * properties)
-{
-    if (!properties) return nullptr;
-    auto str = properties->find_value(name_);
-    if (!str) return nullptr;
-    return str->c_str();
 }
 
 /* protected static */ std::array<Vector, 4>
@@ -239,6 +232,10 @@ void TileFactory::set_shared_texture_information
         () = make_tuple
         (model_ptr, common_texture(), Translation{translation}, true);
     return ent;
+}
+
+CardinalDirection cardinal_direction_from(const std::string * str) {
+    return cardinal_direction_from(str ? str->c_str() : nullptr);
 }
 
 CardinalDirection cardinal_direction_from(const char * str) {

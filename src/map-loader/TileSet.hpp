@@ -216,11 +216,8 @@ class TileSetXmlGrid final {
 public:
     void load(Platform &, const TiXmlElement &);
 
-    const TileProperties * operator() (const Vector2I & r) const {
-        const auto & props = m_elements(r);
-        if (props.is_empty()) return nullptr;
-        return &props;
-    }
+    const TileProperties & operator() (const Vector2I & r) const
+        { return m_elements(r); }
 
     Size2 tile_size() const
         { return m_tile_size; }

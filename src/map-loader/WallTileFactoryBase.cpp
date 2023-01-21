@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "WallTileFactoryBase.hpp"
+#include "TileSet.hpp"
 
 #include <numeric>
 
@@ -87,18 +88,18 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
 
 } // end of wall namespace
 
-void TranslatableTileFactory::setup
-    (Vector2I, const TileProperties * properties, Platform &)
+/* protected */ void TranslatableTileFactory::setup_
+    (const Vector2I &, const TileProperties & properties, Platform &)
 {
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
-    const auto * val = find_property("translation", properties);
+    const auto * val = properties.find_value("translation");
     if (!val) return;
 
     auto list = { &m_translation.x, &m_translation.y, &m_translation.z };
     auto itr = list.begin();
-    for (auto value_str : split_range(val, val + ::strlen(val),
-                                      is_comma, make_trim_whitespace<const char *>()))
+    for (auto value_str : split_range(val->begin(), val->end(),
+                                      is_comma, make_trim_whitespace<std::string::const_iterator>()))
     {
         bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), **itr);
         assert(is_num);
@@ -169,14 +170,14 @@ VertexArray TriangleToFloorVerticies::operator ()
 /* private static */ WallTileFactoryBase::GraphicMap WallTileFactoryBase::s_bottom_graphics_cache;
 
 void WallTileFactoryBase::operator ()
-    (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
+    (EntityAndTrianglesAdder & adder, const SlopeGroupNeighborhood & ninfo,
      Platform & platform) const
 {
     // physical triangles
     make_physical_triangles(ninfo, adder);
 
     // top
-    auto tile_loc = ninfo.tile_location();
+    auto tile_loc = ninfo.tile_location_on_field();
     adder.add_entity(make_entity(platform, tile_loc, m_top_model));
 
     // wall graphics
@@ -192,7 +193,7 @@ void WallTileFactoryBase::assign_wall_texture(const TileTexture & tt)
     { m_wall_texture_coords = &tt; }
 
 Slopes WallTileFactoryBase::computed_tile_elevations
-    (const NeighborInfo & ninfo) const
+    (const SlopeGroupNeighborhood & ninfo) const
 {
     using Cd = CardinalDirection;
     auto slopes = tile_elevations();
@@ -211,24 +212,14 @@ Slopes WallTileFactoryBase::computed_tile_elevations
 }
 
 void WallTileFactoryBase::make_physical_triangles
-    (const NeighborInfo & neighborhood, EntityAndTrianglesAdder & adder) const
+    (const SlopeGroupNeighborhood & neighborhood, EntityAndTrianglesAdder & adder) const
 {
     auto elvs = computed_tile_elevations(neighborhood);
-    auto offset = grid_position_to_v3(neighborhood.tile_location());
+    auto offset = grid_position_to_v3(neighborhood.tile_location_on_field());
     make_triangles(
         elvs, k_physical_dip_thershold, k_both_flats_and_wall,
         TriangleAdder::make([&adder, offset](const Triangle & triangle)
     { adder.add_triangle(triangle.move(offset)); }));
-}
-
-void WallTileFactoryBase::setup
-    (Vector2I loc_in_ts, const TileProperties * properties, Platform & platform)
-{
-    TranslatableTileFactory::setup(loc_in_ts, properties, platform);
-    m_dir = verify_okay_wall_direction
-        (cardinal_direction_from(find_property("direction", properties)));
-    m_tileset_location = loc_in_ts;
-    m_top_model = make_top_model(platform);
 }
 
 Slopes WallTileFactoryBase::tile_elevations() const {
@@ -255,7 +246,7 @@ Slopes WallTileFactoryBase::tile_elevations() const {
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::ensure_bottom_model
-    (const NeighborInfo & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
 {
     return ensure_model
         (neighborhood, s_bottom_graphics_cache,
@@ -264,7 +255,7 @@ Slopes WallTileFactoryBase::tile_elevations() const {
 
 template <typename MakerFunc>
 /* protected */ SharedPtr<const RenderModel> WallTileFactoryBase::ensure_model
-    (const NeighborInfo & neighborhood, GraphicMap & graphic_map,
+    (const SlopeGroupNeighborhood & neighborhood, GraphicMap & graphic_map,
      MakerFunc && make_model) const
 {
     auto key = graphic_key(neighborhood);
@@ -284,7 +275,7 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::ensure_wall_graphics
-    (const NeighborInfo & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
 {
     return ensure_model
         (neighborhood, s_wall_graphics_cache,
@@ -296,7 +287,7 @@ template <typename MakerFunc>
 }
 
 /* protected */ WallTileGraphicKey WallTileFactoryBase::graphic_key
-    (const NeighborInfo & ninfo) const
+    (const SlopeGroupNeighborhood & ninfo) const
 {
     WallTileGraphicKey key;
     key.direction = m_dir;
@@ -323,7 +314,7 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::make_bottom_graphics
-    (const NeighborInfo & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
 {
     return make_model_graphics(
         computed_tile_elevations(neighborhood), k_bottom_only,
@@ -374,7 +365,7 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
 WallTileFactoryBase::make_wall_graphics
-    (const NeighborInfo & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
 {
     const auto elvs = computed_tile_elevations(neighborhood);
     auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {
@@ -382,6 +373,17 @@ WallTileFactoryBase::make_wall_graphics
         return wall::map_to_texture(vtxs, wall_texture());
     });
     return make_model_graphics(elvs, k_wall_only, to_verticies, platform);
+}
+
+/* private */ void WallTileFactoryBase::setup_
+    (const Vector2I & loc_in_ts, const TileProperties & properties,
+     Platform & platform)
+{
+    TranslatableTileFactory::setup_(loc_in_ts, properties, platform);
+    m_dir = verify_okay_wall_direction
+        (cardinal_direction_from(properties.find_value("direction")));
+    m_tileset_location = loc_in_ts;
+    m_top_model = make_top_model(platform);
 }
 
 /* protected */ TileTexture WallTileFactoryBase::wall_texture() const

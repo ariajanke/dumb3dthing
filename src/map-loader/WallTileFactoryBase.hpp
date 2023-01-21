@@ -27,10 +27,6 @@
 #include <bitset>
 
 class TranslatableTileFactory : public TileFactory {
-public:
-    void setup
-        (Vector2I, const TileProperties * properties, Platform &) override;
-
 protected:
     Vector translation() const { return m_translation; }
 
@@ -38,6 +34,8 @@ protected:
         (Platform & platform, Vector2I tile_loc,
          const SharedPtr<const RenderModel> & model_ptr) const;
 
+    void setup_
+        (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
 private:
     Vector m_translation;
 };
@@ -179,19 +177,16 @@ public:
     };
 
     void operator ()
-        (EntityAndTrianglesAdder & adder, const NeighborInfo & ninfo,
-         Platform & platform) const final;
+        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
+         Platform &) const final;
 
     void assign_wall_texture(const TileTexture &);
 
-    Slopes computed_tile_elevations(const NeighborInfo &) const;
+    Slopes computed_tile_elevations(const SlopeGroupNeighborhood &) const;
 
     // should have translations and all
     void make_physical_triangles
-        (const NeighborInfo &, EntityAndTrianglesAdder &) const;
-
-    void setup
-        (Vector2I loc_in_ts, const TileProperties * properties, Platform &) final;
+        (const SlopeGroupNeighborhood &, EntityAndTrianglesAdder &) const;
 
     Slopes tile_elevations() const final;
 
@@ -217,25 +212,25 @@ private:
     // v belongs in a base class?
     TileTexture floor_texture() const;
 
-    WallTileGraphicKey graphic_key(const NeighborInfo & ninfo) const;
+    WallTileGraphicKey graphic_key(const SlopeGroupNeighborhood &) const;
 
     Real known_elevation() const;
 
     SharedPtr<const RenderModel> ensure_bottom_model
-        (const NeighborInfo & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
 
     template <typename MakerFunc>
     SharedPtr<const RenderModel> ensure_model
-        (const NeighborInfo & neighborhood, GraphicMap & graphic_map,
+        (const SlopeGroupNeighborhood & neighborhood, GraphicMap & graphic_map,
          MakerFunc && make_model) const;
 
     SharedPtr<const RenderModel>
         ensure_wall_graphics
-        (const NeighborInfo & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
 
     SharedPtr<const RenderModel>
         make_bottom_graphics
-        (const NeighborInfo & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
 
     std::array<Tuple<bool, CardinalDirection>, 4>
         make_known_corners_with_preposition() const;
@@ -252,7 +247,10 @@ private:
 
     SharedPtr<const RenderModel>
         make_wall_graphics
-        (const NeighborInfo & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
+
+    void setup_
+        (const Vector2I & loc_in_ts, const TileProperties &, Platform &) final;
 
     CardinalDirection verify_okay_wall_direction(CardinalDirection dir) const {
         if (!is_okay_wall_direction(dir)) {

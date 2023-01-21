@@ -134,9 +134,9 @@ void TileSet::load
     {
     factory_grid_positions.reserve(xml_grid.size());
     for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
-        auto el_ptr = xml_grid(r);
-        if (!el_ptr) continue;
-        auto & type = el_ptr->type();
+        const auto & el = xml_grid(r);
+        if (el.is_empty()) continue;
+        auto & type = el.type();
         auto itr = filler_factories.find(type);
         if (itr == filler_factories.end()) {
             // warn maybe, but don't error
@@ -245,7 +245,6 @@ void GidTidTranslator::swap(GidTidTranslator & rhs) {
 
 class ProducableRampTile final : public ProducableTile {
 public:
-    using NeighborInfo = TileFactory::NeighborInfo;
     using TileFactoryGridPtr = SharedPtr<Grid<TileFactory *>>;
 
     ProducableRampTile
@@ -271,7 +270,7 @@ public:
             const TileFactoryGridPtr & m_grid;
         };
         Impl intf_impl{m_factory_map_layer};
-        NeighborInfo ninfo{intf_impl, m_map_position,maps_offset};
+        SlopeGroupNeighborhood ninfo{intf_impl, m_map_position,maps_offset};
 
         auto factory = (*m_factory_map_layer)(m_map_position);
         (*factory)(adder, ninfo, platform);
@@ -339,16 +338,14 @@ public:
 
         // this should be a function
         for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
-            const auto * el = xml_grid(r);
-            if (!el)
+            const auto & el = xml_grid(r);
+            if (el.is_empty())
                 { continue; }
             // I know the specific tile factory type
-            const auto & tile_type = el->type();
+            const auto & tile_type = el.type();
             auto itr = factory_type_map.find(tile_type);
             if (itr != factory_type_map.end()) {
-                auto & factory = m_tile_factories(r) = (*itr->second)();
-                factory->set_shared_texture_information
-                    (xml_grid.texture(), xml_grid.texture_size(), xml_grid.tile_size());
+                m_tile_factories(r) = (*itr->second)();
             }
             auto jtr = special_type_funcs().find(tile_type);
             if (jtr != special_type_funcs().end()) {
@@ -359,9 +356,7 @@ public:
         for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
             auto & factory = m_tile_factories(r);
             if (!factory) { continue; }
-            factory->setup(r, xml_grid(r), platform);
-            factory->set_shared_texture_information
-                (xml_grid.texture(), xml_grid.texture_size(), xml_grid.tile_size());
+            factory->setup(xml_grid, platform, r);
             auto * wall_factory = dynamic_cast<WallTileFactoryBase *>(factory.get());
             auto wall_tx_itr = m_pure_textures.find("wall");
             if (wall_factory && wall_tx_itr != m_pure_textures.end()) {
@@ -398,7 +393,7 @@ private:
     void setup_pure_texture
         (const TileSetXmlGrid & xml_grid, const Vector2I & r)
     {
-        const auto & el = *xml_grid(r);
+        const auto & el = xml_grid(r);
         auto value = el.find_value("assignment");
         if (!value) return;
         using cul::convert_to;
