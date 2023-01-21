@@ -45,43 +45,6 @@ enum class CardinalDirection {
     nw, sw, se, ne
 };
 
-struct WallElevationAndDirection final {
-    CardinalDirection direction;
-    std::array<Real, 4> dip_heights;
-};
-
-class WallElevationAndDirectionComparator final {
-    static auto tileset_location_list(const Vector2I & v)
-        { return std::array { v.x, v.y }; };
-
-    template <typename T, std::size_t kt_size>
-    static T difference_between
-        (const std::array<T, kt_size> & lhs, const std::array<T, kt_size> & rhs)
-    {
-        for (int i = 0; i != int(lhs.size()); ++i) {
-            auto diff = lhs[i] - rhs[i];
-            if (!are_very_close(diff, 0)) // <- should be okay for both fp & int
-                return diff;
-        }
-        return 0;
-    }
-
-public:
-    using Wed = WallElevationAndDirection;
-    bool operator () (const Wed & lhs, const Wed & rhs) const {
-        auto diff = static_cast<int>(lhs.direction) - static_cast<int>(rhs.direction);
-        if (diff) return diff < 0;
-
-        auto slopes_diff = difference_between(lhs.dip_heights, rhs.dip_heights);
-        return slopes_diff < 0;
-    }
-};
-
-using WallRenderModelCache = std::map<
-    WallElevationAndDirection,
-    Tuple<SharedPtr<const RenderModel>, std::vector<TriangleSegment>>,
-    WallElevationAndDirectionComparator>;
-
 class SlopesGridInterface {
 public:
     virtual ~SlopesGridInterface() {}
@@ -141,17 +104,10 @@ class TileFactory {
 public:
     virtual ~TileFactory() {}
 
-    // removing slopes things... would remove this operator
-    virtual void operator ()
-        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &, Platform &) const = 0;
-
     void setup(const TileSetXmlGrid &, Platform &,
                const Vector2I & location_on_tileset);
 
-    virtual Slopes tile_elevations() const = 0;
-
 protected:
-
     static void add_triangles_based_on_model_details
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
          EntityAndTrianglesAdder & adder);

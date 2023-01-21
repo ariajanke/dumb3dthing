@@ -22,15 +22,14 @@
 
 #include "WallTileFactory.hpp"
 
-class SlopedTileFactory {
-
-};
-
-class SlopesBasedModelTileFactory : public TranslatableTileFactory {
+class SingleModelSlopedTileFactory : public SlopesBasedTileFactory {
 public:
     void operator ()
         (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
          Platform &) const final;
+
+    Slopes tile_elevations() const final
+        { return translate_y(model_tile_elevations(), translation().y); }
 
 protected:
     Entity make_entity(Platform & platform, Vector2I r) const
@@ -41,14 +40,11 @@ protected:
     void setup_
         (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
 
-    Slopes tile_elevations() const final
-        { return translate_y(model_tile_elevations(), translation().y); }
-
 private:
     SharedPtr<const RenderModel> m_render_model;
 };
 
-class RampTileFactory : public SlopesBasedModelTileFactory {
+class RampTileFactory : public SingleModelSlopedTileFactory {
 public:
     template <typename T>
     static Tuple<const std::vector<Vector> &, const std::vector<unsigned> &>
@@ -96,7 +92,7 @@ class TwoRampTileFactory final : public RampTileFactory {
     Slopes m_slopes;
 };
 
-class FlatTileFactory final : public SlopesBasedModelTileFactory {
+class FlatTileFactory final : public SingleModelSlopedTileFactory {
     Slopes model_tile_elevations() const final
         { return Slopes{0, 0, 0, 0}; }
 };

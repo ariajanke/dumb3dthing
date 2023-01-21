@@ -40,6 +40,14 @@ private:
     Vector m_translation;
 };
 
+class SlopesBasedTileFactory : public TranslatableTileFactory {
+public:
+    virtual void operator ()
+        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
+         Platform &) const = 0;
+
+    virtual Slopes tile_elevations() const = 0;
+};
 // ----------------------------------------------------------------------------
 
 // want to "cache" graphics
@@ -151,7 +159,8 @@ private:
 // class is too god like
 // well what are the responsiblities this class is handling?
 // and how should I seperate them?
-class WallTileFactoryBase : public TranslatableTileFactory {
+// use utility classes perhaps
+class WallTileFactoryBase : public SlopesBasedTileFactory {
 public:
     // to make a tile:
     // cache each "type" of graphic

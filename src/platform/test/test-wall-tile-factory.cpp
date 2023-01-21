@@ -28,7 +28,6 @@
 namespace {
 
 using Triangle = TriangleSegment;
-using NeighborInfo = TileFactory::NeighborInfo;
 using namespace cul::exceptions_abbr;
 
 constexpr const auto k_flats_only          = WallTileFactoryBase::k_bottom_only | WallTileFactoryBase::k_top_only;

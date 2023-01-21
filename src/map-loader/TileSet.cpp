@@ -245,7 +245,7 @@ void GidTidTranslator::swap(GidTidTranslator & rhs) {
 
 class ProducableRampTile final : public ProducableTile {
 public:
-    using TileFactoryGridPtr = SharedPtr<Grid<TileFactory *>>;
+    using TileFactoryGridPtr = SharedPtr<Grid<SlopesBasedTileFactory *>>;
 
     ProducableRampTile
         (const Vector2I & map_position,
@@ -284,14 +284,14 @@ private:
 
 class RampGroupFiller final : public TileProducableFiller {
 public:
-    using RampGroupFactoryMakeFunc = UniquePtr<TileFactory>(*)();
+    using RampGroupFactoryMakeFunc = UniquePtr<SlopesBasedTileFactory>(*)();
     using RampGroupFactoryMap = std::map<std::string, RampGroupFactoryMakeFunc>;
     using TileTextureMap = std::map<std::string, TileTexture>;
     using SpecialTypeFunc = void(RampGroupFiller::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
     using SpecialTypeFuncMap = std::map<std::string, SpecialTypeFunc>;
-    static SharedPtr<Grid<TileFactory *>> make_factory_grid_for_map
+    static SharedPtr<Grid<SlopesBasedTileFactory *>> make_factory_grid_for_map
         (const std::vector<TileLocation> & tile_locations,
-         const Grid<SharedPtr<TileFactory>> & tile_factories)
+         const Grid<SharedPtr<SlopesBasedTileFactory>> & tile_factories)
     {
         // I don't know how big things are... so I have to figure it out
         // This will need to change to ensure that the grid is large enough to
@@ -307,7 +307,7 @@ public:
             return res;
         } ();
 
-        SharedPtr<Grid<TileFactory *>> factory_grid_for_map = make_shared<Grid<TileFactory *>>();
+        SharedPtr<Grid<SlopesBasedTileFactory *>> factory_grid_for_map = make_shared<Grid<SlopesBasedTileFactory *>>();
         factory_grid_for_map->set_size(map_grid_size, nullptr);
         for (auto & tl : tile_locations) {
             (*factory_grid_for_map)(tl.location_on_map) = tile_factories(tl.location_on_tileset).get();
@@ -334,7 +334,7 @@ public:
          const RampGroupFactoryMap & factory_type_map = builtin_tile_factory_maker_map())
     {
         // I know how large the grid should be
-        m_tile_factories.set_size(xml_grid.size2(), UniquePtr<TileFactory>{});
+        m_tile_factories.set_size(xml_grid.size2(), UniquePtr<SlopesBasedTileFactory>{});
 
         // this should be a function
         for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
@@ -385,8 +385,8 @@ public:
 
 private:
     template <typename T>
-    static UniquePtr<TileFactory> make_unique_base_factory() {
-        static_assert(std::is_base_of_v<TileFactory, T>);
+    static UniquePtr<SlopesBasedTileFactory> make_unique_base_factory() {
+        static_assert(std::is_base_of_v<SlopesBasedTileFactory, T>);
         return make_unique<T>();
     }
 
@@ -414,7 +414,7 @@ private:
     }
 
     TileTextureMap m_pure_textures;
-    Grid<SharedPtr<TileFactory>> m_tile_factories;
+    Grid<SharedPtr<SlopesBasedTileFactory>> m_tile_factories;
 };
 
 /* static */ SharedPtr<TileProducableFiller> TileProducableFiller::make_ramp_group_filler

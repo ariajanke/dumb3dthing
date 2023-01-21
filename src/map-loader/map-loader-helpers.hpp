@@ -43,10 +43,6 @@ private:
     std::vector<SharedPtr<TriangleLink>> m_triangles;
 };
 
-using TileFactorySubGrid = cul::ConstSubGrid
-    <TileFactory *,
-     cul::SubGridParentAccess::allow_access_to_parent_elements>;
-
 /// container of triangle links, used to glue segment triangles together
 class InterTriangleLinkContainer final {
 public:

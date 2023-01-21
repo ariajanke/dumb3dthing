@@ -27,7 +27,7 @@ using namespace cul::exceptions_abbr;
 
 } // end of <anonymous> namespace
 
-void SlopesBasedModelTileFactory::operator ()
+void SingleModelSlopedTileFactory::operator ()
     (EntityAndTrianglesAdder & adder, const SlopeGroupNeighborhood & nhood,
      Platform & platform) const
 {
@@ -38,7 +38,7 @@ void SlopesBasedModelTileFactory::operator ()
     adder.add_entity(make_entity(platform, r));
 }
 
-/* protected */ void SlopesBasedModelTileFactory::setup_
+/* protected */ void SingleModelSlopedTileFactory::setup_
     (const Vector2I & loc_in_ts, const TileProperties & properties,
      Platform & platform)
 {
@@ -56,7 +56,7 @@ void SlopesBasedModelTileFactory::operator ()
     if (const auto * val = properties.find_value("direction")) {
         set_direction(val->c_str());
     }
-    SlopesBasedModelTileFactory::setup_(loc_in_ts, properties, platform);
+    SingleModelSlopedTileFactory::setup_(loc_in_ts, properties, platform);
 }
 
 // --------------------------- <anonymous> namespace --------------------------
