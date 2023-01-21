@@ -50,7 +50,8 @@ void TiledMapRegion::request_region_load
         {region_left, region_top,
          region_right - region_left, region_bottom - region_top});
 #   if MACRO_BIG_RED_BUTTON
-    region_preparer->set_tile_producable_subgrid(std::move(factory_subgrid));
+    region_preparer->set_tile_producable_subgrid
+        (Vector2I{region_left, region_top}, std::move(factory_subgrid));
 #   else
     region_preparer->set_tile_factory_subgrid(std::move(factory_subgrid));
 #   endif
@@ -125,8 +126,9 @@ void MapRegionPreparer::operator () (LoaderTask::Callbacks & callbacks) const {
     {
         for (auto producable : m_tile_factory_grid(r)) {
             if (!producable) continue;
-            (*producable)(m_tile_offset, triangle_entities_adder, callbacks.platform());
+            (*producable)(m_tile_offset - m_subgrid_offset, triangle_entities_adder, callbacks.platform());
         }
+        triangle_entities_adder.advance_grid_position();
     }
 
     auto [link_container, link_view_grid] =
@@ -156,8 +158,11 @@ MapRegionPreparer::MapRegionPreparer
 
 #if MACRO_BIG_RED_BUTTON
 void MapRegionPreparer::set_tile_producable_subgrid
-    (ProducableTileViewSubGrid && tile_factory_grid)
-    { m_tile_factory_grid = std::move(tile_factory_grid); }
+    (const Vector2I & subgrid_tl, ProducableTileViewSubGrid && tile_factory_grid)
+{
+    m_subgrid_offset = subgrid_tl;
+    m_tile_factory_grid = std::move(tile_factory_grid);
+}
 #else
 void MapRegionPreparer::set_tile_factory_subgrid
     (TileFactoryViewSubGrid && tile_factory_grid)

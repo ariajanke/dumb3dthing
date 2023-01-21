@@ -156,7 +156,7 @@ public:
 
     void operator () (LoaderTask::Callbacks & callbacks) const final;
 #   if MACRO_BIG_RED_BUTTON
-    void set_tile_producable_subgrid(ProducableTileViewSubGrid && tile_factory_grid);
+    void set_tile_producable_subgrid(const Vector2I & subgrid_tl, ProducableTileViewSubGrid && tile_factory_grid);
 #   else
     void set_tile_factory_subgrid(TileFactoryViewSubGrid && tile_factory_grid);
 #   endif
@@ -170,6 +170,7 @@ private:
 #   endif
 #   if MACRO_BIG_RED_BUTTON
     ProducableTileViewSubGrid m_tile_factory_grid;
+    Vector2I m_subgrid_offset;
 #   else
     TileFactoryViewSubGrid m_tile_factory_grid;
 #   endif
