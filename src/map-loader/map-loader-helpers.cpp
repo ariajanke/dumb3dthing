@@ -20,6 +20,8 @@
 
 #include "map-loader-helpers.hpp"
 
+#include "GidTidTranslator.hpp"
+
 namespace {
 
 using GridOfViews = InterTriangleLinkContainer::GridOfViews;
@@ -32,19 +34,6 @@ void TeardownTask::operator () (Callbacks & callbacks) const {
     for (auto & triptr : m_triangles)
         { callbacks.remove(triptr); }
 }
-
-// ----------------------------------------------------------------------------
-
-void TileProducableViewGrid::set_layers
-    (UnfinishedProducableTileGridView && unfinished_grid,
-     GidTidTranslator && gidtid_translator)
-{
-    std::tie(m_factories, m_groups)
-        = unfinished_grid.move_out_producables_and_groups();
-    m_tilesets = gidtid_translator.move_out_tilesets();
-}
-
-// ----------------------------------------------------------------------------
 
 InterTriangleLinkContainer::InterTriangleLinkContainer
     (const GridOfViews & views)

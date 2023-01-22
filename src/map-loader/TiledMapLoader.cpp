@@ -273,14 +273,14 @@ OptionalTileViewGrid WaitingForTileSets::update_progress
 OptionalTileViewGrid TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
-    UnfinishedProducableTileGridView unfinished_grid_view;
+    UnfinishedProducableTileViewGrid unfinished_grid_view;
     for (auto & layer : m_layers) {
         auto tid_layer = gid_layer_to_tid_layer(layer, m_tidgid_translator);
         auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
         unfinished_grid_view = make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
             finish(std::move(unfinished_grid_view));
     }
-    TileProducableViewGrid rv;
+    ProducableTileViewGrid rv;
     next_state.set_next_state<Expired>();
     rv.set_layers(std::move(unfinished_grid_view), std::move(m_tidgid_translator));
 

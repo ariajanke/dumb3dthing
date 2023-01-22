@@ -23,6 +23,7 @@
 #include "../RenderModel.hpp"
 #include "../Components.hpp"
 #include "TileSet.hpp"
+#include "TileSetPropertiesGrid.hpp"
 
 #include <tinyxml2.h>
 

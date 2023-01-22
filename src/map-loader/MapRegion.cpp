@@ -26,6 +26,41 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 
+class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
+public:
+    using GridViewTriangleInserter = ViewGridInserter<SharedPtr<TriangleLink>>;
+
+    explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
+        m_triangle_inserter(grid_size) {}
+
+    void add_triangle(const TriangleSegment & triangle) final
+        { m_triangle_inserter.push(triangle); }
+
+    void add_entity(const Entity & ent) final
+        { m_entities.push_back(ent); }
+
+    std::vector<Entity> move_out_entities()
+        { return std::move(m_entities); }
+
+    void advance_grid_position()
+        { m_triangle_inserter.advance(); }
+
+    Tuple<GridViewTriangleInserter::ElementContainer,
+          Grid<GridViewTriangleInserter::ElementView>>
+        move_out_container_and_grid_view()
+    {
+        return m_triangle_inserter.
+            transform_values<SharedPtr<TriangleLink>>(to_link).
+            move_out_container_and_grid_view();
+    }
+private:
+    static SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
+        { return make_shared<TriangleLink>(segment); }
+
+    ViewGridInserter<TriangleSegment> m_triangle_inserter;
+    std::vector<Entity> m_entities;
+};
+
 } // end of <anonymous> namespace
 
 void TiledMapRegion::request_region_load
@@ -123,7 +158,7 @@ MapRegionPreparer::MapRegionPreparer
 
 void MapRegionPreparer::assign_tile_producable_grid
     (const RectangleI & region_range,
-     const TileProducableViewGrid & tile_factory_grid)
+     const ProducableTileViewGrid & tile_factory_grid)
 {
     m_producable_grid_range = region_range;
     m_tile_producable_grid = &tile_factory_grid;

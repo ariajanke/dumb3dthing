@@ -20,6 +20,7 @@
 
 #include "RampTileFactory.hpp"
 #include "TileSet.hpp"
+#include "TileSetPropertiesGrid.hpp"
 
 namespace {
 

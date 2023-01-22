@@ -21,6 +21,7 @@
 #pragma once
 
 #include "MapRegion.hpp"
+#include "GidTidTranslator.hpp"
 
 #include <ariajanke/cul/RectangleUtils.hpp>
 
@@ -44,7 +45,7 @@ public:
     using Ready = MapLoadingReady;
     using Expired = MapLoadingExpired;
     using StateHolder = MapLoadingStateHolder;
-    using OptionalTileViewGrid = Optional<TileProducableViewGrid>;
+    using OptionalTileViewGrid = Optional<ProducableTileViewGrid>;
 
 protected:
     MapLoadingContext() {}

@@ -20,6 +20,7 @@
 
 #include "WallTileFactoryBase.hpp"
 #include "TileSet.hpp"
+#include "TileSetPropertiesGrid.hpp"
 
 #include <numeric>
 

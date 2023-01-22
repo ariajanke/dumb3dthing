@@ -38,7 +38,7 @@ public:
 class TiledMapRegion final : public MapRegion {
 public:
     TiledMapRegion
-        (TileProducableViewGrid && full_factory_grid,
+        (ProducableTileViewGrid && full_factory_grid,
          const Size2I & region_size_in_tiles):
          m_region_size(region_size_in_tiles),
          m_factory_grid(std::move(full_factory_grid)) {}
@@ -52,7 +52,7 @@ private:
     Size2I map_size_in_regions() const;
 
     Size2I m_region_size;
-    TileProducableViewGrid m_factory_grid;
+    ProducableTileViewGrid m_factory_grid;
 };
 
 class GridMapRegionCompleter {
@@ -87,53 +87,18 @@ private:
 /// a loader task that prepares a region of the map
 class MapRegionPreparer final : public LoaderTask {
 public:
-    class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
-    public:
-        using GridViewTriangleInserter = GridViewInserter<SharedPtr<TriangleLink>>;
-
-        explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
-            m_triangle_inserter(grid_size) {}
-
-        void add_triangle(const TriangleSegment & triangle) final
-            { m_triangle_inserter.push(triangle); }
-
-        void add_entity(const Entity & ent) final
-            { m_entities.push_back(ent); }
-
-        std::vector<Entity> move_out_entities()
-            { return std::move(m_entities); }
-
-        void advance_grid_position()
-            { m_triangle_inserter.advance(); }
-
-        Tuple<GridViewTriangleInserter::ElementContainer,
-              Grid<GridViewTriangleInserter::ElementView>>
-            move_out_container_and_grid_view()
-        {
-            return m_triangle_inserter.
-                transform_values<SharedPtr<TriangleLink>>(to_link).
-                move_out_container_and_grid_view();
-        }
-    private:
-        static SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
-            { return make_shared<TriangleLink>(segment); }
-
-        GridViewInserter<TriangleSegment> m_triangle_inserter;
-        std::vector<Entity> m_entities;
-    };
-
     explicit MapRegionPreparer(const Vector2I & tile_offset);
 
     void operator () (LoaderTask::Callbacks & callbacks) const final;
 
     void assign_tile_producable_grid
         (const RectangleI & region_range,
-         const TileProducableViewGrid & tile_factory_grid);
+         const ProducableTileViewGrid & tile_factory_grid);
 
     void set_completer(const MapRegionCompleter &);
 
 private:
-    const TileProducableViewGrid * m_tile_producable_grid = nullptr;
+    const ProducableTileViewGrid * m_tile_producable_grid = nullptr;
     RectangleI m_producable_grid_range;
 
     MapRegionCompleter m_completer;
