@@ -20,12 +20,12 @@
 
 #pragma once
 
-#include "TileFactory.hpp"
-#include "../RenderModel.hpp"
-#include "../platform.hpp"
+#include "SlopesBasedTileFactory.hpp"
+#include "../../RenderModel.hpp"
+#include "../../platform.hpp"
 
 #include <bitset>
-
+#if 0
 class TranslatableTileFactory : public TileFactory {
 protected:
     Vector translation() const { return m_translation; }
@@ -48,6 +48,7 @@ public:
 
     virtual Slopes tile_elevations() const = 0;
 };
+#endif
 // ----------------------------------------------------------------------------
 
 // want to "cache" graphics

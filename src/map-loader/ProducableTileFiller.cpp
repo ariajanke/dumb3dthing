@@ -19,17 +19,19 @@
 *****************************************************************************/
 
 #include "ProducableTileFiller.hpp"
-#include "WallTileFactory.hpp"
-#include "RampTileFactory.hpp"
+#if 0
+#include "slopes-group-filler/WallTileFactory.hpp"
+#include "slopes-group-filler/RampTileFactory.hpp"
 #include "TileSetPropertiesGrid.hpp"
-
+#endif
+#include "slopes-group-filler.hpp"
 namespace {
-
-class ProducableRampTile final : public ProducableTile {
+#if 0
+class ProducableSlopeTile final : public ProducableTile {
 public:
     using TileFactoryGridPtr = SharedPtr<Grid<SlopesBasedTileFactory *>>;
 
-    ProducableRampTile
+    ProducableSlopeTile
         (const Vector2I & map_position,
          const TileFactoryGridPtr & factory_map_layer):
         m_map_position(map_position),
@@ -64,12 +66,12 @@ private:
     TileFactoryGridPtr m_factory_map_layer;
 };
 
-class RampGroupFiller final : public TileProducableFiller {
+class SlopeGroupFiller final : public ProducableTileFiller {
 public:
     using RampGroupFactoryMakeFunc = UniquePtr<SlopesBasedTileFactory>(*)();
     using RampGroupFactoryMap = std::map<std::string, RampGroupFactoryMakeFunc>;
     using TileTextureMap = std::map<std::string, TileTexture>;
-    using SpecialTypeFunc = void(RampGroupFiller::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
+    using SpecialTypeFunc = void(SlopeGroupFiller::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
     using SpecialTypeFuncMap = std::map<std::string, SpecialTypeFunc>;
     static SharedPtr<Grid<SlopesBasedTileFactory *>> make_factory_grid_for_map
         (const std::vector<TileLocation> & tile_locations,
@@ -102,9 +104,9 @@ public:
          UnfinishedTileGroupGrid && group_grid) const final
     {
         auto mapwide_factory_grid = make_factory_grid_for_map(tile_locations, m_tile_factories);
-        UnfinishedProducableGroup<ProducableRampTile> group;
+        UnfinishedProducableGroup<ProducableSlopeTile> group;
         for (auto r : tile_locations) {
-            group.at_position(r.location_on_map).
+            group.at_location(r.location_on_map).
                 make_producable(r.location_on_map, mapwide_factory_grid);
         }
         group_grid.add_group(std::move(group));
@@ -189,7 +191,7 @@ private:
     static const SpecialTypeFuncMap & special_type_funcs() {
         static auto s_map = [] {
             SpecialTypeFuncMap s_map;
-            s_map["pure-texture"] = &RampGroupFiller::setup_pure_texture;
+            s_map["pure-texture"] = &SlopeGroupFiller::setup_pure_texture;
             return s_map;
         } ();
         return s_map;
@@ -198,13 +200,13 @@ private:
     TileTextureMap m_pure_textures;
     Grid<SharedPtr<SlopesBasedTileFactory>> m_tile_factories;
 };
-
+#endif
 } // end of <anonymous> namespace
 
-/* static */ SharedPtr<TileProducableFiller> TileProducableFiller::make_slopes_group_filler
+/* static */ SharedPtr<ProducableTileFiller> ProducableTileFiller::make_slopes_group_filler
     (const TileSetXmlGrid & xml_grid, Platform & platform)
 {
-    auto rv = make_shared<RampGroupFiller>();
+    auto rv = make_shared<SlopeGroupFiller>();
     rv->load(xml_grid, platform);
     return rv;
 }

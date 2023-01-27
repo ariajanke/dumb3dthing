@@ -19,7 +19,9 @@
 *****************************************************************************/
 
 #include "TileFactory.hpp"
-#include "WallTileFactory.hpp"
+#if 0
+#include "slopes-group-filler/WallTileFactory.hpp"
+#endif
 #include "../RenderModel.hpp"
 #include "../Components.hpp"
 #include "TileSet.hpp"
@@ -41,7 +43,7 @@ static const constexpr std::array k_flat_points = {
 };
 
 } // end of <anonymous> namespace
-
+#if 0
 SlopeGroupNeighborhood::SlopeGroupNeighborhood
     (const SlopesGridInterface & slopesintf, Vector2I tilelocmap,
      Vector2I spawner_offset):
@@ -115,7 +117,7 @@ Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
     }
     throw BadBranchException{__LINE__, __FILE__};
 }
-
+#endif
 void TileFactory::set_shared_texture_information
     (const SharedPtr<const Texture> & texture_ptr_, const Size2 & texture_size_,
      const Size2 & tile_size_)
@@ -234,7 +236,7 @@ void TileFactory::setup
         (model_ptr, common_texture(), Translation{translation}, true);
     return ent;
 }
-
+#if 0
 CardinalDirection cardinal_direction_from(const std::string * str) {
     return cardinal_direction_from(str ? str->c_str() : nullptr);
 }
@@ -257,3 +259,4 @@ CardinalDirection cardinal_direction_from(const char * str) {
     throw InvArg{  "cardinal_direction_from: cannot convert \""
                  + std::string{str} + "\" to a cardinal direction"};
 }
+#endif

@@ -37,52 +37,64 @@ public:
 template <typename T>
 class UnfinishedProducableGroup final {
 public:
-    UnfinishedProducableGroup & at_position(const Vector2I & r) {
-        m_positions.push_back(r);
-        return *this;
-    }
+    class MakerPosition final {
+    public:
+        MakerPosition(Vector2I target,
+                      std::vector<Vector2I> & locations,
+                      std::vector<T> & producables);
 
-    template <typename ... Types>
-    void make_producable(Types && ... args) {
-        verify_container_sizes("make_producable");
-        m_producables.emplace_back(std::forward<Types>(args)...);
-    }
+        template <typename ... Types>
+        void make_producable(Types && ... args);
 
-    SharedPtr<ProducableGroup_> finish(Grid<ProducableTile *> & target) {
-        verify_finishable("finish");
-        class Impl final : public ProducableGroup_ {
-        public:
-            explicit Impl(std::vector<T> && producables_):
-                producables(std::move(producables_)) {}
+    private:
+        Vector2I m_target;
+        std::vector<Vector2I> & m_locations;
+        std::vector<T> & m_producables;
+    };
 
-            std::vector<T> producables;
-        };
-        auto rv = make_shared<Impl>(std::move(m_producables));
-        m_producables.clear();
-        for (std::size_t i = 0; i != m_positions.size(); ++i) {
-            target(m_positions[i]) = &rv->producables[i];
-        }
-        m_positions.clear();
-        return rv;
-    }
+    [[nodiscard]] MakerPosition at_location(const Vector2I & r)
+        { return MakerPosition{r, m_positions, m_producables}; }
+
+    SharedPtr<ProducableGroup_> finish(Grid<ProducableTile *> & target);
 
 private:
-    void verify_finishable(const char * caller) const {
-        using namespace cul::exceptions_abbr;
-        if (m_positions.size() == m_producables.size()) return;
-        throw RtError{  "UnfinishedProducableGroup::" + std::string{caller}
-                      + ": to finish a group, both every call to 'at_position' "
-                        "must be followed by exactly one call to 'make_producable'"};
-    }
-
-    void verify_container_sizes(const char * caller) const {
-        using namespace cul::exceptions_abbr;
-        if (m_positions.size() == m_producables.size() + 1) return;
-        throw RtError{  "UnfinishedProducableGroup::" + std::string{caller}
-                      + ": at_position must be called exactly once before this "
-                        "method is called"};
-    }
-
     std::vector<T> m_producables;
     std::vector<Vector2I> m_positions;
 };
+
+// ----------------------------------------------------------------------------
+
+template <typename T>
+UnfinishedProducableGroup<T>::MakerPosition::MakerPosition
+    (Vector2I target, std::vector<Vector2I> & locations,
+     std::vector<T> & producables):
+    m_target     (target),
+    m_locations  (locations),
+    m_producables(producables) {}
+
+template <typename T>
+template <typename ... Types>
+void UnfinishedProducableGroup<T>::MakerPosition::make_producable(Types && ... args) {
+    m_locations.push_back(m_target);
+    m_producables.emplace_back(std::forward<Types>(args)...);
+}
+
+// ----------------------------------------------------------------------------
+
+template <typename T>
+SharedPtr<ProducableGroup_> UnfinishedProducableGroup<T>::finish(Grid<ProducableTile *> & target) {
+    class Impl final : public ProducableGroup_ {
+    public:
+        explicit Impl(std::vector<T> && producables_):
+            producables(std::move(producables_)) {}
+
+        std::vector<T> producables;
+    };
+    auto rv = make_shared<Impl>(std::move(m_producables));
+    m_producables.clear();
+    for (std::size_t i = 0; i != m_positions.size(); ++i) {
+        target(m_positions[i]) = &rv->producables[i];
+    }
+    m_positions.clear();
+    return rv;
+}

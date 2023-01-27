@@ -28,9 +28,9 @@
 /// Tilesets map tileset ids to tile group fillers.
 class TileSet final {
 public:
-    using FillerFactory = SharedPtr<TileProducableFiller>(*)(const TileSetXmlGrid &, Platform &);
+    using FillerFactory = SharedPtr<ProducableTileFiller>(*)(const TileSetXmlGrid &, Platform &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
-    using TileLocation = TileProducableFiller::TileLocation;
+    using TileLocation = ProducableTileFiller::TileLocation;
 
     static const FillerFactoryMap & builtin_fillers();
 
@@ -43,7 +43,7 @@ public:
     void load(Platform &, const TiXmlElement &,
               const FillerFactoryMap & = builtin_fillers());
 
-    SharedPtr<TileProducableFiller> find_filler(int tid) const;
+    SharedPtr<ProducableTileFiller> find_filler(int tid) const;
 
     Vector2I tile_id_to_tileset_location(int tid) const;
 
@@ -51,7 +51,7 @@ public:
         { return m_filler_grid.size(); }
 
 private:
-    SharedPtr<TileProducableFiller> find_filler(Vector2I) const;
+    SharedPtr<ProducableTileFiller> find_filler(Vector2I) const;
 
-    Grid<SharedPtr<TileProducableFiller>> m_filler_grid;
+    Grid<SharedPtr<ProducableTileFiller>> m_filler_grid;
 };

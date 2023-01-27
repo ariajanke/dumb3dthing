@@ -35,41 +35,25 @@ public:
 
     GidTidTranslator() {}
 
-    GidTidTranslator(const std::vector<TileSetPtr> & tilesets, const std::vector<int> & startgids);
+    GidTidTranslator(const std::vector<TileSetPtr> & tilesets,
+                     const std::vector<int> & startgids);
 
-    // TODO change to Tuple
-    std::pair<int, ConstTileSetPtr> gid_to_tid(int gid) const;
+    Tuple<int, ConstTileSetPtr> gid_to_tid(int gid) const;
+
+    std::vector<SharedPtr<const TileSet>> move_out_tilesets();
 
     void swap(GidTidTranslator &);
 
-    std::vector<SharedPtr<const TileSet>> move_out_tilesets() {
-        std::vector<SharedPtr<const TileSet>> rv;
-        rv.reserve(m_gid_map.size());
-        for (auto & tl : m_gid_map) {
-            rv.emplace_back(std::move(tl.tileset));
-        }
-        m_gid_map.clear();
-        m_gid_end = 0;
-        return rv;
-    }
-
 private:
-    template <bool kt_is_const>
-    struct GidAndTileSetPtrImpl {
-        using TsPtrType =
-            typename std::conditional_t<kt_is_const, ConstTileSetPtr, TileSetPtr>;
+    struct GidAndTileSetPtr final {
+        GidAndTileSetPtr() {}
 
-        GidAndTileSetPtrImpl() {}
-
-        GidAndTileSetPtrImpl(int sid, const TsPtrType & ptr):
+        GidAndTileSetPtr(int sid, const TileSetPtr & ptr):
             starting_id(sid), tileset(ptr) {}
 
         int starting_id = 0;
-        TsPtrType tileset;
+        TileSetPtr tileset;
     };
-
-    using GidAndTileSetPtr      = GidAndTileSetPtrImpl<false>;
-    using GidAndConstTileSetPtr = GidAndTileSetPtrImpl<true>;
 
     static bool order_by_gids(const GidAndTileSetPtr &, const GidAndTileSetPtr &);
 

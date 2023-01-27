@@ -97,8 +97,8 @@ Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
 }
 
 struct FillerAndLocations final {
-    SharedPtr<TileProducableFiller> filler;
-    std::vector<TileProducableFiller::TileLocation> tile_locations;
+    SharedPtr<ProducableTileFiller> filler;
+    std::vector<ProducableTileFiller::TileLocation> tile_locations;
 };
 
 std::vector<FillerAndLocations>
@@ -106,15 +106,15 @@ std::vector<FillerAndLocations>
     (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tids_and_tilesets)
 {
     std::map<
-        SharedPtr<TileProducableFiller>,
-        std::vector<TileProducableFiller::TileLocation>> fillers_to_locs;
+        SharedPtr<ProducableTileFiller>,
+        std::vector<ProducableTileFiller::TileLocation>> fillers_to_locs;
     for (Vector2I layer_loc; layer_loc != tids_and_tilesets.end_position();
          layer_loc = tids_and_tilesets.next(layer_loc))
     {
         auto [tid, tileset] = tids_and_tilesets(layer_loc);
         if (!tileset) continue;
         auto filler = tileset->find_filler(tid);
-        TileProducableFiller::TileLocation tile_loc;
+        ProducableTileFiller::TileLocation tile_loc;
         tile_loc.location_on_map     = layer_loc;
         tile_loc.location_on_tileset = tileset->tile_id_to_tileset_location(tid);
         fillers_to_locs[filler].push_back(tile_loc);

@@ -19,8 +19,8 @@
 *****************************************************************************/
 
 #include "RampTileFactory.hpp"
-#include "TileSet.hpp"
-#include "TileSetPropertiesGrid.hpp"
+#include "../TileSet.hpp"
+#include "../TileSetPropertiesGrid.hpp"
 
 namespace {
 

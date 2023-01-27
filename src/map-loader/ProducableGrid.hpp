@@ -62,6 +62,8 @@ private:
     std::vector<SharedPtr<const TileSet>> m_tilesets;
 };
 
+// these can go into loading
+
 class UnfinishedProducableTileViewGrid final {
 public:
     void add_layer

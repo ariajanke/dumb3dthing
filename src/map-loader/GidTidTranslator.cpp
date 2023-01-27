@@ -32,35 +32,50 @@ GidTidTranslator::GidTidTranslator
     (const std::vector<TileSetPtr> & tilesets, const std::vector<int> & startgids)
 {
     if (tilesets.size() != startgids.size()) {
-        throw RtError{"Bug in library, GidTidTranslator constructor expects "
-                      "both passed containers to be equal in size."};
+        throw InvArg{"GidTidTranslator::GidTidTranslator: GidTidTranslator "
+                     "constructor expects both passed containers to be equal "
+                     "in size."};
     }
     m_gid_map.reserve(tilesets.size());
     for (std::size_t i = 0; i != tilesets.size(); ++i) {
         m_gid_map.emplace_back(startgids[i], tilesets[i]);
     }
+    // this is what happens when you don't test your shit
     if (!startgids.empty()) {
         m_gid_end = startgids.back() + tilesets.back()->total_tile_count();
     }
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
 }
 
-std::pair<int, ConstTileSetPtr> GidTidTranslator::gid_to_tid(int gid) const {
+std::vector<SharedPtr<const TileSet>> GidTidTranslator::move_out_tilesets() {
+    std::vector<SharedPtr<const TileSet>> rv;
+    rv.reserve(m_gid_map.size());
+    for (auto & tl : m_gid_map) {
+        rv.emplace_back(std::move(tl.tileset));
+    }
+    m_gid_map.clear();
+    m_gid_end = 0;
+    return rv;
+}
+
+Tuple<int, ConstTileSetPtr> GidTidTranslator::gid_to_tid(int gid) const {
     if (gid == 0) {
         return std::make_pair(0, nullptr);
     }
     if (gid < 1 || gid >= m_gid_end) {
-        throw InvArg{"Given gid is either the empty tile or not contained in "
-                     "this map; translatable gids: [1 " + std::to_string(m_gid_end)
-                     + ")."};
+        throw InvArg{"GidTidTranslator::gid_to_tid: Given gid is either the "
+                     "empty tile or not contained in this map; translatable "
+                     "gids: [1 " + std::to_string(m_gid_end) + ")."};
     }
     GidAndTileSetPtr samp;
     samp.starting_id = gid;
     auto itr = std::upper_bound(m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
+    assert(itr != m_gid_map.begin());
+#   if 0
     if (itr == m_gid_map.begin()) {
-        throw RtError{"Library error: GidTidTranslator said that it owned a "
-                      "gid, but does not have a tileset for it."};
+        throw RtError{"GidTidTranslator::gid_to_tid: Given gid is "};
     }
+#   endif
     --itr;
     assert(gid >= itr->starting_id);
     return std::make_pair(gid - itr->starting_id, itr->tileset);

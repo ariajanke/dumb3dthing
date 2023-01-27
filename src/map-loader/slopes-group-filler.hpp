@@ -18,34 +18,12 @@
 
 *****************************************************************************/
 
+/// @file This is a transitionary header. It acts as an interface for the rest
+///       of the program. That is sources in this directory, should only access
+///       the contents/code of the directory of the same name as this header,
+///       through this header.
+///
+
 #pragma once
 
-#include "../Defs.hpp"
-#include "ProducableGrid.hpp"
-
-class TileSetXmlGrid;
-class Platform;
-
-struct TileLocation final {
-    Vector2I on_map;
-    Vector2I on_field;
-};
-
-/// How to fill out a grid with a tile group.
-///
-///
-class ProducableTileFiller {
-public:
-    static SharedPtr<ProducableTileFiller> make_slopes_group_filler
-        (const TileSetXmlGrid & xml_grid, Platform &);
-
-    struct TileLocation final {
-        Vector2I location_on_map;
-        Vector2I location_on_tileset;
-    };
-
-    virtual ~ProducableTileFiller() {}
-
-    virtual UnfinishedTileGroupGrid operator ()
-        (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const = 0;
-};
+#include "slopes-group-filler/SlopeGroupFiller.hpp"

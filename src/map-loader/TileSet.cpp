@@ -36,7 +36,7 @@ using namespace cul::exceptions_abbr;
             { "in-wall", "out-wall", "wall", "in-ramp", "out-ramp", "ramp",
               "flat" };
         for (auto type : ramp_group_type_list) {
-            s_map[type] = TileProducableFiller::make_slopes_group_filler;
+            s_map[type] = ProducableTileFiller::make_slopes_group_filler;
         }
         return s_map;
     } ();
@@ -95,7 +95,7 @@ void TileSet::load
     }
     }
 
-    Grid<SharedPtr<TileProducableFiller>> filler_grid;
+    Grid<SharedPtr<ProducableTileFiller>> filler_grid;
     filler_grid.set_size(xml_grid.size2(), nullptr);
     for (auto [factory, locations] : factory_and_locations) {
         auto filler = (*factory)(xml_grid, platform);
@@ -106,10 +106,10 @@ void TileSet::load
     m_filler_grid = std::move(filler_grid);
 }
 
-SharedPtr<TileProducableFiller> TileSet::find_filler(int tid) const
+SharedPtr<ProducableTileFiller> TileSet::find_filler(int tid) const
     { return find_filler( tile_id_to_tileset_location(tid) ); }
 
-/* private */ SharedPtr<TileProducableFiller> TileSet::find_filler
+/* private */ SharedPtr<ProducableTileFiller> TileSet::find_filler
     (Vector2I r) const
     { return m_filler_grid(r); }
 
