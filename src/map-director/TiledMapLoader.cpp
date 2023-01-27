@@ -166,11 +166,6 @@ Vector2I State::map_offset() const {
     return m_offset;
 }
 
-RectangleI State::target_tile_range() const {
-    verify_shared_set();
-    return m_tiles_to_load;
-}
-
 /* private */ void State::verify_shared_set() const {
     if (m_platform) return;
     throw RtError{"Unset stuff"};

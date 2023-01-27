@@ -26,4 +26,10 @@
 
 #pragma once
 
-#include "slopes-group-filler/SlopeGroupFiller.hpp"
+#include "ProducableTileFiller.hpp"
+
+class SlopeGroupFiller_ : public ProducableTileFiller {
+public:
+    static SharedPtr<ProducableTileFiller> make
+        (const TileSetXmlGrid & xml_grid, Platform &);
+};

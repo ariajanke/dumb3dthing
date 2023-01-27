@@ -36,9 +36,10 @@ struct TileLocation final {
 ///
 class ProducableTileFiller {
 public:
+#   if 0
     static SharedPtr<ProducableTileFiller> make_slopes_group_filler
         (const TileSetXmlGrid & xml_grid, Platform &);
-
+#   endif
     struct TileLocation final {
         Vector2I location_on_map;
         Vector2I location_on_tileset;

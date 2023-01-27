@@ -49,6 +49,7 @@ public:
     using TileTextureMap = std::map<std::string, TileTexture>;
     using SpecialTypeFunc = void(SlopeGroupFiller::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
     using SpecialTypeFuncMap = std::map<std::string, SpecialTypeFunc>;
+
     static SharedPtr<Grid<SlopesBasedTileFactory *>> make_factory_grid_for_map
         (const std::vector<TileLocation> & tile_locations,
          const Grid<SharedPtr<SlopesBasedTileFactory>> & tile_factories);

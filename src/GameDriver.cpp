@@ -22,13 +22,20 @@
 #include "Components.hpp"
 #include "RenderModel.hpp"
 #include "TasksController.hpp"
-#include "map-loader/map-loader.hpp"
+#if 0
+#include "map-director/map-loader.hpp"
+#endif
 #include "Texture.hpp"
 #include "Systems.hpp"
-#include "map-loader/MapLoadingDirector.hpp"
+#if 0
+#include "map-director/MapDirector.hpp"
+#endif
 
+#include "map-director.hpp"
+#include "PlayerUpdateTask.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
+
 
 #include <iostream>
 
@@ -266,11 +273,8 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
 
     static constexpr const auto k_testmap_filename = "demo-map5.tmx";
 
-    PlayerUpdateTask
-        {MapLoadingDirector{&ppdriver, Size2I{10, 10}},
-         EntityRef{physics_ent}};
     auto player_update_task = make_shared<PlayerUpdateTask>
-        (MapLoadingDirector{&ppdriver, Size2I{10, 10}},
+        (MapDirector_::make(&ppdriver, Size2I{10, 10}),
          EntityRef{physics_ent});
     auto map_loader_task = player_update_task->load_initial_map
         (k_testmap_filename, platform);

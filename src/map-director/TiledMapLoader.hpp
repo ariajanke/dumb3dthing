@@ -64,7 +64,9 @@ public:
     MapLoadingState & set_others_stuff(MapLoadingState & lhs) const {
         lhs.m_platform = m_platform;
         lhs.m_offset = m_offset;
+#       if 0
         lhs.m_tiles_to_load = m_tiles_to_load;
+#       endif
         return lhs;
     }
 
@@ -78,33 +80,27 @@ protected:
     MapLoadingState() {}
 
     MapLoadingState
-        (Platform & platform,
-         const Vector2I & offset, const RectangleI & tiles_to_load):
+        (Platform & platform, const Vector2I & offset):
         m_platform(&platform),
-        m_offset(offset),
-        m_tiles_to_load(tiles_to_load) {}
+        m_offset(offset) {}
 
     Platform & platform() const;
 
     Vector2I map_offset() const;
-
-    RectangleI target_tile_range() const;
 
 private:
     void verify_shared_set() const;
 
     Platform * m_platform = nullptr;
     Vector2I m_offset;
-    RectangleI m_tiles_to_load;
 };
 
 class MapLoadingWaitingForFileContents final : public MapLoadingState {
 public:
     MapLoadingWaitingForFileContents
         (Platform & platform,
-         const char * filename, const Vector2I & offset,
-         const RectangleI & tiles_to_load):
-         MapLoadingState(platform, offset, tiles_to_load)
+         const char * filename, const Vector2I & offset):
+         MapLoadingState(platform, offset)
     { m_file_contents = platform.promise_file_contents(filename); }
 
     OptionalTileViewGrid

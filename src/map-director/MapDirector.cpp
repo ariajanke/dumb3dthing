@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "MapLoadingDirector.hpp"
+#include "MapDirector.hpp"
 #include "../PointAndPlaneDriver.hpp"
 
 namespace {
@@ -27,12 +27,11 @@ using namespace cul::exceptions_abbr;
 
 } // end of <anonymous> namespace
 
-SharedPtr<BackgroundTask> MapLoadingDirector::begin_initial_map_loading
+SharedPtr<BackgroundTask> MapDirector::begin_initial_map_loading
     (const char * initial_map, Platform & platform, const Entity & player_physics)
 {
     TiledMapLoader map_loader
-        {platform, initial_map, Vector2I{},
-         RectangleI{Vector2I{}, m_chunk_size}};
+        {platform, initial_map, Vector2I{}};
     // presently: task will be lost without completing
     return BackgroundTask::make(
         [this, map_loader = std::move(map_loader),
@@ -49,7 +48,7 @@ SharedPtr<BackgroundTask> MapLoadingDirector::begin_initial_map_loading
         });
 }
 
-void MapLoadingDirector::on_every_frame
+void MapDirector::on_every_frame
     (TaskCallbacks & callbacks, const Entity & physic_ent)
 {
     m_active_loaders.erase
@@ -60,7 +59,7 @@ void MapLoadingDirector::on_every_frame
     check_for_other_map_segments(callbacks, physic_ent);
 }
 
-/* private static */ Vector2I MapLoadingDirector::to_segment_location
+/* private static */ Vector2I MapDirector::to_segment_location
     (const Vector & location, const Size2I & segment_size)
 {
     return Vector2I
@@ -68,7 +67,7 @@ void MapLoadingDirector::on_every_frame
          int(std::floor(-location.z / segment_size.height))};
 }
 
-/* private */ void MapLoadingDirector::check_for_other_map_segments
+/* private */ void MapDirector::check_for_other_map_segments
     (TaskCallbacks & callbacks, const Entity & physics_ent)
 {
     // this may turn into its own class
@@ -86,30 +85,4 @@ void MapLoadingDirector::on_every_frame
         }
     }
     m_region_tracker.frame_refresh(callbacks);
-}
-
-// ----------------------------------------------------------------------------
-
-SharedPtr<BackgroundTask> PlayerUpdateTask::load_initial_map(const char * initial_map, Platform & platform) {
-    return m_map_director.begin_initial_map_loading(initial_map, platform, Entity{m_physics_ent});
-}
-
-void PlayerUpdateTask::on_every_frame(Callbacks & callbacks, Real) {
-
-    if (!m_physics_ent) {
-        throw RtError{"Player entity deleted before its update task"};
-    }
-    Entity physics_ent{m_physics_ent};
-    m_map_director.on_every_frame(callbacks, physics_ent);
-    check_fall_below(physics_ent);
-}
-
-/* private static */ void PlayerUpdateTask::check_fall_below(Entity & ent) {
-    auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
-    if (!ppair) return;
-    auto & loc = ppair->location;
-    if (loc.y < -10) {
-        loc = Vector{loc.x, 4, loc.z};
-        ent.get<Velocity>() = Velocity{};
-    }
 }

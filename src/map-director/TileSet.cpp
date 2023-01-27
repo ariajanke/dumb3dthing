@@ -20,6 +20,7 @@
 
 #include "TileSet.hpp"
 #include "TileSetPropertiesGrid.hpp"
+#include "slopes-group-filler.hpp"
 
 #include <tinyxml2.h>
 
@@ -36,7 +37,7 @@ using namespace cul::exceptions_abbr;
             { "in-wall", "out-wall", "wall", "in-ramp", "out-ramp", "ramp",
               "flat" };
         for (auto type : ramp_group_type_list) {
-            s_map[type] = ProducableTileFiller::make_slopes_group_filler;
+            s_map[type] = SlopeGroupFiller_::make;
         }
         return s_map;
     } ();
