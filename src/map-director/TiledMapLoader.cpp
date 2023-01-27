@@ -160,12 +160,12 @@ Platform & State::platform() const {
     verify_shared_set();
     return *m_platform;
 }
-
+#if 0
 Vector2I State::map_offset() const {
     verify_shared_set();
     return m_offset;
 }
-
+#endif
 /* private */ void State::verify_shared_set() const {
     if (m_platform) return;
     throw RtError{"Unset stuff"};

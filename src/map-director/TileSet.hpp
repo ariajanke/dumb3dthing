@@ -26,6 +26,8 @@
 #include <map>
 
 /// Tilesets map tileset ids to tile group fillers.
+///
+/// maybe a loader thing
 class TileSet final {
 public:
     using FillerFactory = SharedPtr<ProducableTileFiller>(*)(const TileSetXmlGrid &, Platform &);

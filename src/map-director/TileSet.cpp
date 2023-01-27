@@ -33,10 +33,7 @@ using namespace cul::exceptions_abbr;
 /* static */ const TileSet::FillerFactoryMap & TileSet::builtin_fillers() {
     static auto s_map = [] {
         FillerFactoryMap s_map;
-        auto ramp_group_type_list =
-            { "in-wall", "out-wall", "wall", "in-ramp", "out-ramp", "ramp",
-              "flat" };
-        for (auto type : ramp_group_type_list) {
+        for (auto type : slopes_group_filler_type_names::k_ramp_group_type_list) {
             s_map[type] = SlopeGroupFiller_::make;
         }
         return s_map;

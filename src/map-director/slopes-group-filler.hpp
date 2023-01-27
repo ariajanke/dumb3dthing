@@ -28,8 +28,27 @@
 
 #include "ProducableTileFiller.hpp"
 
-class SlopeGroupFiller_ : public ProducableTileFiller {
+namespace slopes_group_filler_type_names {
+
+static constexpr auto k_in_wall  = "in-wall" ;
+static constexpr auto k_out_wall = "out-wall";
+static constexpr auto k_wall     = "wall"    ;
+static constexpr auto k_in_ramp  = "in-ramp" ;
+static constexpr auto k_out_ramp = "out-ramp";
+static constexpr auto k_ramp     = "ramp"    ;
+static constexpr auto k_flat     = "flat"    ;
+
+static constexpr auto k_ramp_group_type_list = {
+    k_in_wall, k_out_wall, k_wall, k_in_ramp, k_out_ramp, k_ramp, k_flat
+};
+
+} // end of slopes_group_filler_type_names namespace
+
+class SlopeGroupFiller_ final {
 public:
     static SharedPtr<ProducableTileFiller> make
         (const TileSetXmlGrid & xml_grid, Platform &);
+
+private:
+    SlopeGroupFiller_() {}
 };

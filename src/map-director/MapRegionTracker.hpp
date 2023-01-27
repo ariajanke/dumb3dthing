@@ -57,7 +57,6 @@ private:
 /// region
 class MapRegionTracker final {
 public:
-
     MapRegionTracker() {}
 
     MapRegionTracker
@@ -67,6 +66,9 @@ public:
     void frame_refresh(TaskCallbacks & callbacks);
 
     void frame_hit(const Vector2I & global_region_location, TaskCallbacks & callbacks);
+
+    bool has_root_region() const noexcept
+        { return !!m_root_region; }
 
 private:
     MapRegionContainer m_loaded_regions;

@@ -35,7 +35,7 @@ public:
 
     MapDirector(PpDriver * ppdriver, Size2I chunk_size):
         m_ppdriver(ppdriver),
-        m_chunk_size(chunk_size)
+        m_region_size_in_tiles(chunk_size)
     {}
 
     SharedPtr<BackgroundTask> begin_initial_map_loading
@@ -54,7 +54,6 @@ private:
 
     // there's only one per game and it never changes
     PpDriver * m_ppdriver = nullptr;
-    Size2I m_chunk_size;
-    std::vector<TiledMapLoader> m_active_loaders;
-    MapRegionTracker m_region_tracker;
+    Size2I m_region_size_in_tiles;
+    SharedPtr<MapRegionTracker> m_region_tracker;
 };

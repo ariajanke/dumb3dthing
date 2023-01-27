@@ -20,6 +20,7 @@
 
 #include "MapDirector.hpp"
 #include "../PointAndPlaneDriver.hpp"
+#include "map-loader-task.hpp"
 
 namespace {
 
@@ -30,34 +31,16 @@ using namespace cul::exceptions_abbr;
 SharedPtr<BackgroundTask> MapDirector::begin_initial_map_loading
     (const char * initial_map, Platform & platform, const Entity & player_physics)
 {
-    TiledMapLoader map_loader
-        {platform, initial_map, Vector2I{}};
-    // presently: task will be lost without completing
-    return BackgroundTask::make(
-        [this, map_loader = std::move(map_loader),
-         player_physics_ = player_physics]
-        (TaskCallbacks &) mutable {
-            auto grid = map_loader.update_progress();
-            if (!grid) return BackgroundCompletion::in_progress;
-            player_physics_.ensure<Velocity>();
-            m_region_tracker = MapRegionTracker
-                {make_unique<TiledMapRegion>
-                    (std::move(*grid), m_chunk_size),
-                 m_chunk_size};
-            return BackgroundCompletion::finished;
-        });
+    m_region_tracker = make_shared<MapRegionTracker>();
+
+    return MapLoaderTask_::make
+        (initial_map, platform, m_region_tracker, player_physics,
+         m_region_size_in_tiles);
 }
 
 void MapDirector::on_every_frame
     (TaskCallbacks & callbacks, const Entity & physic_ent)
-{
-    m_active_loaders.erase
-        (std::remove_if(m_active_loaders.begin(), m_active_loaders.end(),
-                        [](const TiledMapLoader & loader) { return loader.is_expired(); }),
-         m_active_loaders.end());
-
-    check_for_other_map_segments(callbacks, physic_ent);
-}
+{ check_for_other_map_segments(callbacks, physic_ent); }
 
 /* private static */ Vector2I MapDirector::to_segment_location
     (const Vector & location, const Size2I & segment_size)
@@ -70,6 +53,8 @@ void MapDirector::on_every_frame
 /* private */ void MapDirector::check_for_other_map_segments
     (TaskCallbacks & callbacks, const Entity & physics_ent)
 {
+    // should either be strongly not taken, or strongly taken
+    if (!m_region_tracker->has_root_region()) return;
     // this may turn into its own class
     // there's just so much behavior potential here
 
@@ -78,11 +63,11 @@ void MapDirector::on_every_frame
     auto & pstate = physics_ent.get<PpState>();
     auto delta = physics_ent.has<Velocity>() ? physics_ent.get<Velocity>()*0.5 : Vector{};
     for (auto pt : { location_of(pstate), location_of(pstate) + delta }) {
-        auto target_region = to_segment_location(pt, m_chunk_size);
-        m_region_tracker.frame_hit(target_region, callbacks);
+        auto target_region = to_segment_location(pt, m_region_size_in_tiles);
+        m_region_tracker->frame_hit(target_region, callbacks);
         for (auto offset : k_plus_shape_neighbor_offsets) {
-            m_region_tracker.frame_hit(offset + target_region, callbacks);
+            m_region_tracker->frame_hit(offset + target_region, callbacks);
         }
     }
-    m_region_tracker.frame_refresh(callbacks);
+    m_region_tracker->frame_refresh(callbacks);
 }

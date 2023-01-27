@@ -21,6 +21,7 @@
 #include "SlopeGroupFiller.hpp"
 #include "WallTileFactory.hpp"
 #include "RampTileFactory.hpp"
+#include "../slopes-group-filler.hpp"
 
 namespace {
 
@@ -139,15 +140,16 @@ void SlopeGroupFiller::load
 
 /* static */ const RampGroupFactoryMap & SlopeGroupFiller::builtin_tile_factory_maker_map() {
     static auto s_map = [] {
+        using namespace slopes_group_filler_type_names;
         RampGroupFactoryMap s_map;
         // TODO pull from constants defined somewhere
-        s_map["in-wall"     ] = make_unique_base_factory<InWallTileFactory>;
-        s_map["out-wall"    ] = make_unique_base_factory<OutWallTileFactory>;
-        s_map["wall"        ] = make_unique_base_factory<TwoWayWallTileFactory>;
-        s_map["in-ramp"     ] = make_unique_base_factory<InRampTileFactory>;
-        s_map["out-ramp"    ] = make_unique_base_factory<OutRampTileFactory>;
-        s_map["ramp"        ] = make_unique_base_factory<TwoRampTileFactory>;
-        s_map["flat"        ] = make_unique_base_factory<FlatTileFactory>;
+        s_map[k_in_wall     ] = make_unique_base_factory<InWallTileFactory>;
+        s_map[k_out_wall    ] = make_unique_base_factory<OutWallTileFactory>;
+        s_map[k_wall        ] = make_unique_base_factory<TwoWayWallTileFactory>;
+        s_map[k_in_ramp     ] = make_unique_base_factory<InRampTileFactory>;
+        s_map[k_out_ramp    ] = make_unique_base_factory<OutRampTileFactory>;
+        s_map[k_ramp        ] = make_unique_base_factory<TwoRampTileFactory>;
+        s_map[k_flat        ] = make_unique_base_factory<FlatTileFactory>;
         return s_map;
     } ();
     return s_map;
