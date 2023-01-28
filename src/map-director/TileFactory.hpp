@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,15 +20,15 @@
 
 #pragma once
 
-#include "../Defs.hpp"
-#include "../platform.hpp"
 #include "map-loader.hpp"
 #include "ParseHelpers.hpp"
 #include "TileTexture.hpp"
 
+#include "../Defs.hpp"
+#include "../platform.hpp"
+
 #include <map>
 
-class TileSet;
 class TileProperties;
 
 class EntityAndTrianglesAdder {
@@ -39,64 +39,7 @@ public:
 
     virtual void add_triangle(const TriangleSegment &) = 0;
 };
-#if 0
-enum class CardinalDirection {
-    n, s, e, w,
-    nw, sw, se, ne
-};
 
-class SlopesGridInterface {
-public:
-    virtual ~SlopesGridInterface() {}
-
-    virtual Slopes operator () (Vector2I) const = 0;
-
-    static const SlopesGridInterface & null_instance() {
-        class Impl final : public SlopesGridInterface {
-        public:
-            Slopes operator () (Vector2I) const final
-                { return Slopes{k_inf, k_inf, k_inf, k_inf}; }
-        };
-        static Impl impl;
-        return impl;
-    }
-};
-
-// there's a type of group'
-// each group type is close to each type of tile factory
-// therefore a tile factory knows how to create its own group
-// TileFactory: virtual NeighborGroup * create_group() const = 0;
-//
-// do layers have positioning/information that accompany them that affects the
-// production of tiles?
-// possibly
-// is a tile factory local to a tileset? local to a tileset & layer?
-
-struct TileLocation;
-class TileGroup;
-
-/// describes neighbors and an address for a tile
-class SlopeGroupNeighborhood final {
-public:
-    SlopeGroupNeighborhood
-        (const SlopesGridInterface &, Vector2I tile_loc_on_map,
-         Vector2I maps_spawner_offset);
-
-    Real neighbor_elevation(CardinalDirection) const;
-
-    Vector2I tile_location_on_field() const { return m_loc + m_offset; }
-
-    // bad name: is actually more local
-    Vector2I tile_location_on_map() const { return m_loc; }
-
-private:
-    Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
-
-    const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
-    Vector2I m_loc;
-    Vector2I m_offset;
-};
-#endif
 class TileSetXmlGrid;
 
 /// A tile factory is a thing that produces tiles.
@@ -149,8 +92,3 @@ private:
     Size2 m_texture_size;
     Size2 m_tile_size;
 };
-#if 0
-CardinalDirection cardinal_direction_from(const std::string * str);
-
-CardinalDirection cardinal_direction_from(const char * str);
-#endif

@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "TiledMapLoader.hpp"
-#include "map-loader-helpers.hpp"
+#include "TileSet.hpp"
 
 #include <tinyxml2.h>
 
@@ -160,12 +160,7 @@ Platform & State::platform() const {
     verify_shared_set();
     return *m_platform;
 }
-#if 0
-Vector2I State::map_offset() const {
-    verify_shared_set();
-    return m_offset;
-}
-#endif
+
 /* private */ void State::verify_shared_set() const {
     if (m_platform) return;
     throw RtError{"Unset stuff"};
@@ -275,11 +270,19 @@ OptionalTileViewGrid TiledMapLoader::Ready::update_progress
         unfinished_grid_view = make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
             finish(std::move(unfinished_grid_view));
     }
-    ProducableTileViewGrid rv;
     next_state.set_next_state<Expired>();
-    rv.set_layers(std::move(unfinished_grid_view), std::move(m_tidgid_translator));
+    auto [producables, groups] = unfinished_grid_view.move_out_producables_and_groups();
+    auto tilesets = m_tidgid_translator.move_out_tilesets();
 
-    return rv;
+    std::vector<SharedPtr<const ProducableTileFiller>> map_fillers;
+    for (auto & tileset : tilesets) {
+        auto fillers = tileset->move_out_fillers();
+        map_fillers.insert
+            (map_fillers.end(), std::make_move_iterator(fillers.begin()),
+             std::make_move_iterator(fillers.end()));
+    }
+    return ProducableTileViewGrid
+        {std::move(producables), std::move(groups), std::move(map_fillers)};
 }
 
 // ----------------------------------------------------------------------------

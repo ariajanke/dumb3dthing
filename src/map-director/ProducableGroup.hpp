@@ -24,7 +24,6 @@
 
 class ProducableTile;
 class ProducableGroup_;
-class TileSet;
 class UnfinishedProducableTileViewGrid;
 
 /// This base class represents how to clean up a tile group.

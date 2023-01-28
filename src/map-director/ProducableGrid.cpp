@@ -19,16 +19,16 @@
 *****************************************************************************/
 
 #include "ProducableGrid.hpp"
-#include "GidTidTranslator.hpp"
+#include "ProducableTileFiller.hpp"
 
-void ProducableTileViewGrid::set_layers
-    (UnfinishedProducableTileViewGrid && unfinished_grid,
-     GidTidTranslator && gidtid_translator)
-{
-    std::tie(m_factories, m_groups)
-        = unfinished_grid.move_out_producables_and_groups();
-    m_tilesets = gidtid_translator.move_out_tilesets();
-}
+ProducableTileViewGrid::ProducableTileViewGrid
+    (ViewGrid<ProducableTile *> && factory_view_grid,
+     std::vector<SharedPtr<ProducableGroup_>> && groups,
+     std::vector<SharedPtr<const ProducableTileFiller>> && fillers):
+    m_factories(std::move(factory_view_grid)),
+    m_groups(std::move(groups)),
+    m_fillers(std::move(fillers))
+{}
 
 // ----------------------------------------------------------------------------
 

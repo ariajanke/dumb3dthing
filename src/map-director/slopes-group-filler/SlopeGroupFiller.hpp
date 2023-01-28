@@ -20,9 +20,10 @@
 
 #pragma once
 
+#include "SlopesBasedTileFactory.hpp"
+
 #include "../ProducableTileFiller.hpp"
 #include "../TileSetPropertiesGrid.hpp"
-#include "SlopesBasedTileFactory.hpp"
 
 class ProducableSlopeTile final : public ProducableTile {
 public:

@@ -20,7 +20,8 @@
 
 #pragma once
 
-#include "../TiledMapLoader.hpp"
+#include "TiledMapLoader.hpp"
+
 #include "../MapRegionTracker.hpp"
 
 class MapLoaderTask final : public BackgroundTask {

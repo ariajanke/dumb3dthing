@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "../map-loader.hpp"
 #include "../TileFactory.hpp"
 
 enum class CardinalDirection {

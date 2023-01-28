@@ -47,8 +47,8 @@ GidTidTranslator::GidTidTranslator
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
 }
 
-std::vector<SharedPtr<const TileSet>> GidTidTranslator::move_out_tilesets() {
-    std::vector<SharedPtr<const TileSet>> rv;
+std::vector<SharedPtr<TileSet>> GidTidTranslator::move_out_tilesets() {
+    std::vector<SharedPtr<TileSet>> rv;
     rv.reserve(m_gid_map.size());
     for (auto & tl : m_gid_map) {
         rv.emplace_back(std::move(tl.tileset));

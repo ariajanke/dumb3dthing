@@ -20,8 +20,9 @@
 
 #pragma once
 
-#include "../Components.hpp"
 #include "MapRegionTracker.hpp"
+
+#include "../Components.hpp"
 
 class MapLoaderTask_ {
 public:

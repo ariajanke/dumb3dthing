@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,8 +19,9 @@
 *****************************************************************************/
 
 #include "MapDirector.hpp"
-#include "../PointAndPlaneDriver.hpp"
 #include "map-loader-task.hpp"
+
+#include "../PointAndPlaneDriver.hpp"
 
 namespace {
 

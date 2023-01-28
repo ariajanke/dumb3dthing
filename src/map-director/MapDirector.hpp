@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include "../map-director.hpp"
-#include "TiledMapLoader.hpp"
 #include "MapRegionTracker.hpp"
+
+#include "../map-director.hpp"
 
 /** @brief The MapDirector turns player physics things into map region
  *         loading/unloading.

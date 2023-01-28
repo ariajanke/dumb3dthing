@@ -19,9 +19,9 @@
 *****************************************************************************/
 
 #include "map-loader-task/MapLoaderTask.hpp"
+#include "map-loader-task/TiledMapLoader.hpp"
 
 #include "map-loader-task.hpp"
-#include "TiledMapLoader.hpp"
 
 SharedPtr<BackgroundTask> MapLoaderTask_::make
     (const char * initial_map, Platform & platform,

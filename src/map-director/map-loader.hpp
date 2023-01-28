@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,12 +20,12 @@
 
 #pragma once
 
+#include <ariajanke/cul/Grid.hpp>
+#include <ariajanke/cul/RectangleUtils.hpp>
+
 #include "../Defs.hpp"
 #include "../TriangleSegment.hpp"
 #include "../TriangleLink.hpp"
-
-#include <ariajanke/cul/Grid.hpp>
-#include <ariajanke/cul/RectangleUtils.hpp>
 
 struct Slopes final {
     Slopes() {}

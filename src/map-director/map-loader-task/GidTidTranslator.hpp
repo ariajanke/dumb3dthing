@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../Defs.hpp"
+#include "../../Defs.hpp"
 
 class TileSet;
 
@@ -40,7 +40,7 @@ public:
 
     Tuple<int, ConstTileSetPtr> gid_to_tid(int gid) const;
 
-    std::vector<SharedPtr<const TileSet>> move_out_tilesets();
+    std::vector<SharedPtr<TileSet>> move_out_tilesets();
 
     void swap(GidTidTranslator &);
 

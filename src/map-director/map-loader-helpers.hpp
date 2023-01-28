@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,10 +20,10 @@
 
 #pragma once
 
-#include "../Components.hpp"
-#include "TileFactory.hpp"
-#include "TileSet.hpp"
+#include "map-loader.hpp"
 #include "ViewGrid.hpp"
+
+#include "../Components.hpp"
 
 #include <ariajanke/cul/SubGrid.hpp>
 

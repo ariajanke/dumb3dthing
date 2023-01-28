@@ -38,15 +38,19 @@ public:
 };
 
 using ProducableTileViewSubGrid = ViewGrid<ProducableTile *>::SubGrid;
-
+class TileSet;
+class ProducableTileFiller;
 /// A ViewGrid of producable tiles
 ///
 /// An instance of this is used to represent a loaded map.
 class ProducableTileViewGrid final {
 public:
-    // can reverse dependancy things later
-    void set_layers(UnfinishedProducableTileViewGrid &&,
-                    GidTidTranslator &&);
+    ProducableTileViewGrid() {}
+
+    ProducableTileViewGrid
+        (ViewGrid<ProducableTile *> && factory_view_grid,
+         std::vector<SharedPtr<ProducableGroup_>> && groups,
+         std::vector<SharedPtr<const ProducableTileFiller>> && fillers);
 
     auto height() const { return m_factories.height(); }
 
@@ -59,11 +63,10 @@ public:
 private:
     ViewGrid<ProducableTile *> m_factories;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
-    std::vector<SharedPtr<const TileSet>> m_tilesets;
+    std::vector<SharedPtr<const ProducableTileFiller>> m_fillers;
 };
 
 // these can go into loading
-
 class UnfinishedProducableTileViewGrid final {
 public:
     void add_layer

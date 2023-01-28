@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,35 +21,11 @@
 #pragma once
 
 #include "SlopesBasedTileFactory.hpp"
+
 #include "../../RenderModel.hpp"
 #include "../../platform.hpp"
 
 #include <bitset>
-#if 0
-class TranslatableTileFactory : public TileFactory {
-protected:
-    Vector translation() const { return m_translation; }
-
-    Entity make_entity
-        (Platform & platform, Vector2I tile_loc,
-         const SharedPtr<const RenderModel> & model_ptr) const;
-
-    void setup_
-        (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
-private:
-    Vector m_translation;
-};
-
-class SlopesBasedTileFactory : public TranslatableTileFactory {
-public:
-    virtual void operator ()
-        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
-         Platform &) const = 0;
-
-    virtual Slopes tile_elevations() const = 0;
-};
-#endif
-// ----------------------------------------------------------------------------
 
 // want to "cache" graphics
 // graphics are created as needed

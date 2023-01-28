@@ -19,7 +19,6 @@
 *****************************************************************************/
 
 #include "TileSetPropertiesGrid.hpp"
-#include "TileSet.hpp"
 
 #include "../Texture.hpp"
 #include "../platform.hpp"
@@ -50,6 +49,10 @@ void TileProperties::load(const TiXmlElement & tile_el) {
     }
 }
 
+/* static */ Vector2I TileSetXmlGrid::tid_to_tileset_location
+    (const Size2I & sz, int tid)
+    { return Vector2I{tid % sz.width, tid / sz.width}; }
+
 void TileSetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
     Grid<TileProperties> tile_grid;
 
@@ -62,7 +65,7 @@ void TileSetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
     load_texture(platform, tileset);
 
     auto to_ts_loc = [&tile_grid] (int n)
-        { return TileSet::tid_to_tileset_location(tile_grid, n); };
+        { return tid_to_tileset_location(tile_grid, n); };
 
     for (auto & el : XmlRange{tileset, "tile"}) {
         TileProperties props;

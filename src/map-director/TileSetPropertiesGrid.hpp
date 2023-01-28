@@ -63,6 +63,12 @@ private:
 // Grid of xml elements, plus info on tileset
 class TileSetXmlGrid final {
 public:
+    static Vector2I tid_to_tileset_location(const Size2I &, int tid);
+
+    template <typename T>
+    static Vector2I tid_to_tileset_location(const Grid<T> & grid, int tid)
+        { return tid_to_tileset_location(grid.size2(), tid); }
+
     void load(Platform &, const TiXmlElement &);
 
     const TileProperties & operator() (const Vector2I & r) const

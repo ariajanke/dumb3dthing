@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "ParseHelpers.hpp"
-#include "ProducableTileFiller.hpp"
+#include "../ParseHelpers.hpp"
+#include "../ProducableTileFiller.hpp"
 
 #include <map>
 
@@ -36,14 +36,11 @@ public:
 
     static const FillerFactoryMap & builtin_fillers();
 
-    static Vector2I tid_to_tileset_location(const Size2I &, int tid);
-
-    template <typename T>
-    static Vector2I tid_to_tileset_location(const Grid<T> & grid, int tid)
-        { return tid_to_tileset_location(grid.size2(), tid); }
-
     void load(Platform &, const TiXmlElement &,
               const FillerFactoryMap & = builtin_fillers());
+
+    // also clears out the entire tileset
+    std::vector<SharedPtr<const ProducableTileFiller>> move_out_fillers();
 
     SharedPtr<ProducableTileFiller> find_filler(int tid) const;
 
@@ -56,4 +53,5 @@ private:
     SharedPtr<ProducableTileFiller> find_filler(Vector2I) const;
 
     Grid<SharedPtr<ProducableTileFiller>> m_filler_grid;
+    std::vector<SharedPtr<const ProducableTileFiller>> m_unique_fillers;
 };

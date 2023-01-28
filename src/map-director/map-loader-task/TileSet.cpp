@@ -19,14 +19,34 @@
 *****************************************************************************/
 
 #include "TileSet.hpp"
-#include "TileSetPropertiesGrid.hpp"
-#include "slopes-group-filler.hpp"
+
+#include "../TileSetPropertiesGrid.hpp"
+#include "../slopes-group-filler.hpp"
 
 #include <tinyxml2.h>
 
 namespace {
 
 using namespace cul::exceptions_abbr;
+using FillerFactory = TileSet::FillerFactory;
+using FillerFactoryMap = TileSet::FillerFactoryMap;
+
+struct MakeFillerGridRt final {
+    Grid<SharedPtr<ProducableTileFiller>> grid;
+    std::vector<SharedPtr<const ProducableTileFiller>> unique_fillers;
+};
+
+std::vector<Tuple<Vector2I, FillerFactory>>
+    make_factory_grid_positions
+    (const TileSetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories);
+
+std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
+    find_unique_factories_and_positions
+    (std::vector<Tuple<Vector2I, FillerFactory>> && factory_grid_positions);
+
+MakeFillerGridRt make_filler_grid
+    (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
+     const TileSetXmlGrid & xml_grid, Platform & platform);
 
 } // end of <anonymous> namespace
 
@@ -41,21 +61,44 @@ using namespace cul::exceptions_abbr;
     return s_map;
 }
 
-/* static */ Vector2I TileSet::tid_to_tileset_location
-    (const Size2I & sz, int tid)
-    { return Vector2I{tid % sz.width, tid / sz.width}; }
-
 void TileSet::load
     (Platform & platform, const TiXmlElement & tileset,
      const FillerFactoryMap & filler_factories)
 {
-    // tileset loc,
-
-    std::vector<Tuple<Vector2I, FillerFactory>> factory_grid_positions;
-
     TileSetXmlGrid xml_grid;
     xml_grid.load(platform, tileset);
-    {
+    auto factory_and_locations = find_unique_factories_and_positions
+        (make_factory_grid_positions(xml_grid, filler_factories));
+
+    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, platform);
+    m_filler_grid = std::move(filler_things.grid);
+    m_unique_fillers = std::move(filler_things.unique_fillers);
+}
+
+std::vector<SharedPtr<const ProducableTileFiller>> TileSet::move_out_fillers() {
+    m_filler_grid.clear();
+    auto rv = std::move(m_unique_fillers);
+    m_unique_fillers.clear();
+    return rv;
+}
+
+SharedPtr<ProducableTileFiller> TileSet::find_filler(int tid) const
+    { return find_filler( tile_id_to_tileset_location(tid) ); }
+
+/* private */ SharedPtr<ProducableTileFiller> TileSet::find_filler
+    (Vector2I r) const
+    { return m_filler_grid(r); }
+
+Vector2I TileSet::tile_id_to_tileset_location(int tid) const
+    { return TileSetXmlGrid::tid_to_tileset_location(m_filler_grid, tid); }
+
+namespace {
+
+std::vector<Tuple<Vector2I, FillerFactory>>
+    make_factory_grid_positions
+    (const TileSetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories)
+{
+    std::vector<Tuple<Vector2I, FillerFactory>> factory_grid_positions;
     factory_grid_positions.reserve(xml_grid.size());
     for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
         const auto & el = xml_grid(r);
@@ -67,15 +110,19 @@ void TileSet::load
             continue;
         }
         if (!itr->second) {
-            throw InvArg{"TileSetN::load: no filler factory maybe nullptr"};
+            throw InvArg{"TileSet::load: no filler factory maybe nullptr"};
         }
         factory_grid_positions.emplace_back(r, itr->second);
     }
-    }
+    return factory_grid_positions;
+}
 
-    std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> factory_and_locations;
-    {
+std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
+    find_unique_factories_and_positions
+    (std::vector<Tuple<Vector2I, FillerFactory>> && factory_grid_positions)
+{
     using Tup = Tuple<Vector2I, FillerFactory>;
+    std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> factory_and_locations;
     auto comp = [](const Tup & lhs, const Tup & rhs) {
         return std::less<FillerFactory>{}
             ( std::get<FillerFactory>(lhs), std::get<FillerFactory>(rhs) );
@@ -91,25 +138,25 @@ void TileSet::load
         }
         std::get<std::vector<Vector2I>>(factory_and_locations.back()).push_back(r);
     }
-    }
+    return factory_and_locations;
+}
 
-    Grid<SharedPtr<ProducableTileFiller>> filler_grid;
+MakeFillerGridRt make_filler_grid
+    (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
+     const TileSetXmlGrid & xml_grid, Platform & platform)
+{
+    MakeFillerGridRt rv;
+    auto & filler_grid = rv.grid;
+    auto & filler_instances = rv.unique_fillers;
     filler_grid.set_size(xml_grid.size2(), nullptr);
     for (auto [factory, locations] : factory_and_locations) {
         auto filler = (*factory)(xml_grid, platform);
+        filler_instances.emplace_back(filler);
         for (auto r : locations) {
             filler_grid(r) = filler;
         }
     }
-    m_filler_grid = std::move(filler_grid);
+    return rv;
 }
 
-SharedPtr<ProducableTileFiller> TileSet::find_filler(int tid) const
-    { return find_filler( tile_id_to_tileset_location(tid) ); }
-
-/* private */ SharedPtr<ProducableTileFiller> TileSet::find_filler
-    (Vector2I r) const
-    { return m_filler_grid(r); }
-
-Vector2I TileSet::tile_id_to_tileset_location(int tid) const
-    { return tid_to_tileset_location(m_filler_grid, tid); }
+} // end of <anonymous> namespace

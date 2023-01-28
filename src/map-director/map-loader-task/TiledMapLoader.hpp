@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,8 +20,12 @@
 
 #pragma once
 
-#include "MapRegion.hpp"
 #include "GidTidTranslator.hpp"
+
+#include "../ParseHelpers.hpp"
+#include "../ProducableGrid.hpp"
+
+#include "../../platform.hpp"
 
 #include <ariajanke/cul/RectangleUtils.hpp>
 
@@ -63,11 +67,6 @@ public:
 
     MapLoadingState & set_others_stuff(MapLoadingState & lhs) const {
         lhs.m_platform = m_platform;
-#       if 0
-        lhs.m_offset = m_offset;
-
-        lhs.m_tiles_to_load = m_tiles_to_load;
-#       endif
         return lhs;
     }
 
@@ -81,29 +80,15 @@ protected:
     MapLoadingState() {}
 
     explicit MapLoadingState
-        (Platform & platform
-#       if 0
-        , const Vector2I & offset
-#       endif
-        ):
-        m_platform(&platform)
-#       if 0
-        ,
-        m_offset(offset)
-#       endif
-        {}
+        (Platform & platform):
+        m_platform(&platform) {}
 
     Platform & platform() const;
-#   if 0
-    Vector2I map_offset() const;
-#   endif
+
 private:
     void verify_shared_set() const;
 
     Platform * m_platform = nullptr;
-#   if 0
-    Vector2I m_offset;
-#   endif
 };
 
 class MapLoadingWaitingForFileContents final : public MapLoadingState {
