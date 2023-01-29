@@ -40,7 +40,7 @@ public:
     ViewGridInserter(int width, int height)
         { m_index_pairs.set_size(width, height, make_tuple(0, 0)); }
 
-    explicit ViewGridInserter(Size2I size):
+    explicit ViewGridInserter(const Size2I & size):
         ViewGridInserter(size.width, size.height) {}
 
     void advance();

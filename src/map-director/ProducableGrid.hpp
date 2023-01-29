@@ -91,19 +91,18 @@ public:
 
     // may only be set once
     void set_size(const Size2I & sz) {
+        m_groups.clear();
+        m_target.clear();
         m_target.set_size(sz, nullptr);
-        m_filleds.set_size(sz, false);
     }
 
     template <typename T>
-    void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup) {
-        m_groups.emplace_back(unfinished_pgroup.finish(m_target));
-    }
+    void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
+        { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
     UnfinishedProducableTileViewGrid
         finish(UnfinishedProducableTileViewGrid && unfinished_grid_view)
     {
-        m_filleds.clear();
         unfinished_grid_view.add_layer(std::move(m_target), m_groups);
         m_target.clear();
         m_groups.clear();
@@ -113,6 +112,4 @@ public:
 private:
     Grid<ProducableTile *> m_target;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
-    // catch myself if I set a producable twice
-    Grid<bool> m_filleds;
 };

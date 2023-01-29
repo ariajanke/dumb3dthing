@@ -21,12 +21,13 @@
 #include "TileTexture.hpp"
 
 TileTexture::TileTexture
-    (Vector2 nw, Vector2 se):
+    (const Vector2 & nw, const Vector2 & se):
     m_nw(nw),
-    m_se(se)
-{}
+    m_se(se) {}
 
-TileTexture::TileTexture(Vector2I tileset_loc, const Size2 & tile_size) {
+TileTexture::TileTexture
+    (const Vector2I & tileset_loc, const Size2 & tile_size)
+{
     using cul::convert_to;
     Vector2 offset{tileset_loc.x*tile_size.width, tileset_loc.y*tile_size.height};
     m_nw = offset;

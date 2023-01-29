@@ -26,9 +26,9 @@ class TileTexture final {
 public:
     TileTexture() {}
 
-    TileTexture(Vector2 nw, Vector2 se);
+    TileTexture(const Vector2 & nw, const Vector2 & se);
 
-    TileTexture(Vector2I tileset_loc, const Size2 & tile_size);
+    TileTexture(const Vector2I & tileset_loc, const Size2 & tile_size);
 
     Vector2 texture_position_for(const Vector2 & tile_normalized_location) const;
 

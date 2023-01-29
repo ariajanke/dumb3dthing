@@ -20,9 +20,4 @@
 
 #pragma once
 
-bool run_triangle_links_tests();
-bool run_map_loader_tests();
-bool run_triangle_segment_tests();
 bool run_systems_tests();
-bool run_wall_tile_factory_tests();
-bool run_spm_tests();
