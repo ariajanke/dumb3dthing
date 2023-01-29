@@ -23,6 +23,35 @@
 
 #include <ariajanke/cul/TestSuite.hpp>
 
+namespace {
+
+using point_and_plane::EventHandler;
+using Triangle = TriangleSegment;
+
+/* static */ UniquePtr<EventHandler> make_test_handler() {
+    class TestHandler final : public point_and_plane::EventHandler {
+        Variant<Vector2, Vector>
+            on_triangle_hit
+            (const Triangle &, const Vector &, const Vector2 &, const Vector &) const final
+        { return Vector2{}; }
+
+        Variant<Vector, Vector2>
+            on_transfer_absent_link
+            (const Triangle &, const SideCrossing &, const Vector2 &) const final
+        { return Vector{}; }
+
+        Variant<Vector, TransferOnSegment>
+            on_transfer
+            (const Triangle &, const Triangle::SideCrossing &,
+             const Triangle &, const Vector &) const final
+        { return make_tuple(Vector2{}, true); }
+    };
+
+    return make_unique<TestHandler>();
+}
+
+}
+
 bool run_systems_tests() {
     using namespace cul::exceptions_abbr;
     using namespace cul::ts;
@@ -46,9 +75,10 @@ bool run_systems_tests() {
             pdriver->update();
             return pdriver;
         };
-
-        auto test_handler = point_and_plane::EventHandler::make_test_handler();
-
+#       if 1
+        auto test_handler = make_test_handler();
+#       endif
+#       if 1 // not yet replaced
         unit.start(mark(suite), [&] {
             auto links_a = make_shared<TriangleLink>(
                 Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
@@ -83,6 +113,7 @@ bool run_systems_tests() {
             auto res = std::get<PpOnSegment>((*pdriver)(PpState{a_state}, *test_handler));
             return test(!res.invert_normal);
         });
+#   endif
     });
     mark(suite).test([] {
         using VtoD = VelocitiesToDisplacement;

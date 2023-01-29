@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "TasksController.hpp"
-#include "PointAndPlaneDriver.hpp"
+#include "point-and-plane.hpp"
 
 namespace {
 

@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,14 +18,7 @@
 
 *****************************************************************************/
 
-#include "PointAndPlaneDriver.hpp"
-#include "point-and-plane/SpatialPartitionMap.hpp"
-#include "point-and-plane/FrameTimeLinkContainer.hpp"
-
-#include <ariajanke/cul/TestSuite.hpp>
-
-#include <unordered_map>
-#include <iostream>
+#include "DriverComplete.hpp"
 
 namespace {
 
@@ -38,31 +31,11 @@ using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
       cul::sum_of_squares, cul::EnableIf;
 using LinkTransfer = TriangleLink::Transfer;
 
-// this can become a bottle neck in performance
-// (as can entity component accessors)
-// so triangles are then sorted along an arbitrary axis
-// I should like to chose a line wherein triangles are most widely and evenly
-// distrubuted to reduce load.
-class DriverComplete final : public Driver {
-public:
-    void add_triangle(const SharedPtr<const TriangleLink> &) final;
-
-    void remove_triangle(const SharedPtr<const TriangleLink> &) final;
-
-    void clear_all_triangles() final;
-
-    Driver & update() final;
-
-    State operator () (const State &, const EventHandler &) const final;
-
-private:
-    // the job of each method here is to reduce displacement
-    State handle_freebody(const InAir &, const EventHandler &) const;
-
-    State handle_tracker(const OnSegment &, const EventHandler &) const;
-
-    FrameTimeLinkContainer m_frametime_link_container;
-};
+template <typename Vec1, typename Vec2>
+void verify_decreasing_displacement
+    (EnableIf<cul::VectorTraits<Vec1>::k_is_vector_type, const Vec1 &> displc,
+     EnableIf<cul::VectorTraits<Vec2>::k_is_vector_type, const Vec2 &> old_displacement,
+     const char * caller);
 
 bool new_invert_normal
     (const LinkTransfer & transfer, const OnSegment & tracker)
@@ -78,72 +51,6 @@ bool new_invert_normal
 } // end of <anonymous> namespace
 
 namespace point_and_plane {
-
-OnSegment::OnSegment
-    (const SharedPtr<const TriangleFragment> & frag_,
-     bool invert_norm_, Vector2 loc_, Vector2 dis_):
-    fragment(frag_), segment(&frag_->segment()),
-    invert_normal(invert_norm_), location(loc_), displacement(dis_)
-{
-    if (!segment->contains_point(loc_)) {
-        std::cerr << loc_ << " " 
-                  << segment->point_a_in_2d() << " "
-                  << segment->point_b_in_2d() << " "
-                  << segment->point_c_in_2d() << std::endl;
-    }
-    assert(segment->contains_point(loc_));
-}
-
-Vector location_of(const State & state) {
-    auto * in_air = get_if<InAir>(&state);
-    if (in_air) return in_air->location;
-    auto & on_surf = std::get<OnSegment>(state);
-    return on_surf.segment->point_at(on_surf.location);
-}
-
-Vector displaced_location_of(const State & state) {
-    if (auto * on_air = get_if<InAir>(&state)) {
-        return on_air->location + on_air->displacement;
-    }
-    auto & on_segment = std::get<OnSegment>(state);
-    return on_segment.segment->point_at(  on_segment.location
-                                        + on_segment.displacement);
-}
-
-/* static */ UniquePtr<EventHandler> EventHandler::make_test_handler() {
-    class TestHandler final : public point_and_plane::EventHandler {
-        Variant<Vector2, Vector>
-            on_triangle_hit
-            (const Triangle &, const Vector &, const Vector2 &, const Vector &) const final
-        { return Vector2{}; }
-
-        Variant<Vector, Vector2>
-            on_transfer_absent_link
-            (const Triangle &, const SideCrossing &, const Vector2 &) const final
-        { return Vector{}; }
-
-        Variant<Vector, TransferOnSegment>
-            on_transfer
-            (const Triangle &, const Triangle::SideCrossing &,
-             const Triangle &, const Vector &) const final
-        { return make_tuple(Vector2{}, true); }
-    };
-
-    return make_unique<TestHandler>();
-}
-
-/* static */ UniquePtr<Driver> Driver::make_driver()
-    { return UniquePtr<Driver>{make_unique<DriverComplete>()}; }
-
-} // end of point_and_plane namespace
-
-namespace {
-
-template <typename Vec1, typename Vec2>
-void verify_decreasing_displacement
-    (EnableIf<cul::VectorTraits<Vec1>::k_is_vector_type, const Vec1 &> displc,
-     EnableIf<cul::VectorTraits<Vec2>::k_is_vector_type, const Vec2 &> old_displacement,
-     const char * caller);
 
 // should/add remove fast
 void DriverComplete::add_triangle(const SharedPtr<const TriangleLink> & link) {
@@ -342,7 +249,9 @@ State DriverComplete::operator ()
     }
 }
 
-// ----------------------------------------------------------------------------
+} // end of point_and_plane namespace
+
+namespace {
 
 template <typename Vec1, typename Vec2>
 void verify_decreasing_displacement

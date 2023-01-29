@@ -21,7 +21,7 @@
 #include "MapDirector.hpp"
 #include "map-loader-task.hpp"
 
-#include "../PointAndPlaneDriver.hpp"
+#include "../point-and-plane.hpp"
 
 namespace {
 

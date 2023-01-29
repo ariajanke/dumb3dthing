@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,7 +26,18 @@
 
 namespace point_and_plane {
 
+struct InAir;
+struct OnSegment;
 using Triangle = TriangleSegment;
+using State = Variant<InAir, OnSegment>;
+
+} // end of point_and_plane namespace
+
+using PpState = point_and_plane::State;
+using PpInAir = point_and_plane::InAir;
+using PpOnSegment = point_and_plane::OnSegment;
+
+namespace point_and_plane {
 
 struct OnSegment final {
     OnSegment() {}
@@ -43,25 +54,12 @@ struct OnSegment final {
 
 struct InAir final {
     InAir() {}
+
     InAir(Vector loc_, Vector displac_):
         location(loc_), displacement(displac_) {}
+
     Vector location;
     Vector displacement;
-};
-
-using State = Variant<InAir, OnSegment>;
-
-Vector location_of(const State &);
-
-Vector displaced_location_of(const State &);
-
-inline Vector segment_displacement_to_v3(const State & state) {
-    using std::get;
-    auto pt_at = [&state](Vector2 r)
-        { return get<OnSegment>(state).segment->point_at(r); };
-    auto dis = get<OnSegment>(state).displacement;
-    auto loc = get<OnSegment>(state).location;
-    return pt_at(loc + dis) - pt_at(loc);
 };
 
 class EventHandler {
@@ -69,16 +67,17 @@ public:
     using SideCrossing = Triangle::SideCrossing;
     struct TransferOnSegment final {
         TransferOnSegment() {}
+
         TransferOnSegment(Vector2 displc_, bool transfer_):
             displacement(displc_), transfer_to_next(transfer_) {}
+
         /* implicit */ TransferOnSegment(const Tuple<Vector2, bool> & tup):
             displacement(std::get<Vector2>(tup)),
             transfer_to_next(std::get<bool>(tup)) {}
+
         Vector2 displacement;
         bool transfer_to_next = true;
     };
-
-    static UniquePtr<EventHandler> make_test_handler();
 
     virtual ~EventHandler() {}
 
@@ -167,8 +166,10 @@ protected:
     Driver() {}
 };
 
-} // end of point_and_plane namespace
+Vector location_of(const State &);
 
-using PpState = point_and_plane::State;
-using PpInAir = point_and_plane::InAir;
-using PpOnSegment = point_and_plane::OnSegment;
+Vector displaced_location_of(const State &);
+
+Vector segment_displacement_to_v3(const State &);
+
+} // end of point_and_plane namespace

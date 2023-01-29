@@ -71,11 +71,6 @@ Tuple<int, ConstTileSetPtr> GidTidTranslator::gid_to_tid(int gid) const {
     samp.starting_id = gid;
     auto itr = std::upper_bound(m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
     assert(itr != m_gid_map.begin());
-#   if 0
-    if (itr == m_gid_map.begin()) {
-        throw RtError{"GidTidTranslator::gid_to_tid: Given gid is "};
-    }
-#   endif
     --itr;
     assert(gid >= itr->starting_id);
     return std::make_pair(gid - itr->starting_id, itr->tileset);

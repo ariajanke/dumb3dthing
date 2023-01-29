@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "PlayerUpdateTask.hpp"
-#include "PointAndPlaneDriver.hpp"
+#include "point-and-plane.hpp"
 
 namespace {
 
