@@ -74,16 +74,17 @@ void ProducableSlopeTile::operator ()
         static constexpr const auto k_min = std::numeric_limits<int>::min();
         Size2I res{k_min, k_min};
         for (auto & tl : tile_locations) {
-            res.width = std::max(tl.location_on_map.x + 1, res.width);
-            res.height = std::max(tl.location_on_map.y + 1, res.height);
+            res.width = std::max(tl.on_map.x + 1, res.width);
+            res.height = std::max(tl.on_map.y + 1, res.height);
         }
         return res;
     } ();
 
-    SharedPtr<Grid<SlopesBasedTileFactory *>> factory_grid_for_map = make_shared<Grid<SlopesBasedTileFactory *>>();
+    auto factory_grid_for_map = make_shared<Grid<SlopesBasedTileFactory *>>();
     factory_grid_for_map->set_size(map_grid_size, nullptr);
-    for (auto & tl : tile_locations) {
-        (*factory_grid_for_map)(tl.location_on_map) = tile_factories(tl.location_on_tileset).get();
+    for (auto & location : tile_locations) {
+        (*factory_grid_for_map)(location.on_map) =
+            tile_factories(location.on_tileset).get();
     }
     return factory_grid_for_map;
 }
@@ -94,9 +95,9 @@ UnfinishedTileGroupGrid SlopeGroupFiller::operator ()
 {
     auto mapwide_factory_grid = make_factory_grid_for_map(tile_locations, m_tile_factories);
     UnfinishedProducableGroup<ProducableSlopeTile> group;
-    for (auto r : tile_locations) {
-        group.at_location(r.location_on_map).
-            make_producable(r.location_on_map, mapwide_factory_grid);
+    for (auto & location : tile_locations) {
+        group.at_location(location.on_map).
+            make_producable(location.on_map, mapwide_factory_grid);
     }
     group_grid.add_group(std::move(group));
     return std::move(group_grid);

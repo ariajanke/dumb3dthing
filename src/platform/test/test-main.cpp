@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "test-functions.hpp"
+#include <ariajanke/cul/TreeTestSuite.hpp>
 
 #include <array>
 #include <algorithm>
@@ -42,5 +43,6 @@ int main() {
         results[i] = k_test_functions[i]();
     bool all_ok = std::all_of(results.begin(), results.end(),
                 [](bool b){ return b; });
+    cul::tree_ts::run_tests();
     return all_ok ? 0 : ~0;
 }

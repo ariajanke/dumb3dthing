@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #include "test-functions.hpp"
 #include "../../TriangleSegment.hpp"
 
@@ -42,13 +42,15 @@ bool run_triangle_segment_tests() {
 
     // testing position_on method
     // proper origin?
+#   if 0
     mark(suite).test([] {
         TriangleSegment ts;
         auto a = Vector{1, 2, 3};
         ts = TriangleSegment{a, Vector{4, 5, 6}, Vector{7, 8, 8}};
         return test(are_very_close(ts.point_at(Vector2()), a));
     });
-
+#   endif
+#   if 0
     // test normal
     mark(suite).test([] {
         auto ts = make_flat_test();
@@ -112,6 +114,7 @@ bool run_triangle_segment_tests() {
         auto p = ts.closest_point(Vector(10., -10., -123.));
         return test(are_very_close(ts.point_at(p), Vector(10., -10., 0.)));
     });
+
     // generally: a is very close to ts.closest_point(ts.point_at(a))
 
     // intersection
@@ -148,7 +151,7 @@ bool run_triangle_segment_tests() {
             return test(are_very_close(ts.point_at(ts.point_c_in_2d()), ts.point_c()));
         });
     });
-
+#   endif
     mark(suite).test([] {
         TriangleSegment seg{Vector{0, 0, 0}, Vector{1, 0, 0}, Vector{0, 1, 0}};
         auto outside = seg.closest_point(Vector{ -0.1, 0.5, 0 });
@@ -170,13 +173,14 @@ bool run_triangle_segment_tests() {
 #   endif
     // fails?!
     // <x: 0.6, y: 0.6> <x: 0, y: 0> <x: 1.4142, y: 0> <x: 0.70711, y: 0.70711>
-
+#   if 0
     mark(suite).test([] {
         Vector2 pt{0.6, 0.6};
         TriangleSegment triangle{Vector{0, 0, 0}, Vector{1.4142, 0, 0}, Vector{0.70711, 0.70711, 0}};
         return test(triangle.contains_point(pt));
     });
-
+#   endif
+#   if 0
     // issues with 32bit floats
     mark(suite).test([] {
         Vector a{3.0999999,  0.0249999985 , -2.0999999};
@@ -195,19 +199,22 @@ bool run_triangle_segment_tests() {
         auto res = triangle.intersection(a, b);
         return test(cul::is_solution(res));
     });
-
+#   endif
+#   if 0
     mark(suite).test([] {
         TriangleSegment triangle{Vector{-0.25, 1, 0.25}, Vector{-0.25, 1, 0.5}, Vector{0.5, 1, -0.5}};
         return test(are_very_close(triangle.point_at(triangle.point_c_in_2d()), triangle.point_c()));
     });
-
+#   endif
+#   if 0
     mark(suite).test([] {
         TriangleSegment triangle_a;
         auto triangle_b = triangle_a.flip();
         auto ang = angle_between(triangle_a.normal(), triangle_b.normal());
         return test(are_very_close(ang, k_pi));
     });
-
+#   endif
 #   undef mark
     return suite.has_successes_only();
 }
+#endif

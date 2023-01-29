@@ -24,12 +24,9 @@
 
 #include "../Defs.hpp"
 
-class TileSetXmlGrid;
-class Platform;
-
 struct TileLocation final {
     Vector2I on_map;
-    Vector2I on_field;
+    Vector2I on_tileset;
 };
 
 /// How to fill out a grid with a tile group.
@@ -37,11 +34,6 @@ struct TileLocation final {
 ///
 class ProducableTileFiller {
 public:
-    struct TileLocation final {
-        Vector2I location_on_map;
-        Vector2I location_on_tileset;
-    };
-
     virtual ~ProducableTileFiller() {}
 
     virtual UnfinishedTileGroupGrid operator ()

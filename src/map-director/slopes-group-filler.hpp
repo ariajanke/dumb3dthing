@@ -44,6 +44,8 @@ static constexpr auto k_ramp_group_type_list = {
 
 } // end of slopes_group_filler_type_names namespace
 
+class TileSetXmlGrid;
+
 class SlopeGroupFiller_ final {
 public:
     static SharedPtr<ProducableTileFiller> make

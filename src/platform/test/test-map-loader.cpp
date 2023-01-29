@@ -20,7 +20,9 @@
 
 #include "test-functions.hpp"
 #include "../../Components.hpp"
+#if 0
 #include "../../map-loader/map-loader.hpp"
+#endif
 #include "../../PointAndPlaneDriver.hpp"
 #include "../../point-and-plane/FrameTimeLinkContainer.hpp"
 
@@ -38,7 +40,9 @@ namespace {
 using PlayerEntities = LoaderTask::PlayerEntities;
 using namespace cul::exceptions_abbr;
 using cul::is_real;
+#if 0
 using LinksGrid = Grid<View<TriangleLinks::const_iterator, TriangleLinks::const_iterator>>;
+#endif
 using Triangle = TriangleSegment;
 #if 0
 class TestLoaderTaskCallbacks final : public LoaderTask::Callbacks {

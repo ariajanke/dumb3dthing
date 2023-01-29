@@ -66,7 +66,6 @@ private:
     std::vector<SharedPtr<const ProducableTileFiller>> m_fillers;
 };
 
-// these can go into loading
 class UnfinishedProducableTileViewGrid final {
 public:
     void add_layer
