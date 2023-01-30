@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,13 +18,20 @@
 
 *****************************************************************************/
 
-#include "test-functions.hpp"
+#pragma once
+
+#define mark_it mark_source_position(__LINE__, __FILE__).it
+
 #include <ariajanke/cul/TreeTestSuite.hpp>
 
-int main() {
-    // keeping these legacy tests
-    if (!run_systems_tests()) return ~0;
+using namespace cul::exceptions_abbr;
 
-    // something's not right... my tests are being partially skipped
-    return cul::tree_ts::run_tests();
+template <typename ExpType, typename Func>
+cul::tree_ts::TestAssertion expect_exception(Func && f) {
+    try {
+        f();
+    } catch (ExpType &) {
+        return cul::tree_ts::test_that(true);
+    }
+    return cul::tree_ts::test_that(false);
 }

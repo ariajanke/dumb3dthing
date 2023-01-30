@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,13 +18,29 @@
 
 *****************************************************************************/
 
-#include "test-functions.hpp"
-#include <ariajanke/cul/TreeTestSuite.hpp>
+#pragma once
 
-int main() {
-    // keeping these legacy tests
-    if (!run_systems_tests()) return ~0;
+#include "../Defs.hpp"
 
-    // something's not right... my tests are being partially skipped
-    return cul::tree_ts::run_tests();
-}
+namespace twist_loop_filler_names {
+
+constexpr const auto k_ns_twist_loop = "ns-twist-loop";
+constexpr const auto k_ew_twist_loop = "ew-twist-loop";
+
+constexpr const auto k_name_list = { k_ns_twist_loop, k_ew_twist_loop };
+
+} // end of twist_loop_filler_names namespace
+
+
+class TileSetXmlGrid;
+class ProducableTileFiller;
+class Platform;
+
+class TwistLoopGroupFiller_ final {
+public:
+    static SharedPtr<ProducableTileFiller> make
+        (const TileSetXmlGrid & xml_grid, Platform &);
+
+private:
+    TwistLoopGroupFiller_() {}
+};

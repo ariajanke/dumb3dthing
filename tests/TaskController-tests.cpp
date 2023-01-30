@@ -22,21 +22,7 @@
 
 #include "../src/point-and-plane.hpp"
 
-#include <ariajanke/cul/TreeTestSuite.hpp>
-
-#define mark_it mark_source_position(__LINE__, __FILE__).it
-
-using namespace cul::exceptions_abbr;
-
-template <typename ExpType, typename Func>
-cul::tree_ts::TestAssertion expect_exception(Func && f) {
-    try {
-        f();
-    } catch (ExpType &) {
-        return cul::tree_ts::test_that(true);
-    }
-    return cul::tree_ts::test_that(false);
-}
+#include "test-helpers.hpp"
 
 [[maybe_unused]] static auto s_add_describes = [] {
 

@@ -362,7 +362,7 @@
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
- <tile id="65" type="ns-mobius-strip">
+ <tile id="65" type="ns-twist-loop">
   <properties>
    <property name="translation" value="0,2,0"/>
   </properties>
@@ -403,7 +403,7 @@
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
- <tile id="74" type="ns-mobius-strip">
+ <tile id="74" type="ns-twist-loop">
   <properties>
    <property name="translation" value="0,2,0"/>
   </properties>
@@ -444,7 +444,7 @@
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
- <tile id="83" type="ns-mobius-strip">
+ <tile id="83" type="ns-twist-loop">
   <properties>
    <property name="translation" value="0,2,0"/>
   </properties>
