@@ -26,12 +26,12 @@
 
 struct Counted final {
 public:
-    Counted(){}
-    Counted(const Counted &) {}
-    Counted(Counted &&) {}
-    ~Counted() {}
+    Counted() { ++s_count; }
+    Counted(const Counted &) { ++s_count; }
 
-    static int count() { return s_count; }
+    ~Counted() { --s_count; }
+
+    static const int & count() { return s_count; }
     static void reset_count() { s_count = 0; }
 private:
     static int s_count;
@@ -76,6 +76,7 @@ describe<ViewGridInserter<int>>("ViewGridInserter #advance -> #filled")([] {
 struct ViewGridLifetimes final {};
 describe<ViewGridLifetimes>("ViewGridInserter #push -> #move_out...")([] {
     Counted::reset_count();
+
     mark_it("before any push, there are no counted objects", [&] {
         return test_that(Counted::count() == 0);
     });
@@ -123,10 +124,13 @@ describe<ViewGridPositions>("ViewGridInserter #position").
     inserter.advance();
     grid_pos = sample_grid.next(grid_pos);
     grid_pos = sample_grid.next(grid_pos);
+    inserter_pos = inserter.position();
     mark_it("multiple advances follow cul grid's positions", [&] {
         return test_that(grid_pos == inserter_pos);
     });
 });
+
+#if 1
 describe<ViewGridInserter<int>>
     ("ViewGridInserter #advance -> #filled (with elements)").
     depends_on<ViewGridPositions>()([]
@@ -175,24 +179,28 @@ describe<ViewGridInserter<int>>
     inserter.advance();
     inserter.push(3);
     inserter.advance();
+    auto e_pos = inserter.position();
     mark_it("transforms values successfully for a partialy finished grid view", [&] {
-        auto char_inserter = inserter.transform_values<char>([] (int i) { return 'A' + i; });
+        // having to side effect clean, as I can't return earlier without
+        // intrusive code
+        auto char_inserter = inserter.
+            transform_values<char>([] (int i) { return 'A' + i; });
         char_inserter.advance();
         if (!char_inserter.filled()) return test_that(false);
         auto [cont, grid] = char_inserter.move_out_container_and_grid_view();
         return test_that(*grid(c_pos).begin() == 'C');
-    });
-    auto e_pos = inserter.position();
-    inserter.push(4);
-    inserter.advance();
-    mark_it("transforms values successfully for a finished grid view", [&] {
-        auto char_inserter = inserter.transform_values<char>([] (int i) { return 'A' + i; });
+    }).next([&] {
+        inserter.push(4);
+        inserter.advance();
+    }).mark_it("transforms values successfully for a finished grid view", [&] {
+        auto char_inserter = inserter.
+            transform_values<char>([] (int i) { return 'A' + i; });
         if (!char_inserter.filled()) return test_that(false);
         auto [cont, grid] = char_inserter.move_out_container_and_grid_view();
         return test_that(*grid(e_pos).begin() == 'E');
     });
 });
-
+#endif
 return 1;
 
 } ();

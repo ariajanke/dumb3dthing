@@ -32,27 +32,32 @@ describe<FrameTimeLinkContainer>("FrameTimeLinkContainer")([] {
     auto a = make_shared<TriangleLink>();
     auto b = make_shared<TriangleLink>();
     auto c = make_shared<TriangleLink>();
-    auto view = ftlc.view_for(-Vector{1, 1, 1}*1000, Vector{1, 1, 1}*1000);
+    auto make_view = [&ftlc]
+        { return ftlc.view_for(-Vector{1, 1, 1}*1000, Vector{1, 1, 1}*1000); };
     for (auto p : { a, c, b })
         ftlc.defer_addition_of(p);
     // this is why nested contexts are nice
     mark_it("defers addition of a; update adds the object", [&] {
         ftlc.update();
+        auto view = make_view();
         auto a_res = std::find(view.begin(), view.end(), a);
         return test_that(a_res != view.end());
     });
     mark_it("defers addition of c; update adds this object too", [&] {
         ftlc.update();
+        auto view = make_view();
         auto c_res = std::find(view.begin(), view.end(), c);
         return test_that(c_res != view.end());
     });
     mark_it("defer removal of, removes a previously added object at update", [&] {
         ftlc.defer_removal_of(b);
         ftlc.update();
+        auto view = make_view();
         auto b_res = std::find(view.begin(), view.end(), b);
         return test_that(b_res == view.end());
     });
 });
 
-return 1;
+class Dummy final {};
+return Dummy{};
 } ();
