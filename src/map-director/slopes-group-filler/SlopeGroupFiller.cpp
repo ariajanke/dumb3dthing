@@ -139,11 +139,13 @@ void SlopeGroupFiller::load
     }
 }
 
-/* static */ const RampGroupFactoryMap & SlopeGroupFiller::builtin_tile_factory_maker_map() {
+/* static */ const RampGroupFactoryMap &
+    SlopeGroupFiller::builtin_tile_factory_maker_map()
+{
     static auto s_map = [] {
-        using namespace slopes_group_filler_type_names;
         RampGroupFactoryMap s_map;
         // TODO pull from constants defined somewhere
+        using namespace slopes_group_filler_type_names;
         s_map[k_in_wall     ] = make_unique_base_factory<InWallTileFactory>;
         s_map[k_out_wall    ] = make_unique_base_factory<OutWallTileFactory>;
         s_map[k_wall        ] = make_unique_base_factory<TwoWayWallTileFactory>;

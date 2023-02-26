@@ -29,13 +29,13 @@ using namespace cul::tree_ts;
 [[maybe_unused]] static auto s_add_describes = [] {
 
 // I need an assortment of test data that hits every branch
-#if 0
+
 describe<TwistyTileRadiiLimits>
     ("TwistyTileRadiiLimits ::low_high_x_edges_and_low_dir")([]
 {
 
 });
-#endif
+
 describe<TwistyTileRadiiLimits>
     ("TwistyTileRadiiLimits ::spine_and_edge_side_x")([]
 {

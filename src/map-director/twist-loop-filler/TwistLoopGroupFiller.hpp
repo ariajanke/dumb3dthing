@@ -36,12 +36,29 @@ public:
 
     virtual ~TwistTileGroup() {}
 
-    virtual void load(const Rectangle &, const TileSetXmlGrid &, Platform &) = 0;
-
     virtual void operator ()
         (const Vector2I & position_in_group, const Vector2I & tile_offset,
          EntityAndTrianglesAdder &, Platform &) const = 0;
+
+    Vector2I group_start() const { return m_group_start; }
+
+    // stay in integer land for as long as possible
+    void load(const RectangleI &, const TileSetXmlGrid &, Platform &);
+
+protected:
+    virtual void load_(const RectangleI &, const TileSetXmlGrid &, Platform &) = 0;
+
+private:
+    Vector2I m_group_start;
 };
+
+inline void TwistTileGroup::load
+    (const RectangleI & rect, const TileSetXmlGrid & xml_grid,
+     Platform & platform)
+{
+    m_group_start = top_left_of(rect);
+    load_(rect, xml_grid, platform);
+}
 
 // north-south
 // left/right twisting
@@ -224,19 +241,28 @@ class NorthSouthTwistTileGroup final : public TwistTileGroup {
 public:
     static constexpr const Real k_breaks_per_segment = 2;
 
-    void load
-        (const Rectangle &, const TileSetXmlGrid &, Platform &) final;
-
     void operator ()
         (const Vector2I & position_in_group, const Vector2I & tile_offset,
          EntityAndTrianglesAdder &, Platform &) const final;
 
 private:
+    void load_
+        (const RectangleI &, const TileSetXmlGrid &, Platform &) final;
+
     Grid<SharedPtr<const RenderModel>> m_group_models;
+    ViewGrid<TriangleSegment> m_collision_triangles;
 };
 
 class TwistLoopTile final : public ProducableTile {
 public:
+    TwistLoopTile
+        (const Vector2I & position_in_map,
+         const Vector2I position_in_group,
+         const SharedPtr<TwistTileGroup> & tile_group):
+        m_position_in_map(position_in_map),
+        m_position_in_group(position_in_group),
+        m_twist_group(tile_group) {}
+
     void operator () (const Vector2I & maps_offset,
                       EntityAndTrianglesAdder & adder, Platform & platform) const final
         { (*m_twist_group)(m_position_in_group, m_position_in_map + maps_offset, adder, platform); }
@@ -253,4 +279,7 @@ public:
 
     UnfinishedTileGroupGrid operator ()
         (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const final;
+
+private:
+    Grid<SharedPtr<TwistTileGroup>> m_tile_groups;
 };

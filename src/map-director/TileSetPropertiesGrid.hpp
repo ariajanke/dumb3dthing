@@ -94,6 +94,9 @@ public:
 
     auto size() const { return m_elements.size(); }
 
+    bool has_position(const Vector2I & r) const
+        { return m_elements.has_position(r); }
+
 private:
     static Tuple<SharedPtr<const Texture>, Size2>
         load_texture(Platform &, const TiXmlElement &);

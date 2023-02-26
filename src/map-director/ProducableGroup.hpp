@@ -51,8 +51,8 @@ public:
         std::vector<T> & m_producables;
     };
 
-    [[nodiscard]] MakerPosition at_location(const Vector2I & r)
-        { return MakerPosition{r, m_positions, m_producables}; }
+    [[nodiscard]] MakerPosition at_location(const Vector2I & on_map)
+        { return MakerPosition{on_map, m_positions, m_producables}; }
 
     SharedPtr<ProducableGroup_> finish(Grid<ProducableTile *> & target);
 

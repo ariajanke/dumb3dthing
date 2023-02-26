@@ -95,7 +95,7 @@ public:
 
     ViewGrid & operator = (ViewGrid &&);
 
-    ElementView operator () (const Vector & r) const { return m_views(r); }
+    ElementView operator () (const Vector2I & r) const { return m_views(r); }
 
     ElementView operator () (int x, int y) const { return m_views(x, y); }
 
@@ -121,7 +121,7 @@ public:
 
     SubGrid make_subgrid(const RectangleI &) const;
 
-    Vector2I next(const Vector & r) const noexcept { return m_views.next(r); }
+    Vector2I next(const Vector2I & r) const noexcept { return m_views.next(r); }
 
     std::size_t size() const noexcept { return m_views.size(); }
 

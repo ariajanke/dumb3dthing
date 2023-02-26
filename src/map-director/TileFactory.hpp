@@ -51,13 +51,13 @@ public:
     void setup(const TileSetXmlGrid &, Platform &,
                const Vector2I & location_on_tileset);
 
+    static Vector grid_position_to_v3(const Vector2I & r)
+        { return Vector{r.x, 0, -r.y}; }
+
 protected:
     static void add_triangles_based_on_model_details
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
          EntityAndTrianglesAdder & adder);
-
-    static Vector grid_position_to_v3(const Vector2I & r)
-        { return Vector{r.x, 0, -r.y}; }
 
     static std::array<Vector, 4> get_points_for(const Slopes &);
 

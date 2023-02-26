@@ -22,6 +22,7 @@
 
 #include "../TileSetPropertiesGrid.hpp"
 #include "../slopes-group-filler.hpp"
+#include "../twist-loop-filler.hpp"
 
 #include <tinyxml2.h>
 
@@ -55,6 +56,9 @@ MakeFillerGridRt make_filler_grid
         FillerFactoryMap s_map;
         for (auto type : slopes_group_filler_type_names::k_ramp_group_type_list) {
             s_map[type] = SlopeGroupFiller_::make;
+        }
+        for (auto type : twist_loop_filler_names::k_name_list) {
+            s_map[type] = TwistLoopGroupFiller_::make;
         }
         return s_map;
     } ();
