@@ -30,7 +30,7 @@
 
 #include <ariajanke/cul/VectorUtils.hpp>
 
-constexpr const auto k_twisty_origin = TwistyTileRadiiLimits::k_twisty_origin;
+constexpr const auto k_twisty_origin = TwistyStripRadii::k_twisty_origin;
 
 namespace {
 
@@ -38,34 +38,19 @@ using namespace cul::exceptions_abbr;
 using cul::size_of, cul::top_left_of;
 
 } // end of <anonymous> namespace
-
-class TwistyTileTValueRange final {
-public:
-    TwistyTileTValueRange
-        (const Size2 & twisty_size, const Vector2I & tile_pos):
-        m_low_t (Real(tile_pos.x    ) / twisty_size.width),
-        m_high_t(Real(tile_pos.x + 1) / twisty_size.width)
-    {}
-
-    Real low_t() const { return m_low_t; }
-
-    Real high_t() const { return m_high_t; }
-
-private:
-    Real m_low_t;
-    Real m_high_t;
-};
-
+#if 0
 TwistyTileTValueLimits::TwistyTileTValueLimits
-    (const Size2 & twisty_size, const Vector2I & tile_pos)
+    (const Size2I & twisty_size, const Vector2I & tile_pos)
 {
+    throw BadBranchException{__LINE__, __FILE__};
     // need x positions for t = pos.x / width, (pos.x + 1) / width
     // if there's a cross, then I need to find that intersection
-    TwistyTileTValueRange range{twisty_size, tile_pos};
-    TwistyTileRadiiLimits low_radii{twisty_size, tile_pos, range.low_t()};
-    TwistyTileRadiiLimits high_radii{twisty_size, tile_pos, range.high_t()};
-    bool low_radii_regular = low_radii.edge_radius() > low_radii.spine_radius();
-    bool high_radii_regular = high_radii.edge_radius() > high_radii.spine_radius();
+
+    //bool raise_lower_t_value = ;
+    //bool high_radii_regular = high_radii.edge_offset() > high_radii.spine_offset();
+#   if 0
+    bool low_radii_regular  = low_radii .edge_offset() > low_radii .spine_offset();
+    bool high_radii_regular = high_radii.edge_offset() > high_radii.spine_offset();
     if (low_radii_regular && high_radii_regular) {
         m_low_t_limit = range.low_t();
         m_high_t_limit = range.high_t();
@@ -74,7 +59,7 @@ TwistyTileTValueLimits::TwistyTileTValueLimits
         m_low_t_limit = m_high_t_limit = range.low_t();
     } else {
         // gotta find that t s.t. is the spine side's x
-        auto sol = [] (const Size2 & twisty_size, const Vector2I & tile_pos) {
+        auto sol = [] (const Size2I & twisty_size, const Vector2I & tile_pos) {
             TwistyTileTValueRange range{twisty_size, tile_pos};
 
             auto sol0 = std::acos(tile_pos.x - Real(twisty_size.width) / 2) / 2*k_pi;
@@ -94,13 +79,70 @@ TwistyTileTValueLimits::TwistyTileTValueLimits
     }
 
     // high and low theta
+#   endif
+}
+#endif
+Optional<TwistyTileTValueLimits> TwistyTileTValueLimits::find
+    (const Size2I & twisty_size, const Vector2I & tile_pos)
+{
+    using RadiiLims = TwistyStripRadii;
+    TwistyTileTValueRange range{twisty_size, tile_pos};
+    auto low_radii  = RadiiLims::find(twisty_size, tile_pos.x, range.low_t ());
+    auto high_radii = RadiiLims::find(twisty_size, tile_pos.x, range.high_t());
+    if (!low_radii && !high_radii) {
+        return {};
+    }
+    // it's possible for there to be two intersections
+    // it maybe good enough to just use the nearest
+    auto intersecting_t_value_ = [twisty_size, &range] (int strip_x)
+        { return intersecting_t_value(twisty_size, strip_x, range); };
+
+    auto closest_alternate = [&intersecting_t_value_, tile_pos] {
+        auto intersect_low  = intersecting_t_value_(tile_pos.x    );
+        auto intersect_high = intersecting_t_value_(tile_pos.x + 1);
+        return [=] (Real t) {
+            if (intersect_low && intersect_high) {
+                if (  magnitude(*intersect_low - t)
+                    < magnitude(*intersect_high - t))
+                { return *intersect_low; }
+                return *intersect_high;
+            }
+            if (intersect_low ) return *intersect_low;
+            if (intersect_high) return *intersect_high;
+            throw BadBranchException{__LINE__, __FILE__};
+        };
+    } ();
+
+    return TwistyTileTValueLimits
+        {low_radii  ? range.low_t () : closest_alternate(range.low_t ()),
+         high_radii ? range.high_t() : closest_alternate(range.high_t())};
 }
 
-TwistyTileRadiiLimits::TwistyTileRadiiLimits
-    (const Size2 & twisty_size, const Vector2I & tile_pos, Real t_value):
-    m_t_value(t_value)
+Optional<Real> TwistyTileTValueLimits::intersecting_t_value
+    (const Size2I & twisty_size, int strip_x,
+     const TwistyTileTValueRange & t_range)
 {
-
+    auto edge_x = TwistyStripSpineOffsets::edge_x_offset
+        (twisty_size.width, strip_x);
+    auto normalized_offset_from_spine =
+        // direction relative to spine
+         normalize(strip_x - Real(twisty_size.width) / 2)
+        // distance of the edge from the spine normalized to [0 1]
+        *(edge_x*2 / twisty_size.width);
+    // find that first possible t
+    auto t_sol_0 = std::acos(normalized_offset_from_spine);
+    auto t_sol_1 = 1 - t_sol_0;
+    if (t_range.contains(t_sol_0))
+        return t_sol_0;
+    if (t_range.contains(t_sol_1))
+        return t_sol_1;
+    return {};
+}
+#if 0
+TwistyTileRadiiLimits::TwistyTileRadiiLimits
+    (const Size2I & twisty_size, int tile_pos_x, Real t_value)
+{
+#   if 0
     // the needed radius to reach a point can be undefined if the twisty is
     // going straight up/down
     // spine point should come first, then edge point...
@@ -112,24 +154,28 @@ TwistyTileRadiiLimits::TwistyTileRadiiLimits
 
     // restrict x-ways
     auto [spine_side_x, edge_side_x] =
-        spine_and_edge_side_x(twisty_size.width, tile_pos.x);
+        spine_and_edge_side_x(twisty_size.width, tile_pos_x);
 
     // edge may slide into tile bounds, or use the tile bounds
     edge_side_x = std::max(low_edge_x, std::min(high_edge_x, edge_side_x));
 
     auto tan_theta = std::tan(t_value*2*k_pi);
-    m_edge  = magnitude(edge_side_x *tan_theta);
-    m_spine = magnitude(spine_side_x*tan_theta);
+    m_edge  = //edge_side_x *tan_theta;
+    m_spine = //spine_side_x*tan_theta;
+#   else
+    auto max_x = std::tan(t_value*2*k_pi);
+    throw BadBranchException{__LINE__, __FILE__};
+#   endif
 }
 
 /* static */ Tuple<Real, Real, Real>
     TwistyTileRadiiLimits::low_high_x_edges_and_low_dir
-    (const Size2 & twisty_size, Real t_value)
+    (const Size2I & twisty_size, Real t_value)
 {
-    auto spine_pt   = to_twisty_spine(Size2{twisty_size}, t_value);
-    auto twisty_rad = Real(twisty_size.width) / 2;
-    auto ex_edge_pt_a = spine_pt - to_twisty_offset(twisty_rad, t_value);
-    auto ex_edge_pt_b = spine_pt + to_twisty_offset(twisty_rad, t_value);
+    auto spine_pt      = to_twisty_spine(Size2{twisty_size}, t_value);
+    auto twisty_rad    = Real(twisty_size.width) / 2;
+    auto ex_edge_pt_a  = spine_pt - to_twisty_offset(twisty_rad, t_value);
+    auto ex_edge_pt_b  = spine_pt + to_twisty_offset(twisty_rad, t_value);
     auto twisty_edge_a = cul::project_onto(ex_edge_pt_a, Vector{twisty_rad, 0, 0}).x;
     auto twisty_edge_b = cul::project_onto(ex_edge_pt_b, Vector{twisty_rad, 0, 0}).x;
     if (twisty_edge_a > twisty_edge_b) {
@@ -142,9 +188,10 @@ TwistyTileRadiiLimits::TwistyTileRadiiLimits
     TwistyTileRadiiLimits::spine_and_edge_side_x
     (Real twisty_width, Real tile_pos_x)
 {
-    auto tile_low_x = k_twisty_origin.x + tile_pos_x;
+    auto tile_low_x  = k_twisty_origin.x + tile_pos_x;
     auto tile_high_x = tile_low_x + 1;
-    auto twisty_rad = twisty_width / 2;
+    auto twisty_rad  = twisty_width / 2;
+    // which side of the spine are we on?
     if (  magnitude(tile_low_x  - twisty_rad)
         > magnitude(tile_high_x - twisty_rad))
     {
@@ -152,16 +199,17 @@ TwistyTileRadiiLimits::TwistyTileRadiiLimits
     }
     return make_tuple(tile_low_x, tile_high_x);
 }
-
+#endif
+#if 0
 TwistyTilePointLimits::TwistyTilePointLimits
-    (const Size2 & twisty_size, const Vector2I & tile_pos, Real t_value)
+    (const Size2I & twisty_size, const Vector2I & tile_pos, Real t_value)
 {
-    TwistyTileRadiiLimits radii_lims{twisty_size, tile_pos, t_value};
+    TwistyTileRadiiLimits radii_lims{twisty_size, tile_pos.x, t_value};
     auto dir = to_twisty_offset(1, t_value);
-    m_spine = dir*radii_lims.spine_radius();
-    m_edge = dir*radii_lims.edge_radius();
+    m_spine  = dir*(*radii_lims.spine_offset());
+    m_edge   = dir*(*radii_lims.edge_offset ());
 }
-
+#endif
 Vector to_twisty_offset(const Real & radius, Real t) {
     auto theta = t*2*k_pi;
     return Vector
@@ -175,14 +223,20 @@ Vector to_twisty_spine(const Size2 & twisty_size, Real t) {
 }
 
 std::vector<Real> find_unavoidable_t_breaks_for_twisty
-    (const Size2 & twisty_size)
+    (const Size2I & twisty_size)
 {
     std::vector<Real> tbreaks;
     for (int x = 0; x != twisty_size.width ; ++x) {
     for (int y = 0; y != twisty_size.height; ++y) {
+        auto lims = TwistyTileTValueLimits::find(twisty_size, Vector2I{x, y});
+        if (!lims) continue;
+#       if 0
         TwistyTileTValueLimits lims{twisty_size, Vector2I{x, y}};
         tbreaks.push_back(lims.low_t_limit ());
         tbreaks.push_back(lims.high_t_limit());
+#       endif
+        tbreaks.push_back(lims->low_t_limit ());
+        tbreaks.push_back(lims->high_t_limit());
     }}
     std::sort(tbreaks.begin(), tbreaks.end());
     auto uend = std::unique(tbreaks.begin(), tbreaks.end(), [](Real lhs, Real rhs) {
@@ -253,7 +307,7 @@ std::vector<Real> pad_t_breaks_until_target
 }
 
 ViewGrid<VertexTriangle> make_twisty_geometry_for
-    (const Size2 & twisty_size, TwistDirection dir, TwistPathDirection path_dir,
+    (const Size2I & twisty_size, TwistDirection dir, TwistPathDirection path_dir,
      const TexturingAdapter & txadapter, Real breaks_per_segment)
 {
     int target_breaks = int(std::round(breaks_per_segment*twisty_size.height));
@@ -262,12 +316,18 @@ ViewGrid<VertexTriangle> make_twisty_geometry_for
 
     ViewGridInserter<VertexTriangle> triangle_inserter{Size2I{twisty_size}};
     for (; !triangle_inserter.filled(); triangle_inserter.advance()) {
+#       if 0
         TwistyTileTValueLimits tile_lims{twisty_size, triangle_inserter.position()};
+#       endif
+        auto tile_lims = TwistyTileTValueLimits::find
+            (twisty_size, triangle_inserter.position());
+        if (!tile_lims)
+            { continue; }
         // find all t breaks for this tile
         auto t_break_start = std::lower_bound
-            (t_breaks.begin(), t_breaks.end(), tile_lims.low_t_limit());
+            (t_breaks.begin(), t_breaks.end(), tile_lims->low_t_limit());
         auto t_break_last = std::lower_bound
-            (t_break_start, t_breaks.end(), tile_lims.high_t_limit());
+            (t_break_start, t_breaks.end(), tile_lims->high_t_limit());
         auto t_break_end = ((t_break_last == t_breaks.end()) ? 0 : 1) + t_break_start;
         insert_twisty_geometry_into
             (triangle_inserter, twisty_size, txadapter,
@@ -278,7 +338,13 @@ ViewGrid<VertexTriangle> make_twisty_geometry_for
 
 void insert_twisty_geometry_into
     (ViewGridInserter<VertexTriangle> & inserter,
-     const Size2 & twisty_size, const TexturingAdapter & txadapter,
+     const TexturingAdapter & txadapter,
+     const TwistyTileEdgePoints & low_points,
+     const TwistyTileEdgePoints & high_points);
+
+void insert_twisty_geometry_into
+    (ViewGridInserter<VertexTriangle> & inserter,
+     const Size2I & twisty_size, const TexturingAdapter & txadapter,
      std::vector<Real>::const_iterator t_breaks_beg,
      std::vector<Real>::const_iterator t_breaks_end)
 {
@@ -286,13 +352,39 @@ void insert_twisty_geometry_into
 
     auto last = t_breaks_beg;
     for (auto t : View{t_breaks_beg + 1, t_breaks_end}) {
+#       if 0
         TwistyTilePointLimits low_lims {twisty_size, inserter.position(), *last};
         TwistyTilePointLimits high_lims{twisty_size, inserter.position(), t};
         insert_twisty_geometry_into(inserter, txadapter, low_lims, high_lims);
+#       else
+        TwistyTileEdgePoints low_points {twisty_size, inserter.position().x, *last};
+        TwistyTileEdgePoints high_points{twisty_size, inserter.position().x, t};
+        insert_twisty_geometry_into(inserter, txadapter, low_points, high_points);
+#       endif
         ++last;
     }
 }
 
+void insert_twisty_geometry_into
+    (ViewGridInserter<VertexTriangle> & inserter,
+     const TexturingAdapter & txadapter,
+     const TwistyTileEdgePoints & low_points,
+     const TwistyTileEdgePoints & high_points)
+{
+    using PointPair = TwistyTileEdgePoints::PointPair;
+    TwistyTilePoints points{low_points, high_points};
+    auto to_vertex = [&txadapter] (const PointPair & point)
+        { return Vertex{point.in_3d(), txadapter(point.on_tile())}; };
+    if (points.count() > 2) {
+        inserter.push(VertexTriangle
+            {to_vertex(points[0]), to_vertex(points[1]), to_vertex(points[2])});
+    }
+    if (points.count() > 3) {
+        inserter.push(VertexTriangle
+            {to_vertex(points[2]), to_vertex(points[3]), to_vertex(points[0])});
+    }
+}
+#if 0
 void insert_twisty_geometry_into
     (ViewGridInserter<VertexTriangle> & inserter,
      const TexturingAdapter & txadapter,
@@ -334,13 +426,13 @@ void insert_twisty_geometry_into
         inserter.push(triangle);
     }
 }
-
+#endif
 /* private */ void NorthSouthTwistTileGroup::load_
     (const RectangleI & rectangle, const TileSetXmlGrid &,
      Platform & platform)
 {
     auto geo_grid = make_twisty_geometry_for
-        (Size2{size_of(rectangle)}, TwistDirection::left, TwistPathDirection::north_south,
+        (size_of(rectangle), TwistDirection::left, TwistPathDirection::north_south,
          CapTexturingAdapter{Vector2{top_left_of(rectangle)}, Size2{size_of(rectangle)}},
          k_breaks_per_segment);
     std::vector<Vertex> verticies;

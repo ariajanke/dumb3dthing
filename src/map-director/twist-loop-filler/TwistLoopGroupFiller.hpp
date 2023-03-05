@@ -26,6 +26,11 @@
 
 #include <ariajanke/cul/Util.hpp>
 
+#include <optional>
+
+template <typename T>
+using Optional = std::optional<T>;
+
 // how does tile generation work here?
 // only load in geometry relevant to a tile? (yes)
 
@@ -121,55 +126,212 @@ using VertexTriangle = std::array<Vertex, 3>;
 // all tiles at 1/2, middle two 3/4, all again at end
 
 ViewGrid<VertexTriangle> make_twisty_geometry_for
-    (const Size2 & twisty_size, TwistDirection, TwistPathDirection,
+    (const Size2I & twisty_size, TwistDirection, TwistPathDirection,
      const TexturingAdapter &, Real breaks_per_tile);
+
+class TwistyTileTValueRange final {
+public:
+    TwistyTileTValueRange
+        (const Size2I & twisty_size, const Vector2I & tile_pos):
+        m_low_t (Real(tile_pos.x    ) / twisty_size.width),
+        m_high_t(Real(tile_pos.x + 1) / twisty_size.width)
+    {}
+
+    Real low_t() const { return m_low_t; }
+
+    Real high_t() const { return m_high_t; }
+
+    bool contains(Real t) const { return t >= low_t() && t <= high_t(); }
+
+private:
+    Real m_low_t;
+    Real m_high_t;
+};
 
 // I am a computation class, an instance is essentially the return value
 /// computes boundries of tile geometry in "t" values
 class TwistyTileTValueLimits final {
 public:
+#   if 0
     TwistyTileTValueLimits
-        (const Size2 & twisty_size, const Vector2I & tile_pos);
+        (const Size2I & twisty_size, const Vector2I & tile_pos);
+#   endif
+    static Optional<TwistyTileTValueLimits> find
+        (const Size2I & twisty_size, const Vector2I & tile_pos);
+
+    static Optional<Real> intersecting_t_value
+        (const Size2I & twisty_size, int strip_x,
+         const TwistyTileTValueRange &);
 
     Real low_t_limit() const { return m_low_t_limit; }
 
     Real high_t_limit() const { return m_high_t_limit; }
 
 private:
+    TwistyTileTValueLimits(Real low_t_limit_, Real high_t_limit_):
+        m_low_t_limit(low_t_limit_), m_high_t_limit(high_t_limit_) {}
+
     // the only real "state", are the answers for a "computation" class
     // should this be a struct then? idk
     Real m_low_t_limit;
     Real m_high_t_limit;
 };
-
-// feels like this is missing a direction (from the spine)
+#if 0
+// tile constrained offsets from the spine
+// constraint: magnitude(spine_offset()) <= magnitude(edge_offset())
+// it is possible for both offsets to be equal
+// it is possible for both offsets to have different signs
+// either both exist or neither
 class TwistyTileRadiiLimits final {
 public:
     static constexpr const Vector k_twisty_origin{-0.5, 0, -0.5};
 
+    // tile_pos_x is being used to determine which side of the spine we're on
     TwistyTileRadiiLimits
-        (const Size2 & twisty_size, const Vector2I & tile_pos, Real t_value);
+        (const Size2I & twisty_size, int tile_pos_x, Real t_value);
 
-    Real spine_radius() const { return m_spine; }
+    // typically closer to the spine
+    // it is not the spine side for odd number width twisties where tile_pos_x
+    // describes a tile on the spine itself
+    Optional<Real> low_offset() const { return m_low; }
 
-    Real edge_radius() const { return m_edge; }
+    Optional<Real> high_offset() const { return m_high; }
 
     static Tuple<Real, Real, Real> low_high_x_edges_and_low_dir
-        (const Size2 & twisty_size, Real t_value);
+        (const Size2I & twisty_size, Real t_value);
 
     static Tuple<Real, Real> spine_and_edge_side_x
         (Real twisty_width, Real tile_pos_x);
 
 private:
-    Real m_t_value, m_spine, m_edge;
+    Optional<Real> m_low, m_high;
+};
+#endif
+class TwistyStripSpineOffsets final {
+public:
+    static constexpr const Vector k_twisty_origin{-0.5, 0, -0.5};
 
+    // tile_pos_x is being used to determine which side of the spine we're on
+    static Optional<TwistyStripSpineOffsets> find
+        (const Size2I & twisty_size, int strip_pos_x, Real t_value)
+    {
+        if (t_value < 0 || t_value > 1) return {};
+        auto max_x = magnitude(std::tan(t_value*2*k_pi));
+        // if our strip is beyond the maximum x, then there are no radii
+        auto [spine_x, edge_x] = spine_and_edge_x_offsets(twisty_size.width, strip_pos_x);
+        if (spine_x < max_x) return {};
+        // turn an x into a radius...
+        return TwistyStripSpineOffsets{spine_x, std::min(edge_x, max_x)};
+    }
+
+    // is closer to the spine
+    // for cases where the tile_pos_x describes a tile on the spine (rather
+    // than adjacent) it is zero. If it is adjacent, spine is zero also.
+    Real spine() const { return m_spine; }
+
+    Real edge() const { return m_edge; }
+
+    // just the strip, unconstrained by twisty
+    static Tuple<Real, Real> spine_and_edge_x_offsets
+        (int twisty_width, int strip_pos_x)
+    {
+        using std::min, std::max;
+        if (twisty_width / 2 == strip_pos_x) {
+            return make_tuple(0, 0.5);
+        }
+        auto low_side  = strip_pos_x;
+        auto high_side = strip_pos_x + 1;
+        auto spine_pos = Real(twisty_width) / 2;
+        auto strip_low  = magnitude(spine_pos - low_side);
+        auto strip_high = magnitude(spine_pos - high_side);
+        return make_tuple(min(strip_low, strip_high),
+                          max(strip_low, strip_high));
+    }
+
+    template <typename ... Types>
+    static Real edge_x_offset(Types &&... args)
+        { return std::get<1>(spine_and_edge_x_offsets(std::forward<Types>(args)...)); }
+
+private:
+    TwistyStripSpineOffsets(Real spine_, Real edge_):
+        m_spine(spine_), m_edge(edge_) {}
+
+    Real m_spine, m_edge;
 };
 
+// t value determines direction
+// these radii limits determine how far we go to reach these points on the tile
+class TwistyStripRadii final {
+public:
+    static constexpr const Vector k_twisty_origin{-0.5, 0, -0.5};
+
+    // tile_pos_x is being used to determine which side of the spine we're on
+    static Optional<TwistyStripRadii> find
+        (const Size2I & twisty_size, int strip_pos_x, Real t_value)
+    {
+        using Offsets = TwistyStripSpineOffsets;
+        return find
+            (Offsets::find(twisty_size, strip_pos_x, t_value), t_value);
+#       if 0
+        if (t_value < 0 || t_value > 1) return {};
+        auto max_x = magnitude(std::tan(t_value*2*k_pi));
+        // if our strip is beyond the maximum x, then there are no radii
+        auto [spine_x, edge_x] = spine_and_edge_x_offsets(twisty_size.width, strip_pos_x);
+        if (spine_x < max_x) return {};
+        // turn an x into a radius...
+        auto cos_t = std::cos(t_value);
+        return TwistyStripRadiiLimits{cos_t*spine_x, cos_t*std::min(edge_x, max_x)};
+#       endif
+    }
+
+    static Optional<TwistyStripRadii> find
+        (const Optional<TwistyStripSpineOffsets> & offsets, Real t_value)
+    {
+        if (!offsets) return {};
+        auto cos_t = std::cos(t_value);
+        return TwistyStripRadii{cos_t*offsets->spine(), cos_t*offsets->edge()};
+    }
+    // is closer to the spine
+    // for cases where the tile_pos_x describes a tile on the spine (rather
+    // than adjacent) it is zero. If it is adjacent, spine is zero also.
+    Real spine() const { return m_spine; }
+
+    Real edge() const { return m_edge; }
+#   if 0
+    // just the strip, unconstrained by twisty
+    static Tuple<Real, Real> spine_and_edge_x_offsets
+        (int twisty_width, int strip_pos_x)
+    {
+        using std::min, std::max;
+        if (twisty_width / 2 == strip_pos_x) {
+            return make_tuple(0, 0.5);
+        }
+        auto low_side  = strip_pos_x;
+        auto high_side = strip_pos_x + 1;
+        auto spine_pos = Real(twisty_width) / 2;
+        auto strip_low  = magnitude(spine_pos - low_side);
+        auto strip_high = magnitude(spine_pos - high_side);
+        return make_tuple(min(strip_low, strip_high),
+                          max(strip_low, strip_high));
+    }
+
+    template <typename ... Types>
+    static Real edge_x_offset(Types &&... args)
+        { return std::get<1>(spine_and_edge_x_offsets(std::forward<Types>(args)...)); }
+#   endif
+private:
+    TwistyStripRadii(Real spine_, Real edge_):
+        m_spine(spine_), m_edge(edge_) {}
+
+    Real m_spine, m_edge;
+};
+#if 0
+/// v this class doesn't make sense
 /// points which are both limited by tile and radial boundries
 class TwistyTilePointLimits final {
 public:
     TwistyTilePointLimits
-        (const Size2 & twisty_size, const Vector2I & tile_pos, Real t_value);
+        (const Size2I & twisty_size, const Vector2I & tile_pos, Real t_value);
 
     Vector2 spine_point_on_tile() const { return m_tile_spine; }
 
@@ -183,10 +345,94 @@ private:
     Vector2 m_tile_spine, m_tile_edge;
     Vector m_spine, m_edge;
 };
-
+#endif
 Vector to_twisty_offset(const Real & radius, Real t);
 
 Vector to_twisty_spine(const Size2 & twisty_size, Real t);
+
+class TwistyTileEdgePoints final {
+public:
+    class PointPair final {
+    public:
+        PointPair() {}
+
+        PointPair(const Vector2 & on_tile_, const Vector & in_3d_):
+            m_on_tile(on_tile_), m_in_3d(in_3d_) {}
+
+        Vector2 on_tile() const { return m_on_tile; }
+
+        Vector in_3d() const { return m_in_3d; }
+
+    private:
+        Vector2 m_on_tile;
+        Vector m_in_3d;
+    };
+
+    TwistyTileEdgePoints
+        (const Size2I & twisty_size, int strip_pos_x, Real t_value)
+    {
+        auto offsets = TwistyStripSpineOffsets::find(twisty_size, strip_pos_x, t_value);
+        auto radii   = TwistyStripRadii ::find(offsets, t_value);
+        if (!offsets) {
+            m_count = 0;
+            return;
+        }
+        if (!radii)
+            { throw BadBranchException{__LINE__, __FILE__}; }
+        // v is this really normalized?
+        auto dir = normalize( to_twisty_offset(1, t_value) );
+        // but now I need to reverse it :/
+        auto y_pos = Real(twisty_size.height)*t_value;
+        m_elements[0] = PointPair
+            {Vector2{offsets->edge(), y_pos}, dir*radii->edge()};
+        if (are_very_close(radii->edge(), radii->spine())) {
+            m_count = 1;
+        } else {
+            m_elements[1] = PointPair
+                {Vector2{offsets->spine(), y_pos}, dir*radii->spine()};
+            m_count = 2;
+        }
+    }
+
+    int count() const { return m_count; }
+
+    auto begin() const { return m_elements.begin(); }
+
+    auto end() const { return begin() + count(); }
+
+private:
+    int m_count = 0;
+    std::array<PointPair, 2> m_elements;
+};
+
+class TwistyTilePoints final {
+public:
+    using PointPair = TwistyTileEdgePoints::PointPair;
+
+    TwistyTilePoints
+        (const TwistyTileEdgePoints & lhs_points,
+         const TwistyTileEdgePoints & rhs_points)
+    {
+        for (auto & points : { lhs_points, rhs_points }) {
+            for (auto & point_pair : points) {
+                m_elements[m_count++] = point_pair;
+            }
+        }
+    }
+
+    PointPair operator [] (int i) const {
+        if (i < m_count)
+            return m_elements[i];
+        throw std::out_of_range{""};
+    }
+
+    int count() const { return m_count; }
+
+private:
+    int m_count = 0;
+    std::array<PointPair, 4> m_elements;
+};
+
 
 // an entire chain of methods, how can this be tested?
 // one depending on another
@@ -207,18 +453,27 @@ std::vector<Real> pad_t_breaks_until_target
 
 void insert_twisty_geometry_into
     (ViewGridInserter<VertexTriangle> &,
-     const Size2 & twisty_size, const TexturingAdapter & txadapter,
+     const Size2I & twisty_size, const TexturingAdapter & txadapter,
      std::vector<Real>::const_iterator t_breaks_beg,
      std::vector<Real>::const_iterator t_breaks_end);
-
+#if 0
 ViewGrid<VertexTriangle> make_twisty_geometry_for
-    (const Size2 & twisty_size, TwistDirection dir, TwistPathDirection path_dir,
+    (const Size2I & twisty_size, TwistDirection dir, TwistPathDirection path_dir,
      const TexturingAdapter & txadapter, Real breaks_per_segment);
 
 ViewGrid<VertexTriangle> make_twisty_geometry_for
     (const Size2 & twisty_size, TwistDirection dir, TwistPathDirection path_dir,
      const TexturingAdapter & txadapter, Real breaks_per_segment);
+#endif
 
+#if 0
+void insert_twisty_geometry_into
+    (ViewGridInserter<VertexTriangle> & inserter,
+     const Size2I & twisty_size, const TexturingAdapter & txadapter,
+     std::vector<Real>::const_iterator t_breaks_beg,
+     std::vector<Real>::const_iterator t_breaks_end);
+#endif
+#if 0 // temp, should be revived
 void insert_twisty_geometry_into
     (ViewGridInserter<VertexTriangle> & inserter,
      const TexturingAdapter & txadapter,
@@ -227,15 +482,16 @@ void insert_twisty_geometry_into
 
 void insert_twisty_geometry_into
     (ViewGridInserter<VertexTriangle> & inserter,
-     const Size2 & twisty_size, const TexturingAdapter & txadapter,
-     std::vector<Real>::const_iterator t_breaks_beg,
-     std::vector<Real>::const_iterator t_breaks_end);
+     const TexturingAdapter & txadapter,
+     const TwistyTilePointLimits & low_lims,
+     const TwistyTilePointLimits & high_lims);
+#endif
 
 void insert_twisty_geometry_into
     (ViewGridInserter<VertexTriangle> & inserter,
      const TexturingAdapter & txadapter,
-     const TwistyTilePointLimits & low_lims,
-     const TwistyTilePointLimits & high_lims);
+     const TwistyTileEdgePoints & low_points,
+     const TwistyTileEdgePoints & high_points);
 
 class NorthSouthTwistTileGroup final : public TwistTileGroup {
 public:
