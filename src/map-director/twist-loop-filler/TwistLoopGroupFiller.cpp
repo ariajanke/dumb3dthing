@@ -87,8 +87,8 @@ Optional<TwistyTileTValueLimits> TwistyTileTValueLimits::find
 {
     using RadiiLims = TwistyStripRadii;
     TwistyTileTValueRange range{twisty_size, tile_pos};
-    auto low_radii  = RadiiLims::find(twisty_size, tile_pos.x, range.low_t ());
-    auto high_radii = RadiiLims::find(twisty_size, tile_pos.x, range.high_t());
+    auto low_radii  = RadiiLims::find(twisty_size.width, tile_pos.x, range.low_t ());
+    auto high_radii = RadiiLims::find(twisty_size.width, tile_pos.x, range.high_t());
     if (!low_radii && !high_radii) {
         return {};
     }
@@ -126,9 +126,10 @@ Optional<Real> TwistyTileTValueLimits::intersecting_t_value
         (twisty_size.width, strip_x);
     auto normalized_offset_from_spine =
         // direction relative to spine
-         normalize(strip_x - Real(twisty_size.width) / 2)
+        // normalize(strip_x - Real(twisty_size.width) / 2)
         // distance of the edge from the spine normalized to [0 1]
-        *(edge_x*2 / twisty_size.width);
+        //*
+        (edge_x*2 / twisty_size.width);
     // find that first possible t
     auto t_sol_0 = std::acos(normalized_offset_from_spine);
     auto t_sol_1 = 1 - t_sol_0;

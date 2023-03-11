@@ -94,23 +94,59 @@ describe<spine_and_edge_x_offsets_test>
     {
         auto [spine, edge] = Offsets::spine_and_edge_x_offsets(5, 2);
         return test_that(are_very_close(0, spine) && are_very_close(0.5, edge));
-    })
-    .mark_it("is spine and edge offsets, below the spine", []
-    {
-        ;
+    }).
+    mark_it("is negative spine and edge offsets, below the spine", [] {
+        auto [spine, edge] = Offsets::spine_and_edge_x_offsets(6, 1);
+        return test_that(are_very_close(-1, spine) && are_very_close(-2, edge));
+    }).
+    mark_it("is positive spine and edge offsets, above the spine", [] {
+        auto [spine, edge] = Offsets::spine_and_edge_x_offsets(7, 4);
+        return test_that(are_very_close(0.5, spine) && are_very_close(1.5, edge));
+    }).
+    mark_it("is spine 0, edge 1 for strip adjacent to the spine", [] {
+        auto [spine, edge] = Offsets::spine_and_edge_x_offsets(4, 2);
+        return test_that(are_very_close(0, spine) && are_very_close(1, edge));
     });
 });
 
-describe<TwistyStripSpineOffsets>("TwistyStripSpineOffsets").
+describe<TwistyStripSpineOffsets>("TwistyStripSpineOffsets::find").
     depends_on<spine_and_edge_x_offsets_test>()([]
 {
-    ;
+    using Offsets = TwistyStripSpineOffsets;
+    mark_it("is no solution if t_value is invalid", [] {
+        return test_that(!Offsets::find(1, 0, 1.1).has_value());
+    }).
+    mark_it("is no solution if the spine offset is beyond the maximum bounds "
+            "of the twisty", []
+    {
+        return test_that(!Offsets::find(3, 5, 0.05).has_value());
+    }).
+    mark_it("no solution if the spine offset is beyond the maximum bounds in "
+            "the negative direction", []
+    {
+        return test_that(!Offsets::find(10, 0, 0.25).has_value());
+    }).
+    mark_it("is clipped edge if twisty bounds reaches out of the strip", [] {
+        auto offsets = Offsets::find(4, 2, 0.1);
+        auto edge = offsets->edge();
+        return test_that(are_very_close(edge, 1));
+    }).
+    mark_it("is edge if twisty bounds are contained by the strip", [] {
+        auto offsets = Offsets::find(3, 2, 0.1);
+        auto edge = offsets->edge();
+        return test_that(edge > 0.5 && edge < 1.5);
+    }).
+    mark_it("clips bounds in the negative direction", [] {
+        auto offsets = Offsets::find(5, 1, 0.1);
+        auto edge = offsets->edge();
+        return test_that(are_very_close(edge, -1.5));
+    });
 });
 
-describe<TwistyStripRadii>("TwistyTileRadiiLimits").
+describe<TwistyStripRadii>("TwistyStripRadii").
     depends_on<TwistyStripSpineOffsets>()([]
 {
-    //mark_it("has spine rad 1, edge rad 2 ")
+    // I'm not sure what to test here...
     mark_it("", [] { return test_that(true); });
 });
 

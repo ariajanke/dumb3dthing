@@ -152,10 +152,7 @@ private:
 /// computes boundries of tile geometry in "t" values
 class TwistyTileTValueLimits final {
 public:
-#   if 0
-    TwistyTileTValueLimits
-        (const Size2I & twisty_size, const Vector2I & tile_pos);
-#   endif
+
     static Optional<TwistyTileTValueLimits> find
         (const Size2I & twisty_size, const Vector2I & tile_pos);
 
@@ -176,57 +173,36 @@ private:
     Real m_low_t_limit;
     Real m_high_t_limit;
 };
-#if 0
-// tile constrained offsets from the spine
-// constraint: magnitude(spine_offset()) <= magnitude(edge_offset())
-// it is possible for both offsets to be equal
-// it is possible for both offsets to have different signs
-// either both exist or neither
-class TwistyTileRadiiLimits final {
-public:
-    static constexpr const Vector k_twisty_origin{-0.5, 0, -0.5};
 
-    // tile_pos_x is being used to determine which side of the spine we're on
-    TwistyTileRadiiLimits
-        (const Size2I & twisty_size, int tile_pos_x, Real t_value);
+template <typename T>
+std::enable_if_t<std::is_arithmetic_v<T>, T>
+    min_magnitude(const T & lhs, const T & rhs)
+{ return magnitude(lhs) < magnitude(rhs) ? lhs : rhs; }
 
-    // typically closer to the spine
-    // it is not the spine side for odd number width twisties where tile_pos_x
-    // describes a tile on the spine itself
-    Optional<Real> low_offset() const { return m_low; }
+template <typename T>
+std::enable_if_t<std::is_arithmetic_v<T>, T>
+    max_magnitude(const T & lhs, const T & rhs)
+{ return magnitude(lhs) >= magnitude(rhs) ? lhs : rhs; }
 
-    Optional<Real> high_offset() const { return m_high; }
-
-    static Tuple<Real, Real, Real> low_high_x_edges_and_low_dir
-        (const Size2I & twisty_size, Real t_value);
-
-    static Tuple<Real, Real> spine_and_edge_side_x
-        (Real twisty_width, Real tile_pos_x);
-
-private:
-    Optional<Real> m_low, m_high;
-};
-#endif
+// offsets should not be confused with distance
 class TwistyStripSpineOffsets final {
 public:
     static constexpr const Vector k_twisty_origin{-0.5, 0, -0.5};
 
     // tile_pos_x is being used to determine which side of the spine we're on
     static Optional<TwistyStripSpineOffsets> find
-        (const Size2I & twisty_size, int strip_pos_x, Real t_value)
+        (int twisty_width, int strip_pos_x, Real t_value)
     {
         if (t_value < 0 || t_value > 1) return {};
-        auto max_x = magnitude(std::tan(t_value*2*k_pi));
+        auto max_x = (Real(twisty_width) / 2)*std::cos(t_value*2*k_pi);
         // if our strip is beyond the maximum x, then there are no radii
-        auto [spine_x, edge_x] = spine_and_edge_x_offsets(twisty_size.width, strip_pos_x);
-        if (spine_x < max_x) return {};
+        auto [spine_x, edge_x] = spine_and_edge_x_offsets(twisty_width, strip_pos_x);
+        if (magnitude(spine_x) > magnitude(max_x)) return {};
         // turn an x into a radius...
-        return TwistyStripSpineOffsets{spine_x, std::min(edge_x, max_x)};
+        return TwistyStripSpineOffsets{spine_x, min_magnitude(edge_x, max_x)};
     }
 
-    // is closer to the spine
-    // for cases where the tile_pos_x describes a tile on the spine (rather
-    // than adjacent) it is zero. If it is adjacent, spine is zero also.
+    // there maybe positive or negative
     Real spine() const { return m_spine; }
 
     Real edge() const { return m_edge; }
@@ -235,17 +211,16 @@ public:
     static Tuple<Real, Real> spine_and_edge_x_offsets
         (int twisty_width, int strip_pos_x)
     {
-        using std::min, std::max;
-        if (twisty_width / 2 == strip_pos_x) {
-            return make_tuple(0, 0.5);
-        }
+        if (   twisty_width / 2 == strip_pos_x
+            && twisty_width % 2 == 1)
+        { return make_tuple(0, 0.5); }
         auto low_side  = strip_pos_x;
         auto high_side = strip_pos_x + 1;
         auto spine_pos = Real(twisty_width) / 2;
-        auto strip_low  = magnitude(spine_pos - low_side);
-        auto strip_high = magnitude(spine_pos - high_side);
-        return make_tuple(min(strip_low, strip_high),
-                          max(strip_low, strip_high));
+        auto strip_low  = low_side  - spine_pos;
+        auto strip_high = high_side - spine_pos;
+        return make_tuple(min_magnitude(strip_low, strip_high),
+                          max_magnitude(strip_low, strip_high));
     }
 
     template <typename ... Types>
@@ -267,85 +242,42 @@ public:
 
     // tile_pos_x is being used to determine which side of the spine we're on
     static Optional<TwistyStripRadii> find
-        (const Size2I & twisty_size, int strip_pos_x, Real t_value)
+        (int twisty_width, int strip_pos_x, Real t_value)
     {
         using Offsets = TwistyStripSpineOffsets;
         return find
-            (Offsets::find(twisty_size, strip_pos_x, t_value), t_value);
-#       if 0
-        if (t_value < 0 || t_value > 1) return {};
-        auto max_x = magnitude(std::tan(t_value*2*k_pi));
-        // if our strip is beyond the maximum x, then there are no radii
-        auto [spine_x, edge_x] = spine_and_edge_x_offsets(twisty_size.width, strip_pos_x);
-        if (spine_x < max_x) return {};
-        // turn an x into a radius...
-        auto cos_t = std::cos(t_value);
-        return TwistyStripRadiiLimits{cos_t*spine_x, cos_t*std::min(edge_x, max_x)};
-#       endif
+            (Offsets::find(twisty_width, strip_pos_x, t_value), t_value);
     }
 
     static Optional<TwistyStripRadii> find
         (const Optional<TwistyStripSpineOffsets> & offsets, Real t_value)
     {
         if (!offsets) return {};
-        auto cos_t = std::cos(t_value);
+        // I need the y component
+        auto cos_t = std::cos(t_value*2*k_pi);
         return TwistyStripRadii{cos_t*offsets->spine(), cos_t*offsets->edge()};
     }
-    // is closer to the spine
-    // for cases where the tile_pos_x describes a tile on the spine (rather
-    // than adjacent) it is zero. If it is adjacent, spine is zero also.
+
+    // these should only be positive reals
     Real spine() const { return m_spine; }
 
     Real edge() const { return m_edge; }
-#   if 0
-    // just the strip, unconstrained by twisty
-    static Tuple<Real, Real> spine_and_edge_x_offsets
-        (int twisty_width, int strip_pos_x)
-    {
-        using std::min, std::max;
-        if (twisty_width / 2 == strip_pos_x) {
-            return make_tuple(0, 0.5);
-        }
-        auto low_side  = strip_pos_x;
-        auto high_side = strip_pos_x + 1;
-        auto spine_pos = Real(twisty_width) / 2;
-        auto strip_low  = magnitude(spine_pos - low_side);
-        auto strip_high = magnitude(spine_pos - high_side);
-        return make_tuple(min(strip_low, strip_high),
-                          max(strip_low, strip_high));
-    }
 
-    template <typename ... Types>
-    static Real edge_x_offset(Types &&... args)
-        { return std::get<1>(spine_and_edge_x_offsets(std::forward<Types>(args)...)); }
-#   endif
 private:
     TwistyStripRadii(Real spine_, Real edge_):
-        m_spine(spine_), m_edge(edge_) {}
+        m_spine(verify_positive_real("TwistyStripRadii", spine_)),
+        m_edge (verify_positive_real("TwistyStripRadii", edge_ )) {}
+
+    static Real verify_positive_real(const char * caller, Real x) {
+        if (x > 0) return x;
+        throw std::invalid_argument
+            {  "TwistyStripRadii::" + std::string{caller}
+             + ": expect a positive real number"         };
+    }
 
     Real m_spine, m_edge;
 };
-#if 0
-/// v this class doesn't make sense
-/// points which are both limited by tile and radial boundries
-class TwistyTilePointLimits final {
-public:
-    TwistyTilePointLimits
-        (const Size2I & twisty_size, const Vector2I & tile_pos, Real t_value);
 
-    Vector2 spine_point_on_tile() const { return m_tile_spine; }
-
-    Vector spine_point_in_3d() const { return m_spine; }
-
-    Vector2 edge_point_on_tile() const { return m_tile_edge; }
-
-    Vector edge_point_in_3d() const { return m_edge; }
-
-private:
-    Vector2 m_tile_spine, m_tile_edge;
-    Vector m_spine, m_edge;
-};
-#endif
 Vector to_twisty_offset(const Real & radius, Real t);
 
 Vector to_twisty_spine(const Size2 & twisty_size, Real t);
@@ -371,7 +303,8 @@ public:
     TwistyTileEdgePoints
         (const Size2I & twisty_size, int strip_pos_x, Real t_value)
     {
-        auto offsets = TwistyStripSpineOffsets::find(twisty_size, strip_pos_x, t_value);
+        auto offsets = TwistyStripSpineOffsets::find
+            (twisty_size.width, strip_pos_x, t_value);
         auto radii   = TwistyStripRadii ::find(offsets, t_value);
         if (!offsets) {
             m_count = 0;
@@ -383,13 +316,15 @@ public:
         auto dir = normalize( to_twisty_offset(1, t_value) );
         // but now I need to reverse it :/
         auto y_pos = Real(twisty_size.height)*t_value;
+        auto spine_pos = Real(twisty_size.width) / 2;
         m_elements[0] = PointPair
-            {Vector2{offsets->edge(), y_pos}, dir*radii->edge()};
+            {Vector2{offsets->edge() + spine_pos, y_pos}, dir*radii->edge()};
         if (are_very_close(radii->edge(), radii->spine())) {
             m_count = 1;
         } else {
             m_elements[1] = PointPair
-                {Vector2{offsets->spine(), y_pos}, dir*radii->spine()};
+                {Vector2{offsets->spine() + spine_pos, y_pos},
+                 dir*radii->spine()};
             m_count = 2;
         }
     }
