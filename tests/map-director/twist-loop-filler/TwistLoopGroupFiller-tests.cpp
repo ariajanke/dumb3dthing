@@ -26,7 +26,57 @@
 
 using namespace cul::tree_ts;
 
+static auto make_grid_pred(const Grid<bool> & grid) {
+    return [&grid] (const Vector2I & r) {
+        if (grid.has_position(r))
+            return grid(r);
+        return false;
+    };
+}
+
 [[maybe_unused]] static auto s_add_describes = [] {
+
+describe("get_rectangular_group_of")([] {
+
+    mark_it("is 1x1 rectangle when only one point is true", [] {
+        auto res = get_rectangular_group_of
+            (Vector2I{}, [] (const Vector2I & r) { return r == Vector2I{}; });
+        return test_that(res == RectangleI{0, 0, 1, 1});
+    }).
+    mark_it("is empty rectangle if start is false", [] {
+        auto res = get_rectangular_group_of
+            (Vector2I{}, [] (const Vector2I &) { return false; });
+        return test_that(res.height == 0 && res.width == 0);
+    }).
+    mark_it("stops moving downward immediately on differently sized row", [] {
+        Grid<bool> grid{
+            { true , true , true  },
+            { true , true , false },
+            { false, false, false }
+        };
+        auto res = get_rectangular_group_of(Vector2I{}, make_grid_pred(grid));
+        return test_that(res == RectangleI{0, 0, 3, 1});
+    }).
+    mark_it("includes another row of at least the same size", [] {
+        Grid<bool> grid{
+            { true , true , false },
+            { true , true , true  },
+            { true , false, false }
+        };
+        auto res = get_rectangular_group_of(Vector2I{}, make_grid_pred(grid));
+        return test_that(res == RectangleI{0, 0, 2, 2});
+    }).
+    mark_it("include correct offset", [] {
+        static constexpr const Vector2I k_start{1, 1};
+        Grid<bool> grid{
+            { true , true , false },
+            { true , true , true  },
+            { true , false, false }
+        };
+        auto res = get_rectangular_group_of(k_start, make_grid_pred(grid));
+        return test_that(res.left == 1 && res.top == 1);
+    });
+});
 
 return [] {};
 

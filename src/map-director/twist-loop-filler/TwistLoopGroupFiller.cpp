@@ -116,7 +116,9 @@ void TwistLoopGroupFiller::load
     (const TileSetXmlGrid & xml_grid, Platform & platform)
 {
     Grid<bool> checked;
-    checked.set_size(xml_grid.size2(), false);
+    Grid<SharedPtr<TwistTileGroup>> tile_groups;
+    checked    .set_size(xml_grid.size2(), false  );
+    tile_groups.set_size(xml_grid.size2(), nullptr);
     for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
         if (checked(r)) continue;
         if (xml_grid(r).type() != twist_loop_filler_names::k_ns_twist_loop) {
@@ -138,10 +140,11 @@ void TwistLoopGroupFiller::load
         for (Vector2I r; r != checked_subgrid.end_position(); r = checked_subgrid.next(r)) {
             checked_subgrid(r) = true;
         }
-        for (auto & ptr : cul::make_sub_grid(m_tile_groups, rect_group)) {
+        for (auto & ptr : cul::make_sub_grid(tile_groups, rect_group)) {
             ptr = twist_filler;
         }
     }
+    m_tile_groups.swap(tile_groups);
 }
 
 UnfinishedTileGroupGrid TwistLoopGroupFiller::operator ()

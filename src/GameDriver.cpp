@@ -271,7 +271,7 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
-    static constexpr const auto k_testmap_filename = "demo-map5.tmx";
+    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
 
     auto player_update_task = make_shared<PlayerUpdateTask>
         (MapDirector_::make(&ppdriver, Size2I{10, 10}),
