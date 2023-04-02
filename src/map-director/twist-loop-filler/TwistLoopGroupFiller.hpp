@@ -45,21 +45,19 @@ public:
     Vector2I group_start() const { return m_group_start; }
 
     // stay in integer land for as long as possible
-    void load(const RectangleI &, const TileSetXmlGrid &, Platform &);
+    void load(const RectangleI &);
 
 protected:
-    virtual void load_(const RectangleI &, const TileSetXmlGrid &, Platform &) = 0;
+    virtual void load_(const RectangleI &) = 0;
 
 private:
     Vector2I m_group_start;
 };
 
-inline void TwistTileGroup::load
-    (const RectangleI & rect, const TileSetXmlGrid & xml_grid,
-     Platform & platform)
+inline void TwistTileGroup::load(const RectangleI & rect)
 {
     m_group_start = top_left_of(rect);
-    load_(rect, xml_grid, platform);
+    load_(rect);
 }
 
 class NorthSouthTwistTileGroup final : public TwistTileGroup {
@@ -71,10 +69,14 @@ public:
          EntityAndTrianglesAdder &, Platform &) const final;
 
 private:
-    void load_
-        (const RectangleI &, const TileSetXmlGrid &, Platform &) final;
+    struct ElementsVerticesPair final {
+        std::vector<Vertex> vertices;
+        std::vector<unsigned> elements;
+    };
 
-    Grid<SharedPtr<const RenderModel>> m_group_models;
+    void load_(const RectangleI &) final;
+
+    Grid<ElementsVerticesPair> m_elements_vertices;
     ViewGrid<TriangleSegment> m_collision_triangles;
 };
 
@@ -95,18 +97,27 @@ public:
 private:
     Vector2I m_position_in_map;
     Vector2I m_position_in_group;
-    SharedPtr<TwistTileGroup> m_twist_group;
+    SharedPtr<const TwistTileGroup> m_twist_group;
 };
 
+// "Fillers" are a poor name, it needs to be clear that it's a tileset level
+// object
 class TwistLoopGroupFiller final : public ProducableTileFiller {
 public:
+    static Size2I size_of_map(const std::vector<TileLocation> &);
+
+    static Grid<bool> map_positions_to_grid
+        (const std::vector<TileLocation> &);
+
     void load(const TileSetXmlGrid & xml_grid, Platform & platform);
 
     UnfinishedTileGroupGrid operator ()
         (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const final;
 
 private:
+#   if 0
     Grid<SharedPtr<TwistTileGroup>> m_tile_groups;
+#   endif
 };
 
 class RectanglarGroupOfPred {

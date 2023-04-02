@@ -39,39 +39,36 @@ using cul::size_of, cul::top_left_of;
 
 } // end of <anonymous> namespace
 
-/* private */ void NorthSouthTwistTileGroup::load_
-    (const RectangleI & rectangle, const TileSetXmlGrid &,
-     Platform & platform)
-{
+/* private */ void NorthSouthTwistTileGroup::load_(const RectangleI & rectangle) {
+    const auto & rect_size = size_of(rectangle);
+    CapTexturingAdapter txadapter{Vector2{top_left_of(rectangle)}, Size2{size_of(rectangle)}};
     auto geo_grid = make_twisty_geometry_for
-        (size_of(rectangle), TwistDirection::left, TwistPathDirection::north_south,
-         CapTexturingAdapter{Vector2{top_left_of(rectangle)}, Size2{size_of(rectangle)}},
-         k_breaks_per_segment);
-    std::vector<Vertex> verticies;
+        (rect_size, TwistDirection::left, TwistPathDirection::north_south,
+         txadapter, k_breaks_per_segment);
+    std::vector<Vertex> vertices;
     std::vector<unsigned> elements;
     ViewGridInserter<TriangleSegment> triangle_inserter{geo_grid.size2()};
-    Grid<SharedPtr<const RenderModel>> render_models;
-    render_models.set_size(geo_grid.size2(), nullptr);
+    Grid<ElementsVerticesPair> elements_and_vertices;
+    elements_and_vertices.set_size(geo_grid.size2(), ElementsVerticesPair{});
     for (Vector2I r; r != geo_grid.end_position(); r = geo_grid.next(r)) {
-        auto mod = platform.make_render_model();
         for (auto & triangle : geo_grid(r)) {
             triangle_inserter.push
                 (TriangleSegment{triangle[0].position,
                                  triangle[1].position,
                                  triangle[2].position});
             for (auto & vtx : triangle) {
-                verticies.push_back(vtx);
+                vertices.push_back(vtx);
                 elements.push_back(elements.size());
             }
         }
         triangle_inserter.advance();
-        mod->load(verticies, elements);
-        verticies.clear();
+        elements_and_vertices(r).vertices.swap(vertices);
+        elements_and_vertices(r).elements.swap(elements);
+        vertices.clear();
         elements.clear();
-        render_models(r) = mod;
     }
     m_collision_triangles = ViewGrid<TriangleSegment>{std::move(triangle_inserter)};
-    m_group_models = std::move(render_models);
+    m_elements_vertices   = std::move(elements_and_vertices);
 }
 
 void NorthSouthTwistTileGroup::operator ()
@@ -84,10 +81,12 @@ void NorthSouthTwistTileGroup::operator ()
     for (auto & triangle : m_collision_triangles(position_in_group)) {
         adder.add_triangle(triangle.move(v3_offset));
     }
+    auto mod = platform.make_render_model();
+    auto & [elements, vertices] = m_elements_vertices(position_in_group);
+    mod->load(elements, vertices);
     auto entity = platform.make_renderable_entity();
     entity.add<SharedPtr<const RenderModel>, Translation, Visible>()
-        = make_tuple
-        (m_group_models(position_in_group), Translation{v3_offset}, Visible{});
+        = make_tuple(mod, Translation{v3_offset}, Visible{});
 }
 
 RectangleI RectanglarGroupOfPred::get_rectangular_group_of
@@ -112,9 +111,33 @@ RectangleI RectanglarGroupOfPred::get_rectangular_group_of
     }
 }
 
-void TwistLoopGroupFiller::load
-    (const TileSetXmlGrid & xml_grid, Platform & platform)
+/* static */ Size2I TwistLoopGroupFiller::size_of_map
+    (const std::vector<TileLocation> & tile_locations)
 {
+    Vector2I max_location;
+    for (const auto & loc : tile_locations) {
+        using std::max;
+        max_location.x = max(loc.on_map.x, max_location.x);
+        max_location.y = max(loc.on_map.y, max_location.y);
+    }
+    return Size2I{max_location.x + 1, max_location.y + 1};
+}
+
+/* static */ Grid<bool> TwistLoopGroupFiller::map_positions_to_grid
+    (const std::vector<TileLocation> & tile_locations)
+{
+    Grid<bool> active_tiles;
+    active_tiles.set_size(size_of_map(tile_locations), false);
+    for (const auto & loc : tile_locations) {
+        active_tiles(loc.on_map) = true;
+    }
+    return active_tiles;
+}
+
+void TwistLoopGroupFiller::load
+    (const TileSetXmlGrid &, Platform &)
+{
+#   if 0
     Grid<bool> checked;
     Grid<SharedPtr<TwistTileGroup>> tile_groups;
     checked    .set_size(xml_grid.size2(), false  );
@@ -132,6 +155,8 @@ void TwistLoopGroupFiller::load
             if (!xml_grid.has_position(r) || checked(r)) return false;
             return xml_grid(r).type() == twist_loop_filler_names::k_ns_twist_loop;
         });
+        // wrong, no the right step here...
+
         // make a group
         auto twist_filler = make_shared<NorthSouthTwistTileGroup>();
         twist_filler->load(rect_group, xml_grid, platform);
@@ -145,12 +170,53 @@ void TwistLoopGroupFiller::load
         }
     }
     m_tile_groups.swap(tile_groups);
+#   endif
 }
 
 UnfinishedTileGroupGrid TwistLoopGroupFiller::operator ()
     (const std::vector<TileLocation> & positions,
      UnfinishedTileGroupGrid && unfinished_group_grid) const
 {
+    Grid<SharedPtr<TwistTileGroup>> group_grid;
+    group_grid = [&positions] {
+        Grid<SharedPtr<TwistTileGroup>> group_grid;
+        group_grid.set_size(size_of_map(positions), nullptr);
+        auto unchecked = map_positions_to_grid(positions);
+        for (Vector2I r; r != unchecked.end_position(); r = unchecked.next(r)) {
+            if (!unchecked(r))
+                { continue; }
+            auto rect = get_rectangular_group_of(r, [&unchecked] (const Vector2I & v) {
+                if (unchecked.has_position(v)) return bool(unchecked(v));
+                return false;
+            });
+
+            auto twist_filler = make_shared<NorthSouthTwistTileGroup>();
+            twist_filler->load(rect);
+            {
+            auto unchecked_subg = cul::make_sub_grid(unchecked, rect);
+            for (Vector2I v; v != unchecked_subg.end_position(); v = unchecked_subg.next(v)) {
+                unchecked_subg(v) = false;
+            }
+            }
+#           if 0
+            for (auto & bref : cul::make_sub_grid(unchecked, rect))
+                { bref = false; }
+#           endif
+            for (auto & filler : cul::make_sub_grid(group_grid, rect))
+                { filler = twist_filler; }
+        }
+        return group_grid;
+    } ();
+    UnfinishedProducableGroup<TwistLoopTile> producable_group;
+    for (auto & pos : positions) {
+        const auto & tile_group = group_grid(pos.on_map);
+        if (!tile_group) continue;
+        producable_group.at_location(pos.on_map).make_producable
+            (pos.on_map, pos.on_map - tile_group->group_start(), tile_group);
+    }
+    unfinished_group_grid.add_group(std::move(producable_group));
+    return std::move(unfinished_group_grid);
+#   if 0
     UnfinishedProducableGroup<TwistLoopTile> producable_group;
     for (auto & pos : positions) {
         auto tile_group = m_tile_groups(pos.on_tileset);
@@ -160,4 +226,5 @@ UnfinishedTileGroupGrid TwistLoopGroupFiller::operator ()
     }
     unfinished_group_grid.add_group(std::move(producable_group));
     return std::move(unfinished_group_grid);
+#   endif
 }
