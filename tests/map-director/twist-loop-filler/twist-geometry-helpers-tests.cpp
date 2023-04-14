@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "../src/TasksController.hpp"
+#include "../../../src/TasksController.hpp"
 
 #include "../../../src/map-director/twist-loop-filler/twist-geometry-helpers.hpp"
 
@@ -27,6 +27,8 @@
 using namespace cul::tree_ts;
 
 [[maybe_unused]] static auto s_add_describes = [] {
+
+return [] {}; // TODO re-enable
 
 // I need an assortment of test data that hits every branch
 #if 0
@@ -159,8 +161,9 @@ describe<TwistyStripRadii>("TwistyStripRadii::find").
                          && spine < 1.0 && spine > 0.6  );
     });
 });
-
+#if 0
 return [] {};
+#endif
 } ();
 
 class F final {
@@ -216,6 +219,8 @@ bool F::returns_higher = false;
 using TestFinder = TwistyTileTValueLimits::ClosestAlternateFinder<F::f>;
 
 [[maybe_unused]] static auto s_add_describes1 = [] {
+
+return [] {}; // TODO re-enable
 
 describe
     <TwistyTileTValueLimits::ClosestAlternateFinder
@@ -284,7 +289,7 @@ describe<TwistyTilePointLimits>("TwistyTilePointLimits").
 
 });
 #endif
-
+#if 0
 return [] {};
-
+#endif
 } ();

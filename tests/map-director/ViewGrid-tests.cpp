@@ -18,9 +18,9 @@
 
 *****************************************************************************/
 
-#include "../src/TasksController.hpp"
+#include "../../src/TasksController.hpp"
 
-#include "../src/map-director/ViewGrid.hpp"
+#include "../../src/map-director/ViewGrid.hpp"
 
 #include "../test-helpers.hpp"
 

@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "../src/point-and-plane/FrameTimeLinkContainer.hpp"
+#include "../../src/point-and-plane/FrameTimeLinkContainer.hpp"
 
 #include <ariajanke/cul/TreeTestSuite.hpp>
 

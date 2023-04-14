@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "../src/point-and-plane/SpatialPartitionMap.hpp"
+#include "../../src/point-and-plane/SpatialPartitionMap.hpp"
 
 #include <ariajanke/cul/TreeTestSuite.hpp>
 
