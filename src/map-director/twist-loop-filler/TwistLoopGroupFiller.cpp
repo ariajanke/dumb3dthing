@@ -52,10 +52,10 @@ using cul::size_of, cul::top_left_of;
     elements_and_vertices.set_size(geo_grid.size2(), ElementsVerticesPair{});
     for (Vector2I r; r != geo_grid.end_position(); r = geo_grid.next(r)) {
         for (auto & triangle : geo_grid(r)) {
-            triangle_inserter.push
-                (TriangleSegment{triangle[0].position,
-                                 triangle[1].position,
-                                 triangle[2].position});
+            TriangleSegment triangle_segment
+                {triangle[0].position, triangle[1].position,
+                 triangle[2].position};
+            triangle_inserter.push(triangle_segment);
             for (auto & vtx : triangle) {
                 vertices.push_back(vtx);
                 elements.push_back(elements.size());

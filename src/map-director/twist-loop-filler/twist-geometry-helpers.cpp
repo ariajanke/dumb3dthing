@@ -38,6 +38,8 @@ Optional<TwistyTileTValueLimits> TwistyTileTValueLimits::find
     auto high_radii = RadiiLims::find(twisty_size.width, tile_pos.x, range.high_t());
     if (!low_radii && !high_radii) {
         return {};
+    } else if (low_radii && high_radii) {
+        return TwistyTileTValueLimits{range.low_t(), range.high_t()};
     }
     // it's possible for there to be two intersections
     // it maybe good enough to just use the nearest
@@ -48,27 +50,55 @@ Optional<TwistyTileTValueLimits> TwistyTileTValueLimits::find
          high_radii ? range.high_t() : closest_alternate(range.high_t())};
 }
 
+class IntersectingTValueSolutions final {
+public:
+    IntersectingTValueSolutions(int twisty_width, int strip_x) {
+        auto edge_x = TwistyStripSpineOffsets::edge_x_offset
+            (twisty_width, strip_x);
+        auto twisty_radius = Real(twisty_width) / 2;
+        auto normalized_offset_from_spine = edge_x / twisty_radius;
+        auto sol_itr = m_solutions.begin();
+        for (auto offs : {  normalized_offset_from_spine,
+                           -normalized_offset_from_spine })
+        {
+            auto sol = std::acos(offs) / (2*k_pi);
+            *sol_itr++ = sol;
+            *sol_itr++ = 1 - sol;
+        }
+        assert(sol_itr == m_solutions.end());
+    }
+
+    auto begin() const { return m_solutions.begin(); }
+
+    auto end() const { return m_solutions.end(); }
+
+private:
+    std::array<Real, 4> m_solutions;
+};
 
 Optional<Real> TwistyTileTValueLimits::intersecting_t_value
     (const Size2I & twisty_size, int strip_x,
      const TwistyTileTValueRange & t_range)
 {
+#   if 0
     auto edge_x = TwistyStripSpineOffsets::edge_x_offset
         (twisty_size.width, strip_x);
-    auto normalized_offset_from_spine =
-        // direction relative to spine
-        // normalize(strip_x - Real(twisty_size.width) / 2)
-        // distance of the edge from the spine normalized to [0 1]
-        //*
-        (edge_x*2 / twisty_size.width);
+    auto twisty_radius = Real(twisty_size.width) / 2;
+    auto normalized_offset_from_spine = edge_x / twisty_radius;
     // find that first possible t
-    auto t_sol_0 = std::acos(normalized_offset_from_spine);
+    auto t_sol_0 = std::acos(normalized_offset_from_spine) / (2*k_pi);
     auto t_sol_1 = 1 - t_sol_0;
+    // there are four total possible solutions actually...
     if (t_range.contains(t_sol_0))
         return t_sol_0;
     if (t_range.contains(t_sol_1))
         return t_sol_1;
-    return {};
+#   endif
+    IntersectingTValueSolutions sols{twisty_size.width, strip_x};
+    auto sol_itr = std::find_if
+        (sols.begin(), sols.end(),
+         [&t_range] (Real t) { return t_range.contains(t); });
+    return sol_itr == sols.end() ? Optional<Real>{} : *sol_itr;
 }
 
 Vector to_twisty_offset(const Real & radius, Real t) {

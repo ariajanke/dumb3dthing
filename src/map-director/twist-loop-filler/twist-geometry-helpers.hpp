@@ -250,7 +250,8 @@ public:
         // I need the y component
         auto cos_t = std::cos(t_value*2*k_pi);
         return TwistyStripRadii
-            {offsets->spine() / cos_t, offsets->edge() / cos_t};
+            {magnitude(offsets->spine() / cos_t),
+             magnitude(offsets->edge () / cos_t)};
     }
 
     // these should only be positive reals
@@ -312,16 +313,16 @@ public:
         // but now I need to reverse it :/
         auto y_pos = Real(twisty_size.height)*t_value;
         auto spine_pos = Real(twisty_size.width) / 2;
-        m_elements[0] = PointPair
+        auto itr = m_elements.begin();
+        *itr++ = PointPair
             {Vector2{offsets->edge() + spine_pos, y_pos}, dir*radii->edge()};
-        if (are_very_close(radii->edge(), radii->spine())) {
-            m_count = 1;
-        } else {
-            m_elements[1] = PointPair
+        if (!are_very_close(radii->edge(), radii->spine())) {
+            *itr++ = PointPair
                 {Vector2{offsets->spine() + spine_pos, y_pos},
                  dir*radii->spine()};
-            m_count = 2;
+
         }
+        m_count = itr - m_elements.begin();
     }
 
     int count() const { return m_count; }
