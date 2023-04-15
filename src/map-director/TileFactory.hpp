@@ -44,6 +44,7 @@ class TileSetXmlGrid;
 
 /// A tile factory is a thing that produces tiles.
 /// It is local to the tileset
+/// Can be used as a shared utility by producable tiles.
 class TileFactory {
 public:
     virtual ~TileFactory() {}

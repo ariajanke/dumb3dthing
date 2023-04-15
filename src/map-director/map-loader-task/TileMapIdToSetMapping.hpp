@@ -21,28 +21,37 @@
 #pragma once
 
 #include "../../Defs.hpp"
+#include "../ProducableGrid.hpp"
 
 class TileSet;
+class ProducableGroupFiller;
 
 /// Translates global ids to tileset ids, along with their tilesets
 ///
 /// Can also be used as an owner for tilesets (needs to for translation to
 /// work). The tilesets maybe moved out, however this empties the translator.
-class GidTidTranslator final {
+///   TileMapIdToSetMapping
+///   MapToSetIdMapping
+class TileMapIdToSetMapping final :
+    public UnfinishedProducableTileViewGrid::ProducableGroupFillerExtraction
+{
 public:
     using ConstTileSetPtr = SharedPtr<const TileSet>;
     using TileSetPtr      = SharedPtr<TileSet>;
 
-    GidTidTranslator() {}
+    TileMapIdToSetMapping() {}
 
-    GidTidTranslator(const std::vector<TileSetPtr> & tilesets,
-                     const std::vector<int> & startgids);
+    TileMapIdToSetMapping(const std::vector<TileSetPtr> & tilesets,
+                          const std::vector<int> & startgids);
 
-    Tuple<int, ConstTileSetPtr> gid_to_tid(int gid) const;
+    Tuple<int, ConstTileSetPtr> map_id_to_set(int map_wide_id) const;
 
-    std::vector<SharedPtr<TileSet>> move_out_tilesets();
+    [[nodiscard]] std::vector<SharedPtr<TileSet>> move_out_tilesets();
 
-    void swap(GidTidTranslator &);
+    [[nodiscard]] std::vector<SharedPtr<const ProducableGroupFiller>>
+        move_out_fillers() final;
+
+    void swap(TileMapIdToSetMapping &);
 
 private:
     struct GidAndTileSetPtr final {

@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,9 +22,6 @@
 
 #include "Defs.hpp"
 #include "Components.hpp"
-#if 0
-#include "PointAndPlaneDriver.hpp"
-#endif
 #include "point-and-plane.hpp"
 
 // ------------------------------- <Messy Space> ------------------------------

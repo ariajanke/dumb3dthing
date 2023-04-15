@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../ProducableTileFiller.hpp"
+#include "../ProducableGroupFiller.hpp"
 #include "../../RenderModel.hpp"
 #include "../ViewGrid.hpp"
 
@@ -102,7 +102,7 @@ private:
 
 // "Fillers" are a poor name, it needs to be clear that it's a tileset level
 // object
-class TwistLoopGroupFiller final : public ProducableTileFiller {
+class TwistLoopGroupFiller final : public ProducableGroupFiller {
 public:
     static Size2I size_of_map(const std::vector<TileLocation> &);
 
@@ -111,8 +111,8 @@ public:
 
     void load(const TileSetXmlGrid & xml_grid, Platform & platform);
 
-    UnfinishedTileGroupGrid operator ()
-        (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const final;
+    ProducableGroupTileLayer operator ()
+        (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const final;
 
 private:
 #   if 0

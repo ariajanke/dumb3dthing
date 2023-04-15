@@ -26,7 +26,7 @@ class ProducableTile;
 class ProducableGroup_;
 class UnfinishedProducableTileViewGrid;
 
-/// This base class represents how to clean up a tile group.
+/// A producable group owns a set of producable tiles.
 class ProducableGroup_ {
 public:
     virtual ~ProducableGroup_() {}

@@ -82,14 +82,14 @@ static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 Grid<int> load_layer(const TiXmlElement &);
 
 Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
-    (const Grid<int> & gids, const GidTidTranslator & gidtid_translator)
+    (const Grid<int> & gids, const TileMapIdToSetMapping & gidtid_translator)
 {
     Grid<Tuple<int, SharedPtr<const TileSet>>> rv;
     rv.set_size(gids.size2(), make_tuple(0, nullptr));
 
     for (Vector2I r; r != rv.end_position(); r = rv.next(r)) {
         // (change rt to tuple from pair)
-        auto [tid, tileset] = gidtid_translator.gid_to_tid(gids(r));
+        auto [tid, tileset] = gidtid_translator.map_id_to_set(gids(r));
         rv(r) = make_tuple(tid, tileset);
     }
 
@@ -97,7 +97,7 @@ Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
 }
 
 struct FillerAndLocations final {
-    SharedPtr<ProducableTileFiller> filler;
+    SharedPtr<ProducableGroupFiller> filler;
     std::vector<TileLocation> tile_locations;
 };
 
@@ -106,7 +106,7 @@ std::vector<FillerAndLocations>
     (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tids_and_tilesets)
 {
     std::map<
-        SharedPtr<ProducableTileFiller>,
+        SharedPtr<ProducableGroupFiller>,
         std::vector<TileLocation>> fillers_to_locs;
     for (Vector2I layer_loc; layer_loc != tids_and_tilesets.end_position();
          layer_loc = tids_and_tilesets.next(layer_loc))
@@ -132,13 +132,14 @@ std::vector<FillerAndLocations>
     return rv;
 }
 
-UnfinishedTileGroupGrid make_unfinsihed_tile_group_grid
+ProducableGroupTileLayer make_unfinsihed_tile_group_grid
     (const std::vector<FillerAndLocations> & fillers_and_locs,
      const Size2I & layer_size)
 {
-    UnfinishedTileGroupGrid unfinished_grid;
+    ProducableGroupTileLayer unfinished_grid;
     unfinished_grid.set_size(layer_size);
     for (auto & filler_and_locs : fillers_and_locs) {
+        if (!filler_and_locs.filler) continue;
         unfinished_grid = (*filler_and_locs.filler)
             (filler_and_locs.tile_locations, std::move(unfinished_grid));
     }
@@ -245,7 +246,7 @@ OptionalTileViewGrid WaitingForTileSets::update_progress
             { return std::get<std::size_t>(tup) == k_no_idx; }),
         end_itr);
     if (!was_empty && pending_tilesets.empty()) {
-        m_tidgid_translator = GidTidTranslator{tilesets, startgids};
+        m_tidgid_translator = TileMapIdToSetMapping{tilesets, startgids};
     }
 
     if (!pending_tilesets.empty()) {
@@ -268,21 +269,11 @@ OptionalTileViewGrid TiledMapLoader::Ready::update_progress
         auto tid_layer = gid_layer_to_tid_layer(layer, m_tidgid_translator);
         auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
         unfinished_grid_view = make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
-            finish(std::move(unfinished_grid_view));
+            move_self_to(std::move(unfinished_grid_view));
     }
     next_state.set_next_state<Expired>();
-    auto [producables, groups] = unfinished_grid_view.move_out_producables_and_groups();
-    auto tilesets = m_tidgid_translator.move_out_tilesets();
 
-    std::vector<SharedPtr<const ProducableTileFiller>> map_fillers;
-    for (auto & tileset : tilesets) {
-        auto fillers = tileset->move_out_fillers();
-        map_fillers.insert
-            (map_fillers.end(), std::make_move_iterator(fillers.begin()),
-             std::make_move_iterator(fillers.end()));
-    }
-    return ProducableTileViewGrid
-        {std::move(producables), std::move(groups), std::move(map_fillers)};
+    return unfinished_grid_view.finish(m_tidgid_translator);
 }
 
 // ----------------------------------------------------------------------------

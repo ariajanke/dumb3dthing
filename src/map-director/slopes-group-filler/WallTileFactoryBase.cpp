@@ -23,6 +23,7 @@
 #include "../TileSetPropertiesGrid.hpp"
 
 #include <numeric>
+#include <optional>
 
 #include <cstring>
 
@@ -30,6 +31,22 @@ namespace {
 
 using VertexArray = TriangleToFloorVerticies::VertexArray;
 using Triangle = TriangleSegment;
+template <typename T>
+using Optional = std::optional<T>;
+
+Optional<Vector> parse_vector(const std::string & val) {
+    Vector rv;
+    auto list = { &rv.x, &rv.y, &rv.z };
+    auto itr = list.begin();
+    for (auto value_str : split_range(val.begin(), val.end(),
+                                      is_comma, make_trim_whitespace<std::string::const_iterator>()))
+    {
+        bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), **itr);
+        if (!is_num) return {};
+        ++itr;
+    }
+    return rv;
+}
 
 } // end of <anonymous> namespace
 
@@ -94,18 +111,8 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
 {
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
-    const auto * val = properties.find_value("translation");
-    if (!val) return;
-
-    auto list = { &m_translation.x, &m_translation.y, &m_translation.z };
-    auto itr = list.begin();
-    for (auto value_str : split_range(val->begin(), val->end(),
-                                      is_comma, make_trim_whitespace<std::string::const_iterator>()))
-    {
-        bool is_num = cul::string_to_number(value_str.begin(), value_str.end(), **itr);
-        assert(is_num);
-        ++itr;
-    }
+    m_translation = *properties.for_value
+        ("translation", Optional<Vector>{}, parse_vector);
 }
 
 /* protected */ Entity
@@ -381,8 +388,11 @@ WallTileFactoryBase::make_wall_graphics
      Platform & platform)
 {
     TranslatableTileFactory::setup_(loc_in_ts, properties, platform);
-    m_dir = verify_okay_wall_direction
-        (cardinal_direction_from(properties.find_value("direction")));
+
+    properties.for_value("direction", [this] (const std::string & str) {
+        m_dir = verify_okay_wall_direction(cardinal_direction_from(str));
+    });
+
     m_tileset_location = loc_in_ts;
     m_top_model = make_top_model(platform);
 }

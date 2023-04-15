@@ -22,7 +22,7 @@
 
 #include "SlopesBasedTileFactory.hpp"
 
-#include "../ProducableTileFiller.hpp"
+#include "../ProducableGroupFiller.hpp"
 #include "../TileSetPropertiesGrid.hpp"
 
 class ProducableSlopeTile final : public ProducableTile {
@@ -43,7 +43,7 @@ private:
     TileFactoryGridPtr m_factory_map_layer;
 };
 
-class SlopeGroupFiller final : public ProducableTileFiller {
+class SlopeGroupFiller final : public ProducableGroupFiller {
 public:
     using RampGroupFactoryMakeFunc = UniquePtr<SlopesBasedTileFactory>(*)();
     using RampGroupFactoryMap = std::map<std::string, RampGroupFactoryMakeFunc>;
@@ -55,9 +55,9 @@ public:
         (const std::vector<TileLocation> & tile_locations,
          const Grid<SharedPtr<SlopesBasedTileFactory>> & tile_factories);
 
-    UnfinishedTileGroupGrid operator ()
+    ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> & tile_locations,
-         UnfinishedTileGroupGrid && group_grid) const final;
+         ProducableGroupTileLayer && group_grid) const final;
 
     void load
         (const TileSetXmlGrid & xml_grid, Platform & platform,

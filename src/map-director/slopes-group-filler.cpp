@@ -21,7 +21,7 @@
 #include "slopes-group-filler.hpp"
 #include "slopes-group-filler/SlopeGroupFiller.hpp"
 
-/* static */ SharedPtr<ProducableTileFiller> SlopeGroupFiller_::make
+/* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
     (const TileSetXmlGrid & xml_grid, Platform & platform)
 {
     auto rv = make_shared<SlopeGroupFiller>();

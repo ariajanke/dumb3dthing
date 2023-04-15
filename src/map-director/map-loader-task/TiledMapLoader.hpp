@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "GidTidTranslator.hpp"
+#include "TileMapIdToSetMapping.hpp"
 
 #include "../ParseHelpers.hpp"
 #include "../ProducableGrid.hpp"
@@ -119,14 +119,14 @@ public:
 private:
     TileSetsContainer m_tilesets_container;
     std::vector<Grid<int>> m_layers;
-    GidTidTranslator m_tidgid_translator;
+    TileMapIdToSetMapping m_tidgid_translator;
 };
 
 class MapLoadingReady final : public MapLoadingState {
 public:
     MapLoadingReady
         (
-        GidTidTranslator && idtrans_,
+        TileMapIdToSetMapping && idtrans_,
         std::vector<Grid<int>> && layers_):
         m_tidgid_translator(std::move(idtrans_)),
         m_layers(std::move(layers_)) {}
@@ -134,7 +134,7 @@ public:
     OptionalTileViewGrid update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
-    GidTidTranslator m_tidgid_translator;
+    TileMapIdToSetMapping m_tidgid_translator;
     std::vector<Grid<int>> m_layers;
 };
 

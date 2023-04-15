@@ -33,12 +33,12 @@ constexpr const auto k_name_list = { k_ns_twist_loop, k_ew_twist_loop };
 
 
 class TileSetXmlGrid;
-class ProducableTileFiller;
+class ProducableGroupFiller;
 class Platform;
 
 class TwistLoopGroupFiller_ final {
 public:
-    static SharedPtr<ProducableTileFiller> make
+    static SharedPtr<ProducableGroupFiller> make
         (const TileSetXmlGrid & xml_grid, Platform &);
 
 private:

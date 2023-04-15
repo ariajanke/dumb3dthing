@@ -22,14 +22,8 @@
 #include "Components.hpp"
 #include "RenderModel.hpp"
 #include "TasksController.hpp"
-#if 0
-#include "map-director/map-loader.hpp"
-#endif
 #include "Texture.hpp"
 #include "Systems.hpp"
-#if 0
-#include "map-director/MapDirector.hpp"
-#endif
 
 #include "map-director.hpp"
 #include "PlayerUpdateTask.hpp"

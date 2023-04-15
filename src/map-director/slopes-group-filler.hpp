@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include "ProducableTileFiller.hpp"
+#include "ProducableGroupFiller.hpp"
 
 namespace slopes_group_filler_type_names {
 
@@ -48,7 +48,7 @@ class TileSetXmlGrid;
 
 class SlopeGroupFiller_ final {
 public:
-    static SharedPtr<ProducableTileFiller> make
+    static SharedPtr<ProducableGroupFiller> make
         (const TileSetXmlGrid & xml_grid, Platform &);
 
 private:

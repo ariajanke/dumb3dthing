@@ -173,9 +173,9 @@ void TwistLoopGroupFiller::load
 #   endif
 }
 
-UnfinishedTileGroupGrid TwistLoopGroupFiller::operator ()
+ProducableGroupTileLayer TwistLoopGroupFiller::operator ()
     (const std::vector<TileLocation> & positions,
-     UnfinishedTileGroupGrid && unfinished_group_grid) const
+     ProducableGroupTileLayer && unfinished_group_grid) const
 {
     Grid<SharedPtr<TwistTileGroup>> group_grid;
     group_grid = [&positions] {

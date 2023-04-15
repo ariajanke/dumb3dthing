@@ -22,7 +22,7 @@
 
 #include "twist-loop-filler/TwistLoopGroupFiller.hpp"
 
-SharedPtr<ProducableTileFiller> TwistLoopGroupFiller_::make
+SharedPtr<ProducableGroupFiller> TwistLoopGroupFiller_::make
     (const TileSetXmlGrid & xml_grid, Platform & platform)
 {
     auto filler_group = make_shared<TwistLoopGroupFiller>();

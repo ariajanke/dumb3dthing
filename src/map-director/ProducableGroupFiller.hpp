@@ -32,10 +32,10 @@ struct TileLocation final {
 /// How to fill out a grid with a tile group.
 ///
 ///
-class ProducableTileFiller {
+class ProducableGroupFiller {
 public:
-    virtual ~ProducableTileFiller() {}
+    virtual ~ProducableGroupFiller() {}
 
-    virtual UnfinishedTileGroupGrid operator ()
-        (const std::vector<TileLocation> &, UnfinishedTileGroupGrid &&) const = 0;
+    virtual ProducableGroupTileLayer operator ()
+        (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const = 0;
 };

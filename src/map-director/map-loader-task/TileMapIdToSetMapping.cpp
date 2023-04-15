@@ -18,17 +18,17 @@
 
 *****************************************************************************/
 
-#include "GidTidTranslator.hpp"
+#include "TileMapIdToSetMapping.hpp"
 #include "TileSet.hpp"
 
 namespace {
 
 using namespace cul::exceptions_abbr;
-using ConstTileSetPtr = GidTidTranslator::ConstTileSetPtr;
+using ConstTileSetPtr = TileMapIdToSetMapping::ConstTileSetPtr;
 
 } // end of <anonymous> namespace
 
-GidTidTranslator::GidTidTranslator
+TileMapIdToSetMapping::TileMapIdToSetMapping
     (const std::vector<TileSetPtr> & tilesets, const std::vector<int> & startgids)
 {
     if (tilesets.size() != startgids.size()) {
@@ -47,7 +47,7 @@ GidTidTranslator::GidTidTranslator
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
 }
 
-std::vector<SharedPtr<TileSet>> GidTidTranslator::move_out_tilesets() {
+std::vector<SharedPtr<TileSet>> TileMapIdToSetMapping::move_out_tilesets() {
     std::vector<SharedPtr<TileSet>> rv;
     rv.reserve(m_gid_map.size());
     for (auto & tl : m_gid_map) {
@@ -58,29 +58,45 @@ std::vector<SharedPtr<TileSet>> GidTidTranslator::move_out_tilesets() {
     return rv;
 }
 
-Tuple<int, ConstTileSetPtr> GidTidTranslator::gid_to_tid(int gid) const {
+[[nodiscard]] std::vector<SharedPtr<const ProducableGroupFiller>>
+    TileMapIdToSetMapping::move_out_fillers()
+{
+    auto tilesets = move_out_tilesets();
+    std::vector<SharedPtr<const ProducableGroupFiller>> map_fillers;
+    for (auto & tileset : tilesets) {
+        auto fillers = tileset->move_out_fillers();
+        map_fillers.insert
+            (map_fillers.end(), std::make_move_iterator(fillers.begin()),
+             std::make_move_iterator(fillers.end()));
+    }
+    return map_fillers;
+}
+
+Tuple<int, ConstTileSetPtr> TileMapIdToSetMapping::map_id_to_set(int gid) const {
     if (gid == 0) {
         return std::make_pair(0, nullptr);
     }
     if (gid < 1 || gid >= m_gid_end) {
-        throw InvArg{"GidTidTranslator::gid_to_tid: Given gid is either the "
-                     "empty tile or not contained in this map; translatable "
-                     "gids: [1 " + std::to_string(m_gid_end) + ")."};
+        throw InvArg
+            {"TileMapIdToSetMapping::map_id_to_set: Given map_id is either "
+             "the empty tile or not contained in this map; translatable ids: "
+             "[1 " + std::to_string(m_gid_end) + ")."};
     }
     GidAndTileSetPtr samp;
     samp.starting_id = gid;
-    auto itr = std::upper_bound(m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
+    auto itr = std::upper_bound
+        (m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
     assert(itr != m_gid_map.begin());
     --itr;
     assert(gid >= itr->starting_id);
     return std::make_pair(gid - itr->starting_id, itr->tileset);
 }
 
-void GidTidTranslator::swap(GidTidTranslator & rhs) {
+void TileMapIdToSetMapping::swap(TileMapIdToSetMapping & rhs) {
     m_gid_map.swap(rhs.m_gid_map);
     std::swap(m_gid_end, rhs.m_gid_end);
 }
 
-/* private static */ bool GidTidTranslator::order_by_gids
+/* private static */ bool TileMapIdToSetMapping::order_by_gids
     (const GidAndTileSetPtr & lhs, const GidAndTileSetPtr & rhs)
 { return lhs.starting_id < rhs.starting_id; }

@@ -43,11 +43,25 @@ public:
 
     const std::string & type() const { return m_type; }
 
-    template <typename KeyType>
-    const std::string * find_value(const KeyType & key) const {
+    template <typename KeyType, typename Func>
+    void for_value(const KeyType & key, Func && f) const {
+        class Dummy final {};
+        (void)for_value(key, Dummy{}, [&f] (const auto & value) {
+            f(value);
+            return Dummy{};
+        });
+    }
+
+    template <typename KeyType, typename DefaultType, typename Func>
+    DefaultType for_value
+        (const KeyType & key, DefaultType && def, Func && f) const
+    {
         auto itr = m_properties.find(key);
-        if (itr == m_properties.end()) return nullptr;
-        return &itr->second;
+        if (itr == m_properties.end())
+            return std::move(def);
+
+        const std::string & value = itr->second;
+        return f(value);
     }
 
 private:

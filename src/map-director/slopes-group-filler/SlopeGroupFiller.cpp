@@ -89,9 +89,9 @@ void ProducableSlopeTile::operator ()
     return factory_grid_for_map;
 }
 
-UnfinishedTileGroupGrid SlopeGroupFiller::operator ()
+ProducableGroupTileLayer SlopeGroupFiller::operator ()
     (const std::vector<TileLocation> & tile_locations,
-     UnfinishedTileGroupGrid && group_grid) const
+     ProducableGroupTileLayer && group_grid) const
 {
     auto mapwide_factory_grid = make_factory_grid_for_map(tile_locations, m_tile_factories);
     UnfinishedProducableGroup<ProducableSlopeTile> group;
@@ -161,15 +161,14 @@ void SlopeGroupFiller::load
 /* private */ void SlopeGroupFiller::setup_pure_texture
     (const TileSetXmlGrid & xml_grid, const Vector2I & r)
 {
-    const auto & el = xml_grid(r);
-    auto value = el.find_value("assignment");
-    if (!value) return;
     using cul::convert_to;
-    Size2 scale{xml_grid.tile_size().width  / xml_grid.texture_size().width ,
+    Size2 scale{xml_grid.tile_size().width  / xml_grid.texture_size().width,
                 xml_grid.tile_size().height / xml_grid.texture_size().height};
     Vector2 pos{r.x*scale.width, r.y*scale.height};
-    m_pure_textures[*value] =
-        TileTexture{pos, pos + convert_to<Vector2>(scale)};
+    TileTexture texture{pos, pos + convert_to<Vector2>(scale)};
+    xml_grid(r).for_value("assignment", [this, texture](const auto & value) {
+        m_pure_textures[value] = texture;
+    });
 }
 
 /* private static */ const SpecialTypeFuncMap & SlopeGroupFiller::special_type_funcs() {

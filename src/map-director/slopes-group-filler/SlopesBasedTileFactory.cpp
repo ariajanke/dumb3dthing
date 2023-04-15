@@ -102,6 +102,9 @@ Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
     throw BadBranchException{__LINE__, __FILE__};
 }
 
+CardinalDirection cardinal_direction_from(const std::string & str)
+    { return cardinal_direction_from(str.c_str()); }
+
 CardinalDirection cardinal_direction_from(const std::string * str) {
     return cardinal_direction_from(str ? str->c_str() : nullptr);
 }

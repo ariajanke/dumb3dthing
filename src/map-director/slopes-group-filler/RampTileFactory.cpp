@@ -54,9 +54,9 @@ void SingleModelSlopedTileFactory::operator ()
     (const Vector2I & loc_in_ts, const TileProperties & properties,
      Platform & platform)
 {
-    if (const auto * val = properties.find_value("direction")) {
-        set_direction(val->c_str());
-    }
+    properties.for_value("direction", [this](const auto & val) {
+        set_direction(val.c_str());
+    });
     SingleModelSlopedTileFactory::setup_(loc_in_ts, properties, platform);
 }
 

@@ -19,12 +19,12 @@
 *****************************************************************************/
 
 #include "ProducableGrid.hpp"
-#include "ProducableTileFiller.hpp"
+#include "ProducableGroupFiller.hpp"
 
 ProducableTileViewGrid::ProducableTileViewGrid
     (ViewGrid<ProducableTile *> && factory_view_grid,
      std::vector<SharedPtr<ProducableGroup_>> && groups,
-     std::vector<SharedPtr<const ProducableTileFiller>> && fillers):
+     std::vector<SharedPtr<const ProducableGroupFiller>> && fillers):
     m_factories(std::move(factory_view_grid)),
     m_groups(std::move(groups)),
     m_fillers(std::move(fillers))
@@ -40,7 +40,16 @@ void UnfinishedProducableTileViewGrid::add_layer
     m_targets.emplace_back(std::move(target));
 }
 
-Tuple
+ProducableTileViewGrid UnfinishedProducableTileViewGrid::
+    finish(ProducableGroupFillerExtraction & extraction)
+{
+    auto [producables, groups] = move_out_producables_and_groups();
+    auto map_fillers = extraction.move_out_fillers();
+    return ProducableTileViewGrid
+        {std::move(producables), std::move(groups), std::move(map_fillers)};
+}
+
+/* private */ Tuple
     <ViewGrid<ProducableTile *>,
      std::vector<SharedPtr<ProducableGroup_>>>
     UnfinishedProducableTileViewGrid::move_out_producables_and_groups()

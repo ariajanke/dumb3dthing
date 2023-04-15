@@ -33,8 +33,8 @@ using FillerFactory = TileSet::FillerFactory;
 using FillerFactoryMap = TileSet::FillerFactoryMap;
 
 struct MakeFillerGridRt final {
-    Grid<SharedPtr<ProducableTileFiller>> grid;
-    std::vector<SharedPtr<const ProducableTileFiller>> unique_fillers;
+    Grid<SharedPtr<ProducableGroupFiller>> grid;
+    std::vector<SharedPtr<const ProducableGroupFiller>> unique_fillers;
 };
 
 std::vector<Tuple<Vector2I, FillerFactory>>
@@ -57,9 +57,11 @@ MakeFillerGridRt make_filler_grid
         for (auto type : slopes_group_filler_type_names::k_ramp_group_type_list) {
             s_map[type] = SlopeGroupFiller_::make;
         }
+#       if 0 // disabled, feature not implemented
         for (auto type : twist_loop_filler_names::k_name_list) {
             s_map[type] = TwistLoopGroupFiller_::make;
         }
+#       endif
         return s_map;
     } ();
     return s_map;
@@ -79,17 +81,17 @@ void TileSet::load
     m_unique_fillers = std::move(filler_things.unique_fillers);
 }
 
-std::vector<SharedPtr<const ProducableTileFiller>> TileSet::move_out_fillers() {
+std::vector<SharedPtr<const ProducableGroupFiller>> TileSet::move_out_fillers() {
     m_filler_grid.clear();
     auto rv = std::move(m_unique_fillers);
     m_unique_fillers.clear();
     return rv;
 }
 
-SharedPtr<ProducableTileFiller> TileSet::find_filler(int tid) const
+SharedPtr<ProducableGroupFiller> TileSet::find_filler(int tid) const
     { return find_filler( tile_id_to_tileset_location(tid) ); }
 
-/* private */ SharedPtr<ProducableTileFiller> TileSet::find_filler
+/* private */ SharedPtr<ProducableGroupFiller> TileSet::find_filler
     (Vector2I r) const
     { return m_filler_grid(r); }
 

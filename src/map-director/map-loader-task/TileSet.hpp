@@ -21,7 +21,7 @@
 #pragma once
 
 #include "../ParseHelpers.hpp"
-#include "../ProducableTileFiller.hpp"
+#include "../ProducableGroupFiller.hpp"
 
 #include <map>
 
@@ -32,7 +32,7 @@ class TileSetXmlGrid;
 /// maybe a loader thing
 class TileSet final {
 public:
-    using FillerFactory = SharedPtr<ProducableTileFiller>(*)(const TileSetXmlGrid &, Platform &);
+    using FillerFactory = SharedPtr<ProducableGroupFiller>(*)(const TileSetXmlGrid &, Platform &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
 
     static const FillerFactoryMap & builtin_fillers();
@@ -40,10 +40,10 @@ public:
     void load(Platform &, const TiXmlElement &,
               const FillerFactoryMap & = builtin_fillers());
 
-    // also clears out the entire tileset
-    std::vector<SharedPtr<const ProducableTileFiller>> move_out_fillers();
+    /// also clears out the entire tileset
+    std::vector<SharedPtr<const ProducableGroupFiller>> move_out_fillers();
 
-    SharedPtr<ProducableTileFiller> find_filler(int tid) const;
+    SharedPtr<ProducableGroupFiller> find_filler(int tid) const;
 
     Vector2I tile_id_to_tileset_location(int tid) const;
 
@@ -51,8 +51,8 @@ public:
         { return m_filler_grid.size(); }
 
 private:
-    SharedPtr<ProducableTileFiller> find_filler(Vector2I) const;
+    SharedPtr<ProducableGroupFiller> find_filler(Vector2I) const;
 
-    Grid<SharedPtr<ProducableTileFiller>> m_filler_grid;
-    std::vector<SharedPtr<const ProducableTileFiller>> m_unique_fillers;
+    Grid<SharedPtr<ProducableGroupFiller>> m_filler_grid;
+    std::vector<SharedPtr<const ProducableGroupFiller>> m_unique_fillers;
 };

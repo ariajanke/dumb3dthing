@@ -102,6 +102,8 @@ public:
     virtual Slopes tile_elevations() const = 0;
 };
 
+CardinalDirection cardinal_direction_from(const std::string & str);
+
 CardinalDirection cardinal_direction_from(const std::string * str);
 
 CardinalDirection cardinal_direction_from(const char * str);

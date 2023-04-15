@@ -26,9 +26,10 @@
 class EntityAndTrianglesAdder;
 class Platform;
 class UnfinishedProducableTileViewGrid;
-class GidTidTranslator;
+class TileMapIdToSetMapping;
 
 /// Represents how to make a single instance of a tile.
+/// It is local to the entire in game field.
 class ProducableTile {
 public:
     virtual ~ProducableTile() {}
@@ -39,7 +40,8 @@ public:
 
 using ProducableTileViewSubGrid = ViewGrid<ProducableTile *>::SubGrid;
 class TileSet;
-class ProducableTileFiller;
+class ProducableGroupFiller;
+
 /// A ViewGrid of producable tiles
 ///
 /// An instance of this is used to represent a loaded map.
@@ -50,7 +52,7 @@ public:
     ProducableTileViewGrid
         (ViewGrid<ProducableTile *> && factory_view_grid,
          std::vector<SharedPtr<ProducableGroup_>> && groups,
-         std::vector<SharedPtr<const ProducableTileFiller>> && fillers);
+         std::vector<SharedPtr<const ProducableGroupFiller>> && fillers);
 
     auto height() const { return m_factories.height(); }
 
@@ -63,15 +65,27 @@ public:
 private:
     ViewGrid<ProducableTile *> m_factories;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
-    std::vector<SharedPtr<const ProducableTileFiller>> m_fillers;
+    std::vector<SharedPtr<const ProducableGroupFiller>> m_fillers;
 };
 
 class UnfinishedProducableTileViewGrid final {
 public:
+    class ProducableGroupFillerExtraction {
+    public:
+        virtual ~ProducableGroupFillerExtraction()  {}
+
+        virtual std::vector<SharedPtr<const ProducableGroupFiller>>
+            move_out_fillers() = 0;
+    };
+
     void add_layer
         (Grid<ProducableTile *> && target,
          const std::vector<SharedPtr<ProducableGroup_>> & groups);
 
+    [[nodiscard]] ProducableTileViewGrid
+        finish(ProducableGroupFillerExtraction &);
+
+private:
     /// Moves out a view grid of all producables, and owners of those
     /// producables.
     ///
@@ -81,12 +95,11 @@ public:
          std::vector<SharedPtr<ProducableGroup_>>>
         move_out_producables_and_groups();
 
-private:
     std::vector<Grid<ProducableTile *>> m_targets;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
 
-class UnfinishedTileGroupGrid final {
+class ProducableGroupTileLayer final {
 public:
 
     // may only be set once
@@ -101,7 +114,7 @@ public:
         { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
     UnfinishedProducableTileViewGrid
-        finish(UnfinishedProducableTileViewGrid && unfinished_grid_view)
+        move_self_to(UnfinishedProducableTileViewGrid && unfinished_grid_view)
     {
         unfinished_grid_view.add_layer(std::move(m_target), m_groups);
         m_target.clear();
