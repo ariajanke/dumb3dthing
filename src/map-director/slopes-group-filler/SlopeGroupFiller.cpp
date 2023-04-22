@@ -26,7 +26,12 @@
 namespace {
 
 using RampGroupFactoryMap = SlopeGroupFiller::RampGroupFactoryMap;
-using SpecialTypeFuncMap = SlopeGroupFiller::SpecialTypeFuncMap;
+
+template <typename T>
+UniquePtr<SlopesBasedTileFactory> make_unique_base_factory() {
+    static_assert(std::is_base_of_v<SlopesBasedTileFactory, T>);
+    return make_unique<T>();
+}
 
 } // end of <anonymous> namespace
 
@@ -107,6 +112,14 @@ void SlopeGroupFiller::load
     (const TileSetXmlGrid & xml_grid, Platform & platform,
      const RampGroupFactoryMap & factory_type_map)
 {
+    load_factories(xml_grid, factory_type_map);
+    setup_factories(xml_grid, platform, m_tile_factories);
+}
+
+/* private */ void SlopeGroupFiller::load_factories
+    (const TileSetXmlGrid & xml_grid,
+     const RampGroupFactoryMap & factory_type_map)
+{
     // I know how large the grid should be
     m_tile_factories.set_size(xml_grid.size2(), UniquePtr<SlopesBasedTileFactory>{});
 
@@ -121,21 +134,19 @@ void SlopeGroupFiller::load
         if (itr != factory_type_map.end()) {
             m_tile_factories(r) = (*itr->second)();
         }
-        auto jtr = special_type_funcs().find(tile_type);
-        if (jtr != special_type_funcs().end()) {
-            (this->*jtr->second)(xml_grid, r);
-        }
+        m_specials.action_by_tile_type(tile_type, xml_grid, r);
     }
+}
 
+/* private */ void SlopeGroupFiller::setup_factories
+    (const TileSetXmlGrid & xml_grid, Platform & platform,
+     TileFactoryGrid & tile_factories) const
+{
     for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
-        auto & factory = m_tile_factories(r);
+        auto & factory = tile_factories(r);
         if (!factory) { continue; }
-        factory->setup(xml_grid, platform, r);
-        auto * wall_factory = dynamic_cast<WallTileFactoryBase *>(factory.get());
-        auto wall_tx_itr = m_pure_textures.find("wall");
-        if (wall_factory && wall_tx_itr != m_pure_textures.end()) {
-            wall_factory->assign_wall_texture(wall_tx_itr->second);
-        }
+
+        factory->setup(xml_grid, platform, m_specials, r);
     }
 }
 
@@ -153,28 +164,6 @@ void SlopeGroupFiller::load
         s_map[k_out_ramp    ] = make_unique_base_factory<OutRampTileFactory>;
         s_map[k_ramp        ] = make_unique_base_factory<TwoRampTileFactory>;
         s_map[k_flat        ] = make_unique_base_factory<FlatTileFactory>;
-        return s_map;
-    } ();
-    return s_map;
-}
-
-/* private */ void SlopeGroupFiller::setup_pure_texture
-    (const TileSetXmlGrid & xml_grid, const Vector2I & r)
-{
-    using cul::convert_to;
-    Size2 scale{xml_grid.tile_size().width  / xml_grid.texture_size().width,
-                xml_grid.tile_size().height / xml_grid.texture_size().height};
-    Vector2 pos{r.x*scale.width, r.y*scale.height};
-    TileTexture texture{pos, pos + convert_to<Vector2>(scale)};
-    xml_grid(r).for_value("assignment", [this, texture](const auto & value) {
-        m_pure_textures[value] = texture;
-    });
-}
-
-/* private static */ const SpecialTypeFuncMap & SlopeGroupFiller::special_type_funcs() {
-    static auto s_map = [] {
-        SpecialTypeFuncMap s_map;
-        s_map["pure-texture"] = &SlopeGroupFiller::setup_pure_texture;
         return s_map;
     } ();
     return s_map;

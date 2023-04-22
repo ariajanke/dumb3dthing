@@ -40,24 +40,27 @@ void SingleModelSlopedTileFactory::operator ()
 }
 
 /* protected */ void SingleModelSlopedTileFactory::setup_
-    (const Vector2I & loc_in_ts, const TileProperties & properties,
-     Platform & platform)
+    (const TileProperties & properties, Platform & platform,
+     const SlopeFillerExtra &,
+     const Vector2I & location_on_tileset)
 {
-    TranslatableTileFactory::setup_(loc_in_ts, properties, platform);
+    TranslatableTileFactory::setup_(location_on_tileset, properties, platform);
     m_render_model = make_render_model_with_common_texture_positions(
-        platform, model_tile_elevations(), loc_in_ts);
+        platform, model_tile_elevations(), location_on_tileset);
 }
 
 // ----------------------------------------------------------------------------
 
 /* private */ void RampTileFactory::setup_
-    (const Vector2I & loc_in_ts, const TileProperties & properties,
-     Platform & platform)
+    (const TileProperties & properties, Platform & platform,
+     const SlopeFillerExtra & slope_extras,
+     const Vector2I & location_on_tileset)
 {
     properties.for_value("direction", [this](const auto & val) {
         set_direction(val.c_str());
     });
-    SingleModelSlopedTileFactory::setup_(loc_in_ts, properties, platform);
+    SingleModelSlopedTileFactory::setup_
+        (properties, platform, slope_extras, location_on_tileset);
 }
 
 // --------------------------- <anonymous> namespace --------------------------

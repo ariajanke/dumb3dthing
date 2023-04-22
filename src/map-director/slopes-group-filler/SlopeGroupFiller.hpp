@@ -47,9 +47,6 @@ class SlopeGroupFiller final : public ProducableGroupFiller {
 public:
     using RampGroupFactoryMakeFunc = UniquePtr<SlopesBasedTileFactory>(*)();
     using RampGroupFactoryMap = std::map<std::string, RampGroupFactoryMakeFunc>;
-    using TileTextureMap = std::map<std::string, TileTexture>;
-    using SpecialTypeFunc = void(SlopeGroupFiller::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
-    using SpecialTypeFuncMap = std::map<std::string, SpecialTypeFunc>;
 
     static SharedPtr<Grid<SlopesBasedTileFactory *>> make_factory_grid_for_map
         (const std::vector<TileLocation> & tile_locations,
@@ -63,22 +60,18 @@ public:
         (const TileSetXmlGrid & xml_grid, Platform & platform,
          const RampGroupFactoryMap & factory_type_map = builtin_tile_factory_maker_map());
 
-    // dangler hazard while moving shit around
-
     static const RampGroupFactoryMap & builtin_tile_factory_maker_map();
 
 private:
-    template <typename T>
-    static UniquePtr<SlopesBasedTileFactory> make_unique_base_factory() {
-        static_assert(std::is_base_of_v<SlopesBasedTileFactory, T>);
-        return make_unique<T>();
-    }
+    using TileFactoryGrid = Grid<SharedPtr<SlopesBasedTileFactory>>;
 
-    void setup_pure_texture
-        (const TileSetXmlGrid & xml_grid, const Vector2I & r);
+    void load_factories(const TileSetXmlGrid & xml_grid,
+                        const RampGroupFactoryMap & factory_type_map);
 
-    static const SpecialTypeFuncMap & special_type_funcs();
+    void setup_factories
+        (const TileSetXmlGrid & xml_grid, Platform & platform,
+         TileFactoryGrid &) const;
 
-    TileTextureMap m_pure_textures;
-    Grid<SharedPtr<SlopesBasedTileFactory>> m_tile_factories;
+    SlopeFillerExtra m_specials;
+    TileFactoryGrid m_tile_factories;
 };

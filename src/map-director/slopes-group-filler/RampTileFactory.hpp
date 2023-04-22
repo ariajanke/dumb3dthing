@@ -37,8 +37,9 @@ protected:
 
     virtual Slopes model_tile_elevations() const = 0;
 
-    void setup_
-        (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
+    void setup_(const TileProperties &, Platform &,
+                const SlopeFillerExtra &,
+                const Vector2I & location_on_tileset) override;
 
 private:
     SharedPtr<const RenderModel> m_render_model;
@@ -54,8 +55,9 @@ protected:
     virtual void set_direction(const char *) = 0;
 
 private:
-    void setup_(const Vector2I & loc_in_ts, const TileProperties & properties,
-                Platform & platform) final;
+    void setup_(const TileProperties & properties, Platform & platform,
+                const SlopeFillerExtra &,
+                const Vector2I & location_on_tileset) final;
 };
 
 class CornerRampTileFactory : public RampTileFactory {

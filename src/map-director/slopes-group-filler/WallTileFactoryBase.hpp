@@ -166,8 +166,6 @@ public:
         (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
          Platform &) const final;
 
-    void assign_wall_texture(const TileTexture &);
-
     Slopes computed_tile_elevations(const SlopeGroupNeighborhood &) const;
 
     // should have translations and all
@@ -235,8 +233,9 @@ private:
         make_wall_graphics
         (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
 
-    void setup_
-        (const Vector2I & loc_in_ts, const TileProperties &, Platform &) final;
+    void setup_(const TileProperties &, Platform &,
+                const SlopeFillerExtra &,
+                const Vector2I & location_on_tileset) final;
 
     CardinalDirection verify_okay_wall_direction(CardinalDirection dir) const {
         if (!is_okay_wall_direction(dir)) {
@@ -249,7 +248,7 @@ private:
 
     CardinalDirection m_dir = CardinalDirection::ne;
     Vector2I m_tileset_location;
-    const TileTexture * m_wall_texture_coords = &s_default_texture;
+    TileTexture m_wall_texture_coords = s_default_texture;
     SharedPtr<const RenderModel> m_top_model;
 
     static GraphicMap s_wall_graphics_cache;

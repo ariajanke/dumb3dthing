@@ -197,9 +197,6 @@ void WallTileFactoryBase::operator ()
         platform, tile_loc, ensure_bottom_model(ninfo, platform)));
 }
 
-void WallTileFactoryBase::assign_wall_texture(const TileTexture & tt)
-    { m_wall_texture_coords = &tt; }
-
 Slopes WallTileFactoryBase::computed_tile_elevations
     (const SlopeGroupNeighborhood & ninfo) const
 {
@@ -384,18 +381,22 @@ WallTileFactoryBase::make_wall_graphics
 }
 
 /* private */ void WallTileFactoryBase::setup_
-    (const Vector2I & loc_in_ts, const TileProperties & properties,
-     Platform & platform)
+    (const TileProperties & properties, Platform & platform,
+     const SlopeFillerExtra & specials,
+     const Vector2I & location_on_tileset)
 {
-    TranslatableTileFactory::setup_(loc_in_ts, properties, platform);
+    TranslatableTileFactory::setup_(location_on_tileset, properties, platform);
 
     properties.for_value("direction", [this] (const std::string & str) {
         m_dir = verify_okay_wall_direction(cardinal_direction_from(str));
     });
+    specials.for_texture("wall", [this] (TileTexture tx) {
+        m_wall_texture_coords = tx;
+    });
 
-    m_tileset_location = loc_in_ts;
+    m_tileset_location = location_on_tileset;
     m_top_model = make_top_model(platform);
 }
 
 /* protected */ TileTexture WallTileFactoryBase::wall_texture() const
-    { return *m_wall_texture_coords; }
+    { return m_wall_texture_coords; }

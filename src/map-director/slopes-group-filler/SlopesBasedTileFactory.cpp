@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "SlopesBasedTileFactory.hpp"
+#include "../TileSetPropertiesGrid.hpp"
 
 #include <cstring>
 
@@ -102,6 +103,47 @@ Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
     throw BadBranchException{__LINE__, __FILE__};
 }
 
+// ----------------------------------------------------------------------------
+
+/* static */ const SlopeFillerExtra::SpecialTypeFuncMap &
+    SlopeFillerExtra::special_type_funcs()
+{
+    static auto s_map = [] {
+        SpecialTypeFuncMap map;
+        map["pure-texture"] = &SlopeFillerExtra::setup_pure_texture;
+        return map;
+    } ();
+    return s_map;
+}
+
+void SlopeFillerExtra::setup_pure_texture
+    (const TileSetXmlGrid & xml_grid, const Vector2I & r)
+{
+    using cul::convert_to;
+    Size2 scale{xml_grid.tile_size().width  / xml_grid.texture_size().width,
+                xml_grid.tile_size().height / xml_grid.texture_size().height};
+    Vector2 pos{r.x*scale.width, r.y*scale.height};
+    TileTexture texture{pos, pos + convert_to<Vector2>(scale)};
+    xml_grid(r).for_value("assignment", [this, texture](const auto & value) {
+        m_pure_textures[value] = texture;
+    });
+}
+
+// ----------------------------------------------------------------------------
+
+void SlopesBasedTileFactory::setup
+    (const TileSetXmlGrid & xml_grid, Platform & platform,
+     const SlopeFillerExtra & slope_extras,
+     const Vector2I & location_on_tileset)
+{
+    TileFactory::setup(xml_grid, platform, location_on_tileset);
+    setup_
+        (xml_grid(location_on_tileset), platform, slope_extras,
+         location_on_tileset);
+}
+
+// ----------------------------------------------------------------------------
+
 CardinalDirection cardinal_direction_from(const std::string & str)
     { return cardinal_direction_from(str.c_str()); }
 
@@ -127,3 +169,4 @@ CardinalDirection cardinal_direction_from(const char * str) {
     throw InvArg{  "cardinal_direction_from: cannot convert \""
                  + std::string{str} + "\" to a cardinal direction"};
 }
+
