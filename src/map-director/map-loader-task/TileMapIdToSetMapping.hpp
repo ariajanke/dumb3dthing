@@ -46,8 +46,6 @@ public:
 
     Tuple<int, ConstTileSetPtr> map_id_to_set(int map_wide_id) const;
 
-    [[nodiscard]] std::vector<SharedPtr<TileSet>> move_out_tilesets();
-
     [[nodiscard]] std::vector<SharedPtr<const ProducableGroupFiller>>
         move_out_fillers() final;
 
@@ -65,6 +63,8 @@ private:
     };
 
     static bool order_by_gids(const GidAndTileSetPtr &, const GidAndTileSetPtr &);
+
+    [[nodiscard]] std::vector<SharedPtr<TileSet>> move_out_tilesets();
 
     std::vector<GidAndTileSetPtr> m_gid_map;
     int m_gid_end = 0;

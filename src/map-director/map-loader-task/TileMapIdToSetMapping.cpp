@@ -47,18 +47,7 @@ TileMapIdToSetMapping::TileMapIdToSetMapping
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
 }
 
-std::vector<SharedPtr<TileSet>> TileMapIdToSetMapping::move_out_tilesets() {
-    std::vector<SharedPtr<TileSet>> rv;
-    rv.reserve(m_gid_map.size());
-    for (auto & tl : m_gid_map) {
-        rv.emplace_back(std::move(tl.tileset));
-    }
-    m_gid_map.clear();
-    m_gid_end = 0;
-    return rv;
-}
-
-[[nodiscard]] std::vector<SharedPtr<const ProducableGroupFiller>>
+std::vector<SharedPtr<const ProducableGroupFiller>>
     TileMapIdToSetMapping::move_out_fillers()
 {
     auto tilesets = move_out_tilesets();
@@ -100,3 +89,16 @@ void TileMapIdToSetMapping::swap(TileMapIdToSetMapping & rhs) {
 /* private static */ bool TileMapIdToSetMapping::order_by_gids
     (const GidAndTileSetPtr & lhs, const GidAndTileSetPtr & rhs)
 { return lhs.starting_id < rhs.starting_id; }
+
+/* private */ std::vector<SharedPtr<TileSet>> TileMapIdToSetMapping::
+    move_out_tilesets()
+{
+    std::vector<SharedPtr<TileSet>> rv;
+    rv.reserve(m_gid_map.size());
+    for (auto & tl : m_gid_map) {
+        rv.emplace_back(std::move(tl.tileset));
+    }
+    m_gid_map.clear();
+    m_gid_end = 0;
+    return rv;
+}
