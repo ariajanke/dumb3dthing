@@ -112,13 +112,7 @@ Vector TriangleSegment::center() const noexcept
 
 Vector2 TriangleSegment::center_in_2d() const noexcept
     { return (1. / 3.)*(point_a_in_2d() + point_b_in_2d() + point_c_in_2d()); }
-#if 0
-// make r relative to the triangle's origin
-// project it onto the plane of the triangle
-// again point_a being the origin is implementation knowledge
-Vector2 TriangleSegment::change_basis_of(const Vector & r) const
-    { return closest_point(r - point_a()); }
-#endif
+
 SideCrossing TriangleSegment::check_for_side_crossing
     (const Vector2 & old, const Vector2 & new_) const
 {

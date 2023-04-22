@@ -362,6 +362,11 @@
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
+ <tile id="65" type="ns-twist-loop">
+  <properties>
+   <property name="translation" value="0,2,0"/>
+  </properties>
+ </tile>
  <tile id="66" type="out-ramp">
   <properties>
    <property name="direction" value="sw"/>
@@ -398,6 +403,11 @@
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
+ <tile id="74" type="ns-twist-loop">
+  <properties>
+   <property name="translation" value="0,2,0"/>
+  </properties>
+ </tile>
  <tile id="75" type="in-wall">
   <properties>
    <property name="direction" value="se"/>
@@ -431,6 +441,11 @@
  <tile id="82" type="in-wall">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="translation" value="0,2,0"/>
+  </properties>
+ </tile>
+ <tile id="83" type="ns-twist-loop">
+  <properties>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>

@@ -134,16 +134,7 @@ public:
      *           triangle
      */
     Vector2 center_in_2d() const noexcept;
-#   if 0
-    // v bad naming, this is a projection!
-    /** @brief Changes the basis of the given vector to the plane of the
-     *         triangle
-     *  @param r any 3D vector, maybe useful for changing the basis of a
-     *         displacement vector in terms of the triangle's plane
-     *  @returns vector using triangle's plane as basis
-     */
-    Vector2 change_basis_of(const Vector & r) const;
-#   endif
+
     /** Checks if a side crossing occurs when a point moves from an old
      *  location to a new location.
      *

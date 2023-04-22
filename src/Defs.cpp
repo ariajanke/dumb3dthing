@@ -19,7 +19,6 @@
 *****************************************************************************/
 
 #include "Defs.hpp"
-#include "PointAndPlaneDriver.hpp"
 #include "TriangleSegment.hpp"
 
 #include <iostream>

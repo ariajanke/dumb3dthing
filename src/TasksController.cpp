@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "TasksController.hpp"
-#include "PointAndPlaneDriver.hpp"
+#include "point-and-plane.hpp"
 
 namespace {
 
@@ -123,7 +123,6 @@ void EntitiesReceiver::add_entities_to(Scene & scene) {
 // ----------------------------------------------------------------------------
 
 Platform & MultiReceiver::platform() {
-
     if (!m_platform) {
         throw RtError{"MultiReceiver::platform: no platform was assigned"};
     }

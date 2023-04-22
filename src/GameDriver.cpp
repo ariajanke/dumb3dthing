@@ -22,13 +22,14 @@
 #include "Components.hpp"
 #include "RenderModel.hpp"
 #include "TasksController.hpp"
-#include "map-loader/map-loader.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
-#include "map-loader/MapLoadingDirector.hpp"
 
+#include "map-director.hpp"
+#include "PlayerUpdateTask.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
+
 
 #include <iostream>
 
@@ -117,18 +118,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
         elements.emplace_back(el++);
         elements.emplace_back(el++);
     }
-#   if 0
-    std::vector<SharedPtr<TriangleLink>> links;
-    if (triangles.size() > 1) {
-        links.emplace_back( triangles.front() );
-        for (auto itr = triangles.begin() + 1; itr != triangles.end(); ++itr) {
 
-            links.back()->attempt_attachment_to( *itr );
-            links.emplace_back( *itr );
-            links.back()->attempt_attachment_to( *(itr - 1) );
-        }
-    }
-#   endif
     auto mod = platform.make_render_model();
     mod->load<int>(verticies, elements);
 
@@ -277,11 +267,8 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
 
     static constexpr const auto k_testmap_filename = "demo-map2.tmx";
 
-    PlayerUpdateTask
-        {MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
-         EntityRef{physics_ent}};
     auto player_update_task = make_shared<PlayerUpdateTask>
-        (MapLoadingDirector{&ppdriver, cul::Size2<int>{10, 10}},
+        (MapDirector_::make(&ppdriver, Size2I{10, 10}),
          EntityRef{physics_ent});
     auto map_loader_task = player_update_task->load_initial_map
         (k_testmap_filename, platform);
