@@ -32,8 +32,11 @@ using WaitingForTileSets = MapLoadingWaitingForTileSets;
 using Ready = MapLoadingReady;
 using Expired = MapLoadingExpired;
 using StateHolder = MapLoadingStateHolder;
+#if 0
 using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
-
+#endif
+using MapLoadResult = MapLoadingContext::MapLoadResult;
+using OptionalMapLoadResult = MapLoadingContext::OptionalMapLoadResult;
 template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
 void on_key_found(const std::map<Key, Value, Comparator> & map, const Key2 & key, Func && f_) {
     auto itr = map.find(key);
@@ -169,7 +172,7 @@ Platform & State::platform() const {
 
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid WaitingForFileContents::update_progress
+OptionalMapLoadResult WaitingForFileContents::update_progress
     (StateHolder & next_state)
 {
     if (!m_file_contents->is_ready()) return {};
@@ -220,7 +223,7 @@ OptionalTileViewGrid WaitingForFileContents::update_progress
 
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid WaitingForTileSets::update_progress
+OptionalMapLoadResult WaitingForTileSets::update_progress
     (StateHolder & next_state)
 {
     // no short circuting permitted, therefore STL sequence algorithms
@@ -261,7 +264,7 @@ OptionalTileViewGrid WaitingForTileSets::update_progress
 
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid TiledMapLoader::Ready::update_progress
+OptionalMapLoadResult TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
     UnfinishedProducableTileViewGrid unfinished_grid_view;
@@ -273,7 +276,9 @@ OptionalTileViewGrid TiledMapLoader::Ready::update_progress
     }
     next_state.set_next_state<Expired>();
 
-    return unfinished_grid_view.finish(m_tidgid_translator);
+    MapLoadingSuccess success;
+    success.producables_view_grid = unfinished_grid_view.finish(m_tidgid_translator);
+    return success;
 }
 
 // ----------------------------------------------------------------------------
@@ -293,9 +298,9 @@ void StateHolder::move_state(StatePtrGetter & state_getter_ptr, StateSpace & spa
 
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid TiledMapLoader::update_progress() {
+OptionalMapLoadResult TiledMapLoader::update_progress() {
     StateHolder next;
-    OptionalTileViewGrid rv;
+    OptionalMapLoadResult rv;
     while (true) {
         rv = m_get_state(m_state_space)->update_progress(next);
         if (!next.has_next_state()) break;

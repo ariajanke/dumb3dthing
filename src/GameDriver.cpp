@@ -382,7 +382,7 @@ void GameDriverComplete::update_(Real seconds) {
     CheckJump{},
     [ppstate = m_player_entities.physical.get<PpState>(),
      plyvel  = m_player_entities.physical.ptr<Velocity>()]
-        (Translation & trans, Opt<Visible> vis)
+        (Translation & trans, EcsOpt<Visible> vis)
     {
         using point_and_plane::location_of;
         if (!vis) return;

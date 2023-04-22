@@ -23,11 +23,6 @@
 #include "../../RenderModel.hpp"
 #include "../ViewGrid.hpp"
 
-#include <optional>
-
-template <typename T>
-using Optional = std::optional<T>;
-
 enum class TwistDirection {
     left, right
 };

@@ -23,7 +23,6 @@
 #include "../TileSetPropertiesGrid.hpp"
 
 #include <numeric>
-#include <optional>
 
 #include <cstring>
 
@@ -31,8 +30,6 @@ namespace {
 
 using VertexArray = TriangleToFloorVerticies::VertexArray;
 using Triangle = TriangleSegment;
-template <typename T>
-using Optional = std::optional<T>;
 
 Optional<Vector> parse_vector(const std::string & val) {
     Vector rv;

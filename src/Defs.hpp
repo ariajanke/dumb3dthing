@@ -30,9 +30,12 @@
 #include <ariajanke/ecs3/Scene.hpp>
 #include <ariajanke/ecs3/SingleSystem.hpp>
 
+#include <tl/expected.hpp>
+
 #include <variant>
 #include <memory>
 #include <iosfwd>
+#include <optional>
 
 // ----------------------------- Type Definitions -----------------------------
 
@@ -67,7 +70,11 @@ using Variant = std::variant<Types...>;
 template <typename ... Types>
 using Tuple = std::tuple<Types...>;
 template <typename T>
-using Opt = ecs::Optional<T>;
+using EcsOpt = ecs::Optional<T>;
+template <typename T>
+using Optional = std::optional<T>;
+template <typename T, typename E>
+using Expected = tl::expected<T, E>;
 using cul::Grid;
 using cul::View;
 using cul::TypeList;
@@ -198,4 +205,10 @@ void add_components(Entity & e, Tuple<Types...> && tup) {
         using Head = typename TypeList<Types...>::template TypeAtIndex<0>;
         e.add<Head>() = std::get<Head>(tup);
     }
+}
+
+template <typename T, typename U, typename Func>
+auto for_value_or(Optional<T> && opt, U && default_, Func && f) {
+    if (!opt) return std::move(default_);
+    return f(std::move(*opt));
 }

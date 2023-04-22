@@ -19,10 +19,12 @@
 *****************************************************************************/
 
 #include "MapLoaderTask.hpp"
+#include "../../Defs.hpp"
 
 namespace {
 
 using namespace cul::exceptions_abbr;
+using MapLoadResult = MapLoadingContext::MapLoadResult;
 
 } // end of <anonymous> namespace
 
@@ -37,14 +39,37 @@ MapLoaderTask::MapLoaderTask
      m_region_size_in_tiles(region_size_in_tiles) {}
 
 BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
-    auto grid = m_map_loader.update_progress();
-    if (!grid) return BackgroundCompletion::in_progress;
+    //auto res = m_map_loader.update_progress();
+    //if (!res) return BackgroundCompletion::in_progress;
+    return for_value_or<MapLoadResult>
+        (m_map_loader.update_progress(),
+         BackgroundCompletion::in_progress,
+         [](MapLoadResult && res)
+    {
+        std::move(res).map([](MapLoadingSuccess && res) {
+            //return BackgroundCompletion::finished;
+            //return Expected<BackgroundCompletion, MapLoadingError>{BackgroundCompletion::finished};
+            return res;
+        });
+        return BackgroundCompletion::finished;
+#       if 0
+        .or_else([](MapLoadingError &&) {
+            return Expected<BackgroundCompletion, MapLoadingError>{BackgroundCompletion::finished};
+        }).value();
+#       endif
+        //return BackgroundCompletion::finished;
+    });
+    //res->and_then([] (MapLoadingSuccess && success) {
+        //return MapLoadResult{std::move(success)};
+    //});
+#   if 0
     Entity{m_player_physics}.ensure<Velocity>();
     *m_region_tracker = MapRegionTracker
         {make_unique<TiledMapRegion>
             (std::move(*grid), m_region_size_in_tiles),
          m_region_size_in_tiles};
-    return BackgroundCompletion::finished;
+#   endif
+    //return BackgroundCompletion::finished;
 }
 
 /* private static */ const SharedPtr<MapRegionTracker> &

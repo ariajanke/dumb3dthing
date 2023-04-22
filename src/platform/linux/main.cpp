@@ -174,11 +174,11 @@ public:
             if (are_very_close(crp, Vector{})) return;
             model = glm::rotate(model, float(angle), convert_to<glm::vec3>(normalize(crp)));
         }
-        ,[] (Opt<Visible> vis, SharedPtr<const Texture> & texture) {
+        ,[] (EcsOpt<Visible> vis, SharedPtr<const Texture> & texture) {
             if (!should_be_visible(vis)) return;
             texture->bind_texture();
         }
-        , [this] (Opt<Visible> vis, glm::mat4 & model, SharedPtr<const RenderModel> mod_) {
+        , [this] (EcsOpt<Visible> vis, glm::mat4 & model, SharedPtr<const RenderModel> mod_) {
             if (!should_be_visible(vis)) return;
             m_shader.set_mat4("model", model);
             mod_->render();
