@@ -67,7 +67,7 @@ using cul::size_of, cul::top_left_of;
         vertices.clear();
         elements.clear();
     }
-    m_collision_triangles = ViewGrid<TriangleSegment>{std::move(triangle_inserter)};
+    m_collision_triangles = triangle_inserter.finish();
     m_elements_vertices   = std::move(elements_and_vertices);
 }
 

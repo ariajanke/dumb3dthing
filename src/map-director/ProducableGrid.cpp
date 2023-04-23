@@ -63,5 +63,5 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
         producables_inserter.advance();
     }
     m_targets.clear();
-    return make_tuple(ViewGrid{std::move(producables_inserter)}, std::move(m_groups));
+    return make_tuple(producables_inserter.finish(), std::move(m_groups));
 }

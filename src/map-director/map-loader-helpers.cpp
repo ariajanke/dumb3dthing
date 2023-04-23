@@ -22,9 +22,18 @@
 
 namespace {
 
-using GridOfViews = InterTriangleLinkContainer::GridOfViews;
+using ViewGridTriangle = InterTriangleLinkContainer::ViewGridTriangle;
 
 } // end of <anonymous> namespace
+
+TeardownTask::TeardownTask
+    (std::vector<Entity> && entities,
+     const TriangleLinkView & triangles):
+    m_entities (std::move(entities))
+{
+    m_triangles.
+        insert(m_triangles.begin(), triangles.begin(), triangles.end());
+}
 
 void TeardownTask::operator () (Callbacks & callbacks) const {
     for (auto ent : m_entities)
@@ -34,7 +43,7 @@ void TeardownTask::operator () (Callbacks & callbacks) const {
 }
 
 InterTriangleLinkContainer::InterTriangleLinkContainer
-    (const GridOfViews & views)
+    (const ViewGridTriangle & views)
 {
     append_links_by_predicate<is_not_edge_tile>(views, m_links);
     auto idx_for_edge = m_links.size();
@@ -54,7 +63,7 @@ void InterTriangleLinkContainer::glue_to
 }
 
 /* private static */ bool InterTriangleLinkContainer::is_edge_tile
-    (const GridOfViews & grid, const Vector2I & r)
+    (const ViewGridTriangle & grid, const Vector2I & r)
 {
     return std::any_of
         (k_plus_shape_neighbor_offsets.begin(),
@@ -64,12 +73,12 @@ void InterTriangleLinkContainer::glue_to
 }
 
 /* private static */ bool InterTriangleLinkContainer::is_not_edge_tile
-    (const GridOfViews & grid, const Vector2I & r)
+    (const ViewGridTriangle & grid, const Vector2I & r)
     { return !is_edge_tile(grid, r); }
 
-template <bool (*meets_pred)(const GridOfViews &, const Vector2I &)>
+template <bool (*meets_pred)(const ViewGridTriangle &, const Vector2I &)>
 /* private static */ void InterTriangleLinkContainer::append_links_by_predicate
-    (const GridOfViews & views, std::vector<SharedPtr<TriangleLink>> & links)
+    (const ViewGridTriangle & views, std::vector<SharedPtr<TriangleLink>> & links)
 {
     for (Vector2I r; r != views.end_position(); r = views.next(r)) {
         if (!meets_pred(views, r)) continue;

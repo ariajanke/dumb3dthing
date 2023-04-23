@@ -29,7 +29,8 @@ using namespace cul::exceptions_abbr;
 
 class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
 public:
-    using GridViewTriangleInserter = ViewGridInserter<SharedPtr<TriangleLink>>;
+    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
+    using ViewGridTriangleInserter = ViewGridTriangle::Inserter;
 
     explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
         m_triangle_inserter(grid_size) {}
@@ -46,14 +47,12 @@ public:
     void advance_grid_position()
         { m_triangle_inserter.advance(); }
 
-    Tuple<GridViewTriangleInserter::ElementContainer,
-          Grid<GridViewTriangleInserter::ElementView>>
-        move_out_container_and_grid_view()
-    {
+    ViewGridTriangle finish_triangle_grid() {
         return m_triangle_inserter.
             transform_values<SharedPtr<TriangleLink>>(to_link).
-            move_out_container_and_grid_view();
+            finish();
     }
+
 private:
     static SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
         { return make_shared<TriangleLink>(segment); }
@@ -63,6 +62,12 @@ private:
 };
 
 } // end of <anonymous> namespace
+
+// ----------------------------------------------------------------------------
+
+void link_triangles(EntityAndLinkInsertingAdder::ViewGridTriangle &);
+
+// ----------------------------------------------------------------------------
 
 void TiledMapRegion::request_region_load
     (const Vector2I & local_region_position,
@@ -135,13 +140,12 @@ void MapRegionPreparer::operator () (LoaderTask::Callbacks & callbacks) const {
         triangle_entities_adder.advance_grid_position();
     }
 
-    auto [link_container, link_view_grid] =
-        triangle_entities_adder.move_out_container_and_grid_view();
+    auto link_view_grid = triangle_entities_adder.finish_triangle_grid();
     link_triangles(link_view_grid);
     // ^ vectorize
 
     auto ents = triangle_entities_adder.move_out_entities();
-    for (auto & link : link_container) {
+    for (auto & link : link_view_grid.elements()) {
         callbacks.add(link);
     }
     for (auto & ent : ents) {
@@ -150,7 +154,7 @@ void MapRegionPreparer::operator () (LoaderTask::Callbacks & callbacks) const {
 
     m_completer.on_complete
         (InterTriangleLinkContainer{link_view_grid},
-         make_shared<TeardownTask>(std::move(ents), std::move(link_container)));
+         make_shared<TeardownTask>(std::move(ents), link_view_grid.elements()));
 }
 
 MapRegionPreparer::MapRegionPreparer
@@ -167,3 +171,24 @@ void MapRegionPreparer::assign_tile_producable_grid
 
 void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
     { m_completer = completer; }
+
+// ----------------------------------------------------------------------------
+
+inline void link_triangles
+    (EntityAndLinkInsertingAdder::ViewGridTriangle & link_grid)
+{
+    // now link them together
+    for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
+    for (auto & this_tri : link_grid(r)) {
+        assert(this_tri);
+        for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
+/*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
+            if (!link_grid.has_position(v)) continue;
+            for (auto & other_tri : link_grid(v)) {
+                assert(other_tri);
+
+                if (this_tri == other_tri) continue;
+                this_tri->attempt_attachment_to(other_tri);
+        }}
+    }}
+}
