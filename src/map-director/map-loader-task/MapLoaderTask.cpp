@@ -39,37 +39,23 @@ MapLoaderTask::MapLoaderTask
      m_region_size_in_tiles(region_size_in_tiles) {}
 
 BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
-    //auto res = m_map_loader.update_progress();
-    //if (!res) return BackgroundCompletion::in_progress;
     return for_value_or<MapLoadResult>
         (m_map_loader.update_progress(),
          BackgroundCompletion::in_progress,
-         [](MapLoadResult && res)
+         [this](MapLoadResult && res)
     {
-        std::move(res).map([](MapLoadingSuccess && res) {
-            //return BackgroundCompletion::finished;
-            //return Expected<BackgroundCompletion, MapLoadingError>{BackgroundCompletion::finished};
+        std::move(res).map([this](MapLoadingSuccess && res) {
+            Entity{m_player_physics}.ensure<Velocity>();
+            *m_region_tracker = MapRegionTracker
+                {make_unique<TiledMapRegion>
+                    (std::move(res.producables_view_grid), m_region_size_in_tiles),
+                 m_region_size_in_tiles};
             return res;
+        }).map_error([this] (MapLoadingError && error) {
+            ;
         });
         return BackgroundCompletion::finished;
-#       if 0
-        .or_else([](MapLoadingError &&) {
-            return Expected<BackgroundCompletion, MapLoadingError>{BackgroundCompletion::finished};
-        }).value();
-#       endif
-        //return BackgroundCompletion::finished;
     });
-    //res->and_then([] (MapLoadingSuccess && success) {
-        //return MapLoadResult{std::move(success)};
-    //});
-#   if 0
-    Entity{m_player_physics}.ensure<Velocity>();
-    *m_region_tracker = MapRegionTracker
-        {make_unique<TiledMapRegion>
-            (std::move(*grid), m_region_size_in_tiles),
-         m_region_size_in_tiles};
-#   endif
-    //return BackgroundCompletion::finished;
 }
 
 /* private static */ const SharedPtr<MapRegionTracker> &

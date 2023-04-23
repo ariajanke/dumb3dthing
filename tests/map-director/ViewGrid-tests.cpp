@@ -64,8 +64,6 @@ describe<ViewGridInserter<int>>("ViewGridInserter #advance -> #filled")([] {
         }
         auto grid = inserter.finish();
         return test_that(grid.size2() == Size2I{2, 2});
-        //auto [cont, grid] = inserter.move_out_container_and_grid_view();
-        //return test_that(grid.size2() == Size2I{2, 2});
     });
     mark_it("creates an empty container, as no elements where pushed", [&] {
         for (int i = 0; i != 4; ++i) {
@@ -144,11 +142,6 @@ describe<ViewGridInserter<int>>
     inserter.advance();
     inserter.push(4);
     inserter.advance();
-#   if 0
-    auto [cont_, grid_] = inserter.move_out_container_and_grid_view();
-    auto & cont = cont_;
-    auto & grid = grid_;
-#   endif
     auto grid = inserter.finish();
     mark_it("creates a container with four (pushed) elements", [&] {
         return test_that(grid.elements_count() == 4);
@@ -187,7 +180,6 @@ describe<ViewGridInserter<int>>
         char_inserter.advance();
         if (!char_inserter.filled()) return test_that(false);
         auto grid = char_inserter.finish();
-        //auto [cont, grid] = char_inserter.move_out_container_and_grid_view();
         return test_that(*grid(c_pos).begin() == 'C');
     }).next([&] {
         inserter.push(4);
@@ -197,7 +189,6 @@ describe<ViewGridInserter<int>>
             transform_values<char>([] (int i) { return 'A' + i; });
         if (!char_inserter.filled()) return test_that(false);
         auto grid = char_inserter.finish();
-        //auto [cont, grid] = char_inserter.move_out_container_and_grid_view();
         return test_that(*grid(e_pos).begin() == 'E');
     });
 });
@@ -214,10 +205,6 @@ describe<ViewGridInserter<int>>
     inserter.push(4);
     inserter.advance();
     ViewGrid<int> view_grid = inserter.finish();
-    std::vector<int> ints;
-    auto v = View{ints.end(), ints.end()};
-    auto u = View{ints.end(), ints.end()};
-    u = v;
     mark_it("makes it own copy of elements", [&] {
         auto new_grid = view_grid;
         return test_that(   new_grid .begin()->begin()
@@ -225,7 +212,7 @@ describe<ViewGridInserter<int>>
     }).mark_it("copied values match", [&] {
         auto new_grid = view_grid;
         return test_that(   *new_grid .begin()->begin()
-                         != *view_grid.begin()->begin());
+                         == *view_grid.begin()->begin());
     });
 });
 #endif

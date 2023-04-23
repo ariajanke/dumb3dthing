@@ -49,11 +49,7 @@ public:
     void advance();
 
     bool filled() const noexcept;
-#   if 0
-    // I want a finish function, not a move out function
-    Tuple<ElementContainer, Grid<ElementView>>
-        move_out_container_and_grid_view();
-#   endif
+
     ViewGrid<T> finish();
 
     void push(const T & obj);
@@ -188,24 +184,7 @@ void ViewGridInserter<T>::advance() {
 template <typename T>
 bool ViewGridInserter<T>::filled() const noexcept
     { return m_position == m_index_pairs.end_position(); }
-#if 0
-template <typename T>
-    Tuple<typename ViewGridInserter<T>::ElementContainer,
-          Grid<typename ViewGridInserter<T>::ElementView>>
-    ViewGridInserter<T>::move_out_container_and_grid_view()
-{
-    Grid<View<ElementIterator>> views;
-    views.set_size
-        (m_index_pairs.width(), m_index_pairs.height(),
-         ElementView{m_elements.end(), m_elements.end()});
-    for (Vector2I r; r != m_index_pairs.end_position(); r = m_index_pairs.next(r)) {
-        auto [beg_idx, end_idx] = m_index_pairs(r);
-        views(r) = ElementView
-            {m_elements.begin() + beg_idx, m_elements.begin() + end_idx};
-    }
-    return make_tuple(std::move(m_elements), std::move(views));
-}
-#endif
+
 template <typename T>
 ViewGrid<T> ViewGridInserter<T>::finish() {
     Grid<View<ElementIterator>> views;
@@ -256,14 +235,7 @@ template <typename T>
     m_index_pairs(std::move(tuple_grid)) {}
 
 // ----------------------------------------------------------------------------
-#if 0
-template <typename T>
-ViewGrid<T>::ViewGrid(ViewGridInserter<T> && inserter) {
-    verify_filled_inserter("GridView", inserter);
-    std::tie(m_owning_container, m_views)
-        = inserter.move_out_container_and_grid_view();
-}
-#endif
+
 template <typename T>
 ViewGrid<T>::ViewGrid(ElementContainer && owning_container,
                       Grid<ElementView> && views):
