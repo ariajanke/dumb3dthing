@@ -39,6 +39,20 @@ MapLoaderTask::MapLoaderTask
      m_region_size_in_tiles(region_size_in_tiles) {}
 
 BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
+    return m_map_loader.update_progress().
+        fold<BackgroundCompletion>(BackgroundCompletion::in_progress).
+            map([this] (MapLoadingSuccess && res) {
+                Entity{m_player_physics}.ensure<Velocity>();
+                *m_region_tracker = MapRegionTracker
+                    {make_unique<TiledMapRegion>
+                        (std::move(res.producables_view_grid), m_region_size_in_tiles),
+                    m_region_size_in_tiles};
+                return BackgroundCompletion::finished;
+            }).
+            map_left([] (MapLoadingError &&) {
+                return BackgroundCompletion::finished;
+            })();
+#   if 0
     return for_value_or<MapLoadResult>
         (m_map_loader.update_progress(),
          BackgroundCompletion::in_progress,
@@ -56,6 +70,7 @@ BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
         });
         return BackgroundCompletion::finished;
     });
+#   endif
 }
 
 /* private static */ const SharedPtr<MapRegionTracker> &

@@ -29,9 +29,10 @@
 #include <ariajanke/ecs3/HashTableEntity.hpp>
 #include <ariajanke/ecs3/Scene.hpp>
 #include <ariajanke/ecs3/SingleSystem.hpp>
-
+#include <ariajanke/cul/OptionalEither.hpp>
+#if 0
 #include <tl/expected.hpp>
-
+#endif
 #include <variant>
 #include <memory>
 #include <iosfwd>
@@ -73,8 +74,16 @@ template <typename T>
 using EcsOpt = ecs::Optional<T>;
 template <typename T>
 using Optional = std::optional<T>;
+template <typename L, typename R>
+using OptionalEither = cul::OptionalEither<L, R>;
+template <typename L, typename R>
+using Either = cul::Either<L, R>;
+#if 0
 template <typename T, typename E>
 using Expected = tl::expected<T, E>;
+template <typename E>
+using Unexpected = tl::unexpected<E>;
+#endif
 using cul::Grid;
 using cul::View;
 using cul::TypeList;

@@ -39,6 +39,11 @@ public:
     using ConstTileSetPtr = SharedPtr<const TileSet>;
     using TileSetPtr      = SharedPtr<TileSet>;
 
+    struct TileSetAndStartGid final {
+        TileSetPtr tileset;
+        int start_gid;
+    };
+
     TileMapIdToSetMapping() {}
 
     TileMapIdToSetMapping(const std::vector<TileSetPtr> & tilesets,

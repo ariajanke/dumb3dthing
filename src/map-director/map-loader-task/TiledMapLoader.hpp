@@ -28,6 +28,7 @@
 #include "../../platform.hpp"
 
 #include <ariajanke/cul/RectangleUtils.hpp>
+#include <ariajanke/cul/OptionalEither.hpp>
 
 class MapLoadingStateHolder;
 class MapLoadingState;
@@ -36,18 +37,46 @@ class MapLoadingWaitingForTileSets;
 class MapLoadingReady;
 class MapLoadingExpired;
 
+namespace map_loading_messages {
+
+enum WarningEnum {
+    k_non_csv_tile_data,
+    k_tile_layer_has_no_data_element,
+    k_invalid_tile_data
+};
+
+enum ErrorEnum {
+    k_tile_map_file_contents_not_retrieved
+};
+
+} // end of map_loading_messages namespace
+
 class MapLoadingWarnings final {};
 
-class UnfinishedMapLoadingWarnings final {
+using MapLoadingWarningEnum = map_loading_messages::WarningEnum;
+
+class MapLoadingWarningsAdder {
 public:
-    void add();
+    virtual ~MapLoadingWarningsAdder() {}
+
+    virtual void add(MapLoadingWarningEnum) = 0;
+};
+
+class UnfinishedMapLoadingWarnings final : public MapLoadingWarningsAdder {
+public:
+    void add(MapLoadingWarningEnum) final;
 
     MapLoadingWarnings finish();
 
 private:
 };
 
-class MapLoadingError final {};
+using MapLoadingErrorEnum = map_loading_messages::ErrorEnum;
+
+class MapLoadingError final {
+public:
+    explicit MapLoadingError(MapLoadingErrorEnum);
+};
 
 struct MapLoadingSuccess final {
     ProducableTileViewGrid producables_view_grid;
@@ -65,8 +94,8 @@ public:
 #   if 0
     using OptionalTileViewGrid = Optional<ProducableTileViewGrid>;
 #   endif
-    using MapLoadResult = Expected<MapLoadingSuccess, MapLoadingError>;
-    using OptionalMapLoadResult = Optional<MapLoadResult>;
+    using MapLoadResult = OptionalEither<MapLoadingError, MapLoadingSuccess>;//Expected<MapLoadingSuccess, MapLoadingError>;
+    //using OptionalMapLoadResult = Optional<MapLoadResult>;
 
 protected:
     MapLoadingContext() {}
@@ -78,22 +107,24 @@ public:
     using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
 #   endif
     using MapLoadResult = MapLoadingContext::MapLoadResult;
-    using OptionalMapLoadResult = MapLoadingContext::OptionalMapLoadResult;
+    //using OptionalMapLoadResult = MapLoadingContext::OptionalMapLoadResult;
 
     virtual ~MapLoadingState() {}
 
-    virtual OptionalMapLoadResult
+    virtual MapLoadResult
         update_progress(MapLoadingStateHolder &)
         { return {}; }
 
     MapLoadingState & set_others_stuff(MapLoadingState & lhs) const {
         lhs.m_platform = m_platform;
+        lhs.m_unfinished_warnings = std::move(m_unfinished_warnings);
         return lhs;
     }
 
 protected:
     struct TileSetsContainer final {
         std::vector<int> startgids;
+        //std::vector<Either<SharedPtr<TileSet>, FutureStringPtr>>
         std::vector<SharedPtr<TileSet>> tilesets;
         std::vector<Tuple<std::size_t, FutureStringPtr>> pending_tilesets;
     };
@@ -106,10 +137,21 @@ protected:
 
     Platform & platform() const;
 
+    MapLoadingWarningsAdder & warnings_adder() { return m_unfinished_warnings; }
+
+    MapLoadingSuccess finish_map_loading(ProducableTileViewGrid && view_grid)
+    {
+        MapLoadingSuccess success;
+        success.producables_view_grid = std::move(view_grid);
+        success.warnings = m_unfinished_warnings.finish();
+        return success;
+    }
+
 private:
     void verify_shared_set() const;
 
     Platform * m_platform = nullptr;
+    UnfinishedMapLoadingWarnings m_unfinished_warnings;
 };
 
 class MapLoadingWaitingForFileContents final : public MapLoadingState {
@@ -119,7 +161,7 @@ public:
          MapLoadingState(platform)
     { m_file_contents = platform.promise_file_contents(filename); }
 
-    OptionalMapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
+    MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     void add_tileset(const TiXmlElement & tileset, TileSetsContainer &);
@@ -134,7 +176,7 @@ public:
         m_tilesets_container(std::move(cont_)),
         m_layers(std::move(layers_)) {}
 
-    OptionalMapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
+    MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     TileSetsContainer m_tilesets_container;
@@ -151,7 +193,7 @@ public:
         m_tidgid_translator(std::move(idtrans_)),
         m_layers(std::move(layers_)) {}
 
-    OptionalMapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
+    MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
     TileMapIdToSetMapping m_tidgid_translator;
@@ -205,7 +247,7 @@ public:
 
     // return instead a grid of tile factories
     // (note: that grid must own tilesets)
-    OptionalMapLoadResult update_progress();
+    MapLoadResult update_progress();
 
     bool is_expired() const
         { return std::holds_alternative<Expired>(m_state_space); }

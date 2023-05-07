@@ -219,13 +219,14 @@ public:
             Impl(const char * filename):
                 m_contents(file_to_string(filename)) {}
 
+        private:
             bool is_ready() const noexcept final { return true; }
 
             bool is_lost() const noexcept final { return false; }
 
             std::string && retrieve() final
                 { return std::move(m_contents); }
-        private:
+
             std::string m_contents;
         };
         return make_unique<Impl>(filename);
