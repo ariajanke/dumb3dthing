@@ -101,26 +101,15 @@ private:
 
 class ProducableGroupTileLayer final {
 public:
-
     // may only be set once
-    void set_size(const Size2I & sz) {
-        m_groups.clear();
-        m_target.clear();
-        m_target.set_size(sz, nullptr);
-    }
+    void set_size(const Size2I &);
 
     template <typename T>
     void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
         { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
     UnfinishedProducableTileViewGrid
-        move_self_to(UnfinishedProducableTileViewGrid && unfinished_grid_view)
-    {
-        unfinished_grid_view.add_layer(std::move(m_target), m_groups);
-        m_target.clear();
-        m_groups.clear();
-        return std::move(unfinished_grid_view);
-    }
+        move_self_to(UnfinishedProducableTileViewGrid &&);
 
 private:
     Grid<ProducableTile *> m_target;

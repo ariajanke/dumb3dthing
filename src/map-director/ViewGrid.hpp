@@ -85,10 +85,9 @@ public:
     using SubGrid           = cul::ConstSubGrid
         <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
     using Inserter          = ViewGridInserter<T>;
+
     ViewGrid() {}
-#   if 0
-    explicit ViewGrid(ViewGridInserter<T> &&);
-#   endif
+
     ViewGrid(ElementContainer &&, Grid<ElementView> &&);
 
     ViewGrid(const ViewGrid & rhs) { copy(rhs); }

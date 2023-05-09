@@ -65,3 +65,29 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
     m_targets.clear();
     return make_tuple(producables_inserter.finish(), std::move(m_groups));
 }
+
+// ----------------------------------------------------------------------------
+
+void ProducableGroupTileLayer::set_size(const Size2I & sz) {
+    using namespace cul::exceptions_abbr;
+    if (sz == Size2I{}) {
+        throw InvArg{"ProducableGroupTileLayer::set_size: given size must be "
+                     "non zero"};
+    } else if (m_target.size2() != Size2I{}) {
+        throw RtError{"ProducableGroupTileLayer::set_size: size may only be "
+                      "set once"};
+    }
+    m_groups.clear();
+    m_target.clear();
+    m_target.set_size(sz, nullptr);
+}
+
+UnfinishedProducableTileViewGrid
+    ProducableGroupTileLayer::move_self_to
+    (UnfinishedProducableTileViewGrid && unfinished_grid_view)
+{
+    unfinished_grid_view.add_layer(std::move(m_target), m_groups);
+    m_target.clear();
+    m_groups.clear();
+    return std::move(unfinished_grid_view);
+}

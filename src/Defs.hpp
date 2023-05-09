@@ -78,12 +78,6 @@ template <typename L, typename R>
 using OptionalEither = cul::OptionalEither<L, R>;
 template <typename L, typename R>
 using Either = cul::Either<L, R>;
-#if 0
-template <typename T, typename E>
-using Expected = tl::expected<T, E>;
-template <typename E>
-using Unexpected = tl::unexpected<E>;
-#endif
 using cul::Grid;
 using cul::View;
 using cul::TypeList;
@@ -214,10 +208,4 @@ void add_components(Entity & e, Tuple<Types...> && tup) {
         using Head = typename TypeList<Types...>::template TypeAtIndex<0>;
         e.add<Head>() = std::get<Head>(tup);
     }
-}
-
-template <typename T, typename U, typename Func>
-auto for_value_or(Optional<T> && opt, U && default_, Func && f) {
-    if (!opt) return std::move(default_);
-    return f(std::move(*opt));
 }

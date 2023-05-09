@@ -112,21 +112,3 @@ public:
     /// for now, it can be very simple
     /// just a set of lines for map loading warnings and errors
 };
-#if 0
-// ----------------------------------------------------------------------------
-
-template <typename T>
-template <typename Func>
-const Future<T> & Future<T>::on_ready(Func && f) const {
-    if (is_ready())
-        f(retrieve());
-    return *this;
-}
-
-template <typename T>
-template <typename Func>
-void Future<T>::on_lost(Func && f) const {
-    if (is_lost())
-        f();
-}
-#endif

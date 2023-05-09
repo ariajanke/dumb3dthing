@@ -29,36 +29,13 @@ using ConstTileSetPtr = TileMapIdToSetMapping::ConstTileSetPtr;
 } // end of <anonymous> namespace
 
 TileMapIdToSetMapping::TileMapIdToSetMapping
-    (const std::vector<TileSetPtr> & tilesets, const std::vector<int> & startgids)
+    (std::vector<TileSetAndStartGid> && entries):
+    m_gid_map(std::move(entries))
 {
-    if (tilesets.size() != startgids.size()) {
-        throw InvArg{"GidTidTranslator::GidTidTranslator: GidTidTranslator "
-                     "constructor expects both passed containers to be equal "
-                     "in size."};
-    }
-    m_gid_map.reserve(tilesets.size());
-    for (std::size_t i = 0; i != tilesets.size(); ++i) {
-        m_gid_map.emplace_back(startgids[i], tilesets[i]);
-    }
-    // this is what happens when you don't test your shit
-    if (!startgids.empty()) {
-        m_gid_end = startgids.back() + tilesets.back()->total_tile_count();
-    }
-    std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
-}
-
-TileMapIdToSetMapping::TileMapIdToSetMapping
-    (std::vector<TileSetAndStartGid> && entries)
-{
-    m_gid_map.reserve(entries.size());
-    for (auto & entry : entries) {
-        m_gid_map.emplace_back(entry.start_gid, std::move(entry.tileset));
-    }
-
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
     if (!m_gid_map.empty()) {
         const auto & last_entry = m_gid_map.back();
-        m_gid_end = last_entry.starting_id + last_entry.tileset->total_tile_count();
+        m_gid_end = last_entry.start_gid + last_entry.tileset->total_tile_count();
     }
 }
 
@@ -86,14 +63,14 @@ Tuple<int, ConstTileSetPtr> TileMapIdToSetMapping::map_id_to_set(int gid) const 
              "the empty tile or not contained in this map; translatable ids: "
              "[1 " + std::to_string(m_gid_end) + ")."};
     }
-    GidAndTileSetPtr samp;
-    samp.starting_id = gid;
+    TileSetAndStartGid samp;
+    samp.start_gid = gid;
     auto itr = std::upper_bound
         (m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
     assert(itr != m_gid_map.begin());
     --itr;
-    assert(gid >= itr->starting_id);
-    return std::make_pair(gid - itr->starting_id, itr->tileset);
+    assert(gid >= itr->start_gid);
+    return std::make_pair(gid - itr->start_gid, itr->tileset);
 }
 
 void TileMapIdToSetMapping::swap(TileMapIdToSetMapping & rhs) {
@@ -102,8 +79,8 @@ void TileMapIdToSetMapping::swap(TileMapIdToSetMapping & rhs) {
 }
 
 /* private static */ bool TileMapIdToSetMapping::order_by_gids
-    (const GidAndTileSetPtr & lhs, const GidAndTileSetPtr & rhs)
-{ return lhs.starting_id < rhs.starting_id; }
+    (const TileSetAndStartGid & lhs, const TileSetAndStartGid & rhs)
+{ return lhs.start_gid < rhs.start_gid; }
 
 /* private */ std::vector<SharedPtr<TileSet>> TileMapIdToSetMapping::
     move_out_tilesets()

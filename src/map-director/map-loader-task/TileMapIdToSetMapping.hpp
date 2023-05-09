@@ -40,15 +40,18 @@ public:
     using TileSetPtr      = SharedPtr<TileSet>;
 
     struct TileSetAndStartGid final {
+        TileSetAndStartGid() {}
+
+        TileSetAndStartGid(TileSetPtr && tileset_, int start_gid_):
+            tileset(std::move(tileset_)),
+            start_gid(start_gid_)
+        {}
+
         TileSetPtr tileset;
-        int start_gid;
+        int start_gid = 0;
     };
 
     TileMapIdToSetMapping() {}
-
-    [[deprecated]] TileMapIdToSetMapping
-        (const std::vector<TileSetPtr> & tilesets,
-         const std::vector<int> & startgids);
 
     explicit TileMapIdToSetMapping(std::vector<TileSetAndStartGid> &&);
 
@@ -60,20 +63,10 @@ public:
     void swap(TileMapIdToSetMapping &);
 
 private:
-    struct GidAndTileSetPtr final {
-        GidAndTileSetPtr() {}
-
-        GidAndTileSetPtr(int sid, const TileSetPtr & ptr):
-            starting_id(sid), tileset(ptr) {}
-
-        int starting_id = 0;
-        TileSetPtr tileset;
-    };
-
-    static bool order_by_gids(const GidAndTileSetPtr &, const GidAndTileSetPtr &);
+    static bool order_by_gids(const TileSetAndStartGid &, const TileSetAndStartGid &);
 
     [[nodiscard]] std::vector<SharedPtr<TileSet>> move_out_tilesets();
 
-    std::vector<GidAndTileSetPtr> m_gid_map;
+    std::vector<TileSetAndStartGid> m_gid_map;
     int m_gid_end = 0;
 };
