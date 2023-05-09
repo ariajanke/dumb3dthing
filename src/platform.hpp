@@ -43,32 +43,12 @@ enum class KeyControl {
 
 template <typename T>
 class Future {
-public:    
+public:
     struct Lost final {};
 
     virtual ~Future() {}
 
     virtual OptionalEither<Lost, T> operator () () = 0;
-#   if 0
-    template <typename Func>
-    const Future<T> & on_ready(Func && f) const;
-
-    template <typename Func>
-    void on_lost(Func && f) const;
-
-    Optional<Expected<T, Lost>> operator () () const {
-        if (is_ready()) { return retrieve(); }
-        if (is_lost()) { return tl::unexpected(Lost{}); }
-        return {};
-    }
-
-protected:
-    virtual bool is_ready() const noexcept = 0;
-
-    virtual bool is_lost() const noexcept = 0;
-
-    virtual T && retrieve() = 0;
-#   endif
 };
 
 using FutureStringPtr = UniquePtr<Future<std::string>>;

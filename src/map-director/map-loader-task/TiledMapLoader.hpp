@@ -21,6 +21,8 @@
 #pragma once
 
 #include "TileMapIdToSetMapping.hpp"
+#include "MapLoadingError.hpp"
+#include "TileSetCollection.hpp"
 
 #include "../ParseHelpers.hpp"
 #include "../ProducableGrid.hpp"
@@ -37,47 +39,6 @@ class MapLoadingWaitingForTileSets;
 class MapLoadingReady;
 class MapLoadingExpired;
 
-namespace map_loading_messages {
-
-enum WarningEnum {
-    k_non_csv_tile_data,
-    k_tile_layer_has_no_data_element,
-    k_invalid_tile_data
-};
-
-enum ErrorEnum {
-    k_tile_map_file_contents_not_retrieved
-};
-
-} // end of map_loading_messages namespace
-
-class MapLoadingWarnings final {};
-
-using MapLoadingWarningEnum = map_loading_messages::WarningEnum;
-
-class MapLoadingWarningsAdder {
-public:
-    virtual ~MapLoadingWarningsAdder() {}
-
-    virtual void add(MapLoadingWarningEnum) = 0;
-};
-
-class UnfinishedMapLoadingWarnings final : public MapLoadingWarningsAdder {
-public:
-    void add(MapLoadingWarningEnum) final;
-
-    MapLoadingWarnings finish();
-
-private:
-};
-
-using MapLoadingErrorEnum = map_loading_messages::ErrorEnum;
-
-class MapLoadingError final {
-public:
-    explicit MapLoadingError(MapLoadingErrorEnum);
-};
-
 struct MapLoadingSuccess final {
     ProducableTileViewGrid producables_view_grid;
     MapLoadingWarnings warnings;
@@ -91,11 +52,7 @@ public:
     using Ready = MapLoadingReady;
     using Expired = MapLoadingExpired;
     using StateHolder = MapLoadingStateHolder;
-#   if 0
-    using OptionalTileViewGrid = Optional<ProducableTileViewGrid>;
-#   endif
-    using MapLoadResult = OptionalEither<MapLoadingError, MapLoadingSuccess>;//Expected<MapLoadingSuccess, MapLoadingError>;
-    //using OptionalMapLoadResult = Optional<MapLoadResult>;
+    using MapLoadResult = OptionalEither<MapLoadingError, MapLoadingSuccess>;
 
 protected:
     MapLoadingContext() {}
@@ -103,11 +60,7 @@ protected:
 
 class MapLoadingState {
 public:
-#   if 0
-    using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
-#   endif
     using MapLoadResult = MapLoadingContext::MapLoadResult;
-    //using OptionalMapLoadResult = MapLoadingContext::OptionalMapLoadResult;
 
     virtual ~MapLoadingState() {}
 
@@ -122,13 +75,6 @@ public:
     }
 
 protected:
-    struct TileSetsContainer final {
-        std::vector<int> startgids;
-        //std::vector<Either<SharedPtr<TileSet>, FutureStringPtr>>
-        std::vector<SharedPtr<TileSet>> tilesets;
-        std::vector<Tuple<std::size_t, FutureStringPtr>> pending_tilesets;
-    };
-
     MapLoadingState() {}
 
     explicit MapLoadingState
@@ -164,7 +110,7 @@ public:
     MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
-    void add_tileset(const TiXmlElement & tileset, TileSetsContainer &);
+    void add_tileset(const TiXmlElement & tileset, UnfinishedTileSetCollection &);
 
     FutureStringPtr m_file_contents;
 };
@@ -172,24 +118,22 @@ private:
 class MapLoadingWaitingForTileSets final : public MapLoadingState {
 public:
     MapLoadingWaitingForTileSets
-        (TileSetsContainer && cont_, std::vector<Grid<int>> && layers_):
-        m_tilesets_container(std::move(cont_)),
+        (InProgressTileSetCollection && cont_, std::vector<Grid<int>> && layers_):
+        m_tilesets_container(make_shared<InProgressTileSetCollection>(std::move(cont_))),
         m_layers(std::move(layers_)) {}
 
     MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
 
 private:
-    TileSetsContainer m_tilesets_container;
+    SharedPtr<InProgressTileSetCollection> m_tilesets_container;
     std::vector<Grid<int>> m_layers;
-    TileMapIdToSetMapping m_tidgid_translator;
 };
 
 class MapLoadingReady final : public MapLoadingState {
 public:
     MapLoadingReady
-        (
-        TileMapIdToSetMapping && idtrans_,
-        std::vector<Grid<int>> && layers_):
+        (TileMapIdToSetMapping && idtrans_,
+         std::vector<Grid<int>> && layers_):
         m_tidgid_translator(std::move(idtrans_)),
         m_layers(std::move(layers_)) {}
 
@@ -225,6 +169,8 @@ public:
     bool has_next_state() const noexcept;
 
     void move_state(StatePtrGetter & state_getter_ptr, StateSpace & space);
+
+    Tuple<StatePtrGetter, StateSpace> move_out_state();
 
 private:
     StatePtrGetter m_get_state = nullptr;

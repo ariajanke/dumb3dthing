@@ -47,6 +47,21 @@ TileMapIdToSetMapping::TileMapIdToSetMapping
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
 }
 
+TileMapIdToSetMapping::TileMapIdToSetMapping
+    (std::vector<TileSetAndStartGid> && entries)
+{
+    m_gid_map.reserve(entries.size());
+    for (auto & entry : entries) {
+        m_gid_map.emplace_back(entry.start_gid, std::move(entry.tileset));
+    }
+
+    std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
+    if (!m_gid_map.empty()) {
+        const auto & last_entry = m_gid_map.back();
+        m_gid_end = last_entry.starting_id + last_entry.tileset->total_tile_count();
+    }
+}
+
 std::vector<SharedPtr<const ProducableGroupFiller>>
     TileMapIdToSetMapping::move_out_fillers()
 {

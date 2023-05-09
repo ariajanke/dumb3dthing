@@ -46,8 +46,11 @@ public:
 
     TileMapIdToSetMapping() {}
 
-    TileMapIdToSetMapping(const std::vector<TileSetPtr> & tilesets,
-                          const std::vector<int> & startgids);
+    [[deprecated]] TileMapIdToSetMapping
+        (const std::vector<TileSetPtr> & tilesets,
+         const std::vector<int> & startgids);
+
+    explicit TileMapIdToSetMapping(std::vector<TileSetAndStartGid> &&);
 
     Tuple<int, ConstTileSetPtr> map_id_to_set(int map_wide_id) const;
 
