@@ -25,8 +25,19 @@
 namespace {
 
 using TileSetAndStartGid = InProgressTileSetCollection::TileSetAndStartGid;
+using LoadEntry = UnfinishedTileSetCollection::LoadEntry;
 
 } // end of <anonymous> namespace
+
+UnfinishedTileSetCollection::LoadEntry::LoadEntry
+    (int start_gid_,
+     Either<FutureStringPtr, SharedPtr<TileSet>> && either):
+    start_gid(start_gid_),
+    future (either.left_or (nullptr)),
+    tileset(either.right_or(nullptr))
+{}
+
+// ----------------------------------------------------------------------------
 
 UnfinishedTileSetCollection::UnfinishedTileSetCollection
     (MapLoadingWarningsAdder & warnings_adder):
@@ -46,9 +57,8 @@ void UnfinishedTileSetCollection::add(MapLoadingWarningEnum warning) {
     m_warnings_adder->add(warning);
 }
 
-InProgressTileSetCollection UnfinishedTileSetCollection::finish() {
-    return InProgressTileSetCollection{std::move(m_entries)};
-}
+InProgressTileSetCollection UnfinishedTileSetCollection::finish()
+    { return InProgressTileSetCollection{std::move(m_entries)}; }
 
 // ----------------------------------------------------------------------------
 
@@ -70,26 +80,34 @@ Optional<TileMapIdToSetMapping> InProgressTileSetCollection::
     (const LoadEntry & entry)
 { return !!entry.tileset; }
 
+/* private static */ LoadEntry InProgressTileSetCollection::update_entry
+    (Platform & platform, LoadEntry && entry)
+{
+    using Lost = Future<std::string>::Lost;
+    using EitherFutureOrTileSetPtr = LoadEntry::EitherFutureOrTileSetPtr;
+
+    if (!entry.future) return std::move(entry);
+
+    auto ei = (*entry.future)();
+    return LoadEntry{entry.start_gid, std::move(ei).
+        fold<EitherFutureOrTileSetPtr>( std::move(entry.future) ).
+        map([&platform] (std::string && contents) -> EitherFutureOrTileSetPtr {
+            auto tsptr = make_shared<TileSet>();
+            TiXmlDocument document;
+            document.Parse(contents.c_str());
+            tsptr->load(platform, *document.RootElement());
+            return tsptr;
+        }).
+        map_left([] (Lost) -> EitherFutureOrTileSetPtr
+            { return SharedPtr<TileSet>{}; }).
+        value()};
+}
+
 /* private */ void InProgressTileSetCollection::update_entries
     (Platform & platform)
 {
-    using namespace cul::either;
-    using Lost = Future<std::string>::Lost;
-
     for (auto & entry : m_entries) {
-        if (!entry.future) continue;
-        auto res = (*entry.future)();
-        if (res.is_empty()) continue;
-        entry.tileset = res.fold<SharedPtr<TileSet>>(nullptr).
-            map([&platform](std::string && contents) {
-                auto tsptr = make_shared<TileSet>();
-                TiXmlDocument document;
-                document.Parse(contents.c_str());
-                tsptr->load(platform, *document.RootElement());
-                return tsptr;
-            }).
-            map_left([](Lost) { return SharedPtr<TileSet>{}; })();
-        entry.future.reset(nullptr);
+        entry = update_entry(platform, std::move(entry));
     }
 }
 

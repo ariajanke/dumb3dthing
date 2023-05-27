@@ -33,18 +33,13 @@ class InProgressTileSetCollection;
 class UnfinishedTileSetCollection final {
 public:
     struct LoadEntry final {
-        LoadEntry(int start_gid_, FutureStringPtr && future_):
-            start_gid(start_gid_),
-            future(std::move(future_))
-        {}
+        using EitherFutureOrTileSetPtr =
+            Either<FutureStringPtr, SharedPtr<TileSet>>;
 
-        LoadEntry(int start_gid_, SharedPtr<TileSet> && tileset_):
-            start_gid(start_gid_),
-            tileset(std::move(tileset_))
-        {}
+        LoadEntry(int start_gid_, EitherFutureOrTileSetPtr &&);
 
         int start_gid;
-        FutureStringPtr future = nullptr;
+        FutureStringPtr future;
         SharedPtr<TileSet> tileset;
     };
     using LoadEnties = std::vector<LoadEntry>;
@@ -78,6 +73,8 @@ public:
 
 private:
     static bool entry_contains_tileset(const LoadEntry & entry);
+
+    static LoadEntry update_entry(Platform &, LoadEntry &&);
 
     void update_entries(Platform &);
 

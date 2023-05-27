@@ -203,14 +203,12 @@ MapLoadResult WaitingForFileContents::update_progress
 
         std::vector<Grid<int>> layers;
         for (auto & layer_el : XmlRange{root, "layer"}) {
-            load_layer_(layer_el).fold<bool>().map([&layers](Grid<int> && layer) {
-                layers.emplace_back(std::move(layer));
-                return true;
-            }).
-            map_left([this] (MapLoadingWarningEnum error) {
-                warnings_adder().add(error);
-                return false;
-            });
+            auto ei = load_layer_(layer_el);
+            if (ei.is_left()) {
+                warnings_adder().add(ei.left());
+            } else if (ei.is_right()) {
+                layers.emplace_back(ei.right());
+            }
         }
 
         set_others_stuff
@@ -332,17 +330,14 @@ Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement & layer_
 
     auto * data = layer_el.FirstChildElement("data");
     if (!data) {
-        return left<MapLoadingWarningEnum>(k_tile_layer_has_no_data_element).
-            with<Grid<int>>();
+        return k_tile_layer_has_no_data_element;
     } else if (::strcmp(data->Attribute( "encoding" ), "csv")) {
-        return left<MapLoadingWarningEnum>(k_non_csv_tile_data).
-            with<Grid<int>>();
+        return k_non_csv_tile_data;
     }
 
     auto data_text = data->GetText();
-    if (!data_text) {
-        return right<MapLoadingWarningEnum>().with(std::move(layer));
-    }
+    if (!data_text)
+        { return layer; }
 
     Vector2I r;
     for (auto value_str : split_range(data_text, data_text + ::strlen(data_text),
@@ -358,7 +353,7 @@ Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement & layer_
         layer(r) = tile_id;
         r = layer.next(r);
     }
-    return right<MapLoadingWarningEnum>().with(std::move(layer));
+    return layer;
 }
 
 } // end of <anonymous> namespace
