@@ -62,40 +62,37 @@ describe<ViewGridInserter<int>>("ViewGridInserter #advance -> #filled")([] {
         for (int i = 0; i != 4; ++i) {
             inserter.advance();
         }
-        auto [cont, grid] = inserter.move_out_container_and_grid_view();
+        auto grid = inserter.finish();
         return test_that(grid.size2() == Size2I{2, 2});
     });
     mark_it("creates an empty container, as no elements where pushed", [&] {
         for (int i = 0; i != 4; ++i) {
             inserter.advance();
         }
-        auto [cont, grid] = inserter.move_out_container_and_grid_view();
-        return test_that(cont.empty());
+        auto grid = inserter.finish();
+        return test_that(grid.elements_count() == 0);
     });
 });
 struct ViewGridLifetimes final {};
 describe<ViewGridLifetimes>("ViewGridInserter #push -> #move_out...")([] {
     Counted::reset_count();
+    ViewGridInserter<Counted> inserter{2, 2};
 
     mark_it("before any push, there are no counted objects", [&] {
         return test_that(Counted::count() == 0);
-    });
-
-    ViewGridInserter<Counted> inserter{2, 2};
-    inserter.push(Counted{});
-    inserter.advance();
-    inserter.advance();
-    inserter.push(Counted{});
-    inserter.push(Counted{});
-    inserter.advance();
-    inserter.push(Counted{});
-    inserter.advance();
-
-    mark_it("before moving out there are four counted objects", [&] {
+    }).next([&] {
+        inserter.push(Counted{});
+        inserter.advance();
+        inserter.advance();
+        inserter.push(Counted{});
+        inserter.push(Counted{});
+        inserter.advance();
+        inserter.push(Counted{});
+        inserter.advance();
+    }).mark_it("before moving out there are four counted objects", [&] {
         return test_that(Counted::count() == 4);
-    });
-    auto [cont, grid] = inserter.move_out_container_and_grid_view();
-    mark_it("after moving out there are four counted objects", [&] {
+    }).mark_it("after moving out there are four counted objects", [&] {
+        auto grid = inserter.finish();
         return test_that(Counted::count() == 4);
     });
 });
@@ -111,21 +108,19 @@ describe<ViewGridPositions>("ViewGridInserter #position").
     Vector2I grid_pos;
     mark_it("returns position of first grid element, before any advance", [&] {
         return test_that(grid_pos == inserter_pos);
-    });
-
-    // v gets repeated... but eeeeeeeeehhhhhhhhhhhh
-    inserter.advance();
-    inserter_pos = inserter.position();
-    grid_pos = sample_grid.next(grid_pos);
-    mark_it("single advance follows cul grid's positions", [&] {
+    }).next([&] {
+        inserter.advance();
+        inserter_pos = inserter.position();
+        grid_pos = sample_grid.next(grid_pos);
+    }).mark_it("single advance follows cul grid's positions", [&] {
         return test_that(grid_pos == inserter_pos);
-    });
-    inserter.advance();
-    inserter.advance();
-    grid_pos = sample_grid.next(grid_pos);
-    grid_pos = sample_grid.next(grid_pos);
-    inserter_pos = inserter.position();
-    mark_it("multiple advances follow cul grid's positions", [&] {
+    }).next([&] {
+        inserter.advance();
+        inserter.advance();
+        grid_pos = sample_grid.next(grid_pos);
+        grid_pos = sample_grid.next(grid_pos);
+        inserter_pos = inserter.position();
+    }).mark_it("multiple advances follow cul grid's positions", [&] {
         return test_that(grid_pos == inserter_pos);
     });
 });
@@ -147,12 +142,9 @@ describe<ViewGridInserter<int>>
     inserter.advance();
     inserter.push(4);
     inserter.advance();
-
-    auto [cont_, grid_] = inserter.move_out_container_and_grid_view();
-    auto & cont = cont_;
-    auto & grid = grid_;
+    auto grid = inserter.finish();
     mark_it("creates a container with four (pushed) elements", [&] {
-        return test_that(cont.size() == 4);
+        return test_that(grid.elements_count() == 4);
     });
     mark_it("creates grid, with a view of two elements at +0", [&] {
         auto view = grid(two_els_position);
@@ -187,7 +179,7 @@ describe<ViewGridInserter<int>>
             transform_values<char>([] (int i) { return 'A' + i; });
         char_inserter.advance();
         if (!char_inserter.filled()) return test_that(false);
-        auto [cont, grid] = char_inserter.move_out_container_and_grid_view();
+        auto grid = char_inserter.finish();
         return test_that(*grid(c_pos).begin() == 'C');
     }).next([&] {
         inserter.push(4);
@@ -196,8 +188,31 @@ describe<ViewGridInserter<int>>
         auto char_inserter = inserter.
             transform_values<char>([] (int i) { return 'A' + i; });
         if (!char_inserter.filled()) return test_that(false);
-        auto [cont, grid] = char_inserter.move_out_container_and_grid_view();
+        auto grid = char_inserter.finish();
         return test_that(*grid(e_pos).begin() == 'E');
+    });
+});
+describe<ViewGridInserter<int>>
+    ("ViewGridInserter copying/moving")([]
+{
+    ViewGridInserter<int> inserter{2, 2};
+    inserter.push(1);
+    inserter.advance();
+    inserter.push(2);
+    inserter.advance();
+    inserter.push(3);
+    inserter.advance();
+    inserter.push(4);
+    inserter.advance();
+    ViewGrid<int> view_grid = inserter.finish();
+    mark_it("makes it own copy of elements", [&] {
+        auto new_grid = view_grid;
+        return test_that(   new_grid .begin()->begin()
+                         != view_grid.begin()->begin());
+    }).mark_it("copied values match", [&] {
+        auto new_grid = view_grid;
+        return test_that(   *new_grid .begin()->begin()
+                         == *view_grid.begin()->begin());
     });
 });
 #endif

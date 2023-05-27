@@ -90,7 +90,7 @@ public:
         m_seconds(seconds) {}
 
     void operator ()
-        (PpState & state, Velocity & velocity, Opt<JumpVelocity> jumpvel) const;
+        (PpState & state, Velocity & velocity, EcsOpt<JumpVelocity> jumpvel) const;
 
     /** Converts a displacement in 3D to 2D on a triangle segment.
      *
@@ -113,7 +113,7 @@ public:
     explicit AccelerateVelocities(Real seconds):
         m_seconds(seconds) {}
 
-    void operator () (PpState &, Velocity &, Opt<JumpVelocity>) const;
+    void operator () (PpState &, Velocity &, EcsOpt<JumpVelocity>) const;
 
 private:
     Real m_seconds;
@@ -124,7 +124,7 @@ private:
 
 class CheckJump final {
 public:
-    void operator () (PpState &, PlayerControl &, JumpVelocity &, Opt<Velocity>) const;
+    void operator () (PpState &, PlayerControl &, JumpVelocity &, EcsOpt<Velocity>) const;
 };
 
 class UpdatePpState final {
@@ -132,8 +132,8 @@ public:
     explicit UpdatePpState(point_and_plane::Driver & driver):
         m_driver(driver) {}
 
-    void operator () (PpState & state, Opt<Velocity> vel) const
-        { state = m_driver(state, EventHandler{vel, Opt<JumpVelocity>{}}); }
+    void operator () (PpState & state, EcsOpt<Velocity> vel) const
+        { state = m_driver(state, EventHandler{vel, EcsOpt<JumpVelocity>{}}); }
 
     class EventHandler final : public point_and_plane::EventHandler {
     public:
@@ -141,7 +141,7 @@ public:
 
         EventHandler() {}
 
-        EventHandler(Opt<Velocity> vel, Opt<JumpVelocity> jumpvel):
+        EventHandler(EcsOpt<Velocity> vel, EcsOpt<JumpVelocity> jumpvel):
             m_vel(vel), m_jumpvel(jumpvel) {}
 
         Variant<Vector2, Vector>
@@ -158,8 +158,8 @@ public:
              const Triangle &, const Vector &) const final;
 
     private:
-        Opt<Velocity> m_vel;
-        Opt<JumpVelocity> m_jumpvel;
+        EcsOpt<Velocity> m_vel;
+        EcsOpt<JumpVelocity> m_jumpvel;
     };
 
 private:

@@ -123,7 +123,7 @@ struct Visible final {
     bool value = true;
 };
 
-inline bool should_be_visible(const Opt<Visible> & vis)
+inline bool should_be_visible(const EcsOpt<Visible> & vis)
     { return vis ? vis->value : true; }
 
 // ----------------------------- Other Components -----------------------------

@@ -19,10 +19,12 @@
 *****************************************************************************/
 
 #include "MapLoaderTask.hpp"
+#include "../../Defs.hpp"
 
 namespace {
 
 using namespace cul::exceptions_abbr;
+using MapLoadResult = MapLoadingContext::MapLoadResult;
 
 } // end of <anonymous> namespace
 
@@ -37,14 +39,21 @@ MapLoaderTask::MapLoaderTask
      m_region_size_in_tiles(region_size_in_tiles) {}
 
 BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
-    auto grid = m_map_loader.update_progress();
-    if (!grid) return BackgroundCompletion::in_progress;
-    Entity{m_player_physics}.ensure<Velocity>();
-    *m_region_tracker = MapRegionTracker
-        {make_unique<TiledMapRegion>
-            (std::move(*grid), m_region_size_in_tiles),
-         m_region_size_in_tiles};
-    return BackgroundCompletion::finished;
+    return m_map_loader.
+        update_progress().
+        fold<BackgroundCompletion>(BackgroundCompletion::in_progress).
+        map([this] (MapLoadingSuccess && res) {
+            Entity{m_player_physics}.ensure<Velocity>();
+            *m_region_tracker = MapRegionTracker
+                {make_unique<TiledMapRegion>
+                    (std::move(res.producables_view_grid), m_region_size_in_tiles),
+                m_region_size_in_tiles};
+            return BackgroundCompletion::finished;
+        }).
+        map_left([] (MapLoadingError &&) {
+            return BackgroundCompletion::finished;
+        }).
+        value();
 }
 
 /* private static */ const SharedPtr<MapRegionTracker> &

@@ -29,13 +29,17 @@
 
 class TeardownTask final : public LoaderTask {
 public:
+    // though... these are shared pointers to links
+    // how do I not have a super long, however descriptive name?
+    using ViewGridTriangle = ViewGrid<SharedPtr<TriangleLink>>;
+    using ViewGridTriangleInserter = ViewGridTriangle::Inserter;
+    using TriangleLinkView = ViewGridTriangle::ElementView;
+
     TeardownTask() {}
 
-    explicit TeardownTask
+    TeardownTask
         (std::vector<Entity> && entities,
-         std::vector<SharedPtr<TriangleLink>> && triangles):
-        m_entities (std::move(entities )),
-        m_triangles(std::move(triangles)) {}
+         const TriangleLinkView & triangles);
 
     void operator () (Callbacks &) const final;
 
@@ -47,23 +51,24 @@ private:
 /// container of triangle links, used to glue segment triangles together
 class InterTriangleLinkContainer final {
 public:
-    using Iterator = std::vector<SharedPtr<TriangleLink>>::iterator;
-    using GridOfViews = Grid<View<TriangleLinks::const_iterator>>;
+    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
 
     InterTriangleLinkContainer() {}
 
-    explicit InterTriangleLinkContainer(const GridOfViews & views);
+    explicit InterTriangleLinkContainer(const ViewGridTriangle & views);
 
     void glue_to(InterTriangleLinkContainer & rhs);
 
 private:
-    static bool is_edge_tile(const GridOfViews & grid, const Vector2I & r);
+    using Iterator = ViewGridTriangle::ElementIterator;
 
-    static bool is_not_edge_tile(const GridOfViews & grid, const Vector2I & r);
+    static bool is_edge_tile(const ViewGridTriangle & grid, const Vector2I & r);
 
-    template <bool (*meets_pred)(const GridOfViews &, const Vector2I &)>
+    static bool is_not_edge_tile(const ViewGridTriangle & grid, const Vector2I & r);
+
+    template <bool (*meets_pred)(const ViewGridTriangle &, const Vector2I &)>
     static void append_links_by_predicate
-        (const GridOfViews & views, std::vector<SharedPtr<TriangleLink>> & links);
+        (const ViewGridTriangle & views, std::vector<SharedPtr<TriangleLink>> & links);
 
     Iterator edge_begin() { return m_edge_begin; }
 

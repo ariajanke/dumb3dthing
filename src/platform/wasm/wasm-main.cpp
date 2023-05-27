@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -256,14 +256,17 @@ public:
 
     ~WebFutureString() {}
 
-    bool is_ready() const noexcept final
-        { return m_fulfilled; }
-
-    bool is_lost() const noexcept final
-        { return m_lost; }
-
-    std::string && retrieve() final
-        { return std::move(m_contents); }
+    OptionalEither<Lost, std::string> operator () () final {
+        if (m_fulfilled) {
+            m_lost = true;
+            m_fulfilled = false;
+            return std::move(m_contents);
+        } else if (m_lost) {
+            return Lost{};
+        } else {
+            return {};
+        }
+    }
 
     void set_aside(std::size_t len)
         { m_contents.resize(len); }

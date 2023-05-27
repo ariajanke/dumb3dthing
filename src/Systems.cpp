@@ -88,7 +88,7 @@ void PlayerControlToVelocity::operator ()
 // ----------------------------------------------------------------------------
 
 void VelocitiesToDisplacement::operator ()
-    (PpState & state, Velocity & velocity, Opt<JumpVelocity> jumpvel) const
+    (PpState & state, Velocity & velocity, EcsOpt<JumpVelocity> jumpvel) const
 {
     auto displacement =   velocity*m_seconds
                         + (jumpvel ? *jumpvel : JumpVelocity{})*m_seconds
@@ -114,7 +114,7 @@ void VelocitiesToDisplacement::operator ()
 // ----------------------------------------------------------------------------
 
 void AccelerateVelocities::operator ()
-    (PpState & ppstate, Velocity & velocity, Opt<JumpVelocity> jumpvel) const
+    (PpState & ppstate, Velocity & velocity, EcsOpt<JumpVelocity> jumpvel) const
 {
     auto new_vel = [this](Vector r)
         { return r + k_gravity*m_seconds; };
@@ -135,7 +135,7 @@ void AccelerateVelocities::operator ()
 
 void CheckJump::operator ()
     (PpState & state, PlayerControl & control, JumpVelocity & vel,
-     Opt<Velocity>) const
+     EcsOpt<Velocity>) const
 {
     constexpr auto k_jump_vel = k_up*10;
 
@@ -169,10 +169,10 @@ Variant<Vector2, Vector>
     // triangle, candidate_intx.limit, candidate_intx.intersection, new_loc
     // v I hate this, this is an unexpected side effect!
     if (m_vel) {
-        *Opt<Velocity>{m_vel} = project_onto_plane(m_vel->value, triangle.normal());
+        *EcsOpt<Velocity>{m_vel} = project_onto_plane(m_vel->value, triangle.normal());
     }
     if (m_jumpvel) {
-        *Opt<JumpVelocity>{m_jumpvel} = project_onto_plane(m_jumpvel->value, triangle.normal());
+        *EcsOpt<JumpVelocity>{m_jumpvel} = project_onto_plane(m_jumpvel->value, triangle.normal());
     }
     return triangle.closest_point(next) - inside;
 }
@@ -184,7 +184,7 @@ Variant<Vector, Vector2>
 {
     if (!m_vel) return Vector2{};
     auto [sa, sb] = triangle.side_points(crossing.side); {}
-    *Opt<Velocity>{m_vel} = project_onto(m_vel->value, sa - sb);
+    *EcsOpt<Velocity>{m_vel} = project_onto(m_vel->value, sa - sb);
 
     // clip remaining displacement
     // but needs to not end up calling this again for the same triangle

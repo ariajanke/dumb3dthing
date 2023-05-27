@@ -23,6 +23,7 @@
 #include "Defs.hpp"
 
 #include <ariajanke/ecs3/SingleSystem.hpp>
+#include <ariajanke/cul/OptionalEither.hpp>
 
 class Texture;
 
@@ -43,14 +44,11 @@ enum class KeyControl {
 template <typename T>
 class Future {
 public:
+    struct Lost final {};
+
     virtual ~Future() {}
 
-    virtual bool is_ready() const noexcept = 0;
-
-    virtual bool is_lost() const noexcept = 0;
-
-    virtual T && retrieve() = 0;
-
+    virtual OptionalEither<Lost, T> operator () () = 0;
 };
 
 using FutureStringPtr = UniquePtr<Future<std::string>>;
@@ -109,4 +107,8 @@ public:
      *  @return
      */
     virtual FutureStringPtr promise_file_contents(const char *) = 0;
+
+    /// I need a UI at some point
+    /// for now, it can be very simple
+    /// just a set of lines for map loading warnings and errors
 };

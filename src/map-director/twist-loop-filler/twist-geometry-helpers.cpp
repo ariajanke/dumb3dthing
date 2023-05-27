@@ -220,7 +220,7 @@ ViewGrid<VertexTriangle> make_twisty_geometry_for
             (triangle_inserter, twisty_size, txadapter,
              t_break_start, t_break_end               );
     }
-    return ViewGrid<VertexTriangle>{std::move(triangle_inserter)};
+    return triangle_inserter.finish();
 }
 
 void insert_twisty_geometry_into

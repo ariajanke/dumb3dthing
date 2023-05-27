@@ -21,6 +21,8 @@
 #include "TiledMapLoader.hpp"
 #include "TileSet.hpp"
 
+#include <ariajanke/cul/Either.hpp>
+
 #include <tinyxml2.h>
 
 namespace {
@@ -32,7 +34,7 @@ using WaitingForTileSets = MapLoadingWaitingForTileSets;
 using Ready = MapLoadingReady;
 using Expired = MapLoadingExpired;
 using StateHolder = MapLoadingStateHolder;
-using OptionalTileViewGrid = MapLoadingContext::OptionalTileViewGrid;
+using MapLoadResult = MapLoadingContext::MapLoadResult;
 
 template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
 void on_key_found(const std::map<Key, Value, Comparator> & map, const Key2 & key, Func && f_) {
@@ -79,7 +81,7 @@ private:
 
 static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
-Grid<int> load_layer(const TiXmlElement &);
+Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement &);
 
 Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
     (const Grid<int> & gids, const TileMapIdToSetMapping & gidtid_translator)
@@ -169,99 +171,95 @@ Platform & State::platform() const {
 
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid WaitingForFileContents::update_progress
+MapLoadResult WaitingForFileContents::update_progress
     (StateHolder & next_state)
 {
-    if (!m_file_contents->is_ready()) return {};
+    using namespace map_loading_messages;
+    using Lost = Future<std::string>::Lost;
 
-    std::string contents = m_file_contents->retrieve();
-    std::vector<Grid<int>> layers;
-
-    TiXmlDocument document;
-    if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
-        // ...idk
-        throw RtError{"Problem parsing XML x.x"};
+    std::vector<std::unique_ptr<int>> unique_pointers;
+    for (int i = 0; i != 10; ++i) {
+        unique_pointers.emplace_back(std::make_unique<int>(i));
     }
 
-    auto * root = document.RootElement();
-    XmlPropertiesReader propreader;
-    propreader.load(root);
+    return (*m_file_contents)().map_left([] (Lost) {
+        return MapLoadingError{k_tile_map_file_contents_not_retrieved};
+    }).
+    chain([this, &next_state] (std::string && contents) {
+        TiXmlDocument document;
+        if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
+            // ...idk
+            return MapLoadResult{ MapLoadingError{k_tile_map_file_contents_not_retrieved} };
+        }
 
-    TileSetsContainer tilesets_container;
-    for (auto & tileset : XmlRange{root, "tileset"}) {
-        add_tileset(tileset, tilesets_container);
-    }
+        auto * root = document.RootElement();
+        XmlPropertiesReader propreader;
+        propreader.load(root);
 
-    for (auto & layer_el : XmlRange{root, "layer"}) {
-        layers.emplace_back(load_layer(layer_el));
-    }
+        UnfinishedTileSetCollection tilesets_container{warnings_adder()};
+        for (auto & tileset : XmlRange{root, "tileset"}) {
+            add_tileset(tileset, tilesets_container);
+        }
 
-    set_others_stuff
-        (next_state.set_next_state<WaitingForTileSets>
-            (std::move(tilesets_container), std::move(layers)));
+        std::vector<Grid<int>> layers;
+        for (auto & layer_el : XmlRange{root, "layer"}) {
+            auto ei = load_layer_(layer_el);
+            if (ei.is_left()) {
+                warnings_adder().add(ei.left());
+            } else if (ei.is_right()) {
+                layers.emplace_back(ei.right());
+            }
+        }
 
-    return {};
+        set_others_stuff
+            (next_state.set_next_state<WaitingForTileSets>
+                (tilesets_container.finish(), std::move(layers)));
+        return MapLoadResult{};
+    });
 }
 
 /* private */ void WaitingForFileContents::add_tileset
-    (const TiXmlElement & tileset, TileSetsContainer & tilesets_container)
+    (const TiXmlElement & tileset,
+     UnfinishedTileSetCollection & collection)
 {
-    tilesets_container.tilesets.emplace_back(make_shared<TileSet>());
-    tilesets_container.startgids.emplace_back(tileset.IntAttribute("firstgid"));
+    using namespace cul::either;
+    using namespace map_loading_messages;
+    constexpr const int k_no_first_gid = -1;
+
+    auto first_gid = tileset.IntAttribute("firstgid", k_no_first_gid);
+    if (first_gid == k_no_first_gid) {
+        return collection.add(k_invalid_tile_data);
+    }
+
     if (const auto * source = tileset.Attribute("source")) {
-        tilesets_container.pending_tilesets.emplace_back(
-            tilesets_container.tilesets.size() - 1,
-            platform().promise_file_contents(source));
+        return collection.add(first_gid, platform().promise_file_contents(source));
     } else {
-        tilesets_container.tilesets.back()->
-            load(platform(), tileset);
+        // platform(), tileset
+        auto tileset_ = make_shared<TileSet>();
+        tileset_->load(platform(), tileset);
+        return collection.add(first_gid, std::move(tileset_));
     }
 }
 
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid WaitingForTileSets::update_progress
+MapLoadResult WaitingForTileSets::update_progress
     (StateHolder & next_state)
 {
     // no short circuting permitted, therefore STL sequence algorithms
     // not appropriate
-    auto & pending_tilesets = m_tilesets_container.pending_tilesets;
-    auto & tilesets = m_tilesets_container.tilesets;
-    auto & startgids = m_tilesets_container.startgids;
-    static constexpr const std::size_t k_no_idx = std::string::npos;
-    for (auto & [idx, future] : pending_tilesets) {
-        if (!future->is_ready()) continue;
-        TiXmlDocument document;
-        auto contents = future->retrieve();
-        document.Parse(contents.c_str());
-        tilesets[idx]->load(platform(), *document.RootElement());
-        idx = k_no_idx;
-    }
+    auto res = m_tilesets_container->attempt_finish(platform());
+    if (!res) return {};
 
-    bool was_empty = pending_tilesets.empty();
-    auto end_itr = pending_tilesets.end();
-    pending_tilesets.erase(
-        std::remove_if(pending_tilesets.begin(), end_itr,
-            [](const Tuple<std::size_t, FutureStringPtr> & tup)
-            { return std::get<std::size_t>(tup) == k_no_idx; }),
-        end_itr);
-    if (!was_empty && pending_tilesets.empty()) {
-        m_tidgid_translator = TileMapIdToSetMapping{tilesets, startgids};
-    }
-
-    if (!pending_tilesets.empty()) {
-        return {};
-    }
-    // no more tilesets pending
     set_others_stuff
         (next_state.set_next_state<Ready>
-            (std::move(m_tidgid_translator), std::move(m_layers)));
+            (std::move(*res), std::move(m_layers)));
     return {};
 }
 
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid TiledMapLoader::Ready::update_progress
+MapLoadResult TiledMapLoader::Ready::update_progress
     (StateHolder & next_state)
 {
     UnfinishedProducableTileViewGrid unfinished_grid_view;
@@ -273,7 +271,9 @@ OptionalTileViewGrid TiledMapLoader::Ready::update_progress
     }
     next_state.set_next_state<Expired>();
 
-    return unfinished_grid_view.finish(m_tidgid_translator);
+    MapLoadingSuccess success;
+    success.producables_view_grid = unfinished_grid_view.finish(m_tidgid_translator);
+    return success;
 }
 
 // ----------------------------------------------------------------------------
@@ -286,38 +286,53 @@ void StateHolder::move_state(StatePtrGetter & state_getter_ptr, StateSpace & spa
         throw RtError{"No state to move"};
     }
 
-    space = std::move(m_space);
+    space.swap(m_space);
     state_getter_ptr = m_get_state;
     m_get_state = nullptr;
 }
 
+Tuple<StateHolder::StatePtrGetter, StateHolder::StateSpace>
+    StateHolder::move_out_state()
+{
+    if (!m_get_state) {
+        throw RtError{"No state to move"};
+    }
+    auto getter = m_get_state;
+    auto space = std::move(m_space);
+    m_space = MapLoadingExpired{};
+    m_get_state = nullptr;
+    return make_tuple(getter, std::move(space));
+}
+
 // ----------------------------------------------------------------------------
 
-OptionalTileViewGrid TiledMapLoader::update_progress() {
+MapLoadResult TiledMapLoader::update_progress() {
     StateHolder next;
-    OptionalTileViewGrid rv;
+    MapLoadResult rv;
     while (true) {
         rv = m_get_state(m_state_space)->update_progress(next);
         if (!next.has_next_state()) break;
 
         next.move_state(m_get_state, m_state_space);
-        if (rv) break;
+        if (!rv.is_empty()) break;
     }
     return rv;
 }
 
 namespace {
 
-Grid<int> load_layer(const TiXmlElement & layer_el) {
+Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement & layer_el) {
+    using namespace map_loading_messages;
+    using namespace cul::either;
     Grid<int> layer;
     layer.set_size
         (layer_el.IntAttribute("width"), layer_el.IntAttribute("height"), 0);
 
     auto * data = layer_el.FirstChildElement("data");
     if (!data) {
-        throw RtError{"load_layer: layer must have a <data> element"};
+        return k_tile_layer_has_no_data_element;
     } else if (::strcmp(data->Attribute( "encoding" ), "csv")) {
-        throw RtError{"load_layer: only csv layer data is supported"};
+        return k_non_csv_tile_data;
     }
 
     auto data_text = data->GetText();
@@ -329,8 +344,11 @@ Grid<int> load_layer(const TiXmlElement & layer_el) {
                                       is_comma, k_whitespace_trimmer))
     {
         int tile_id = 0;
-        cul::string_to_number(value_str.begin(), value_str.end(), tile_id);
-
+        bool entry_is_numeric = cul::string_to_number
+            (value_str.begin(), value_str.end(), tile_id);
+        if (!entry_is_numeric) {
+            return left(k_invalid_tile_data).with<Grid<int>>();
+        }
         // should warn if not a number
         layer(r) = tile_id;
         r = layer.next(r);

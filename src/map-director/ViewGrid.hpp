@@ -31,6 +31,9 @@ template <typename T>
 class ViewGridInserterAttn;
 
 template <typename T>
+class ViewGrid;
+
+template <typename T>
 class ViewGridInserter final {
 public:
     using ElementContainer = std::vector<T>;
@@ -47,8 +50,7 @@ public:
 
     bool filled() const noexcept;
 
-    Tuple<ElementContainer, Grid<ElementView>>
-        move_out_container_and_grid_view();
+    ViewGrid<T> finish();
 
     void push(const T & obj);
 
@@ -82,10 +84,11 @@ public:
     using ConstIterator     = typename GridViewContainer::ConstIterator;
     using SubGrid           = cul::ConstSubGrid
         <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
+    using Inserter          = ViewGridInserter<T>;
 
     ViewGrid() {}
 
-    explicit ViewGrid(ViewGridInserter<T> &&);
+    ViewGrid(ElementContainer &&, Grid<ElementView> &&);
 
     ViewGrid(const ViewGrid & rhs) { copy(rhs); }
 
@@ -112,7 +115,7 @@ public:
     bool has_position(int x, int y) const noexcept
         { return m_views.has_position(x, y); }
 
-    bool has_position(const Vector & r) const noexcept
+    bool has_position(const Vector2I & r) const noexcept
         { return m_views.has_position(r); }
 
     int height() const noexcept { return m_views.height(); }
@@ -128,6 +131,11 @@ public:
     Size2I size2() const noexcept { return m_views.size2(); }
 
     void swap(ViewGrid<T> &) noexcept;
+
+    auto elements_count() const { return m_owning_container.size(); }
+
+    ElementView elements() const
+        { return ElementView{m_owning_container.begin(), m_owning_container.end()}; }
 
 private:
     void copy(const ViewGrid &);
@@ -177,10 +185,7 @@ bool ViewGridInserter<T>::filled() const noexcept
     { return m_position == m_index_pairs.end_position(); }
 
 template <typename T>
-    Tuple<typename ViewGridInserter<T>::ElementContainer,
-          Grid<typename ViewGridInserter<T>::ElementView>>
-    ViewGridInserter<T>::move_out_container_and_grid_view()
-{
+ViewGrid<T> ViewGridInserter<T>::finish() {
     Grid<View<ElementIterator>> views;
     views.set_size
         (m_index_pairs.width(), m_index_pairs.height(),
@@ -190,9 +195,8 @@ template <typename T>
         views(r) = ElementView
             {m_elements.begin() + beg_idx, m_elements.begin() + end_idx};
     }
-    return make_tuple(std::move(m_elements), std::move(views));
+    return ViewGrid<T>{std::move(m_elements), std::move(views)};
 }
-
 
 template <typename T>
 void ViewGridInserter<T>::push(const T & obj)
@@ -232,11 +236,11 @@ template <typename T>
 // ----------------------------------------------------------------------------
 
 template <typename T>
-ViewGrid<T>::ViewGrid(ViewGridInserter<T> && inserter) {
-    verify_filled_inserter("GridView", inserter);
-    std::tie(m_owning_container, m_views)
-        = inserter.move_out_container_and_grid_view();
-}
+ViewGrid<T>::ViewGrid(ElementContainer && owning_container,
+                      Grid<ElementView> && views):
+    m_owning_container(std::move(owning_container)),
+    m_views(std::move(views))
+{}
 
 template <typename T>
 ViewGrid<T>::ViewGrid(ViewGrid && rhs):
@@ -280,10 +284,12 @@ template <typename T>
     m_views.clear();
     auto owning_beg = m_owning_container.begin();
     auto owning_end = m_owning_container.end();
-    m_views.set_size(gridview.m_views.size2(), View{owning_end, owning_end});
+    ElementView empty_view{owning_end, owning_end};
+    m_views.set_size(gridview.m_views.size2(), empty_view);
     for (Vector2I r; r != gridview.end_position(); r = gridview.next(r)) {
-        m_views = View{owning_beg + (gridview(r).beg() - other_beg),
-                       owning_beg + (gridview(r).end() - other_beg)};
+        auto beg_offset = gridview(r).begin() - other_beg;
+        auto end_offset = gridview(r).end  () - other_beg;
+        m_views(r) = ElementView{owning_beg + beg_offset, owning_beg + end_offset};
     }
 }
 
