@@ -20,6 +20,9 @@
 
 #include "MapRegion.hpp"
 #include "TileFactory.hpp"
+#include "MapRegionTracker.hpp"
+#include "MapDirector.hpp"
+#include "RegionLoadRequest.hpp"
 
 #include <iostream>
 
@@ -61,11 +64,56 @@ private:
     std::vector<Entity> m_entities;
 };
 
+void link_triangles(EntityAndLinkInsertingAdder::ViewGridTriangle &);
+
 } // end of <anonymous> namespace
+
+
+Vector2I region_load_step(const ProducableTileViewGrid & view_grid,
+                          const RegionLoadRequest & request)
+{
+    auto step_of_ = [] (int length, int max) {
+        // I want as even splits as possible
+        if (length < max) return length;
+        return length / (length / max);
+    };
+    return Vector2I
+        {step_of_(view_grid.width (), request.max_region_size().width ),
+         step_of_(view_grid.height(), request.max_region_size().height)};
+}
+
+TiledMapRegionN::TiledMapRegionN(ProducableTileViewGrid && full_factory_grid):
+    m_producables_view_grid(std::move(full_factory_grid)) {}
+
+void TiledMapRegionN::process_load_request
+    (const RegionLoadRequest & request, const Vector2I & offset,
+     MapRegionContainerN & container, TaskCallbacks & callbacks)
+{
+    auto step = region_load_step(m_producables_view_grid, request);
+    for (Vector2I r; r.x < m_producables_view_grid.width (); r.x += step.x) {
+    for (          ; r.y < m_producables_view_grid.height(); r.y += step.y) {
+        auto subgrid_size = cul::convert_to<Size2I>(step);
+        auto on_field_position = offset + r;
+        bool overlaps_this_subregion =
+            request.overlaps_with(RectangleI{on_field_position, subgrid_size});
+        if (!overlaps_this_subregion) continue;
+        auto subgrid = m_producables_view_grid.make_subgrid(RectangleI{r, subgrid_size});
+        container.refresh_or_load(on_field_position,
+            [subgrid, &callbacks] (RegionLoadCollectorN & collector)
+        {
+            // range <- m_producables_view_grid
+            // provide range to some kind of queue passed to this callback
+            // potentially leave open for objects
+
+            collector.add_tiles(subgrid, callbacks.platform());
+        });
+    }}
+}
+
 
 // ----------------------------------------------------------------------------
 
-void link_triangles(EntityAndLinkInsertingAdder::ViewGridTriangle &);
+
 
 // ----------------------------------------------------------------------------
 
@@ -174,7 +222,9 @@ void MapRegionPreparer::set_completer(const MapRegionCompleter & completer)
 
 // ----------------------------------------------------------------------------
 
-inline void link_triangles
+namespace {
+
+void link_triangles
     (EntityAndLinkInsertingAdder::ViewGridTriangle & link_grid)
 {
     // now link them together
@@ -192,3 +242,5 @@ inline void link_triangles
         }}
     }}
 }
+
+} // end of <anonymous> namespace

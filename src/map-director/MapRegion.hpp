@@ -28,6 +28,8 @@ class MapRegionPreparer;
 /// a map region is a grid of task pairs, one to load, one to teardown
 class MapRegion {
 public:
+    static constexpr Size2I k_temp_region_size = Size2I{10, 10};
+
     virtual ~MapRegion() {}
 
     virtual void request_region_load
@@ -55,6 +57,31 @@ private:
     Size2I m_region_size;
     ProducableTileViewGrid m_factory_grid;
 };
+
+class RegionLoadRequest;
+class MapRegionContainerN;
+
+class MapRegionN {
+public:
+    virtual ~MapRegionN() {}
+
+    virtual void process_load_request
+        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+         MapRegionContainerN &, TaskCallbacks &) = 0;
+};
+
+class TiledMapRegionN final : public MapRegionN {
+public:
+    explicit TiledMapRegionN(ProducableTileViewGrid && full_factory_grid);
+
+    void process_load_request
+        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+         MapRegionContainerN &, TaskCallbacks &) final;
+
+private:
+    ProducableTileViewGrid m_producables_view_grid;
+};
+
 
 class GridMapRegionCompleter {
 public:

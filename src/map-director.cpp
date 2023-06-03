@@ -24,5 +24,5 @@
 #include "map-director/MapDirector.hpp"
 
 /* static */ SharedPtr<MapDirector_> MapDirector_::make
-    (PpDriver * ppdriver, Size2I chunk_size)
-{ return make_shared<MapDirector>(ppdriver, chunk_size); }
+    (PpDriver * ppdriver)
+{ return make_shared<MapDirector>(ppdriver); }

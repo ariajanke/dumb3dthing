@@ -26,9 +26,9 @@
 SharedPtr<BackgroundTask> MapLoaderTask_::make
     (const char * initial_map, Platform & platform,
      const SharedPtr<MapRegionTracker> & target_region_instance,
-     const Entity & player_physics, const Size2I & region_size_in_tiles)
+     const Entity & player_physics)
 {
     return make_shared<MapLoaderTask>
         (TiledMapLoader{platform, initial_map}, target_region_instance,
-         player_physics, region_size_in_tiles);
+         player_physics);
 }

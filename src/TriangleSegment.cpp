@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -102,7 +102,7 @@ Vector TriangleSegment::basis_j() const {
     return rv;
 }
 
-bool TriangleSegment::can_be_projected_onto(const Vector & n) const noexcept {
+bool TriangleSegment::projectable_onto(const Vector & n) const noexcept {
     auto [a, b, c] = project_onto_plane_(n);
     return !are_parallel(b - a, b - c);
 }
@@ -385,6 +385,7 @@ static const constexpr Real k_no_intersection_2d =
 
 bool angle_between_is_obtuse(const Vector &, const Vector &);
 
+// cul issue 5
 Real find_intersecting_position_for_first
     (Vector2 first_line_a , Vector2 first_line_b ,
      Vector2 second_line_a, Vector2 second_line_b)

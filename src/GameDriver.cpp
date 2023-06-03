@@ -197,7 +197,7 @@ Entity make_sample_loop
     return rv;
 }
 
-static constexpr const Vector k_player_start{200, 5.1, -200};
+static constexpr const Vector k_player_start{2, 5.1, 2};
 
 // model entity, physical entity
 Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
@@ -268,8 +268,7 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     static constexpr const auto k_testmap_filename = "demo-map2.tmx";
 
     auto player_update_task = make_shared<PlayerUpdateTask>
-        (MapDirector_::make(&ppdriver, Size2I{10, 10}),
-         EntityRef{physics_ent});
+        (MapDirector_::make(&ppdriver), EntityRef{physics_ent});
     auto map_loader_task = player_update_task->load_initial_map
         (k_testmap_filename, platform);
     SharedPtr<EveryFrameTask> & ptrref = physics_ent.add<SharedPtr<EveryFrameTask>>();

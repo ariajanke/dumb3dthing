@@ -31,12 +31,11 @@ using MapLoadResult = MapLoadingContext::MapLoadResult;
 MapLoaderTask::MapLoaderTask
     (TiledMapLoader && map_loader,
      const SharedPtr<MapRegionTracker> & target_region_instance,
-     const Entity & player_physics, const Size2I & region_size_in_tiles):
+     const Entity & player_physics):
      m_region_tracker(verify_region_tracker_presence
          ("MapLoaderTask", target_region_instance)),
      m_map_loader(std::move(map_loader)),
-     m_player_physics(player_physics),
-     m_region_size_in_tiles(region_size_in_tiles) {}
+     m_player_physics(player_physics) {}
 
 BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
     return m_map_loader.
@@ -45,9 +44,11 @@ BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
         map([this] (MapLoadingSuccess && res) {
             Entity{m_player_physics}.ensure<Velocity>();
             *m_region_tracker = MapRegionTracker
-                {make_unique<TiledMapRegion>
-                    (std::move(res.producables_view_grid), m_region_size_in_tiles),
-                m_region_size_in_tiles};
+                {std::move(res.loaded_region)};
+#           if 0
+                ,
+                 MapRegion::k_temp_region_size};
+#           endif
             return BackgroundCompletion::finished;
         }).
         map_left([] (MapLoadingError &&) {

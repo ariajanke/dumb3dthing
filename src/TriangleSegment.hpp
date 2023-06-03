@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -125,7 +125,7 @@ public:
      *  @returns true if this triangle can be projected onto a plane by the
      *           vector n
      */
-    bool can_be_projected_onto(const Vector & n) const noexcept;
+    bool projectable_onto(const Vector & n) const noexcept;
 
     /** @returns center of the triangle in three dimensions */
     Vector center() const noexcept;

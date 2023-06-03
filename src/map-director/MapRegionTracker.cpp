@@ -19,6 +19,47 @@
 *****************************************************************************/
 
 #include "MapRegionTracker.hpp"
+#include "TileFactory.hpp"
+
+namespace {
+
+class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
+public:
+    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
+    using ViewGridTriangleInserter = ViewGridTriangle::Inserter;
+
+    explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
+        m_triangle_inserter(grid_size) {}
+
+    void add_triangle(const TriangleSegment & triangle) final
+        { m_triangle_inserter.push(triangle); }
+
+    void add_entity(const Entity & ent) final
+        { m_entities.push_back(ent); }
+
+    std::vector<Entity> move_out_entities()
+        { return std::move(m_entities); }
+
+    void advance_grid_position()
+        { m_triangle_inserter.advance(); }
+
+    ViewGridTriangle finish_triangle_grid() {
+        return m_triangle_inserter.
+            transform_values<SharedPtr<TriangleLink>>(to_link).
+            finish();
+    }
+
+private:
+    static SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
+        { return make_shared<TriangleLink>(segment); }
+
+    ViewGridInserter<TriangleSegment> m_triangle_inserter;
+    std::vector<Entity> m_entities;
+};
+
+void link_triangles(EntityAndLinkInsertingAdder::ViewGridTriangle &);
+
+} // end of <anonymous> namespace
 
 void MapRegionContainer::on_complete
     (const Vector2I & region_position,
@@ -100,3 +141,106 @@ void MapRegionTracker::frame_hit
         (MapRegionCompleter{global_region_location, m_loaded_regions});
     m_root_region->request_region_load(global_region_location, region_preparer, callbacks);
 }
+
+void MapRegionTracker::frame_hit
+    (const RegionLoadRequest & request, TaskCallbacks & callbacks)
+{
+    if (!m_root_region_n) return;
+    // issue request to region, with container, done
+
+    m_container_n.decay_regions(callbacks);
+    m_root_region_n->process_load_request
+        (request, Vector2I{}, m_container_n, callbacks);
+}
+
+// ----------------------------------------------------------------------------
+
+struct FinishedLoader final {
+    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
+    InterTriangleLinkContainer link_edge_container;
+    std::vector<Entity> entities;
+    ViewGridTriangle triangle_grid;
+};
+
+class LoaderImpl final : public RegionLoadCollectorN {
+public:
+    explicit LoaderImpl(Vector2I offset):
+        m_offset(offset) {}
+
+    void add_tiles(const ProducableSubGrid & producables, Platform & platform_) final {
+        EntityAndLinkInsertingAdder triangle_entities_adder{producables.size2()};
+        for (auto & producables_view : producables) {
+            for (auto producable : producables_view) {
+                if (!producable) continue;
+                (*producable)(m_offset, triangle_entities_adder, platform_);
+            }
+            triangle_entities_adder.advance_grid_position();
+        }
+        m_result.triangle_grid = triangle_entities_adder.finish_triangle_grid();
+        m_result.entities = triangle_entities_adder.move_out_entities();
+        m_result.link_edge_container =
+            InterTriangleLinkContainer{m_result.triangle_grid};
+    }
+
+    FinishedLoader finish() {
+        link_triangles(m_result.triangle_grid);
+        return std::move(m_result);
+    }
+
+private:
+    Platform & platform() {
+        using namespace cul::exceptions_abbr;
+        if (m_platform) return *m_platform;
+        throw RtError{"RegionLoadCollector::add_tiles: intialized without a "
+                      "platform"};
+    }
+
+    FinishedLoader m_result;
+    Vector2I m_offset;
+    Platform * m_platform = nullptr;
+};
+
+
+void MapRegionContainerN::refresh_or_load_
+    (const Vector2I & r, const LoaderCallback & f)
+{
+    if (auto * ptr = find(r))
+        { return; }
+
+    LoaderImpl impl{r};
+    f(impl);
+
+    auto & region = m_loaded_regions[r];
+    auto res = impl.finish();
+
+    region.teardown = make_shared<TeardownTask>
+        (std::move(res.entities), res.triangle_grid.elements());
+    region.link_edge_container = std::move(res.link_edge_container);
+    region.keep_on_refresh = true;
+}
+
+// ----------------------------------------------------------------------------
+
+namespace {
+
+void link_triangles
+    (EntityAndLinkInsertingAdder::ViewGridTriangle & link_grid)
+{
+    // now link them together
+    for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
+    for (auto & this_tri : link_grid(r)) {
+        assert(this_tri);
+        for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
+/*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
+            if (!link_grid.has_position(v)) continue;
+            for (auto & other_tri : link_grid(v)) {
+                assert(other_tri);
+
+                if (this_tri == other_tri) continue;
+                this_tri->attempt_attachment_to(other_tri);
+        }}
+    }}
+}
+
+} // end of <anonymous> namespace
+

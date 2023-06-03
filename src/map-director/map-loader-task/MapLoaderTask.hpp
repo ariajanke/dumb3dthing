@@ -29,7 +29,7 @@ public:
     MapLoaderTask
         (TiledMapLoader && map_loader,
          const SharedPtr<MapRegionTracker> & target_region_instance,
-         const Entity & player_physics, const Size2I & region_size_in_tiles);
+         const Entity & player_physics);
 
     BackgroundCompletion operator () (Callbacks &) final;
 
@@ -41,5 +41,4 @@ private:
     SharedPtr<MapRegionTracker> m_region_tracker;
     TiledMapLoader m_map_loader;
     EntityRef m_player_physics;
-    Size2I m_region_size_in_tiles;
 };

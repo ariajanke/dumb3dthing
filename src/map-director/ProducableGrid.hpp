@@ -47,6 +47,8 @@ class ProducableGroupFiller;
 /// An instance of this is used to represent a loaded map.
 class ProducableTileViewGrid final {
 public:
+    using SubGrid = ViewGrid<ProducableTile *>::SubGrid;
+
     ProducableTileViewGrid() {}
 
     ProducableTileViewGrid
