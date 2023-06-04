@@ -22,6 +22,20 @@
 
 #include "MapDirector.hpp"
 
+namespace {
+
+constexpr const auto k_bad_facing_msg =
+    "RegionLoadRequest::find_triangle: player_facing must be either empty of a "
+    "normal vector";
+constexpr Real k_triangle_area = RegionLoadRequest::k_triangle_area;
+constexpr auto k_plane_normal  = RegionLoadRequest::k_plane_normal;
+constexpr Vector k_default_facing = Vector{1, 0, 0};
+
+TriangleSegment find_triangle_with_adjusted
+    (const Vector & position, const Vector & facing, Real speed);
+
+} // end of <anonymous> namespace
+
 RectanglePoints::RectanglePoints(const cul::Rectangle<Real> & rect):
     m_top_left    (cul::top_left_of    (rect)),
     m_top_right   (cul::top_right_of   (rect)),
@@ -44,11 +58,12 @@ RegionLoadRequest::RegionLoadRequest
     (const Vector & player_position, const Optional<Vector> & player_facing,
      const Vector & player_velocity, Size2I max_region_size)
 {
+    auto to_v2 = [](const Vector & r) { return Vector2{r.x, r.z}; };
     auto triangle = find_triangle(player_position, player_facing, player_velocity);
     return RegionLoadRequest
-        {to_global_tile_position(triangle.point_a()),
-         to_global_tile_position(triangle.point_b()),
-         to_global_tile_position(triangle.point_c()),
+        {to_v2(triangle.point_a()),
+         to_v2(triangle.point_b()),
+         to_v2(triangle.point_c()),
          max_region_size};
 }
 
@@ -56,32 +71,22 @@ RegionLoadRequest::RegionLoadRequest
     (const Vector & player_position, const Optional<Vector> & player_facing,
      const Vector & player_velocity)
 {
-    static constexpr Real k_max_speed   = 8;
-    static constexpr Real k_low_offset  = 4;
-    static constexpr Real k_high_offset = 1;
-    static_assert(k_low_offset > k_high_offset);
-    static constexpr Real k_out_point_offset_low  = k_low_offset + 6;
-    static constexpr Real k_out_point_offset_high = k_low_offset + 10;
+    // screen parameters
+    if (player_facing) {
+        if (!are_very_close(magnitude(*player_facing), 1)) {
+            using namespace cul::exceptions_abbr;
+            throw InvArg{k_bad_facing_msg};
+        }
+    }
+
+    // adjust parameters
+    auto facing = player_facing.value_or(k_default_facing);
+    auto position = project_onto_plane(player_position, k_plane_normal);
+    auto speed = magnitude(project_onto_plane(player_velocity, k_plane_normal));
 
     // angles are controlled by a fixed area
     // the resulting triangle will be an isosceles
-    static auto interpol = [] (Real t, Real low, Real high)
-        { return t*high + (t - 1)*low; };
-
-    Real normalized_speed =
-        std::min(magnitude(player_velocity), k_max_speed) / k_max_speed;
-    auto a = player_position -
-             interpol(normalized_speed, k_low_offset, k_high_offset)*
-             player_facing.value_or(Vector{1, 0, 0});
-    auto out_point_offset =
-        interpol(normalized_speed, k_out_point_offset_low, k_out_point_offset_high);
-    auto to_out_point = normalize(player_position - a)*out_point_offset;
-    auto out_point = a + to_out_point;
-    auto out_point_offset_to_bc = k_triangle_area / out_point_offset;
-    auto to_bc_dir = normalize(cross(k_plane_normal, to_out_point));
-    auto b = out_point + out_point_offset_to_bc*to_bc_dir;
-    auto c = out_point - out_point_offset_to_bc*to_bc_dir;
-    return TriangleSegment{a, b, c};
+    return find_triangle_with_adjusted(position, facing, speed);
 }
 
 /* static */ bool RegionLoadRequest::are_intersecting_lines
@@ -192,3 +197,37 @@ bool RegionLoadRequest::any_point_is_contained_in
     return cul::Rectangle<Real>
         {low.x, low.y, high.x - low.x, high.y - low.y};
 }
+
+// ----------------------------------------------------------------------------
+
+namespace {
+
+Real interpolate(Real t, Real low, Real high)
+    { return t*high + (1 - t)*low; };
+
+TriangleSegment find_triangle_with_adjusted
+    (const Vector & position, const Vector & facing, Real speed)
+{
+    static constexpr Real k_max_speed   = 8;
+    static constexpr Real k_low_offset  = 4;
+    static constexpr Real k_high_offset = 1;
+    static_assert(k_low_offset > k_high_offset);
+    static constexpr Real k_out_point_offset_low  = k_low_offset + 6;
+    static constexpr Real k_out_point_offset_high = k_low_offset + 10;
+
+    Real normalized_speed = std::min(speed, k_max_speed) / k_max_speed;
+    auto a = position -
+             interpolate(normalized_speed, k_low_offset, k_high_offset)*
+             facing;
+    auto out_point_offset =
+        interpolate(normalized_speed, k_out_point_offset_low, k_out_point_offset_high);
+    auto to_out_point = normalize(position - a)*out_point_offset;
+    auto out_point = a + to_out_point;
+    auto out_point_offset_to_bc = k_triangle_area / out_point_offset;
+    auto to_bc_dir = normalize(cross(k_plane_normal, to_out_point));
+    auto b = out_point + out_point_offset_to_bc*to_bc_dir;
+    auto c = out_point - out_point_offset_to_bc*to_bc_dir;
+    return TriangleSegment{a, b, c};
+}
+
+} // end of <anonymous> namespace

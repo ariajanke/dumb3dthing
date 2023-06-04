@@ -30,9 +30,7 @@
 #include <ariajanke/ecs3/Scene.hpp>
 #include <ariajanke/ecs3/SingleSystem.hpp>
 #include <ariajanke/cul/OptionalEither.hpp>
-#if 0
-#include <tl/expected.hpp>
-#endif
+
 #include <variant>
 #include <memory>
 #include <iosfwd>

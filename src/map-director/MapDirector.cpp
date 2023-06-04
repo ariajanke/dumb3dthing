@@ -29,62 +29,6 @@ namespace {
 using namespace cul::exceptions_abbr;
 
 } // end of <anonymous> namespace
-#if 0
-RegionLoadRequest::RegionLoadRequest
-    (const Vector2 & triangle_a, const Vector2 & triangle_b,
-     const Vector2 & triangle_c, Size2I max_region_size):
-    m_triangle_bounds(bounds_for(triangle_a, triangle_b, triangle_c)),
-    m_pt_a(triangle_a),
-    m_pt_b(triangle_b),
-    m_pt_c(triangle_c),
-    m_max_size(max_region_size)
-{}
-
-/* static */ RegionLoadRequest RegionLoadRequest::find
-    (const Vector & player_position, const Optional<Vector> & player_facing,
-     const Vector & player_velocity, Size2I max_region_size)
-{
-    auto triangle = find_triangle(player_position, player_facing, player_velocity);
-    return RegionLoadRequest
-        {to_global_tile_position(triangle.point_a()),
-         to_global_tile_position(triangle.point_b()),
-         to_global_tile_position(triangle.point_c()),
-         max_region_size};
-}
-
-/* static */ TriangleSegment RegionLoadRequest::find_triangle
-    (const Vector & player_position, const Optional<Vector> & player_facing,
-     const Vector & player_velocity)
-{
-    static constexpr Real k_max_speed   = 8;
-    static constexpr Real k_low_offset  = 4;
-    static constexpr Real k_high_offset = 1;
-    static_assert(k_low_offset > k_high_offset);
-    static constexpr Real k_out_point_offset_low  = k_low_offset + 6;
-    static constexpr Real k_out_point_offset_high = k_low_offset + 10;
-
-    // angles are controlled by a fixed area
-    // the resulting triangle will be an isosceles
-    static auto interpol = [] (Real t, Real low, Real high)
-        { return t*high + (t - 1)*low; };
-
-    Real normalized_speed =
-        std::min(magnitude(player_velocity), k_max_speed) / k_max_speed;
-    auto a = player_position -
-             interpol(normalized_speed, k_low_offset, k_high_offset)*
-             player_facing.value_or(Vector{1, 0, 0});
-    auto out_point_offset =
-        interpol(normalized_speed, k_out_point_offset_low, k_out_point_offset_high);
-    auto to_out_point = normalize(player_position - a)*out_point_offset;
-    auto out_point = a + to_out_point;
-    auto out_point_offset_to_bc = k_triangle_area / out_point_offset;
-    auto to_bc_dir = normalize(cross(k_plane_normal, to_out_point));
-    auto b = out_point + out_point_offset_to_bc*to_bc_dir;
-    auto c = out_point - out_point_offset_to_bc*to_bc_dir;
-    return TriangleSegment{a, b, c};
-}
-#endif
-// ----------------------------------------------------------------------------
 
 SharedPtr<BackgroundTask> MapDirector::begin_initial_map_loading
     (const char * initial_map, Platform & platform, const Entity & player_physics)

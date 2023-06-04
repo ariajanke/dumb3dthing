@@ -55,7 +55,7 @@ public:
         (const Vector2 & a_first, const Vector2 & a_second,
          const Vector2 & b_first, const Vector2 & b_second);
 
-    static constexpr Real k_triangle_area = 32*32;
+    static constexpr Real k_triangle_area = 0.5*16*10;
     static constexpr auto k_plane_normal  = k_up;
 
     RegionLoadRequest(const Vector2 & triangle_a, const Vector2 & triangle_b,

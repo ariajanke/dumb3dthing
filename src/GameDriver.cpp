@@ -197,7 +197,7 @@ Entity make_sample_loop
     return rv;
 }
 
-static constexpr const Vector k_player_start{2, 5.1, 2};
+static constexpr const Vector k_player_start{2, 5.1, -2};
 
 // model entity, physical entity
 Tuple<Entity, Entity, SharedPtr<BackgroundTask>>

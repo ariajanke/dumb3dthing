@@ -146,7 +146,8 @@ void MapRegionTracker::frame_hit
     (const RegionLoadRequest & request, TaskCallbacks & callbacks)
 {
     if (!m_root_region_n) return;
-    // issue request to region, with container, done
+    // make a collector here
+    // finish by creating a single loader task, then add it
 
     m_container_n.decay_regions(callbacks);
     m_root_region_n->process_load_request
@@ -167,23 +168,37 @@ public:
     explicit LoaderImpl(Vector2I offset):
         m_offset(offset) {}
 
+    // should enforce this to not be called more than once?
     void add_tiles(const ProducableSubGrid & producables, Platform & platform_) final {
         EntityAndLinkInsertingAdder triangle_entities_adder{producables.size2()};
         for (auto & producables_view : producables) {
             for (auto producable : producables_view) {
                 if (!producable) continue;
+                // defer this off to a loader task? yes I think so
                 (*producable)(m_offset, triangle_entities_adder, platform_);
             }
             triangle_entities_adder.advance_grid_position();
         }
+        // need to add entities, and links
+        // ...
+
         m_result.triangle_grid = triangle_entities_adder.finish_triangle_grid();
         m_result.entities = triangle_entities_adder.move_out_entities();
         m_result.link_edge_container =
             InterTriangleLinkContainer{m_result.triangle_grid};
+        // need to defer to a loader task
+        for (auto & link : m_result.triangle_grid.elements()) {
+            callbacks.add(link);
+        }
+        for (auto & ent : m_result.entities) {
+            callbacks.add(ent);
+        }
     }
 
     FinishedLoader finish() {
         link_triangles(m_result.triangle_grid);
+        // need to link neighbors together?
+        // you can't, at least here
         return std::move(m_result);
     }
 
@@ -204,8 +219,10 @@ private:
 void MapRegionContainerN::refresh_or_load_
     (const Vector2I & r, const LoaderCallback & f)
 {
-    if (auto * ptr = find(r))
-        { return; }
+    if (auto * ptr = find(r)) {
+        ptr->keep_on_refresh = true;
+        return;
+    }
 
     LoaderImpl impl{r};
     f(impl);

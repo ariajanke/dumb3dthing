@@ -60,6 +60,7 @@ private:
 
 class RegionLoadRequest;
 class MapRegionContainerN;
+class RegionLoadCollectorN;
 
 class MapRegionN {
 public:

@@ -89,10 +89,13 @@ void TiledMapRegionN::process_load_request
     (const RegionLoadRequest & request, const Vector2I & offset,
      MapRegionContainerN & container, TaskCallbacks & callbacks)
 {
+    // reminder: tiles are laid out eastward (not westward)
+    //           it's assumed that bottom-top interpretation of a tiled map is
+    //           not comfortable (and therefore top-down)
     auto step = region_load_step(m_producables_view_grid, request);
+    auto subgrid_size = cul::convert_to<Size2I>(step);
     for (Vector2I r; r.x < m_producables_view_grid.width (); r.x += step.x) {
     for (          ; r.y < m_producables_view_grid.height(); r.y += step.y) {
-        auto subgrid_size = cul::convert_to<Size2I>(step);
         auto on_field_position = offset + r;
         bool overlaps_this_subregion =
             request.overlaps_with(RectangleI{on_field_position, subgrid_size});
@@ -106,6 +109,8 @@ void TiledMapRegionN::process_load_request
             // potentially leave open for objects
 
             collector.add_tiles(subgrid, callbacks.platform());
+            // need to add entities, and links
+            // need to link neighbors together
         });
     }}
 }
