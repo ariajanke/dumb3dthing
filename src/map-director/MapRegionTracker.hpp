@@ -57,10 +57,12 @@ public:
     using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
 
     virtual ~RegionLoadCollectorN() {}
-
+#   if 0
     // how do I isolate on a per region basis?
     // be it region geometry or other entities?
     virtual void add_tiles(const ProducableSubGrid &, Platform &) = 0;
+#   endif
+    virtual void add_tiles(const Vector2I & on_field_position, const ProducableSubGrid &) = 0;
 };
 
 class RegionCollectionLoaderN final : public LoaderTask {
@@ -86,6 +88,9 @@ public:
 
         refresh_or_load_(r, Impl{std::move(f)});
     }
+
+    bool has_region_at(const Vector2I & r) const
+        { return m_loaded_regions.find(r) != m_loaded_regions.end(); }
 
     void decay_regions(TaskCallbacks & callbacks) {
         for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {

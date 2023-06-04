@@ -162,7 +162,7 @@ struct FinishedLoader final {
     std::vector<Entity> entities;
     ViewGridTriangle triangle_grid;
 };
-
+#if 0
 class LoaderImpl final : public RegionLoadCollectorN {
 public:
     explicit LoaderImpl(Vector2I offset):
@@ -214,7 +214,7 @@ private:
     Vector2I m_offset;
     Platform * m_platform = nullptr;
 };
-
+#endif
 
 void MapRegionContainerN::refresh_or_load_
     (const Vector2I & r, const LoaderCallback & f)
