@@ -59,6 +59,89 @@ private:
 
 void link_triangles(EntityAndLinkInsertingAdder::ViewGridTriangle &);
 
+struct RegionEntry final {
+    using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
+
+    Vector2I position;
+    ProducableSubGrid subgrid;
+};
+
+class MapObjectsLoaderTask final : public LoaderTask {
+public:
+    MapObjectsLoaderTask
+        (std::vector<RegionEntry> && entries, MapRegionContainerN & container):
+        m_entries(std::move(entries)), m_container(container) {}
+
+    void operator () (LoaderTask::Callbacks & callbacks) const final {
+        for (auto & entry : m_entries) process_entry(entry, callbacks);
+    }
+
+private:
+    void process_entry
+        (const RegionEntry & entry, LoaderTask::Callbacks & callbacks) const
+    {
+        const auto & producables = entry.subgrid;
+        const auto offset = entry.position;
+        EntityAndLinkInsertingAdder triangle_entities_adder{producables.size2()};
+        for (auto & producables_view : producables) {
+            for (auto producable : producables_view) {
+                if (!producable) continue;
+                // defer this off to a loader task? yes I think so
+                (*producable)(offset, triangle_entities_adder, callbacks.platform());
+            }
+            triangle_entities_adder.advance_grid_position();
+        }
+        // need to add entities, and links
+        // ...
+
+        auto triangle_grid = triangle_entities_adder.finish_triangle_grid();
+        auto entities = triangle_entities_adder.move_out_entities();
+        InterTriangleLinkContainer link_edge_container{triangle_grid};
+        // need to defer to a loader task
+        for (auto & link : triangle_grid.elements()) {
+            callbacks.add(link);
+        }
+        for (auto & ent : entities) {
+            callbacks.add(ent);
+        }
+
+        // link triangles within region
+        link_triangles(triangle_grid);
+        // link to neighbors by container
+        // I don't know what the neighbors are here
+        m_container.set_region(offset, triangle_grid, std::move(entities));
+    }
+
+    std::vector<RegionEntry> m_entries;
+    MapRegionContainerN & m_container;
+};
+
+class RegionLoadCollectorComplete final : public RegionLoadCollectorN {
+public:
+    explicit RegionLoadCollectorComplete(MapRegionContainerN & container_):
+        m_container(container_) {}
+
+    void add_tiles
+        (const Vector2I & on_field_position, const ProducableSubGrid & subgrid)
+    {
+        if (m_container.has_region_at(on_field_position))
+            return;
+        RegionEntry entry;
+        entry.position = on_field_position;
+        entry.subgrid = subgrid;
+        m_entries.push_back(entry);
+    }
+
+    SharedPtr<LoaderTask> finish() {
+        if (m_entries.empty()) return nullptr;
+        return make_shared<MapObjectsLoaderTask>(std::move(m_entries), m_container);
+    }
+
+private:
+    std::vector<RegionEntry> m_entries;
+    MapRegionContainerN & m_container;
+};
+
 } // end of <anonymous> namespace
 
 void MapRegionContainer::on_complete
@@ -149,9 +232,10 @@ void MapRegionTracker::frame_hit
     // make a collector here
     // finish by creating a single loader task, then add it
 
+    RegionLoadCollectorComplete collector{m_container_n};
     m_container_n.decay_regions(callbacks);
-    m_root_region_n->process_load_request
-        (request, Vector2I{}, m_container_n, callbacks);
+    m_root_region_n->process_load_request(request, Vector2I{}, collector);
+    callbacks.add(collector.finish());
 }
 
 // ----------------------------------------------------------------------------
@@ -215,7 +299,7 @@ private:
     Platform * m_platform = nullptr;
 };
 #endif
-
+#if 0
 void MapRegionContainerN::refresh_or_load_
     (const Vector2I & r, const LoaderCallback & f)
 {
@@ -235,7 +319,7 @@ void MapRegionContainerN::refresh_or_load_
     region.link_edge_container = std::move(res.link_edge_container);
     region.keep_on_refresh = true;
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
 namespace {

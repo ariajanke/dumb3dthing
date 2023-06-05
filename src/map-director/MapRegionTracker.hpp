@@ -73,6 +73,8 @@ public:
 
 class MapRegionContainerN final {
 public:
+    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
+#   if 0
     template <typename Func>
     void refresh_or_load(const Vector2I & r, Func && f) {
         class Impl final : public LoaderCallback {
@@ -88,7 +90,7 @@ public:
 
         refresh_or_load_(r, Impl{std::move(f)});
     }
-
+#   endif
     bool has_region_at(const Vector2I & r) const
         { return m_loaded_regions.find(r) != m_loaded_regions.end(); }
 
@@ -105,13 +107,27 @@ public:
         }
     }
 
+    void set_region(const Vector2I & on_field_position,
+                    const ViewGridTriangle & triangle_grid,
+                    std::vector<Entity> && entities)
+    {
+        auto * region = find(on_field_position);
+        if (!region) {
+            region = &m_loaded_regions[on_field_position];
+        }
+        region->teardown = std::make_shared<TeardownTask>
+            (std::move(entities), triangle_grid.elements());
+        region->keep_on_refresh = true;
+        region->link_edge_container = InterTriangleLinkContainer{triangle_grid};
+    }
+
 private:
     struct LoadedMapRegion {
         InterTriangleLinkContainer link_edge_container;
         SharedPtr<TeardownTask> teardown;
         bool keep_on_refresh = true;
     };
-
+#   if 0
     class LoaderCallback {
     public:
         virtual ~LoaderCallback() {}
@@ -120,7 +136,7 @@ private:
     };
 
     void refresh_or_load_(const Vector2I &, const LoaderCallback &);
-
+#   endif
     using LoadedRegionMap = std::unordered_map
         <Vector2I, LoadedMapRegion, Vector2IHasher>;
 

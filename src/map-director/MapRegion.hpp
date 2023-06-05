@@ -68,7 +68,10 @@ public:
 
     virtual void process_load_request
         (const RegionLoadRequest &, const Vector2I & spawn_offset,
+         RegionLoadCollectorN &) = 0;
+#       if 0
          MapRegionContainerN &, TaskCallbacks &) = 0;
+#       endif
 };
 
 class TiledMapRegionN final : public MapRegionN {
@@ -77,7 +80,7 @@ public:
 
     void process_load_request
         (const RegionLoadRequest &, const Vector2I & spawn_offset,
-         MapRegionContainerN &, TaskCallbacks &) final;
+         RegionLoadCollectorN &) final;
 
 private:
     ProducableTileViewGrid m_producables_view_grid;

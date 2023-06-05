@@ -87,7 +87,7 @@ TiledMapRegionN::TiledMapRegionN(ProducableTileViewGrid && full_factory_grid):
 
 void TiledMapRegionN::process_load_request
     (const RegionLoadRequest & request, const Vector2I & offset,
-     MapRegionContainerN & container, TaskCallbacks & callbacks)
+     RegionLoadCollectorN & collector)
 {
     // reminder: tiles are laid out eastward (not westward)
     //           it's assumed that bottom-top interpretation of a tiled map is
@@ -101,13 +101,15 @@ void TiledMapRegionN::process_load_request
         // | the subgrid to the loader
         // | This way objects crossing region boundries can be handled more
         // v easily
+#       if 0
         if (container.has_region_at(on_field_position))
             continue; // no need to add to collector
+#       endif
         bool overlaps_this_subregion =
             request.overlaps_with(RectangleI{on_field_position, subgrid_size});
         if (!overlaps_this_subregion) continue;
         auto subgrid = m_producables_view_grid.make_subgrid(RectangleI{r, subgrid_size});
-
+        collector.add_tiles(on_field_position, subgrid);
         // add to collector
 #       if 0
         container.refresh_or_load(on_field_position,
