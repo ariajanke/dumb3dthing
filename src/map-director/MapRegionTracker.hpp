@@ -21,6 +21,7 @@
 #pragma once
 
 #include "MapRegion.hpp"
+#include "RegionLoadRequest.hpp"
 
 #include <unordered_map>
 
@@ -57,11 +58,7 @@ public:
     using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
 
     virtual ~RegionLoadCollectorN() {}
-#   if 0
-    // how do I isolate on a per region basis?
-    // be it region geometry or other entities?
-    virtual void add_tiles(const ProducableSubGrid &, Platform &) = 0;
-#   endif
+
     virtual void add_tiles(const Vector2I & on_field_position, const ProducableSubGrid &) = 0;
 };
 
@@ -74,33 +71,32 @@ public:
 class MapRegionContainerN final {
 public:
     using ViewGridTriangle = TeardownTask::ViewGridTriangle;
-#   if 0
-    template <typename Func>
-    void refresh_or_load(const Vector2I & r, Func && f) {
-        class Impl final : public LoaderCallback {
-        public:
-            Impl(Func && f_): m_f(std::move(f_)) {}
 
-            void operator () (RegionLoadCollectorN & loader) const
-                { m_f(loader); }
+    class RegionRefresh final {
+    public:
+        explicit RegionRefresh(bool & flag):
+            m_flag(flag) {}
 
-        private:
-            Func m_f;
-        };
+        void keep_this_frame() { m_flag = true; }
 
-        refresh_or_load_(r, Impl{std::move(f)});
+    private:
+        bool & m_flag;
+    };
+
+    Optional<RegionRefresh> region_refresh_at(const Vector2I & r) {
+        auto itr = m_loaded_regions.find(r);
+        if (itr == m_loaded_regions.end()) return {};
+        return RegionRefresh{itr->second.keep_on_refresh};
     }
-#   endif
-    bool has_region_at(const Vector2I & r) const
-        { return m_loaded_regions.find(r) != m_loaded_regions.end(); }
 
-    void decay_regions(TaskCallbacks & callbacks) {
+    void decay_regions(const RegionLoadRequest & TEMP_request, TaskCallbacks & callbacks) {
         for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
             if (itr->second.keep_on_refresh) {
                 itr->second.keep_on_refresh = false;
                 ++itr;
             } else {
                 // teardown task handles removal of entities and physical triangles
+                auto res = TEMP_request.overlaps_with(RectangleI{0, 0, 10, 10});
                 callbacks.add(itr->second.teardown);
                 itr = m_loaded_regions.erase(itr);
             }
@@ -127,16 +123,7 @@ private:
         SharedPtr<TeardownTask> teardown;
         bool keep_on_refresh = true;
     };
-#   if 0
-    class LoaderCallback {
-    public:
-        virtual ~LoaderCallback() {}
 
-        virtual void operator () (RegionLoadCollectorN &) const = 0;
-    };
-
-    void refresh_or_load_(const Vector2I &, const LoaderCallback &);
-#   endif
     using LoadedRegionMap = std::unordered_map
         <Vector2I, LoadedMapRegion, Vector2IHasher>;
 

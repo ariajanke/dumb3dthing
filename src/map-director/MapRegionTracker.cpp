@@ -124,8 +124,11 @@ public:
     void add_tiles
         (const Vector2I & on_field_position, const ProducableSubGrid & subgrid)
     {
-        if (m_container.has_region_at(on_field_position))
+        if (auto refresh = m_container.region_refresh_at(on_field_position)) {
+            refresh->keep_this_frame();
             return;
+        }
+
         RegionEntry entry;
         entry.position = on_field_position;
         entry.subgrid = subgrid;
@@ -229,12 +232,12 @@ void MapRegionTracker::frame_hit
     (const RegionLoadRequest & request, TaskCallbacks & callbacks)
 {
     if (!m_root_region_n) return;
-    // make a collector here
-    // finish by creating a single loader task, then add it
+    // need another container type for links
+    // need to figure out why region is being unloaded when not called for
 
     RegionLoadCollectorComplete collector{m_container_n};
-    m_container_n.decay_regions(callbacks);
     m_root_region_n->process_load_request(request, Vector2I{}, collector);
+    m_container_n.decay_regions(request, callbacks);
     callbacks.add(collector.finish());
 }
 
@@ -246,80 +249,7 @@ struct FinishedLoader final {
     std::vector<Entity> entities;
     ViewGridTriangle triangle_grid;
 };
-#if 0
-class LoaderImpl final : public RegionLoadCollectorN {
-public:
-    explicit LoaderImpl(Vector2I offset):
-        m_offset(offset) {}
 
-    // should enforce this to not be called more than once?
-    void add_tiles(const ProducableSubGrid & producables, Platform & platform_) final {
-        EntityAndLinkInsertingAdder triangle_entities_adder{producables.size2()};
-        for (auto & producables_view : producables) {
-            for (auto producable : producables_view) {
-                if (!producable) continue;
-                // defer this off to a loader task? yes I think so
-                (*producable)(m_offset, triangle_entities_adder, platform_);
-            }
-            triangle_entities_adder.advance_grid_position();
-        }
-        // need to add entities, and links
-        // ...
-
-        m_result.triangle_grid = triangle_entities_adder.finish_triangle_grid();
-        m_result.entities = triangle_entities_adder.move_out_entities();
-        m_result.link_edge_container =
-            InterTriangleLinkContainer{m_result.triangle_grid};
-        // need to defer to a loader task
-        for (auto & link : m_result.triangle_grid.elements()) {
-            callbacks.add(link);
-        }
-        for (auto & ent : m_result.entities) {
-            callbacks.add(ent);
-        }
-    }
-
-    FinishedLoader finish() {
-        link_triangles(m_result.triangle_grid);
-        // need to link neighbors together?
-        // you can't, at least here
-        return std::move(m_result);
-    }
-
-private:
-    Platform & platform() {
-        using namespace cul::exceptions_abbr;
-        if (m_platform) return *m_platform;
-        throw RtError{"RegionLoadCollector::add_tiles: intialized without a "
-                      "platform"};
-    }
-
-    FinishedLoader m_result;
-    Vector2I m_offset;
-    Platform * m_platform = nullptr;
-};
-#endif
-#if 0
-void MapRegionContainerN::refresh_or_load_
-    (const Vector2I & r, const LoaderCallback & f)
-{
-    if (auto * ptr = find(r)) {
-        ptr->keep_on_refresh = true;
-        return;
-    }
-
-    LoaderImpl impl{r};
-    f(impl);
-
-    auto & region = m_loaded_regions[r];
-    auto res = impl.finish();
-
-    region.teardown = make_shared<TeardownTask>
-        (std::move(res.entities), res.triangle_grid.elements());
-    region.link_edge_container = std::move(res.link_edge_container);
-    region.keep_on_refresh = true;
-}
-#endif
 // ----------------------------------------------------------------------------
 
 namespace {

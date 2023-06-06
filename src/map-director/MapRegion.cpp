@@ -97,40 +97,13 @@ void TiledMapRegionN::process_load_request
     for (Vector2I r; r.x < m_producables_view_grid.width (); r.x += step.x) {
     for (          ; r.y < m_producables_view_grid.height(); r.y += step.y) {
         auto on_field_position = offset + r;
-        // | eff this, have collector decide weather to ultimately add
-        // | the subgrid to the loader
-        // | This way objects crossing region boundries can be handled more
-        // v easily
-#       if 0
-        if (container.has_region_at(on_field_position))
-            continue; // no need to add to collector
-#       endif
         bool overlaps_this_subregion =
             request.overlaps_with(RectangleI{on_field_position, subgrid_size});
         if (!overlaps_this_subregion) continue;
         auto subgrid = m_producables_view_grid.make_subgrid(RectangleI{r, subgrid_size});
         collector.add_tiles(on_field_position, subgrid);
-        // add to collector
-#       if 0
-        container.refresh_or_load(on_field_position,
-            [subgrid, &callbacks] (RegionLoadCollectorN & collector)
-        {
-            // range <- m_producables_view_grid
-            // provide range to some kind of queue passed to this callback
-            // potentially leave open for objects
-
-            collector.add_tiles(subgrid, callbacks.platform());
-            // need to add entities, and links
-            // need to link neighbors together
-        });
-#       endif
     }}
 }
-
-
-// ----------------------------------------------------------------------------
-
-
 
 // ----------------------------------------------------------------------------
 

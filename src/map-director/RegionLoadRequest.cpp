@@ -119,9 +119,7 @@ RegionLoadRequest::RegionLoadRequest
 
 bool RegionLoadRequest::overlaps_with(const RectangleI & tile_rectangle) const {
     // between reals and integers...
-    cul::Rectangle<Real> tile_bounds
-        {Real(tile_rectangle.left), Real(tile_rectangle.top),
-         Real(tile_rectangle.width + 1), Real(tile_rectangle.height + 1)};
+    cul::Rectangle<Real> tile_bounds{tile_rectangle};
     RectanglePoints tile_bounds_pts{tile_bounds};
     // my other solution maybe much more complicated... :c
     // it doesn't mean it can't be attempted
@@ -137,7 +135,7 @@ bool RegionLoadRequest::has_any_intersecting_lines_with
     auto triangle_lines = {
         make_tuple(m_pt_a, m_pt_b),
         make_tuple(m_pt_b, m_pt_c),
-        make_tuple(m_pt_b, m_pt_c)
+        make_tuple(m_pt_c, m_pt_a)
     };
     auto rectangle_lines = {
         make_tuple(rect.top_left    (), rect.top_right   ()),
