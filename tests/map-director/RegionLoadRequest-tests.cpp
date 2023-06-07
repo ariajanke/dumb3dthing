@@ -85,31 +85,53 @@ describe<RegionLoadRequestFindTriangle>("RegionLoadRequest::find_triangle")([] {
     });
 });
 
-struct RegionLoadRequestOverlapsWith final {};
+struct RegionLoadRequestOverlapsWithFieldRectangle final {};
 
 // needs more thorough testing for overlaps
-describe<RegionLoadRequestOverlapsWith>("RegionLoadRequest::overlaps_with")([] {
+describe<RegionLoadRequestOverlapsWithFieldRectangle>
+    ("RegionLoadRequest::overlaps_with_field_rectangle")([]
+{
+    using Rectangle = cul::Rectangle<Real>;
     mark_it("overlaps with triangle nested inside", [] {
         RegionLoadRequest request{Vector2{1, 1}, Vector2{2, 1}, Vector2{1, 2}, Size2I{}};
-        return test_that(request.overlaps_with(RectangleI{0, 0, 3, 3}));
+        return test_that(request.overlaps_with_field_rectangle(Rectangle{0, 0, 3, 3}));
     }).
     mark_it("overlaps with rectangle nested inside", [] {
         RegionLoadRequest request{Vector2{0, 0}, Vector2{6, 0}, Vector2{0, 6}, Size2I{}};
-        return test_that(request.overlaps_with(RectangleI{1, 1, 1, 1}));
+        return test_that(request.overlaps_with_field_rectangle(Rectangle{1, 1, 1, 1}));
     }).
     mark_it("overlaps with only intersections", [] {
         RegionLoadRequest request{Vector2{1, -1}, Vector2{-1, 1}, Vector2{3, 1}, Size2I{}};
-        return test_that(request.overlaps_with(RectangleI{0, 0, 2, 2}));
+        return test_that(request.overlaps_with_field_rectangle(Rectangle{0, 0, 2, 2}));
     }).
     mark_it("does not overlap otherwise", [] {
         RegionLoadRequest request{Vector2{-1, -1}, Vector2{0, -1}, Vector2{-1, 0}, Size2I{}};
-        return test_that(!request.overlaps_with(RectangleI{0, 0, 1, 1}));
+        return test_that(!request.overlaps_with_field_rectangle(Rectangle{0, 0, 1, 1}));
     }).
     mark_it("checks against a forgotten (caught after) triangle line", [] {
         RegionLoadRequest request{Vector2{-0.265199661,  -2.96625638},
                                   Vector2{10.0311489  , -10.736001  },
                                   Vector2{10.0311489  ,   4.80348873}, Size2I{}};
+        return test_that(request.overlaps_with_field_rectangle(Rectangle{0, 0, 10, 10}));
+    });
+});
+
+struct RegionLoadRequestOverlapsWith final {};
+
+describe<RegionLoadRequestOverlapsWith>("RegionLoadRequest::overlaps_with").
+    depends_on<RegionLoadRequestOverlapsWithFieldRectangle>()([]
+{
+    mark_it("adjusts given rectangle to detect overlap", [] {
+        RegionLoadRequest request{Vector2{0.4, 0.4},
+                                  Vector2{1.4, 0.4},
+                                  Vector2{0.4,   0}, Size2I{}};
         return test_that(request.overlaps_with(RectangleI{0, 0, 10, 10}));
+    }).
+    mark_it("adjusts given rectangle to detect non overlap", [] {
+        RegionLoadRequest request{Vector2{0, 0.6},
+                                  Vector2{1, 0.6},
+                                  Vector2{1, 1  }, Size2I{}};
+        return test_that(!request.overlaps_with(RectangleI{0, 0, 10, 10}));
     });
 });
 

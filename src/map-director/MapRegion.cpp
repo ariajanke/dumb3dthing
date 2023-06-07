@@ -101,7 +101,7 @@ void TiledMapRegionN::process_load_request
             request.overlaps_with(RectangleI{on_field_position, subgrid_size});
         if (!overlaps_this_subregion) continue;
         auto subgrid = m_producables_view_grid.make_subgrid(RectangleI{r, subgrid_size});
-        collector.add_tiles(on_field_position, subgrid);
+        collector.add_tiles(on_field_position, offset, subgrid);
     }}
 }
 

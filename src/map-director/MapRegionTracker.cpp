@@ -62,7 +62,8 @@ void link_triangles(EntityAndLinkInsertingAdder::ViewGridTriangle &);
 struct RegionEntry final {
     using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
 
-    Vector2I position;
+    Vector2I on_field_position;
+    Vector2I maps_offset;
     ProducableSubGrid subgrid;
 };
 
@@ -81,13 +82,14 @@ private:
         (const RegionEntry & entry, LoaderTask::Callbacks & callbacks) const
     {
         const auto & producables = entry.subgrid;
-        const auto offset = entry.position;
         EntityAndLinkInsertingAdder triangle_entities_adder{producables.size2()};
         for (auto & producables_view : producables) {
             for (auto producable : producables_view) {
                 if (!producable) continue;
-                // defer this off to a loader task? yes I think so
-                (*producable)(offset, triangle_entities_adder, callbacks.platform());
+                // producables need a map offset, not a region offset!
+                auto offset = entry.maps_offset;
+                auto & platform = callbacks.platform();
+                (*producable)(offset, triangle_entities_adder, platform);
             }
             triangle_entities_adder.advance_grid_position();
         }
@@ -109,7 +111,8 @@ private:
         link_triangles(triangle_grid);
         // link to neighbors by container
         // I don't know what the neighbors are here
-        m_container.set_region(offset, triangle_grid, std::move(entities));
+        m_container.set_region(entry.on_field_position, triangle_grid,
+                               std::move(entities));
     }
 
     std::vector<RegionEntry> m_entries;
@@ -121,8 +124,11 @@ public:
     explicit RegionLoadCollectorComplete(MapRegionContainerN & container_):
         m_container(container_) {}
 
+    // change around params s.t. I know how to make the subgrid and that
+    // subgrid's position on the overall map
     void add_tiles
-        (const Vector2I & on_field_position, const ProducableSubGrid & subgrid)
+        (const Vector2I & on_field_position, const Vector2I & maps_offset,
+         const ProducableSubGrid & subgrid)
     {
         if (auto refresh = m_container.region_refresh_at(on_field_position)) {
             refresh->keep_this_frame();
@@ -130,7 +136,8 @@ public:
         }
 
         RegionEntry entry;
-        entry.position = on_field_position;
+        entry.on_field_position = on_field_position;
+        entry.maps_offset = maps_offset;
         entry.subgrid = subgrid;
         m_entries.push_back(entry);
     }
@@ -237,7 +244,7 @@ void MapRegionTracker::frame_hit
 
     RegionLoadCollectorComplete collector{m_container_n};
     m_root_region_n->process_load_request(request, Vector2I{}, collector);
-    m_container_n.decay_regions(request, callbacks);
+    m_container_n.decay_regions(callbacks);
     callbacks.add(collector.finish());
 }
 

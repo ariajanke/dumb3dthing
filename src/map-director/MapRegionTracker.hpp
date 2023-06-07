@@ -24,6 +24,7 @@
 #include "RegionLoadRequest.hpp"
 
 #include <unordered_map>
+#include <iostream>
 
 class MapRegionContainer final : public GridMapRegionCompleter {
 public:
@@ -59,7 +60,9 @@ public:
 
     virtual ~RegionLoadCollectorN() {}
 
-    virtual void add_tiles(const Vector2I & on_field_position, const ProducableSubGrid &) = 0;
+    virtual void add_tiles
+        (const Vector2I & on_field_position,
+         const Vector2I & maps_offset, const ProducableSubGrid &) = 0;
 };
 
 class RegionCollectionLoaderN final : public LoaderTask {
@@ -89,14 +92,13 @@ public:
         return RegionRefresh{itr->second.keep_on_refresh};
     }
 
-    void decay_regions(const RegionLoadRequest & TEMP_request, TaskCallbacks & callbacks) {
+    void decay_regions(TaskCallbacks & callbacks) {
         for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
             if (itr->second.keep_on_refresh) {
                 itr->second.keep_on_refresh = false;
                 ++itr;
             } else {
                 // teardown task handles removal of entities and physical triangles
-                auto res = TEMP_request.overlaps_with(RectangleI{0, 0, 10, 10});
                 callbacks.add(itr->second.teardown);
                 itr = m_loaded_regions.erase(itr);
             }
@@ -107,6 +109,7 @@ public:
                     const ViewGridTriangle & triangle_grid,
                     std::vector<Entity> && entities)
     {
+        // y's are fine, loading x-ways not so
         auto * region = find(on_field_position);
         if (!region) {
             region = &m_loaded_regions[on_field_position];

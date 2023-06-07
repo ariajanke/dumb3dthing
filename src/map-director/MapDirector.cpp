@@ -78,11 +78,10 @@ void MapDirector::on_every_frame
             return {};
         return normalize(camera.target - camera.position);
     } ();
+    auto player_position = point_and_plane::location_of(physics_ent.get<PpState>());
+    auto player_velocity = physics_ent.get<Velocity>().value;
     auto request = RegionLoadRequest::find
-        (point_and_plane::location_of(physics_ent.get<PpState>()),
-         facing,
-         physics_ent.get<Velocity>().value,
-         MapRegion::k_temp_region_size);
+        (player_position, facing, player_velocity, MapRegion::k_temp_region_size);
     m_region_tracker->frame_hit(request, callbacks);
 }
 

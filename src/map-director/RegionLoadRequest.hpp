@@ -50,6 +50,9 @@ public:
         (const Vector & player_position, const Optional<Vector> & player_facing,
          const Vector & player_velocity);
 
+    static cul::Rectangle<Real> to_on_field_rectangle
+        (const RectangleI & tile_rectangle);
+
     // cul issue 5
     static bool are_intersecting_lines
         (const Vector2 & a_first, const Vector2 & a_second,
@@ -63,13 +66,8 @@ public:
 
     bool overlaps_with(const RectangleI & tile_rectangle) const;
 
-    bool has_any_intersecting_lines_with(const RectanglePoints &) const;
-
-    bool contains_any_points_of(const RectanglePoints &) const;
-
-    bool contains_point(const Vector2 &) const;
-
-    bool any_point_is_contained_in(const cul::Rectangle<Real> &) const;
+    bool overlaps_with_field_rectangle
+        (const cul::Rectangle<Real> & field_rectangle) const;
 
     Size2I max_region_size() const { return m_max_size; }
 
@@ -77,6 +75,14 @@ private:
     static cul::Rectangle<Real> bounds_for
         (const Vector2 & triangle_a, const Vector2 & triangle_b,
          const Vector2 & triangle_c);
+
+    bool has_any_intersecting_lines_with(const RectanglePoints &) const;
+
+    bool contains_any_points_of(const RectanglePoints &) const;
+
+    bool contains_point(const Vector2 &) const;
+
+    bool any_point_is_contained_in(const cul::Rectangle<Real> &) const;
 
     cul::Rectangle<Real> m_triangle_bounds;
     Vector2 m_pt_a;

@@ -54,6 +54,7 @@ RegionLoadRequest::RegionLoadRequest
     m_max_size(max_region_size)
 {}
 
+// maybe micro-optimization: it maybe better to adjust the player's data
 /* static */ RegionLoadRequest RegionLoadRequest::find
     (const Vector & player_position, const Optional<Vector> & player_facing,
      const Vector & player_velocity, Size2I max_region_size)
@@ -117,16 +118,37 @@ RegionLoadRequest::RegionLoadRequest
     return true;
 }
 
-bool RegionLoadRequest::overlaps_with(const RectangleI & tile_rectangle) const {
-    // between reals and integers...
-    cul::Rectangle<Real> tile_bounds{tile_rectangle};
-    RectanglePoints tile_bounds_pts{tile_bounds};
+/* static */ cul::Rectangle<Real> RegionLoadRequest::to_on_field_rectangle
+    (const RectangleI & tile_rectangle)
+{
+    // grid position 0, 0 -> -0.5, y,  0.5
+    //               1, 1 ->  0.5, y, -0.5
+    //               2, 2 ->  1.5, y, -1.5
+    auto flip = [] (const Vector2I & r) { return Vector2{r.x, -r.y}; };
+    auto bottom_left =
+        flip(cul::top_left_of(tile_rectangle)) + Vector2{-0.5, 0.5};
+    auto top_left = bottom_left - Vector2{0, tile_rectangle.height};
+    auto size = cul::convert_to<cul::Size2<Real>>(cul::size_of(tile_rectangle));
+    return cul::Rectangle<Real>{top_left, size};
+}
+
+bool RegionLoadRequest::overlaps_with
+    (const RectangleI & tile_rectangle) const
+{
+    auto field_rectangle = to_on_field_rectangle(tile_rectangle);
+    return overlaps_with_field_rectangle(field_rectangle);
+}
+
+bool RegionLoadRequest::overlaps_with_field_rectangle
+    (const cul::Rectangle<Real> & field_rectangle) const
+{
+    RectanglePoints tile_bounds_pts{field_rectangle};
     // my other solution maybe much more complicated... :c
     // it doesn't mean it can't be attempted
     // 2023-6-3 1402 in notebook
     return has_any_intersecting_lines_with(tile_bounds_pts) ||
            contains_any_points_of(tile_bounds_pts) ||
-           any_point_is_contained_in(tile_bounds);
+           any_point_is_contained_in(field_rectangle);
 }
 
 bool RegionLoadRequest::has_any_intersecting_lines_with
@@ -185,7 +207,7 @@ bool RegionLoadRequest::any_point_is_contained_in
 {
     Vector2 low { k_inf,  k_inf};
     Vector2 high{-k_inf, -k_inf};
-    for (auto pt : { triangle_a, triangle_b, triangle_c }) {
+    for (auto pt : std::array { triangle_a, triangle_b, triangle_c }) {
         using std::min, std::max;
         low .x = min(low.x , pt.x);
         low .y = min(low.y , pt.y);
