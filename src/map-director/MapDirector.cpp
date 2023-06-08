@@ -58,20 +58,7 @@ void MapDirector::on_every_frame
     if (!m_region_tracker->has_root_region()) return;
     // this may turn into its own class
     // there's just so much behavior potential here
-#   if 0
-    // good enough for now
-    using namespace point_and_plane;
-    auto & pstate = physics_ent.get<PpState>();
-    auto delta = physics_ent.has<Velocity>() ? physics_ent.get<Velocity>()*0.5 : Vector{};
-    for (auto pt : { location_of(pstate), location_of(pstate) + delta }) {
-        auto target_region = to_region_location(pt, MapRegion::k_temp_region_size);
-        m_region_tracker->frame_hit(target_region, callbacks);
-        for (auto offset : k_plus_shape_neighbor_offsets) {
-            m_region_tracker->frame_hit(offset + target_region, callbacks);
-        }
-    }
-    m_region_tracker->frame_refresh(callbacks);
-#   endif
+
     auto facing = [&physics_ent] () -> Optional<Vector> {
         auto & camera = physics_ent.get<Camera>();
         if (!are_very_close(camera.target, camera.position))
@@ -81,7 +68,7 @@ void MapDirector::on_every_frame
     auto player_position = point_and_plane::location_of(physics_ent.get<PpState>());
     auto player_velocity = physics_ent.get<Velocity>().value;
     auto request = RegionLoadRequest::find
-        (player_position, facing, player_velocity, MapRegion::k_temp_region_size);
+        (player_position, facing, player_velocity);
     m_region_tracker->frame_hit(request, callbacks);
 }
 

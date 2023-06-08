@@ -24,34 +24,6 @@
 #include "RegionLoadRequest.hpp"
 
 #include <unordered_map>
-#include <iostream>
-
-class MapRegionContainer final : public GridMapRegionCompleter {
-public:
-    void on_complete
-        (const Vector2I & region_position,
-         InterTriangleLinkContainer && link_container,
-         SharedPtr<TeardownTask> && teardown_task) final;
-
-    void ensure_region_available(const Vector2I & r);
-
-    bool find_and_keep(const Vector2I & r);
-
-    void frame_refresh(TaskCallbacks & callbacks);
-
-private:
-    struct LoadedMapRegion {
-        InterTriangleLinkContainer link_edge_container;
-        SharedPtr<TeardownTask> teardown;
-        bool keep_on_refresh = true;
-    };
-    using LoadedRegionMap = std::unordered_map
-        <Vector2I, LoadedMapRegion, Vector2IHasher>;
-
-    LoadedMapRegion * find(const Vector2I & r);
-
-    LoadedRegionMap m_loaded_regions;
-};
 
 // This is just a set of callbacks, it does not collect across regions :/
 class RegionLoadCollectorN { // <- this is going on a loader task
@@ -63,12 +35,6 @@ public:
     virtual void add_tiles
         (const Vector2I & on_field_position,
          const Vector2I & maps_offset, const ProducableSubGrid &) = 0;
-};
-
-class RegionCollectionLoaderN final : public LoaderTask {
-public:
-
-    void operator () (Callbacks &) const final;
 };
 
 class MapRegionContainerN final {
@@ -148,28 +114,17 @@ class MapRegionTracker final {
 public:
     MapRegionTracker() {}
 
-    MapRegionTracker
-        (UniquePtr<MapRegion> && root_region,
-         const Size2I & region_size_in_tiles);
-
     explicit MapRegionTracker
         (UniquePtr<MapRegionN> && root_region):
         m_root_region_n(std::move(root_region)) {}
 
-    void frame_refresh(TaskCallbacks & callbacks);
-
-    void frame_hit(const Vector2I & global_region_location, TaskCallbacks & callbacks);
-
+    // should rename
     void frame_hit(const RegionLoadRequest &, TaskCallbacks & callbacks);
 
     bool has_root_region() const noexcept
-        { return !!m_root_region || m_root_region_n; }
+        { return !!m_root_region_n; }
 
 private:
-    MapRegionContainer m_loaded_regions;
-    UniquePtr<MapRegion> m_root_region;
-    Size2I m_region_size_in_tiles;
-
     MapRegionContainerN m_container_n;
     UniquePtr<MapRegionN> m_root_region_n;
 };
