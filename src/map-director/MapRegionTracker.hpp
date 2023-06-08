@@ -25,8 +25,7 @@
 
 #include <unordered_map>
 
-// This is just a set of callbacks, it does not collect across regions :/
-class RegionLoadCollector { // <- this is going on a loader task
+class RegionLoadCollector {
 public:
     using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
 
@@ -37,12 +36,19 @@ public:
          const Vector2I & maps_offset, const ProducableSubGrid &) = 0;
 };
 
-// here's a difficult problem
-// how should I like to link region triangles together?
-// this class is more of a refresh tracking thing
 class MapRegionContainer final {
 public:
     using ViewGridTriangle = TeardownTask::ViewGridTriangle;
+
+    struct TeardownTaskMaker {
+        using TriangleLinkView = TeardownTask::TriangleLinkView;
+
+        virtual ~TeardownTaskMaker() {}
+
+        virtual void add(const Vector2I & on_field_position,
+                         const Size2I & grid_size,
+                         std::vector<Entity> && entities) = 0;
+    };
 
     class RegionRefresh final {
     public:
@@ -55,47 +61,77 @@ public:
         bool & m_flag;
     };
 
-    Optional<RegionRefresh> region_refresh_at(const Vector2I & r) {
-        auto itr = m_loaded_regions.find(r);
+    Optional<RegionRefresh> region_refresh_at(const Vector2I & on_field_position) {
+        auto itr = m_loaded_regions.find(on_field_position);
         if (itr == m_loaded_regions.end()) return {};
         return RegionRefresh{itr->second.keep_on_refresh};
     }
 
+    // return decayed regions
+    // then make *a* single teardown task for it
+    // done
+#   if 0
     void decay_regions(TaskCallbacks & callbacks) {
         for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
             if (itr->second.keep_on_refresh) {
                 itr->second.keep_on_refresh = false;
                 ++itr;
             } else {
-                // teardown task handles removal of entities and physical triangles
                 callbacks.add(itr->second.teardown);
+                itr = m_loaded_regions.erase(itr);
+            }
+        }
+    }
+#   endif
+    void decay_regions(TeardownTaskMaker & teardown_maker) {
+        for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
+            if (itr->second.keep_on_refresh) {
+                itr->second.keep_on_refresh = false;
+                ++itr;
+            } else {
+                teardown_maker.add(itr->first, itr->second.region_size,
+                                   std::move(itr->second.entities));
                 itr = m_loaded_regions.erase(itr);
             }
         }
     }
 
     void set_region(const Vector2I & on_field_position,
+                    const Size2I & grid_size,
+#                   if 0
                     const ViewGridTriangle & triangle_grid,
+#                   endif
                     std::vector<Entity> && entities)
     {
-        // y's are fine, loading x-ways not so
         auto * region = find(on_field_position);
         if (!region) {
             region = &m_loaded_regions[on_field_position];
         }
+#       if 0
         region->teardown = std::make_shared<TeardownTask>
             (std::move(entities), triangle_grid.elements());
         region->keep_on_refresh = true;
         region->link_edge_container = InterTriangleLinkContainer{triangle_grid};
+#       endif
+        region->entities = std::move(entities);
+        region->region_size = grid_size;
+        region->keep_on_refresh = true;
     }
 
 private:
+#   if 0
     struct LoadedMapRegion {
         InterTriangleLinkContainer link_edge_container;
         SharedPtr<TeardownTask> teardown;
         bool keep_on_refresh = true;
     };
+#   endif
 
+    struct LoadedMapRegion {
+        Size2I region_size;
+        std::vector<Entity> entities;
+        bool keep_on_refresh = true;
+    };
     using LoadedRegionMap = std::unordered_map
         <Vector2I, LoadedMapRegion, Vector2IHasher>;
 
@@ -105,19 +141,6 @@ private:
     }
 
     LoadedRegionMap m_loaded_regions;
-};
-
-class InterRegionLinkContainer final {
-public:
-    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
-
-    void set_region(const Vector2I & on_field_position,
-                    const ViewGridTriangle & triangle_grid);
-
-    void glue_to_neighbors();
-
-    void remove_region(const Vector2I & on_field_position,
-                       const Size2I & grid_size);
 };
 
 class RegionLoadRequest;

@@ -28,6 +28,9 @@ namespace point_and_plane {
 // so triangles are then sorted along an arbitrary axis
 // I should like to chose a line wherein triangles are most widely and evenly
 // distrubuted to reduce load.
+//
+// class does too much
+// maybe top level it's like a controller
 class DriverComplete final : public Driver {
 public:
     void add_triangle(const SharedPtr<const TriangleLink> &) final;

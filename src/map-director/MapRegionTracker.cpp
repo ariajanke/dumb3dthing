@@ -112,10 +112,10 @@ private:
         link_triangles(triangle_grid);
         // link to neighbors by container
         // I don't know what the neighbors are here
-        m_container.set_region(entry.on_field_position, triangle_grid,
+        m_container.set_region(entry.on_field_position, triangle_grid.size2(),
                                std::move(entities));
         // accumulate things that address inter triangle link containers
-        // set_region on an instance of InterRegionLinkContainer
+        // add on an instance of RegionEdgeConnectionAdder
     }
 
     std::vector<RegionEntry> m_entries;
