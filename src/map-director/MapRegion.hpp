@@ -26,25 +26,25 @@
 class MapRegionPreparer;
 
 class RegionLoadRequest;
-class MapRegionContainerN;
-class RegionLoadCollectorN;
+class MapRegionContainer;
+class RegionLoadCollector;
 
-class MapRegionN {
+class MapRegion {
 public:
-    virtual ~MapRegionN() {}
+    virtual ~MapRegion() {}
 
     virtual void process_load_request
         (const RegionLoadRequest &, const Vector2I & spawn_offset,
-         RegionLoadCollectorN &) = 0;
+         RegionLoadCollector &) = 0;
 };
 
-class TiledMapRegionN final : public MapRegionN {
+class TiledMapRegion final : public MapRegion {
 public:
-    explicit TiledMapRegionN(ProducableTileViewGrid && full_factory_grid);
+    explicit TiledMapRegion(ProducableTileViewGrid && full_factory_grid);
 
     void process_load_request
         (const RegionLoadRequest &, const Vector2I & spawn_offset,
-         RegionLoadCollectorN &) final;
+         RegionLoadCollector &) final;
 
 private:
     ProducableTileViewGrid m_producables_view_grid;

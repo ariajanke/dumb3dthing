@@ -70,11 +70,12 @@ struct RegionEntry final {
 class MapObjectsLoaderTask final : public LoaderTask {
 public:
     MapObjectsLoaderTask
-        (std::vector<RegionEntry> && entries, MapRegionContainerN & container):
+        (std::vector<RegionEntry> && entries, MapRegionContainer & container):
         m_entries(std::move(entries)), m_container(container) {}
 
     void operator () (LoaderTask::Callbacks & callbacks) const final {
         for (auto & entry : m_entries) process_entry(entry, callbacks);
+        // glue_to_neighbors(?) on an instance of InterRegionLinkContainer
     }
 
 private:
@@ -113,15 +114,17 @@ private:
         // I don't know what the neighbors are here
         m_container.set_region(entry.on_field_position, triangle_grid,
                                std::move(entities));
+        // accumulate things that address inter triangle link containers
+        // set_region on an instance of InterRegionLinkContainer
     }
 
     std::vector<RegionEntry> m_entries;
-    MapRegionContainerN & m_container;
+    MapRegionContainer & m_container;
 };
 
-class RegionLoadCollectorComplete final : public RegionLoadCollectorN {
+class RegionLoadCollectorComplete final : public RegionLoadCollector {
 public:
-    explicit RegionLoadCollectorComplete(MapRegionContainerN & container_):
+    explicit RegionLoadCollectorComplete(MapRegionContainer & container_):
         m_container(container_) {}
 
     // change around params s.t. I know how to make the subgrid and that
@@ -149,7 +152,7 @@ public:
 
 private:
     std::vector<RegionEntry> m_entries;
-    MapRegionContainerN & m_container;
+    MapRegionContainer & m_container;
 };
 
 } // end of <anonymous> namespace

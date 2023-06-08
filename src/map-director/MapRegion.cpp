@@ -35,12 +35,12 @@ Vector2I region_load_step
 
 } // end of <anonymous> namespace
 
-TiledMapRegionN::TiledMapRegionN(ProducableTileViewGrid && full_factory_grid):
+TiledMapRegion::TiledMapRegion(ProducableTileViewGrid && full_factory_grid):
     m_producables_view_grid(std::move(full_factory_grid)) {}
 
-void TiledMapRegionN::process_load_request
+void TiledMapRegion::process_load_request
     (const RegionLoadRequest & request, const Vector2I & offset,
-     RegionLoadCollectorN & collector)
+     RegionLoadCollector & collector)
 {
     // reminder: tiles are laid out eastward (not westward)
     //           it's assumed that bottom-top interpretation of a tiled map is

@@ -42,7 +42,7 @@ class MapLoadingExpired;
 
 struct MapLoadingSuccess final {
     //ProducableTileViewGrid producables_view_grid;
-    UniquePtr<TiledMapRegionN> loaded_region;
+    UniquePtr<TiledMapRegion> loaded_region;
     MapLoadingWarnings warnings;
 };
 
@@ -86,16 +86,7 @@ protected:
     Platform & platform() const;
 
     MapLoadingWarningsAdder & warnings_adder() { return m_unfinished_warnings; }
-#   if 0
-    MapLoadingSuccess finish_map_loading(ProducableTileViewGrid && view_grid)
-    {
-        MapLoadingSuccess success;
-        // success.producables_view_grid = ;
-        success.loaded_region = make_unique<TiledMapRegion>(std::move(view_grid), MapRegion::k_temp_region_size);
-        success.warnings = m_unfinished_warnings.finish();
-        return success;
-    }
-#   endif
+
 private:
     void verify_shared_set() const;
 

@@ -26,18 +26,21 @@
 #include <unordered_map>
 
 // This is just a set of callbacks, it does not collect across regions :/
-class RegionLoadCollectorN { // <- this is going on a loader task
+class RegionLoadCollector { // <- this is going on a loader task
 public:
     using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
 
-    virtual ~RegionLoadCollectorN() {}
+    virtual ~RegionLoadCollector() {}
 
     virtual void add_tiles
         (const Vector2I & on_field_position,
          const Vector2I & maps_offset, const ProducableSubGrid &) = 0;
 };
 
-class MapRegionContainerN final {
+// here's a difficult problem
+// how should I like to link region triangles together?
+// this class is more of a refresh tracking thing
+class MapRegionContainer final {
 public:
     using ViewGridTriangle = TeardownTask::ViewGridTriangle;
 
@@ -104,6 +107,19 @@ private:
     LoadedRegionMap m_loaded_regions;
 };
 
+class InterRegionLinkContainer final {
+public:
+    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
+
+    void set_region(const Vector2I & on_field_position,
+                    const ViewGridTriangle & triangle_grid);
+
+    void glue_to_neighbors();
+
+    void remove_region(const Vector2I & on_field_position,
+                       const Size2I & grid_size);
+};
+
 class RegionLoadRequest;
 
 /// keeps track of already loaded map regions
@@ -115,7 +131,7 @@ public:
     MapRegionTracker() {}
 
     explicit MapRegionTracker
-        (UniquePtr<MapRegionN> && root_region):
+        (UniquePtr<MapRegion> && root_region):
         m_root_region_n(std::move(root_region)) {}
 
     // should rename
@@ -125,6 +141,6 @@ public:
         { return !!m_root_region_n; }
 
 private:
-    MapRegionContainerN m_container_n;
-    UniquePtr<MapRegionN> m_root_region_n;
+    MapRegionContainer m_container_n;
+    UniquePtr<MapRegion> m_root_region_n;
 };

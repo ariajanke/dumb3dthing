@@ -272,16 +272,8 @@ MapLoadResult TiledMapLoader::Ready::update_progress
     next_state.set_next_state<Expired>();
 
     MapLoadingSuccess success;
-    success.loaded_region = make_unique<TiledMapRegionN>
-        (unfinished_grid_view.finish(m_tidgid_translator));
-#   if 0
     success.loaded_region = make_unique<TiledMapRegion>
-        (unfinished_grid_view.finish(m_tidgid_translator),
-         MapRegion::k_temp_region_size);
-#   endif
-#   if 0
-    success.producables_view_grid = unfinished_grid_view.finish(m_tidgid_translator);
-#   endif
+        (unfinished_grid_view.finish(m_tidgid_translator));
     return success;
 }
 
