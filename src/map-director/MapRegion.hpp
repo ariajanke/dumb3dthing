@@ -20,14 +20,25 @@
 
 #pragma once
 
-#include "map-loader-helpers.hpp"
 #include "ProducableGrid.hpp"
+
+#include <unordered_map>
 
 class MapRegionPreparer;
 
 class RegionLoadRequest;
 class MapRegionContainer;
-class RegionLoadCollector;
+
+class RegionLoadCollectorBase {
+public:
+    using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
+
+    virtual ~RegionLoadCollectorBase() {}
+
+    virtual void add_tiles
+        (const Vector2I & on_field_position,
+         const Vector2I & maps_offset, const ProducableSubGrid &) = 0;
+};
 
 class MapRegion {
 public:
@@ -35,7 +46,7 @@ public:
 
     virtual void process_load_request
         (const RegionLoadRequest &, const Vector2I & spawn_offset,
-         RegionLoadCollector &) = 0;
+         RegionLoadCollectorBase &) = 0;
 };
 
 class TiledMapRegion final : public MapRegion {
@@ -44,8 +55,62 @@ public:
 
     void process_load_request
         (const RegionLoadRequest &, const Vector2I & spawn_offset,
-         RegionLoadCollector &) final;
+         RegionLoadCollectorBase &) final;
 
 private:
     ProducableTileViewGrid m_producables_view_grid;
+};
+
+struct Vector2IHasher final {
+    std::size_t operator () (const Vector2I & r) const {
+        using IntHash = std::hash<int>;
+        return IntHash{}(r.x) ^ IntHash{}(r.y);
+    }
+};
+
+class MapRegionContainer final {
+public:
+    using ViewGridTriangle =  ViewGrid<SharedPtr<TriangleLink>>;
+
+    struct RegionDecayAdder {
+        virtual ~RegionDecayAdder() {}
+
+        virtual void add(const Vector2I & on_field_position,
+                         const Size2I & grid_size,
+                         std::vector<SharedPtr<TriangleLink>> &&,
+                         std::vector<Entity> &&) = 0;
+    };
+
+    class RegionRefresh final {
+    public:
+        explicit RegionRefresh(bool & flag): m_flag(flag) {}
+
+        void keep_this_frame() { m_flag = true; }
+
+    private:
+        bool & m_flag;
+    };
+
+    Optional<RegionRefresh> region_refresh_at(const Vector2I & on_field_position);
+
+    void decay_regions(RegionDecayAdder &);
+
+    void set_region(const Vector2I & on_field_position,
+                    const ViewGridTriangle & triangle_grid,
+                    std::vector<Entity> && entities);
+
+private:
+    struct LoadedMapRegion {
+        Size2I region_size;
+        std::vector<Entity> entities;
+        std::vector<SharedPtr<TriangleLink>> triangle_links;
+        bool keep_on_refresh = true;
+    };
+
+    using LoadedRegionMap = std::unordered_map
+        <Vector2I, LoadedMapRegion, Vector2IHasher>;
+
+    LoadedMapRegion * find(const Vector2I &);
+
+    LoadedRegionMap m_loaded_regions;
 };

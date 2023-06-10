@@ -24,102 +24,7 @@
 #include "RegionLoadRequest.hpp"
 #include "RegionEdgeConnectionsContainer.hpp"
 
-#include <unordered_map>
-
-class RegionLoadCollector {
-public:
-    using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
-
-    virtual ~RegionLoadCollector() {}
-
-    virtual void add_tiles
-        (const Vector2I & on_field_position,
-         const Vector2I & maps_offset, const ProducableSubGrid &) = 0;
-};
-
-class MapRegionContainer final {
-public:
-    using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;
-
-    struct RegionDecayAdder {
-        using TriangleLinkView = RegionEdgeLinksContainer::ViewGridTriangle;
-
-        virtual ~RegionDecayAdder() {}
-
-        virtual void add(const Vector2I & on_field_position,
-                         const Size2I & grid_size,
-                         std::vector<SharedPtr<TriangleLink>> && triangle_links,
-                         std::vector<Entity> && entities) = 0;
-    };
-
-    class RegionRefresh final {
-    public:
-        explicit RegionRefresh(bool & flag):
-            m_flag(flag) {}
-
-        void keep_this_frame() { m_flag = true; }
-
-    private:
-        bool & m_flag;
-    };
-
-    Optional<RegionRefresh> region_refresh_at(const Vector2I & on_field_position) {
-        auto itr = m_loaded_regions.find(on_field_position);
-        if (itr == m_loaded_regions.end()) return {};
-        return RegionRefresh{itr->second.keep_on_refresh};
-    }
-
-    void decay_regions(RegionDecayAdder & teardown_maker) {
-        for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
-            if (itr->second.keep_on_refresh) {
-                itr->second.keep_on_refresh = false;
-                ++itr;
-            } else {
-                teardown_maker.add(itr->first, itr->second.region_size,
-                                   std::move(itr->second.triangle_links),
-                                   std::move(itr->second.entities));
-                itr = m_loaded_regions.erase(itr);
-            }
-        }
-    }
-
-    void set_region(const Vector2I & on_field_position,
-                    const ViewGridTriangle & triangle_grid,
-                    std::vector<Entity> && entities)
-    {
-        auto * region = find(on_field_position);
-        if (!region) {
-            region = &m_loaded_regions[on_field_position];
-        }
-
-        region->entities = std::move(entities);
-        region->region_size = triangle_grid.size2();
-        region->triangle_links.insert
-            (region->triangle_links.end(),
-             triangle_grid.elements().begin(),
-             triangle_grid.elements().end());
-        region->keep_on_refresh = true;
-    }
-
-private:
-    struct LoadedMapRegion {
-        Size2I region_size;
-        std::vector<Entity> entities;
-        std::vector<SharedPtr<TriangleLink>> triangle_links;
-        bool keep_on_refresh = true;
-    };
-
-    using LoadedRegionMap = std::unordered_map
-        <Vector2I, LoadedMapRegion, Vector2IHasher>;
-
-    LoadedMapRegion * find(const Vector2I & r) {
-        auto itr = m_loaded_regions.find(r);
-        return itr == m_loaded_regions.end() ? nullptr : &itr->second;
-    }
-
-    LoadedRegionMap m_loaded_regions;
-};
-
+class TaskCallbacks;
 class RegionLoadRequest;
 
 /// keeps track of already loaded map regions
@@ -135,7 +40,7 @@ public:
         m_root_region(std::move(root_region)) {}
 
     // should rename
-    void frame_hit(const RegionLoadRequest &, TaskCallbacks & callbacks);
+    void frame_hit(const RegionLoadRequest &, TaskCallbacks &);
 
     bool has_root_region() const noexcept
         { return !!m_root_region; }

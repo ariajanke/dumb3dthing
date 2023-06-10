@@ -29,6 +29,7 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
+using RegionRefresh = MapRegionContainer::RegionRefresh;
 
 Vector2I region_load_step
     (const ProducableTileViewGrid &, const RegionLoadRequest &);
@@ -40,7 +41,7 @@ TiledMapRegion::TiledMapRegion(ProducableTileViewGrid && full_factory_grid):
 
 void TiledMapRegion::process_load_request
     (const RegionLoadRequest & request, const Vector2I & offset,
-     RegionLoadCollector & collector)
+     RegionLoadCollectorBase & collector)
 {
     // reminder: tiles are laid out eastward (not westward)
     //           it's assumed that bottom-top interpretation of a tiled map is
@@ -56,6 +57,58 @@ void TiledMapRegion::process_load_request
         auto subgrid = m_producables_view_grid.make_subgrid(RectangleI{r, subgrid_size});
         collector.add_tiles(on_field_position, offset, subgrid);
     }}
+}
+
+// ----------------------------------------------------------------------------
+
+
+Optional<RegionRefresh> MapRegionContainer::region_refresh_at
+    (const Vector2I & on_field_position)
+{
+    auto itr = m_loaded_regions.find(on_field_position);
+    if (itr == m_loaded_regions.end()) return {};
+    return RegionRefresh{itr->second.keep_on_refresh};
+}
+
+void MapRegionContainer::decay_regions(RegionDecayAdder & decay_adder) {
+    for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
+        if (itr->second.keep_on_refresh) {
+            itr->second.keep_on_refresh = false;
+            ++itr;
+        } else {
+            decay_adder.add(itr->first,
+                            itr->second.region_size,
+                            std::move(itr->second.triangle_links),
+                            std::move(itr->second.entities));
+            itr = m_loaded_regions.erase(itr);
+        }
+    }
+}
+
+void MapRegionContainer::set_region
+    (const Vector2I & on_field_position,
+     const ViewGridTriangle & triangle_grid,
+     std::vector<Entity> && entities)
+{
+    auto * region = find(on_field_position);
+    if (!region) {
+        region = &m_loaded_regions[on_field_position];
+    }
+
+    region->entities = std::move(entities);
+    region->region_size = triangle_grid.size2();
+    region->triangle_links.insert
+        (region->triangle_links.end(),
+         triangle_grid.elements().begin(),
+         triangle_grid.elements().end());
+    region->keep_on_refresh = true;
+}
+
+/* private */ MapRegionContainer::LoadedMapRegion *
+    MapRegionContainer::find(const Vector2I & r)
+{
+    auto itr = m_loaded_regions.find(r);
+    return itr == m_loaded_regions.end() ? nullptr : &itr->second;
 }
 
 namespace {

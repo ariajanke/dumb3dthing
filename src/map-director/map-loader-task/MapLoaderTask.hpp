@@ -24,6 +24,8 @@
 
 #include "../MapRegionTracker.hpp"
 
+#include "../../Components.hpp"
+
 class MapLoaderTask final : public BackgroundTask {
 public:
     MapLoaderTask

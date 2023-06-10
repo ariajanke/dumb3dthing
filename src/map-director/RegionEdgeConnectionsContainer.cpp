@@ -20,6 +20,8 @@
 
 #include "RegionEdgeConnectionsContainer.hpp"
 
+#include "../TriangleLink.hpp"
+
 namespace {
 
 using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;

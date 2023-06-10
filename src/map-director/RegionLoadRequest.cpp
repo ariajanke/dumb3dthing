@@ -22,6 +22,8 @@
 
 #include "MapDirector.hpp"
 
+#include "../TriangleSegment.hpp"
+
 namespace {
 
 constexpr const auto k_bad_facing_msg =

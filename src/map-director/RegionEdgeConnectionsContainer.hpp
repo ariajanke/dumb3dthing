@@ -21,8 +21,7 @@
 #pragma once
 
 #include "../Defs.hpp"
-
-#include "map-loader-helpers.hpp"
+#include "MapRegion.hpp"
 
 enum class RegionSide { left, right, bottom, top };
 
@@ -60,7 +59,7 @@ private:
 /// container of triangle links, used to glue segment triangles together
 class RegionEdgeLinksContainer final {
 public:
-    using ViewGridTriangle = ViewGrid<SharedPtr<TriangleLink>>;
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
     RegionEdgeLinksContainer() {}
 
