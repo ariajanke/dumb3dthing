@@ -22,6 +22,7 @@
 
 #include "MapRegion.hpp"
 #include "RegionLoadRequest.hpp"
+#include "RegionEdgeConnectionsContainer.hpp"
 
 #include <unordered_map>
 
@@ -38,15 +39,16 @@ public:
 
 class MapRegionContainer final {
 public:
-    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
+    using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;
 
-    struct TeardownTaskMaker {
-        using TriangleLinkView = TeardownTask::TriangleLinkView;
+    struct RegionDecayAdder {
+        using TriangleLinkView = RegionEdgeLinksContainer::ViewGridTriangle;
 
-        virtual ~TeardownTaskMaker() {}
+        virtual ~RegionDecayAdder() {}
 
         virtual void add(const Vector2I & on_field_position,
                          const Size2I & grid_size,
+                         std::vector<SharedPtr<TriangleLink>> && triangle_links,
                          std::vector<Entity> && entities) = 0;
     };
 
@@ -67,29 +69,14 @@ public:
         return RegionRefresh{itr->second.keep_on_refresh};
     }
 
-    // return decayed regions
-    // then make *a* single teardown task for it
-    // done
-#   if 0
-    void decay_regions(TaskCallbacks & callbacks) {
-        for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
-            if (itr->second.keep_on_refresh) {
-                itr->second.keep_on_refresh = false;
-                ++itr;
-            } else {
-                callbacks.add(itr->second.teardown);
-                itr = m_loaded_regions.erase(itr);
-            }
-        }
-    }
-#   endif
-    void decay_regions(TeardownTaskMaker & teardown_maker) {
+    void decay_regions(RegionDecayAdder & teardown_maker) {
         for (auto itr = m_loaded_regions.begin(); itr != m_loaded_regions.end(); ) {
             if (itr->second.keep_on_refresh) {
                 itr->second.keep_on_refresh = false;
                 ++itr;
             } else {
                 teardown_maker.add(itr->first, itr->second.region_size,
+                                   std::move(itr->second.triangle_links),
                                    std::move(itr->second.entities));
                 itr = m_loaded_regions.erase(itr);
             }
@@ -97,41 +84,31 @@ public:
     }
 
     void set_region(const Vector2I & on_field_position,
-                    const Size2I & grid_size,
-#                   if 0
                     const ViewGridTriangle & triangle_grid,
-#                   endif
                     std::vector<Entity> && entities)
     {
         auto * region = find(on_field_position);
         if (!region) {
             region = &m_loaded_regions[on_field_position];
         }
-#       if 0
-        region->teardown = std::make_shared<TeardownTask>
-            (std::move(entities), triangle_grid.elements());
-        region->keep_on_refresh = true;
-        region->link_edge_container = InterTriangleLinkContainer{triangle_grid};
-#       endif
+
         region->entities = std::move(entities);
-        region->region_size = grid_size;
+        region->region_size = triangle_grid.size2();
+        region->triangle_links.insert
+            (region->triangle_links.end(),
+             triangle_grid.elements().begin(),
+             triangle_grid.elements().end());
         region->keep_on_refresh = true;
     }
 
 private:
-#   if 0
-    struct LoadedMapRegion {
-        InterTriangleLinkContainer link_edge_container;
-        SharedPtr<TeardownTask> teardown;
-        bool keep_on_refresh = true;
-    };
-#   endif
-
     struct LoadedMapRegion {
         Size2I region_size;
         std::vector<Entity> entities;
+        std::vector<SharedPtr<TriangleLink>> triangle_links;
         bool keep_on_refresh = true;
     };
+
     using LoadedRegionMap = std::unordered_map
         <Vector2I, LoadedMapRegion, Vector2IHasher>;
 
@@ -155,15 +132,16 @@ public:
 
     explicit MapRegionTracker
         (UniquePtr<MapRegion> && root_region):
-        m_root_region_n(std::move(root_region)) {}
+        m_root_region(std::move(root_region)) {}
 
     // should rename
     void frame_hit(const RegionLoadRequest &, TaskCallbacks & callbacks);
 
     bool has_root_region() const noexcept
-        { return !!m_root_region_n; }
+        { return !!m_root_region; }
 
 private:
-    MapRegionContainer m_container_n;
-    UniquePtr<MapRegion> m_root_region_n;
+    RegionEdgeConnectionsContainer m_edge_container;
+    MapRegionContainer m_container;
+    UniquePtr<MapRegion> m_root_region;
 };

@@ -20,9 +20,11 @@
 
 #include "map-loader-helpers.hpp"
 
+#include "RegionEdgeConnectionsContainer.hpp"
+#if 0
 namespace {
 
-using ViewGridTriangle = InterTriangleLinkContainer::ViewGridTriangle;
+using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;
 
 } // end of <anonymous> namespace
 
@@ -41,49 +43,4 @@ void TeardownTask::operator () (Callbacks & callbacks) const {
     for (auto & triptr : m_triangles)
         { callbacks.remove(triptr); }
 }
-
-InterTriangleLinkContainer::InterTriangleLinkContainer
-    (const ViewGridTriangle & views)
-{
-    append_links_by_predicate<is_not_edge_tile>(views, m_links);
-    auto idx_for_edge = m_links.size();
-    append_links_by_predicate<is_edge_tile>(views, m_links);
-    m_edge_begin = m_links.begin() + idx_for_edge;
-}
-
-void InterTriangleLinkContainer::glue_to
-    (InterTriangleLinkContainer & rhs)
-{
-    for (auto itr = edge_begin(); itr != edge_end(); ++itr) {
-        for (auto jtr = rhs.edge_begin(); jtr != rhs.edge_end(); ++jtr) {
-            (**itr).attempt_attachment_to(*jtr);
-            (**jtr).attempt_attachment_to(*itr);
-        }
-    }
-}
-
-/* private static */ bool InterTriangleLinkContainer::is_edge_tile
-    (const ViewGridTriangle & grid, const Vector2I & r)
-{
-    return std::any_of
-        (k_plus_shape_neighbor_offsets.begin(),
-         k_plus_shape_neighbor_offsets.end(),
-         [&] (const Vector2I & offset)
-         { return !grid.has_position(offset + r); });
-}
-
-/* private static */ bool InterTriangleLinkContainer::is_not_edge_tile
-    (const ViewGridTriangle & grid, const Vector2I & r)
-    { return !is_edge_tile(grid, r); }
-
-template <bool (*meets_pred)(const ViewGridTriangle &, const Vector2I &)>
-/* private static */ void InterTriangleLinkContainer::append_links_by_predicate
-    (const ViewGridTriangle & views, std::vector<SharedPtr<TriangleLink>> & links)
-{
-    for (Vector2I r; r != views.end_position(); r = views.next(r)) {
-        if (!meets_pred(views, r)) continue;
-        for (auto & link : views(r)) {
-            links.push_back(link);
-        }
-    }
-}
+#endif

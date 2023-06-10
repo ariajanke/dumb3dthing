@@ -26,7 +26,7 @@
 #include "../Components.hpp"
 
 #include <ariajanke/cul/SubGrid.hpp>
-
+#if 0
 class TeardownTask final : public LoaderTask {
 public:
     // though... these are shared pointers to links
@@ -47,36 +47,7 @@ private:
     std::vector<Entity> m_entities;
     std::vector<SharedPtr<TriangleLink>> m_triangles;
 };
-
-/// container of triangle links, used to glue segment triangles together
-class InterTriangleLinkContainer final {
-public:
-    using ViewGridTriangle = TeardownTask::ViewGridTriangle;
-
-    InterTriangleLinkContainer() {}
-
-    explicit InterTriangleLinkContainer(const ViewGridTriangle & views);
-
-    void glue_to(InterTriangleLinkContainer & rhs);
-
-private:
-    using Iterator = ViewGridTriangle::ElementIterator;
-
-    static bool is_edge_tile(const ViewGridTriangle & grid, const Vector2I & r);
-
-    static bool is_not_edge_tile(const ViewGridTriangle & grid, const Vector2I & r);
-
-    template <bool (*meets_pred)(const ViewGridTriangle &, const Vector2I &)>
-    static void append_links_by_predicate
-        (const ViewGridTriangle & views, std::vector<SharedPtr<TriangleLink>> & links);
-
-    Iterator edge_begin() { return m_edge_begin; }
-
-    Iterator edge_end() { return m_links.end(); }
-
-    std::vector<SharedPtr<TriangleLink>> m_links;
-    Iterator m_edge_begin;
-};
+#endif
 
 struct Vector2IHasher final {
     std::size_t operator () (const Vector2I & r) const {
