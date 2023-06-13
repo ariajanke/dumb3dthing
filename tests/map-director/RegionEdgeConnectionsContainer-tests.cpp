@@ -19,13 +19,62 @@
 *****************************************************************************/
 
 #include "../../src/map-director/RegionEdgeConnectionsContainer.hpp"
+#include "../../src/TriangleLink.hpp"
 
 #include "../test-helpers.hpp"
 
+struct Samp final {
+    SharedPtr<TriangleLink> w;
+    SharedPtr<TriangleLink> e;
+    ViewGrid<SharedPtr<TriangleLink>> view_grid;
+};
+
+Samp make_view_grid_for_tile(const Vector2I & r) {
+    auto link_w = make_shared<TriangleLink>
+        (Vector{Real(r.x), 0., Real(r.y)},
+         Vector{Real(r.x + 1), 0., Real(r.y)},
+         Vector{Real(r.x), 0., Real(r.y + 1)});
+    auto link_e = make_shared<TriangleLink>
+        (Vector{Real(r.x + 1), 0., Real(r.y)},
+         Vector{Real(r.x + 1), 0., Real(r.y + 1)},
+         Vector{Real(r.x), 0., Real(r.y + 1)});
+    ViewGridInserter<SharedPtr<TriangleLink>> grid_inserter{Size2I{1, 1}};
+    grid_inserter.push(link_w);
+    grid_inserter.push(link_e);
+    grid_inserter.advance();
+    Samp rv;
+    rv.w = link_w;
+    rv.e = link_e;
+    rv.view_grid = grid_inserter.finish();
+    return rv;
+}
 
 [[maybe_unused]] static auto s_add_describes = [] {
 
 using namespace cul::tree_ts;
+
+describe<RegionEdgeLinksContainer>("RegionEdgeLinksContainer")([] {
+    auto a = make_view_grid_for_tile(Vector2I{0, 0});
+    auto b = make_view_grid_for_tile(Vector2I{1, 0});
+    RegionEdgeLinksContainer a_cont{a.view_grid};
+    RegionEdgeLinksContainer b_cont{b.view_grid};
+    a_cont.glue_to(b_cont);
+    mark_it("glue together triangle links on connecting edge", [&] {
+        auto ae_target = a.e->transfers_to(TriangleSegment::k_side_ab).target;
+        return test_that(ae_target == b.w);
+    }).
+    mark_it("does not reglue together links if already attached", [&] {
+        // do I really want to support this behavior?
+        auto c = make_view_grid_for_tile(Vector2I{1, 0});
+        RegionEdgeLinksContainer c_cont{c.view_grid};
+        a_cont.glue_to(c_cont);
+        auto ae_target = a.e->transfers_to(TriangleSegment::k_side_ab).target;
+        return test_that(ae_target != c.w);
+    }).
+    mark_it("does not glue links, even if they can when not on opposite edges", [] {
+        return test_that(false);
+    });
+});
 
 describe<RegionSideAddress>("RegionSideAddress::compare")([] {
     mark_it("compares less than", [] {
@@ -49,27 +98,46 @@ describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::seek")([] {
 });
 
 describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::verify_sorted")([] {
-    mark_it("throws on unsorted container", [] {
-        return test_that(false);
+    RegionEdgeConnectionEntry::Container entries;    
+    entries.emplace_back(RegionSideAddress{RegionSide::left , 0}, nullptr);
+    entries.emplace_back(RegionSideAddress{RegionSide::top  , 3}, nullptr);
+    entries.emplace_back(RegionSideAddress{RegionSide::right, 1}, nullptr);
+    mark_it("throws on unsorted container", [&] {
+        return expect_exception<std::invalid_argument>([&] {
+            RegionEdgeConnectionEntry::verify_sorted("test", std::move(entries));
+        });
     }).
-    next([] {
-        ;
+    next([&] {
+        std::sort(entries.begin(), entries.end(), RegionEdgeConnectionEntry::less_than);
     }).
-    mark_it("expects a sorted container", [] {
+    mark_it("expects a sorted container", [&] {
         // unsorted container -> sort
-        return test_that(false);
+        RegionEdgeConnectionEntry::verify_sorted("test", std::move(entries));
+        return test_that(true);
     });
 });
 
 describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::verify_no_bubbles")([] {
-    mark_it("throws on bubbled container", [] {
-        return test_that(false);
+    RegionEdgeConnectionEntry::Container entries;
+    entries.emplace_back(RegionSideAddress{RegionSide::left , 0}, make_shared<RegionEdgeLinksContainer>());
+    entries.emplace_back(RegionSideAddress{RegionSide::top  , 3}, nullptr);
+    entries.emplace_back(RegionSideAddress{RegionSide::right, 1}, make_shared<RegionEdgeLinksContainer>());
+    mark_it("throws on bubbled container", [&] {
+        return expect_exception<std::invalid_argument>([&] {
+            RegionEdgeConnectionEntry::verify_no_bubbles("test", std::move(entries));
+        });
     }).
-    next([] {
-        ;
+    next([&] {
+        auto has_no_link_container = []
+            (const RegionEdgeConnectionEntry & entry)
+            { return !!entry.link_container(); };
+        auto new_end = std::remove_if
+            (entries.begin(), entries.end(), has_no_link_container);
+        entries.erase(new_end, entries.end());
     }).
-    mark_it("expects a bubbleless container", [] {
-        return test_that(false);
+    mark_it("expects a bubbleless container", [&] {
+        RegionEdgeConnectionEntry::verify_no_bubbles("test", std::move(entries));
+        return test_that(true);
     });
 });
 

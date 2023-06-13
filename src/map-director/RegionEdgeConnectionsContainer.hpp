@@ -30,6 +30,8 @@ public:
     static std::array<RegionSideAddress, 4> addresses_for
         (const Vector2I & on_field_position, const Size2I & grid_size);
 
+    static RegionSide other_side_of(RegionSide);
+
     RegionSideAddress() {}
 
     RegionSideAddress(RegionSide side_, int value_):
@@ -56,6 +58,30 @@ private:
     int m_value;
 };
 
+class RegionEdgeLinkPrivate {
+    friend class RegionEdgeLink;
+    friend class RegionEdgeLinksContainer;
+    using LinkContainerImpl = std::vector<SharedPtr<TriangleLink>>;
+};
+
+class RegionEdgeLink final {
+    using LinkContainerImpl = RegionEdgeLinkPrivate::LinkContainerImpl;
+public:
+    RegionEdgeLink() {}
+
+    RegionEdgeLink(LinkContainerImpl::iterator begin_,
+                   LinkContainerImpl::iterator end_):
+        m_begin(begin_),
+        m_end(end_) {}
+
+    // O(n^2)
+    void glue_to(RegionEdgeLink &);
+
+private:
+    LinkContainerImpl::iterator m_begin;
+    LinkContainerImpl::iterator m_end;
+};
+
 /// container of triangle links, used to glue segment triangles together
 class RegionEdgeLinksContainer final {
 public:
@@ -67,7 +93,11 @@ public:
 
     void glue_to(RegionEdgeLinksContainer & rhs);
 
+    void glue_to(RegionSide this_regions_side, RegionEdgeLinksContainer &);
+
 private:
+#   if 0
+    using LinkContainerImpl = RegionEdgeLinkPrivate::LinkContainerImpl;
     using Iterator = ViewGridTriangle::ElementIterator;
 
     static bool is_edge_tile(const ViewGridTriangle & grid, const Vector2I & r);
@@ -84,6 +114,11 @@ private:
 
     std::vector<SharedPtr<TriangleLink>> m_links;
     Iterator m_edge_begin;
+#   endif
+    RegionEdgeLink & edge(RegionSide);
+
+    std::vector<SharedPtr<TriangleLink>> m_links;
+    std::array<RegionEdgeLink, 4> m_edges;
 };
 
 struct RegionSideAddressHasher final {
@@ -99,10 +134,15 @@ public:
     static bool less_than(const RegionEdgeConnectionEntry & lhs,
                           const RegionEdgeConnectionEntry & rhs);
 
+    static bool bubbleful(const RegionEdgeConnectionEntry &);
+
     static Container verify_sorted
         (const char * constructor_name, Container && container);
 
     static Container verify_no_bubbles
+        (const char * constructor_name, Container && container);
+
+    static Container verify_invariants
         (const char * constructor_name, Container && container);
 
     static RegionEdgeConnectionEntry * seek
@@ -118,6 +158,8 @@ public:
     const SharedPtr<RegionEdgeLinksContainer> & link_container() const
         { return m_link_container; }
 
+    bool is_bubble() const { return !!m_link_container; }
+
 private:
     RegionSideAddress m_address;
     SharedPtr<RegionEdgeLinksContainer> m_link_container;
@@ -128,6 +170,8 @@ class RegionEdgeConnectionsContainer;
 class RegionEdgeConnectionsAdder final {
 public:
     using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;
+
+    RegionEdgeConnectionsAdder() {}
 
     explicit RegionEdgeConnectionsAdder
         (RegionEdgeConnectionEntry::Container &&);

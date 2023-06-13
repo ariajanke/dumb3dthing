@@ -22,18 +22,6 @@
 #include "TileFactory.hpp"
 #include "MapRegionChangesTask.hpp"
 
-namespace {
-
-
-
-class RegionDecayCollector;
-
-
-
-
-
-} // end of <anonymous> namespace
-
 void MapRegionTracker::frame_hit
     (const RegionLoadRequest & request, TaskCallbacks & callbacks)
 {
@@ -50,10 +38,3 @@ void MapRegionTracker::frame_hit
     m_container.decay_regions(decay_collector);
     callbacks.add(decay_collector.finish(m_edge_container, m_container));
 }
-
-// ----------------------------------------------------------------------------
-
-namespace {
-
-
-} // end of <anonymous> namespace
