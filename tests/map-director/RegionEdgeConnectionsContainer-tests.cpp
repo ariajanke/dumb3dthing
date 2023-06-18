@@ -52,13 +52,16 @@ Samp make_view_grid_for_tile(const Vector2I & r) {
 [[maybe_unused]] static auto s_add_describes = [] {
 
 using namespace cul::tree_ts;
-
+describe<RegionAxisLinkEntry>("RegionAxisLinkEntry::computed_bounds")([] {
+    //mark_it("computes correct bounds on x-axis")
+});
+#if 0
 describe<RegionEdgeLinksContainer>("RegionEdgeLinksContainer")([] {
     auto a = make_view_grid_for_tile(Vector2I{0, 0});
     auto b = make_view_grid_for_tile(Vector2I{1, 0});
     RegionEdgeLinksContainer a_cont{a.view_grid};
     RegionEdgeLinksContainer b_cont{b.view_grid};
-    a_cont.glue_to(b_cont);
+    a_cont.glue_to(RegionSide::right, b_cont);
     mark_it("glue together triangle links on connecting edge", [&] {
         auto ae_target = a.e->transfers_to(TriangleSegment::k_side_ab).target;
         return test_that(ae_target == b.w);
@@ -67,12 +70,31 @@ describe<RegionEdgeLinksContainer>("RegionEdgeLinksContainer")([] {
         // do I really want to support this behavior?
         auto c = make_view_grid_for_tile(Vector2I{1, 0});
         RegionEdgeLinksContainer c_cont{c.view_grid};
-        a_cont.glue_to(c_cont);
+        a_cont.glue_to(RegionSide::right, c_cont);
         auto ae_target = a.e->transfers_to(TriangleSegment::k_side_ab).target;
         return test_that(ae_target != c.w);
     }).
     mark_it("does not glue links, even if they can when not on opposite edges", [] {
         return test_that(false);
+    });
+});
+
+describe<RegionSideAddress>("RegionSideAddress::addresses_for")([] {
+    mark_it("neighboring regions do not produce the same address", [] {
+        auto a_addrs = RegionSideAddress::addresses_for
+            (Vector2I{0, 0}, Size2I{1, 1});
+        auto b_addrs = RegionSideAddress::addresses_for
+            (Vector2I{1, 0}, Size2I{1, 1});
+        bool any_same = false;
+        for (auto & a_addr : a_addrs) {
+        for (auto & b_addr : b_addrs) {
+            if (a_addr == b_addr) {
+                int k = 0;
+                ++k;
+            }
+            any_same = any_same || (a_addr == b_addr);
+        }}
+        return test_that(!any_same);
     });
 });
 
@@ -149,6 +171,8 @@ describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::less_than") ([] 
 });
 
 describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsAdder")([] {
+    // add test for neighboring regions, should not result in dupelicate
+    // addresses
     mark_it("sorts out of order entries", [] {
         return test_that(false);
     });
@@ -160,7 +184,7 @@ describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsRemover")([] {
         return test_that(false);
     });
 });
-
+#endif
 return [] {};
 
 } ();

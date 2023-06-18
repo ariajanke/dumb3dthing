@@ -77,7 +77,7 @@ public:
 
         virtual void add(const Vector2I & on_field_position,
                          const Size2I & grid_size,
-                         std::vector<SharedPtr<TriangleLink>> &&,
+                         SharedPtr<ViewGridTriangle> &&,
                          std::vector<Entity> &&) = 0;
     };
 
@@ -96,14 +96,14 @@ public:
     void decay_regions(RegionDecayAdder &);
 
     void set_region(const Vector2I & on_field_position,
-                    const ViewGridTriangle & triangle_grid,
+                    const SharedPtr<ViewGridTriangle> & triangle_grid,
                     std::vector<Entity> && entities);
 
 private:
     struct LoadedMapRegion {
         Size2I region_size;
         std::vector<Entity> entities;
-        std::vector<SharedPtr<TriangleLink>> triangle_links;
+        SharedPtr<ViewGridTriangle> triangle_links;
         bool keep_on_refresh = true;
     };
 

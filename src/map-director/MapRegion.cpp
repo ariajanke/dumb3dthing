@@ -87,7 +87,7 @@ void MapRegionContainer::decay_regions(RegionDecayAdder & decay_adder) {
 
 void MapRegionContainer::set_region
     (const Vector2I & on_field_position,
-     const ViewGridTriangle & triangle_grid,
+     const SharedPtr<ViewGridTriangle> & triangle_grid,
      std::vector<Entity> && entities)
 {
     auto * region = find(on_field_position);
@@ -96,11 +96,8 @@ void MapRegionContainer::set_region
     }
 
     region->entities = std::move(entities);
-    region->region_size = triangle_grid.size2();
-    region->triangle_links.insert
-        (region->triangle_links.end(),
-         triangle_grid.elements().begin(),
-         triangle_grid.elements().end());
+    region->region_size = triangle_grid->size2();
+    region->triangle_links = triangle_grid;
     region->keep_on_refresh = true;
 }
 

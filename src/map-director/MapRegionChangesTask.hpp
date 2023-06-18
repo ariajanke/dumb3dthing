@@ -50,9 +50,11 @@ private:
 
 class RegionDecayJob final {
 public:
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
     RegionDecayJob
         (const RectangleI & subgrid_bounds,
-         std::vector<SharedPtr<TriangleLink>> &&,
+         SharedPtr<ViewGridTriangle> &&,
          std::vector<Entity> &&);
 
     void operator () (RegionEdgeConnectionsRemover &,
@@ -60,7 +62,7 @@ public:
 
 private:
     RectangleI m_on_field_subgrid;
-    std::vector<SharedPtr<TriangleLink>> m_triangle_links;
+    SharedPtr<ViewGridTriangle> m_triangle_grid;
     std::vector<Entity> m_entities;
 };
 
@@ -83,11 +85,13 @@ private:
 
 class RegionDecayCollector final : public MapRegionContainer::RegionDecayAdder {
 public:
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
     explicit RegionDecayCollector(std::vector<RegionLoadJob> &&);
 
     void add(const Vector2I & on_field_position,
              const Size2I & grid_size,
-             std::vector<SharedPtr<TriangleLink>> && triangle_links,
+             SharedPtr<ViewGridTriangle> && triangle_links,
              std::vector<Entity> && entities) final;
 
     SharedPtr<LoaderTask> finish

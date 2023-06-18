@@ -27,7 +27,7 @@ namespace {
 using namespace cul::exceptions_abbr;
 using Iterator = FrameTimeLinkContainer::Iterator;
 
-constexpr const bool k_report_triangle_drops = true;
+constexpr const bool k_report_triangle_drops = false;
 
 } // end of <anonymous> namespace
 

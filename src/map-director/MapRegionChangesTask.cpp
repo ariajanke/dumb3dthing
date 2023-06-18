@@ -25,7 +25,7 @@ namespace {
 
 class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
 public:
-    using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
     using ViewGridTriangleInserter = ViewGridTriangle::Inserter;
 
     explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
@@ -74,6 +74,7 @@ void RegionLoadJob::operator ()
      RegionEdgeConnectionsAdder & edge_container_adder,
      LoaderTask::Callbacks & callbacks) const
 {
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
     const auto & producables = m_subgrid;
     EntityAndLinkInsertingAdder triangle_entities_adder{producables.size2()};
     for (auto & producables_view : producables) {
@@ -87,43 +88,46 @@ void RegionLoadJob::operator ()
         triangle_entities_adder.advance_grid_position();
     }
 
-    auto triangle_grid = triangle_entities_adder.finish_triangle_grid();
+    auto triangle_grid = //triangle_entities_adder.finish_triangle_grid();
+        make_shared<ViewGridTriangle>(triangle_entities_adder.finish_triangle_grid());
     auto entities = triangle_entities_adder.move_out_entities();
+#   if 0
     RegionEdgeLinksContainer link_edge_container{triangle_grid};
-    for (auto & link : triangle_grid.elements()) {
+#   endif
+    for (auto & link : triangle_grid->elements()) {
         callbacks.add(link);
     }
     for (auto & ent : entities) {
         callbacks.add(ent);
     }
 
-    link_triangles(triangle_grid);
+    link_triangles(*triangle_grid);
     container.set_region(m_on_field_position, triangle_grid,
                          std::move(entities));
-    edge_container_adder.add(m_on_field_position, triangle_grid);
+    edge_container_adder.add(m_on_field_position, std::move(triangle_grid));
 }
 
 // ----------------------------------------------------------------------------
 
 RegionDecayJob::RegionDecayJob
     (const RectangleI & subgrid_bounds,
-     std::vector<SharedPtr<TriangleLink>> && triangle_links,
+     SharedPtr<ViewGridTriangle> && triangle_grid,
      std::vector<Entity> && entities):
     m_on_field_subgrid(subgrid_bounds),
-    m_triangle_links(std::move(triangle_links)),
+    m_triangle_grid(std::move(triangle_grid)),
     m_entities(std::move(entities)) {}
 
 void RegionDecayJob::operator ()
     (RegionEdgeConnectionsRemover & connection_remover,
      LoaderTask::Callbacks & callbacks) const
 {
-    connection_remover.remove_region
-        (cul::top_left_of(m_on_field_subgrid),
-         cul::size_of    (m_on_field_subgrid));
     for (auto ent : m_entities)
         { ent.request_deletion(); }
-    for (auto & linkptr : m_triangle_links)
+    for (auto & linkptr : m_triangle_grid->elements())
         { callbacks.remove(linkptr); }
+    connection_remover.remove_region
+        (cul::top_left_of(m_on_field_subgrid),
+         m_triangle_grid);
 }
 
 // ----------------------------------------------------------------------------
@@ -157,7 +161,7 @@ RegionDecayCollector::RegionDecayCollector
 void RegionDecayCollector::add
     (const Vector2I & on_field_position,
      const Size2I & grid_size,
-     std::vector<SharedPtr<TriangleLink>> && triangle_links,
+     SharedPtr<ViewGridTriangle> && triangle_links,
      std::vector<Entity> && entities)
 {
     m_decay_entries.emplace_back

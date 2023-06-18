@@ -21,110 +21,217 @@
 #pragma once
 
 #include "../Defs.hpp"
+#include "../TriangleLink.hpp"
+
 #include "MapRegion.hpp"
 
-enum class RegionSide { left, right, bottom, top };
+#include <iostream>
 
-class RegionSideAddress final {
+enum class RegionSide { left, right, bottom, top, uninitialized };
+
+class RegionAxisLinksAdder;
+class RegionAxisLinksRemover;
+
+enum class RegionAxis { x_ways, z_ways, uninitialized };
+
+RegionAxis side_to_axis(RegionSide);
+
+template <typename Func>
+void for_each_tile_on_edge
+    (const RectangleI & bounds, RegionSide side, Func && f);
+
+class RegionAxisLinkEntry final {
 public:
-    static std::array<RegionSideAddress, 4> addresses_for
-        (const Vector2I & on_field_position, const Size2I & grid_size);
+    static bool bounds_less_than(const RegionAxisLinkEntry & lhs,
+                                 const RegionAxisLinkEntry & rhs);
 
-    static RegionSide other_side_of(RegionSide);
+    static bool pointer_less_than(const RegionAxisLinkEntry & lhs,
+                                  const RegionAxisLinkEntry & rhs);
 
-    RegionSideAddress() {}
+    static bool pointer_equal(const RegionAxisLinkEntry & lhs,
+                              const RegionAxisLinkEntry & rhs);
 
-    RegionSideAddress(RegionSide side_, int value_):
-        m_side(side_), m_value(value_) {}
+    static bool linkless(const RegionAxisLinkEntry & entry);
 
-    RegionSide side() const { return m_side; }
+    static RegionAxisLinkEntry computed_bounds
+        (const SharedPtr<TriangleLink> & link_ptr, RegionAxis axis);
 
-    int value() const { return m_value; }
+    RegionAxisLinkEntry() {}
 
-    RegionSideAddress to_other_side() const
-        { return RegionSideAddress{other_side(), m_value}; }
+    explicit RegionAxisLinkEntry(const SharedPtr<TriangleLink> & link_ptr):
+        m_link_ptr(link_ptr) {}
 
-    bool operator == (const RegionSideAddress & rhs) const
-        { return compare(rhs) == 0; }
+    RegionAxisLinkEntry
+        (Real low_, Real high_, const SharedPtr<TriangleLink> & link_ptr);
 
-    // I want space ship operator :c
+    // sortable by bounds
+    Real low_bounds() const { return m_low; }
 
-    int compare(const RegionSideAddress & rhs) const;
+    Real high_bounds() const { return m_high; }
+    // sortable by link pointer
+    const SharedPtr<TriangleLink> & link() const { return m_link_ptr; }
+
+    void set_link_to_null() { m_link_ptr = nullptr; }
+
+    void attempt_attachment_to(const RegionAxisLinkEntry &);
 
 private:
-    RegionSide other_side() const;
+    template <Real (*get_i)(const Vector &)>
+    static RegionAxisLinkEntry computed_bounds_(const SharedPtr<TriangleLink> &);
 
-    RegionSide m_side;
-    int m_value;
+    Real m_low = -k_inf;
+    Real m_high = k_inf;
+    SharedPtr<TriangleLink> m_link_ptr;
 };
 
-class RegionEdgeLinkPrivate {
-    friend class RegionEdgeLink;
-    friend class RegionEdgeLinksContainer;
-    using LinkContainerImpl = std::vector<SharedPtr<TriangleLink>>;
-};
-
-class RegionEdgeLink final {
-    using LinkContainerImpl = RegionEdgeLinkPrivate::LinkContainerImpl;
+class RegionAxisLinksContainer final {
 public:
-    RegionEdgeLink() {}
+    RegionAxisLinksContainer() {}
 
-    RegionEdgeLink(LinkContainerImpl::iterator begin_,
-                   LinkContainerImpl::iterator end_):
-        m_begin(begin_),
-        m_end(end_) {}
+    RegionAxisLinksContainer(std::vector<RegionAxisLinkEntry> && entries_,
+                            RegionAxis axis_);
+    // assumes no entry has a null link <- do I even need to verify for general container?
 
-    // O(n^2)
-    void glue_to(RegionEdgeLink &);
+    RegionAxisLinksRemover make_remover();
+
+    RegionAxisLinksAdder make_adder(RegionAxis);
+
+    RegionAxisLinksAdder make_adder();
 
 private:
-    LinkContainerImpl::iterator m_begin;
-    LinkContainerImpl::iterator m_end;
+    std::vector<RegionAxisLinkEntry> m_entries;
+    RegionAxis m_axis = RegionAxis::uninitialized;
 };
 
-/// container of triangle links, used to glue segment triangles together
-class RegionEdgeLinksContainer final {
+class RegionAxisLinksAdder final {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
-    RegionEdgeLinksContainer() {}
+    static void add_sides_from
+        (RegionSide side,
+         const ViewGridTriangle & triangle_grid,
+         RegionAxisLinksAdder & adder);
 
-    explicit RegionEdgeLinksContainer(const ViewGridTriangle & views);
+    RegionAxisLinksAdder() {}
 
-    void glue_to(RegionEdgeLinksContainer & rhs);
+    RegionAxisLinksAdder
+        (std::vector<RegionAxisLinkEntry> && entries_,
+         RegionAxis axis_);
 
-    void glue_to(RegionSide this_regions_side, RegionEdgeLinksContainer &);
+    // address by the adder on an axis...
+    // computes bounds as you add
+    // contains no dupelicate link (by pointer)
+    void add(const SharedPtr<TriangleLink> & link_ptr);
+
+    // sort (by bound) and sweep to do linking/gluing
+    RegionAxisLinksContainer finish();
 
 private:
-#   if 0
-    using LinkContainerImpl = RegionEdgeLinkPrivate::LinkContainerImpl;
-    using Iterator = ViewGridTriangle::ElementIterator;
+    static std::vector<RegionAxisLinkEntry> verify_entries
+        (std::vector<RegionAxisLinkEntry> &&);
 
-    static bool is_edge_tile(const ViewGridTriangle & grid, const Vector2I & r);
-
-    static bool is_not_edge_tile(const ViewGridTriangle & grid, const Vector2I & r);
-
-    template <bool (*meets_pred)(const ViewGridTriangle &, const Vector2I &)>
-    static void append_links_by_predicate
-        (const ViewGridTriangle & views, std::vector<SharedPtr<TriangleLink>> & links);
-
-    Iterator edge_begin() { return m_edge_begin; }
-
-    Iterator edge_end() { return m_links.end(); }
-
-    std::vector<SharedPtr<TriangleLink>> m_links;
-    Iterator m_edge_begin;
-#   endif
-    RegionEdgeLink & edge(RegionSide);
-
-    std::vector<SharedPtr<TriangleLink>> m_links;
-    std::array<RegionEdgeLink, 4> m_edges;
+    RegionAxis m_axis = RegionAxis::uninitialized;
+    std::vector<RegionAxisLinkEntry> m_entries;
 };
 
-struct RegionSideAddressHasher final {
-    std::size_t operator () (const RegionSideAddress &) const;
+// need better name, too verbose/confusing
+class RegionAxisLinksRemover final {
+public:
+    // on construction?
+
+    RegionAxisLinksRemover() {}
+
+    RegionAxisLinksRemover
+        (std::vector<RegionAxisLinkEntry> && entries_,
+         RegionAxis axis_);
+
+    // allow dupelicate link (by pointer)
+    void add(const SharedPtr<TriangleLink> & link_ptr);
+
+    // sort by address (grab raw pointers :S)
+    // eliminate on the basis if not unique
+    RegionAxisLinksContainer finish();
+
+private:
+    using Entry = RegionAxisLinkEntry;
+
+    static std::vector<RegionAxisLinkEntry> verify_entries
+        (std::vector<RegionAxisLinkEntry> &&);
+
+    RegionAxis m_axis = RegionAxis::uninitialized;
+    std::vector<RegionAxisLinkEntry> m_entries;
 };
 
+class RegionEdgeConnectionsContainer;
+
+class RegionAxisAddress final {
+public:
+
+    RegionAxisAddress() {}
+
+    RegionAxisAddress(RegionAxis axis_, int value_):
+        m_axis(axis_), m_value(value_) {}
+
+    RegionAxis axis() const { return m_axis; }
+
+    int value() const { return m_value; }
+
+    bool operator < (const RegionAxisAddress &) const;
+
+    // I want space ship :c
+    int compare(const RegionAxisAddress &) const;
+
+private:
+    RegionAxis m_axis = RegionAxis::uninitialized;
+    int m_value = 0;
+};
+
+class RegionAxisAddressAndSide final {
+public:
+    static std::array<RegionAxisAddressAndSide, 4> for_
+        (const Vector2I & on_field, const Size2I & grid_size);
+
+    RegionAxisAddressAndSide() {}
+
+    RegionAxisAddressAndSide(RegionAxis axis_, int value_, RegionSide side_):
+        m_address(axis_, value_), m_side(side_) {}
+
+    RegionAxisAddress address() const { return m_address; }
+
+    RegionSide side() const { return m_side; }
+
+private:
+    RegionAxisAddress m_address;
+    RegionSide m_side;
+};
+
+// useful for additions and removals
+class RegionEdgeConnectionChangeEntry final {
+public:
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+    RegionEdgeConnectionChangeEntry() {}
+
+    RegionEdgeConnectionChangeEntry
+        (RegionSide side_,
+         const RegionAxisAddress & address,
+         const SharedPtr<ViewGridTriangle> & triangle_grid):
+        m_grid_side(side_),
+        m_address(address),
+        m_triangle_grid(triangle_grid) {}
+
+    RegionSide grid_side() const { return m_grid_side; }
+
+    RegionAxisAddress address() const { return m_address; }
+
+    const SharedPtr<ViewGridTriangle> & triangle_grid() const
+        { return m_triangle_grid; }
+
+private:
+    RegionSide m_grid_side = RegionSide::uninitialized;
+    RegionAxisAddress m_address;
+    SharedPtr<ViewGridTriangle> m_triangle_grid;
+};
 
 class RegionEdgeConnectionEntry final {
 public:
@@ -132,102 +239,163 @@ public:
     using Iterator = Container::iterator;
 
     static bool less_than(const RegionEdgeConnectionEntry & lhs,
-                          const RegionEdgeConnectionEntry & rhs);
-
-    static bool bubbleful(const RegionEdgeConnectionEntry &);
-
-    static Container verify_sorted
-        (const char * constructor_name, Container && container);
-
-    static Container verify_no_bubbles
-        (const char * constructor_name, Container && container);
-
-    static Container verify_invariants
-        (const char * constructor_name, Container && container);
+                          const RegionEdgeConnectionEntry & rhs)
+    { return lhs.address < rhs.address; }
 
     static RegionEdgeConnectionEntry * seek
-        (const RegionSideAddress & addr, Iterator begin, Iterator end);
+        (const RegionAxisAddress & saught, Iterator begin, Iterator end)
+    {
+        while (begin != end) {
+            auto mid = begin + (end - begin) / 2;
+            auto res = saught.compare(mid->address);
+            if (res == 0) {
+                return &*mid;
+            } else if (res < 0) {
+                end = mid;
+            } else {
+                begin = mid + 1;
+            }
+        }
+        return nullptr;
+    }
+#   if 0
+    RegionAxisLinksAdder * links_adder()
+        { return std::get_if<RegionAxisLinksAdder>(&axis_container); }
 
-    RegionEdgeConnectionEntry() {}
+    RegionAxisLinksRemover * links_remover()
+        { return std::get_if<RegionAxisLinksRemover>(&axis_container); }
+#   endif
+#   if 0
+    void finish_adder() {
+        axis_container =
+            std::get_if<RegionAxisLinksAdder>(&axis_container)->finish();
+    }
 
-    RegionEdgeConnectionEntry(RegionSideAddress,
-                              const SharedPtr<RegionEdgeLinksContainer> &);
+    void finish_remover() {
+        axis_container =
+            std::get_if<RegionAxisLinksRemover>(&axis_container)->finish();
+    }
 
-    RegionSideAddress address() const { return m_address; }
+    void add_to_remover(const SharedPtr<TriangleLink> & link) {
+        std::get_if<RegionAxisLinksRemover>(&axis_container)->add(link);
+    }
+#   endif
 
-    const SharedPtr<RegionEdgeLinksContainer> & link_container() const
-        { return m_link_container; }
-
-    bool is_bubble() const { return !!m_link_container; }
-
-private:
-    RegionSideAddress m_address;
-    SharedPtr<RegionEdgeLinksContainer> m_link_container;
+    RegionAxisAddress address;
+    Variant<RegionAxisLinksContainer,
+            RegionAxisLinksAdder,
+            RegionAxisLinksRemover> axis_container = RegionAxisLinksContainer{};
 };
 
-class RegionEdgeConnectionsContainer;
+class RegionEdgeConnectionsContainerBase {
+protected:
+    using Entry = RegionEdgeConnectionEntry;
+    using ChangeEntryContainer = std::vector<RegionEdgeConnectionChangeEntry>;
+    using EntryContainer = RegionEdgeConnectionEntry::Container;
 
-class RegionEdgeConnectionsAdder final {
+    static ChangeEntryContainer verify_change_entries(ChangeEntryContainer &&);
+
+    RegionEdgeConnectionsContainerBase() {}
+};
+
+class RegionEdgeConnectionsAdder final : public RegionEdgeConnectionsContainerBase {
 public:
-    using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
     RegionEdgeConnectionsAdder() {}
 
-    explicit RegionEdgeConnectionsAdder
-        (RegionEdgeConnectionEntry::Container &&);
+    RegionEdgeConnectionsAdder(ChangeEntryContainer &&,
+                               EntryContainer &&);
 
+    // need a different entry type
+    // four entries per add
+    // we will absolutely have existing axis containers
     void add(const Vector2I & on_field_position,
-             const ViewGridTriangle & triangle_grid);
+             const SharedPtr<ViewGridTriangle> & triangle_grid);
 
+    // on NewEntry: sort by "axis address"
+    // [!!] how do I prevent dupelicate insertions of triangle links?
+    // (this might not be a problem actually... but we can add a check to be
+    //  safe)
+    // for each "axis address" exists an Entry
+    //
+    // clear new entries, and keep the oh so useful buffer
     RegionEdgeConnectionsContainer finish();
 
 private:
-    using Iterator = RegionEdgeConnectionEntry::Container::iterator;
-
-    RegionEdgeConnectionEntry::Container m_entries;
-    std::size_t m_old_size = 0;
+    ChangeEntryContainer m_change_entries;
+    EntryContainer m_entries;
 };
 
-class RegionEdgeConnectionsRemover final {
+class RegionEdgeConnectionsRemover final : public RegionEdgeConnectionsContainerBase {
 public:
-    explicit RegionEdgeConnectionsRemover
-        (RegionEdgeConnectionEntry::Container &&);
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+    RegionEdgeConnectionsRemover
+        (ChangeEntryContainer && change_entries_,
+         EntryContainer && entries);
 
     void remove_region(const Vector2I & on_field_position,
-                       const Size2I & grid_size);
+                       const SharedPtr<ViewGridTriangle> & triangle_grid);
 
     RegionEdgeConnectionsContainer finish();
 
 private:
-    using Iterator = RegionEdgeConnectionEntry::Container::iterator;
-
-    static bool has_no_link_container(const RegionEdgeConnectionEntry & entry)
-        { return !!entry.link_container(); }
-
-    RegionEdgeConnectionEntry * seek(const RegionSideAddress &);
-
-    RegionEdgeConnectionEntry::Container m_entries;
+    ChangeEntryContainer m_change_entries;
+    EntryContainer m_entries;
 };
 
 // RegionEdgeConnectionsContainer
 //
-class RegionEdgeConnectionsContainer final {
+class RegionEdgeConnectionsContainer final : public RegionEdgeConnectionsContainerBase {
 public:
     // testings thoughts:
     // - smallest possibles (1x1 grids)
     // - two triangle tiles
     // - test that things link up
-    using ViewGridTriangle = RegionEdgeLinksContainer::ViewGridTriangle;
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
     RegionEdgeConnectionsContainer() {}
 
-    explicit RegionEdgeConnectionsContainer
-        (RegionEdgeConnectionEntry::Container &&);
+    RegionEdgeConnectionsContainer
+        (ChangeEntryContainer && change_entries_,
+         EntryContainer && entries);
 
     RegionEdgeConnectionsAdder make_adder();
 
     RegionEdgeConnectionsRemover make_remover();
 
 private:
-    RegionEdgeConnectionEntry::Container m_entries;
+    ChangeEntryContainer m_change_entries;
+    EntryContainer m_entries;
 };
+
+template <typename Func>
+void for_each_tile_on_edge
+    (const RectangleI & bounds, RegionSide side, Func && f)
+{
+    using Side = RegionSide;
+    using cul::right_of, cul::bottom_of;
+
+    auto for_each_horz_ = [bounds, &f] (int y_pos) {
+        for (int x = bounds.left; x != right_of(bounds); ++x)
+            { f(x, y_pos); }
+    };
+
+    auto for_each_vert_ = [bounds, &f] (int x_pos) {
+        for (int y = bounds.top; y != bottom_of(bounds); ++y)
+            { f(x_pos, y); }
+    };
+
+    switch (side) {
+    case Side::left  :
+        return for_each_vert_(bounds.left          );
+    case Side::right :
+        return for_each_vert_(right_of (bounds) - 1);
+    case Side::bottom:
+        return for_each_horz_(bottom_of(bounds) - 1);
+    case Side::top   :
+        return for_each_horz_(bounds.top           );
+    default: return;
+    }
+}
