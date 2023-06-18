@@ -23,6 +23,8 @@
 
 #include "../test-helpers.hpp"
 
+#include <unordered_set>
+
 struct Samp final {
     SharedPtr<TriangleLink> w;
     SharedPtr<TriangleLink> e;
@@ -52,137 +54,115 @@ Samp make_view_grid_for_tile(const Vector2I & r) {
 [[maybe_unused]] static auto s_add_describes = [] {
 
 using namespace cul::tree_ts;
+
+struct ForEachTileOnEdge final {};
+
+describe<ForEachTileOnEdge>("for_each_tile_on_edge")([] {
+    using Vector2ISet = std::unordered_set<Vector2I, Vector2IHasher>;
+    static auto make_remover = [] (Vector2ISet & set) {
+        return [&set](int x, int y) { set.erase(Vector2I{x, y}); };
+    };
+    mark_it("runs left side of a rectangle", [] {
+        Vector2ISet expected_pos
+            { Vector2I{1, 2}, Vector2I{1, 3}, Vector2I{1, 4} };
+        for_each_tile_on_edge
+            (RectangleI{1, 2, 3, 3}, RegionSide::left, make_remover(expected_pos));
+        return test_that(expected_pos.empty());
+    }).
+    mark_it("runs right side of a rectangle", [] {
+        Vector2ISet expected_pos
+            { Vector2I{4, 1}, Vector2I{4, 2}, Vector2I{4, 3} };
+        for_each_tile_on_edge
+            (RectangleI{2, 1, 3, 3}, RegionSide::right, make_remover(expected_pos));
+        return test_that(expected_pos.empty());
+    }).
+    mark_it("runs top side of a rectangle", [] {
+        Vector2ISet expected_pos
+            { Vector2I{1, 2}, Vector2I{2, 2}, Vector2I{3, 2} };
+        for_each_tile_on_edge
+            (RectangleI{1, 2, 3, 3}, RegionSide::top, make_remover(expected_pos));
+        return test_that(expected_pos.empty());
+    }).
+    mark_it("runs bottom side of a rectangle", [] {
+        Vector2ISet expected_pos
+            { Vector2I{0, 3}, Vector2I{1, 3}, Vector2I{2, 3} };
+        for_each_tile_on_edge
+            (RectangleI{0, 1, 3, 3}, RegionSide::bottom, make_remover(expected_pos));
+        return test_that(expected_pos.empty());
+    });
+});
+
 describe<RegionAxisLinkEntry>("RegionAxisLinkEntry::computed_bounds")([] {
-    //mark_it("computes correct bounds on x-axis")
+    auto sample_link = make_shared<TriangleLink>
+        (Vector{0, 0, 0}, Vector{-10, 100, 9.76}, Vector{5, 87.6, -400});
+    mark_it("computes correct bounds on x-axis", [sample_link] {
+        auto entry = RegionAxisLinkEntry::computed_bounds
+            (sample_link, RegionAxis::x_ways);
+        return test_that(are_very_close(entry.low_bounds (), -10) &&
+                         are_very_close(entry.high_bounds(),   5)   );
+    }).
+    mark_it("computes correct bounds on z-axis", [sample_link] {
+        auto entry = RegionAxisLinkEntry::computed_bounds
+            (sample_link, RegionAxis::z_ways);
+        return test_that(are_very_close(entry.low_bounds (), -400   ) &&
+                         are_very_close(entry.high_bounds(),    9.76)   );
+    });
+});
+
+describe<RegionAxisLinksAdder>("RegionAxisLinksAdder::dedupelicate").
+    depends_on<RegionAxisLinkEntry>()([]
+{
+    mark_it("removes dupelicate links from the container", [] {
+        auto a = make_shared<TriangleLink>();
+        auto b = make_shared<TriangleLink>();
+        std::vector<RegionAxisLinkEntry> entries;
+        entries.emplace_back(a);
+        entries.emplace_back(b);
+        entries.emplace_back(a);
+        assert(a.use_count() == 3);
+        entries = RegionAxisLinksAdder::dedupelicate(std::move(entries));
+        return test_that(a.use_count() == 2);
+    });
+});
+
+describe<RegionAxisLinksAdder>("RegionAxisLinksAdder::sort_and_sweep").
+    depends_on<RegionAxisLinkEntry>()([]
+{
+    // how to get certain overlaps?
 });
 #if 0
-describe<RegionEdgeLinksContainer>("RegionEdgeLinksContainer")([] {
-    auto a = make_view_grid_for_tile(Vector2I{0, 0});
-    auto b = make_view_grid_for_tile(Vector2I{1, 0});
-    RegionEdgeLinksContainer a_cont{a.view_grid};
-    RegionEdgeLinksContainer b_cont{b.view_grid};
-    a_cont.glue_to(RegionSide::right, b_cont);
-    mark_it("glue together triangle links on connecting edge", [&] {
-        auto ae_target = a.e->transfers_to(TriangleSegment::k_side_ab).target;
-        return test_that(ae_target == b.w);
-    }).
-    mark_it("does not reglue together links if already attached", [&] {
-        // do I really want to support this behavior?
-        auto c = make_view_grid_for_tile(Vector2I{1, 0});
-        RegionEdgeLinksContainer c_cont{c.view_grid};
-        a_cont.glue_to(RegionSide::right, c_cont);
-        auto ae_target = a.e->transfers_to(TriangleSegment::k_side_ab).target;
-        return test_that(ae_target != c.w);
-    }).
-    mark_it("does not glue links, even if they can when not on opposite edges", [] {
-        return test_that(false);
-    });
+describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::null_out_dupelicates").
+    depends_on<RegionAxisLinkEntry>()([]
+{
+
 });
 
-describe<RegionSideAddress>("RegionSideAddress::addresses_for")([] {
-    mark_it("neighboring regions do not produce the same address", [] {
-        auto a_addrs = RegionSideAddress::addresses_for
-            (Vector2I{0, 0}, Size2I{1, 1});
-        auto b_addrs = RegionSideAddress::addresses_for
-            (Vector2I{1, 0}, Size2I{1, 1});
-        bool any_same = false;
-        for (auto & a_addr : a_addrs) {
-        for (auto & b_addr : b_addrs) {
-            if (a_addr == b_addr) {
-                int k = 0;
-                ++k;
-            }
-            any_same = any_same || (a_addr == b_addr);
-        }}
-        return test_that(!any_same);
-    });
+describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::remove_nulls").
+    depends_on<RegionAxisLinkEntry>()([]
+{
+
 });
 
-describe<RegionSideAddress>("RegionSideAddress::compare")([] {
-    mark_it("compares less than", [] {
-        return test_that(false);
-    }).
-    mark_it("compares greater than", [] {
-        return test_that(false);
-    }).
-    mark_it("compares equal to", [] {
-        return test_that(false);
-    });
+// can't depend_on multiple :c
+
+describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsAdder::ensure_entries_for_changes")([] {
+
 });
 
-describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::seek")([] {
-    mark_it("finds nothing in not in sequence", [] {
-        return test_that(false);
-    }).
-    mark_it("finds target entry if in sequence", [] {
-        return test_that(false);
-    });
+describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsAdder::apply_additions")([] {
+
 });
 
-describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::verify_sorted")([] {
-    RegionEdgeConnectionEntry::Container entries;    
-    entries.emplace_back(RegionSideAddress{RegionSide::left , 0}, nullptr);
-    entries.emplace_back(RegionSideAddress{RegionSide::top  , 3}, nullptr);
-    entries.emplace_back(RegionSideAddress{RegionSide::right, 1}, nullptr);
-    mark_it("throws on unsorted container", [&] {
-        return expect_exception<std::invalid_argument>([&] {
-            RegionEdgeConnectionEntry::verify_sorted("test", std::move(entries));
-        });
-    }).
-    next([&] {
-        std::sort(entries.begin(), entries.end(), RegionEdgeConnectionEntry::less_than);
-    }).
-    mark_it("expects a sorted container", [&] {
-        // unsorted container -> sort
-        RegionEdgeConnectionEntry::verify_sorted("test", std::move(entries));
-        return test_that(true);
-    });
+describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsAdder::finish_adders")([] {
+
 });
 
-describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::verify_no_bubbles")([] {
-    RegionEdgeConnectionEntry::Container entries;
-    entries.emplace_back(RegionSideAddress{RegionSide::left , 0}, make_shared<RegionEdgeLinksContainer>());
-    entries.emplace_back(RegionSideAddress{RegionSide::top  , 3}, nullptr);
-    entries.emplace_back(RegionSideAddress{RegionSide::right, 1}, make_shared<RegionEdgeLinksContainer>());
-    mark_it("throws on bubbled container", [&] {
-        return expect_exception<std::invalid_argument>([&] {
-            RegionEdgeConnectionEntry::verify_no_bubbles("test", std::move(entries));
-        });
-    }).
-    next([&] {
-        auto has_no_link_container = []
-            (const RegionEdgeConnectionEntry & entry)
-            { return !!entry.link_container(); };
-        auto new_end = std::remove_if
-            (entries.begin(), entries.end(), has_no_link_container);
-        entries.erase(new_end, entries.end());
-    }).
-    mark_it("expects a bubbleless container", [&] {
-        RegionEdgeConnectionEntry::verify_no_bubbles("test", std::move(entries));
-        return test_that(true);
-    });
+describe<RegionEdgeConnectionsRemover>("RegionEdgeConnectionsRemover::apply_removals")([] {
+
 });
 
-describe<RegionEdgeConnectionEntry>("RegionEdgeConnectionEntry::less_than") ([] {
-    mark_it("sorted container with less_than works with seek", [] {
-        // unsorted container -> sort -> seek
-        return test_that(false);
-    });
-});
+describe<RegionEdgeConnectionsRemover>("RegionEdgeConnectionsRemover::finish_removers")([] {
 
-describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsAdder")([] {
-    // add test for neighboring regions, should not result in dupelicate
-    // addresses
-    mark_it("sorts out of order entries", [] {
-        return test_that(false);
-    });
-});
-
-
-describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsRemover")([] {
-    mark_it("removes bubbles in container", [] {
-        return test_that(false);
-    });
 });
 #endif
 return [] {};

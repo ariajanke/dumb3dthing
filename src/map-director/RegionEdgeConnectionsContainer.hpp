@@ -40,6 +40,10 @@ template <typename Func>
 void for_each_tile_on_edge
     (const RectangleI & bounds, RegionSide side, Func && f);
 
+template <typename T, typename Func>
+void for_each_tile_on_edge
+    (const ViewGrid<T> & view_grid, RegionSide side, Func && f);
+
 class RegionAxisLinkEntry final {
 public:
     static bool bounds_less_than(const RegionAxisLinkEntry & lhs,
@@ -89,14 +93,14 @@ public:
     RegionAxisLinksContainer() {}
 
     RegionAxisLinksContainer(std::vector<RegionAxisLinkEntry> && entries_,
-                            RegionAxis axis_);
+                             RegionAxis axis_);
     // assumes no entry has a null link <- do I even need to verify for general container?
-
-    RegionAxisLinksRemover make_remover();
 
     RegionAxisLinksAdder make_adder(RegionAxis);
 
     RegionAxisLinksAdder make_adder();
+
+    RegionAxisLinksRemover make_remover();
 
 private:
     std::vector<RegionAxisLinkEntry> m_entries;
@@ -111,6 +115,12 @@ public:
         (RegionSide side,
          const ViewGridTriangle & triangle_grid,
          RegionAxisLinksAdder & adder);
+
+    static std::vector<RegionAxisLinkEntry> dedupelicate
+        (std::vector<RegionAxisLinkEntry> &&);
+
+    static std::vector<RegionAxisLinkEntry> sort_and_sweep
+        (std::vector<RegionAxisLinkEntry> &&);
 
     RegionAxisLinksAdder() {}
 
@@ -137,7 +147,11 @@ private:
 // need better name, too verbose/confusing
 class RegionAxisLinksRemover final {
 public:
-    // on construction?
+    static std::vector<RegionAxisLinkEntry> null_out_dupelicates
+        (std::vector<RegionAxisLinkEntry> &&);
+
+    static std::vector<RegionAxisLinkEntry> remove_nulls
+        (std::vector<RegionAxisLinkEntry> &&);
 
     RegionAxisLinksRemover() {}
 
@@ -166,20 +180,19 @@ class RegionEdgeConnectionsContainer;
 
 class RegionAxisAddress final {
 public:
-
     RegionAxisAddress() {}
 
     RegionAxisAddress(RegionAxis axis_, int value_):
         m_axis(axis_), m_value(value_) {}
 
-    RegionAxis axis() const { return m_axis; }
-
-    int value() const { return m_value; }
-
     bool operator < (const RegionAxisAddress &) const;
+
+    RegionAxis axis() const { return m_axis; }
 
     // I want space ship :c
     int compare(const RegionAxisAddress &) const;
+
+    int value() const { return m_value; }
 
 private:
     RegionAxis m_axis = RegionAxis::uninitialized;
@@ -239,60 +252,49 @@ public:
     using Iterator = Container::iterator;
 
     static bool less_than(const RegionEdgeConnectionEntry & lhs,
-                          const RegionEdgeConnectionEntry & rhs)
-    { return lhs.address < rhs.address; }
+                          const RegionEdgeConnectionEntry & rhs);
 
     static RegionEdgeConnectionEntry * seek
-        (const RegionAxisAddress & saught, Iterator begin, Iterator end)
-    {
-        while (begin != end) {
-            auto mid = begin + (end - begin) / 2;
-            auto res = saught.compare(mid->address);
-            if (res == 0) {
-                return &*mid;
-            } else if (res < 0) {
-                end = mid;
-            } else {
-                begin = mid + 1;
-            }
-        }
-        return nullptr;
-    }
-#   if 0
-    RegionAxisLinksAdder * links_adder()
-        { return std::get_if<RegionAxisLinksAdder>(&axis_container); }
+        (const RegionAxisAddress & saught, Iterator begin, Iterator end);
 
-    RegionAxisLinksRemover * links_remover()
-        { return std::get_if<RegionAxisLinksRemover>(&axis_container); }
-#   endif
-#   if 0
-    void finish_adder() {
-        axis_container =
-            std::get_if<RegionAxisLinksAdder>(&axis_container)->finish();
-    }
+    // this might not be the best OOP, but I'm really not wanting to reallocate
+    // things if it can be easilyish avoided
 
-    void finish_remover() {
-        axis_container =
-            std::get_if<RegionAxisLinksRemover>(&axis_container)->finish();
-    }
+    RegionEdgeConnectionEntry() {}
 
-    void add_to_remover(const SharedPtr<TriangleLink> & link) {
-        std::get_if<RegionAxisLinksRemover>(&axis_container)->add(link);
-    }
-#   endif
+    static RegionEdgeConnectionEntry start_as_adder
+        (RegionAxisAddress address_, RegionAxis axis_);
 
-    RegionAxisAddress address;
+    RegionAxisLinksAdder * as_adder();
+
+    RegionAxisLinksRemover * as_remover();
+
+    void set_container(RegionAxisLinksContainer &&);
+
+    void reset_as_adder();
+
+    void reset_as_remover();
+
+    RegionAxisAddress address() const { return m_address; }
+
+private:
+    RegionEdgeConnectionEntry(cul::TypeTag<RegionAxisLinksAdder>,
+                              RegionAxisAddress,
+                              RegionAxis);
+
+    RegionAxisAddress m_address;
     Variant<RegionAxisLinksContainer,
             RegionAxisLinksAdder,
-            RegionAxisLinksRemover> axis_container = RegionAxisLinksContainer{};
+            RegionAxisLinksRemover> m_axis_container = RegionAxisLinksContainer{};
 };
 
 class RegionEdgeConnectionsContainerBase {
-protected:
+public:
     using Entry = RegionEdgeConnectionEntry;
     using ChangeEntryContainer = std::vector<RegionEdgeConnectionChangeEntry>;
     using EntryContainer = RegionEdgeConnectionEntry::Container;
 
+protected:
     static ChangeEntryContainer verify_change_entries(ChangeEntryContainer &&);
 
     RegionEdgeConnectionsContainerBase() {}
@@ -301,6 +303,14 @@ protected:
 class RegionEdgeConnectionsAdder final : public RegionEdgeConnectionsContainerBase {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+    static EntryContainer ensure_entries_for_changes
+        (const ChangeEntryContainer &, EntryContainer &&);
+
+    static EntryContainer apply_additions
+        (const ChangeEntryContainer &, EntryContainer &&);
+
+    static EntryContainer finish_adders(EntryContainer &&);
 
     RegionEdgeConnectionsAdder() {}
 
@@ -330,6 +340,11 @@ private:
 class RegionEdgeConnectionsRemover final : public RegionEdgeConnectionsContainerBase {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+    static EntryContainer apply_removals
+        (const ChangeEntryContainer &, EntryContainer &&);
+
+    static EntryContainer finish_removers(EntryContainer &&);
 
     RegionEdgeConnectionsRemover
         (ChangeEntryContainer && change_entries_,
@@ -370,6 +385,14 @@ private:
     EntryContainer m_entries;
 };
 
+template <typename T, typename Func>
+void for_each_tile_on_edge
+    (const ViewGrid<T> & view_grid, RegionSide side, Func && f)
+{
+    for_each_tile_on_edge
+        (RectangleI{Vector2I{}, view_grid.size2()}, side, std::move(f));
+}
+
 template <typename Func>
 void for_each_tile_on_edge
     (const RectangleI & bounds, RegionSide side, Func && f)
@@ -388,14 +411,10 @@ void for_each_tile_on_edge
     };
 
     switch (side) {
-    case Side::left  :
-        return for_each_vert_(bounds.left          );
-    case Side::right :
-        return for_each_vert_(right_of (bounds) - 1);
-    case Side::bottom:
-        return for_each_horz_(bottom_of(bounds) - 1);
-    case Side::top   :
-        return for_each_horz_(bounds.top           );
+    case Side::left  : return for_each_vert_(bounds.left          );
+    case Side::right : return for_each_vert_(right_of (bounds) - 1);
+    case Side::bottom: return for_each_horz_(bottom_of(bounds) - 1);
+    case Side::top   : return for_each_horz_(bounds.top           );
     default: return;
     }
 }
