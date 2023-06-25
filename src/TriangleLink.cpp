@@ -20,12 +20,36 @@
 
 #include "TriangleLink.hpp"
 
+#include "geometric-utilities.hpp"
+
 #include <iostream>
 
 namespace {
 
 using namespace cul::exceptions_abbr;
 using Triangle = TriangleLink::Triangle;
+
+void reattach
+    (const SharedPtr<TriangleLink> & lhs,
+     const SharedPtr<TriangleLink> & rhs,
+     const TriangleLinkAttachment & attachment)
+{
+    lhs->set_transfer(attachment.left_side (), attachment. left_transfer());
+    rhs->set_transfer(attachment.right_side(), attachment.right_transfer());
+}
+
+void attach
+    (const SharedPtr<TriangleLink> & lhs,
+     const SharedPtr<TriangleLink> & rhs,
+     const TriangleLinkAttachment & attachment)
+{
+    if (lhs->has_side_attached(attachment.left_side()) ||
+        rhs->has_side_attached(attachment.right_side()))
+    {
+        return;
+    }
+    reattach(lhs, rhs, attachment);
+}
 
 } // end of <anonymous> namespace
 
@@ -40,6 +64,7 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
            + cross(m_axis_of_rotation, v)*sin(angle)
            + m_axis_of_rotation*dot(m_axis_of_rotation, v)*(1 - cos_t);
 }
+
 
 // ----------------------------------------------------------------------------
 
@@ -74,6 +99,7 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
 /* static */ bool TriangleLink::has_matching_normals
     (const Triangle & lhs, Side left_side, const Triangle & rhs, Side right_side)
 {
+#   if 0
     // assumption, sides "line up"
     assert(([&] {
         auto [la, lb] = lhs.side_points(left_side);
@@ -81,6 +107,7 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
         return    (are_very_close(la, ra) && are_very_close(lb, rb))
                || (are_very_close(la, rb) && are_very_close(lb, ra));
     } ()));
+#   endif
 
     // Taking the two triangles, lined up. Then projecting onto the plane where
     // the joining line is used as the normal for that plane.
@@ -121,6 +148,44 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
     return dot(rotated_lhs_normal, rhs.normal()) > 0;
 }
 
+/* static */ void TriangleLink::reattach
+    (const SharedPtr<TriangleLink> & lhs, Side lhs_side,
+     const SharedPtr<TriangleLink> & rhs, Side rhs_side,
+     bool inverts_normal,
+     bool flips_position)
+{
+    Transfer lhs_transfer
+        {SharedPtr<TriangleLink>{lhs}, rhs_side, inverts_normal, flips_position};
+    Transfer rhs_transfer
+        {SharedPtr<TriangleLink>{rhs}, lhs_side, inverts_normal, flips_position};
+    lhs->set_transfer(lhs_side, std::move(lhs_transfer));
+    rhs->set_transfer(rhs_side, std::move(rhs_transfer));
+}
+
+/* static */ void TriangleLink::reattach_matching_points
+    (const SharedPtr<TriangleLink> & lhs,
+     const SharedPtr<TriangleLink> & rhs)
+{
+#   if 1
+    if (auto attachment = TriangleLinkAttachment::find(lhs, rhs))
+        { ::reattach(lhs, rhs, *attachment); }
+#   else
+    (void)act_on_matching_points<reattach_matching_points_>(lhs, rhs);
+#   endif
+}
+
+/* static */ void TriangleLink::attach_matching_points
+    (const SharedPtr<TriangleLink> & lhs,
+     const SharedPtr<TriangleLink> & rhs)
+{
+#   if 1
+    if (auto attachment = TriangleLinkAttachment::find(lhs, rhs))
+        { attach(lhs, rhs, *attachment); }
+#   else
+    (void)act_on_matching_points<attach_matching_points_>(lhs, rhs);
+#   endif
+}
+
 TriangleLink::TriangleLink(const Triangle & triangle):
     TriangleFragment(triangle)
 {}
@@ -159,6 +224,14 @@ TriangleLink & TriangleLink::attempt_attachment_to
     return *this;
 }
 
+void TriangleLink::set_transfer(Side on_side, Transfer && transfer_to) {
+    m_triangle_sides[on_side] =
+        SideInfo{std::move(transfer_to.target()),
+                 transfer_to.target_side(),
+                 transfer_to.inverts_normal(),
+                 transfer_to.flips_position()};
+}
+
 bool TriangleLink::has_side_attached(Side side) const {
     verify_valid_side("TriangleLinks::has_side_attached", side);
     return !!m_triangle_sides[side].target.lock();
@@ -167,12 +240,16 @@ bool TriangleLink::has_side_attached(Side side) const {
 TriangleLink::Transfer TriangleLink::transfers_to(Side side) const {
     verify_valid_side("TriangleLinks::transfers_to", side);
     const auto & info = m_triangle_sides[side];
+#   if 0
     Transfer rv;
     rv.flips = info.flip;
     rv.inverts_normal = info.inverts;
     rv.side = info.side;
     rv.target = info.target.lock();
-    return rv;
+#   endif
+    auto ptr = info.target.lock();
+    if (!ptr) return Transfer{};
+    return Transfer{std::move(ptr), info.side, info.inverts, info.flip};
 }
 
 int TriangleLink::sides_attached_count() const {

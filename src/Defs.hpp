@@ -23,13 +23,14 @@
 #include <ariajanke/cul/Grid.hpp>
 #include <ariajanke/cul/VectorUtils.hpp>
 #include <ariajanke/cul/Vector3.hpp>
+#include <ariajanke/cul/OptionalEither.hpp>
+#if 0
 #include <ariajanke/cul/Util.hpp>
-
+#endif
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
 #include <ariajanke/ecs3/HashTableEntity.hpp>
 #include <ariajanke/ecs3/Scene.hpp>
 #include <ariajanke/ecs3/SingleSystem.hpp>
-#include <ariajanke/cul/OptionalEither.hpp>
 
 #include <variant>
 #include <memory>
@@ -118,7 +119,7 @@ bool are_very_close(Vector, Vector);
 bool are_very_close(Vector2, Vector2);
 
 bool are_very_close(Real, Real);
-
+#if 0
 /** Gets the "nextafter" vector following a given direction
  *  @param r starting position
  *  @param dir direction to go in
@@ -139,7 +140,7 @@ using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
 // didn't need to move this...
 template <typename Vec>
 EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b);
-
+#endif
 // ----------------------------- Global Constants -----------------------------
 
 constexpr const Real k_pi  = cul::k_pi_for_type<Real>;
@@ -157,7 +158,7 @@ constexpr const Vector k_north{0, 0, 1};
 [[maybe_unused]] constexpr const std::array k_plus_shape_neighbor_offsets = {
     Vector2I{0, 1}, Vector2I{0, -1}, Vector2I{1, 0}, Vector2I{-1, 0}
 };
-
+#if 0
 // ----------------------------------------------------------------------------
 
 template <typename Vec>
@@ -179,7 +180,8 @@ EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
     return are_very_close(magnitude(frac), 1);
 #   endif
 }
-
+#endif
+#if 0 // removed
 // ------------------------------ prototype stuff -----------------------------
 
 template <typename Head, typename ... Types>
@@ -197,7 +199,8 @@ Tuple<Head, Types...> validate_graphical_components
         return make_tuple( std::move(obj) );
     }
 }
-
+#endif
+#if 0
 template <typename ... Types>
 void add_components(Entity & e, Tuple<Types...> && tup) {
     if constexpr (sizeof...(Types) > 1) {
@@ -207,3 +210,4 @@ void add_components(Entity & e, Tuple<Types...> && tup) {
         e.add<Head>() = std::get<Head>(tup);
     }
 }
+#endif

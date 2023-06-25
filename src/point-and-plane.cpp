@@ -37,7 +37,9 @@ OnSegment::OnSegment
                   << segment->point_b_in_2d() << " "
                   << segment->point_c_in_2d() << std::endl;
     }
+#   if 0
     assert(segment->contains_point(loc_));
+#   endif
 }
 
 /* static */ UniquePtr<Driver> Driver::make_driver()

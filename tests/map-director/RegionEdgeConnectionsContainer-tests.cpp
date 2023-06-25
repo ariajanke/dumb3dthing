@@ -129,6 +129,17 @@ describe<RegionAxisLinksAdder>("RegionAxisLinksAdder::sort_and_sweep").
     depends_on<RegionAxisLinkEntry>()([]
 {
     // how to get certain overlaps?
+    auto a = make_view_grid_for_tile(Vector2I{0, 0});
+    auto b = make_view_grid_for_tile(Vector2I{0, 1});
+    std::vector<RegionAxisLinkEntry> entries;
+    for (auto link : { a.e, a.w, b.e, b.w }) {
+        entries.emplace_back(RegionAxisLinkEntry::computed_bounds
+            (link, RegionAxis::x_ways));
+    }
+    entries = RegionAxisLinksAdder::sort_and_sweep(std::move(entries));
+    mark_it("links relavant triangles together", [&] {
+        return test_that(a.e->transfers_to(TriangleSide::k_side_bc).target() == b.w);
+    });
 });
 #if 0
 describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::null_out_dupelicates").

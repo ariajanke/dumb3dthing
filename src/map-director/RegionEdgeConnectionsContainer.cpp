@@ -62,6 +62,10 @@ RegionAxis side_to_axis(RegionSide side) {
 /* static */ bool RegionAxisLinkEntry::linkless(const RegionAxisLinkEntry & entry)
     { return !entry.link(); }
 
+/* static */ void RegionAxisLinkEntry::attach_matching_points
+    (const RegionAxisLinkEntry & lhs, const RegionAxisLinkEntry & rhs)
+{ TriangleLink::attach_matching_points(lhs.link(), rhs.link()); }
+
 /* static */ RegionAxisLinkEntry RegionAxisLinkEntry::computed_bounds
     (const SharedPtr<TriangleLink> & link_ptr, RegionAxis axis)
 {
@@ -74,14 +78,9 @@ RegionAxis side_to_axis(RegionSide side) {
     throw RtError{":c"};
 }
 
-
 RegionAxisLinkEntry::RegionAxisLinkEntry
     (Real low_, Real high_, const SharedPtr<TriangleLink> & link_ptr):
     m_low(low_), m_high(high_), m_link_ptr(link_ptr) {}
-
-
-void RegionAxisLinkEntry::attempt_attachment_to(const RegionAxisLinkEntry & rhs)
-    { (void)m_link_ptr->attempt_attachment_to(rhs.link()); }
 
 template <Real (*get_i)(const Vector &)>
 /* private static */ RegionAxisLinkEntry RegionAxisLinkEntry::computed_bounds_
@@ -134,8 +133,7 @@ template <Real (*get_i)(const Vector &)>
         for (auto jtr = itr + 1; jtr != entries.end(); ++jtr) {
             if (itr->high_bounds() < jtr->low_bounds())
                 break;
-            itr->attempt_attachment_to(*jtr);
-            jtr->attempt_attachment_to(*itr);
+            RegionAxisLinkEntry::attach_matching_points(*itr, *jtr);
         }
     }
     return std::move(entries);

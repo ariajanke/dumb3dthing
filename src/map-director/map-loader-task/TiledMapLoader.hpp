@@ -41,7 +41,6 @@ class MapLoadingReady;
 class MapLoadingExpired;
 
 struct MapLoadingSuccess final {
-    //ProducableTileViewGrid producables_view_grid;
     UniquePtr<TiledMapRegion> loaded_region;
     MapLoadingWarnings warnings;
 };

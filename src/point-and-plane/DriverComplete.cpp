@@ -45,7 +45,7 @@ bool new_invert_normal
     // if  trans & !tracker then true
     // if !trans & !tracker then false
     //return transfer.inverts_normal ^ tracker.invert_normal;
-    return transfer.inverts_normal ? !tracker.invert_normal : tracker.invert_normal;
+    return transfer.inverts_normal() ? !tracker.invert_normal : tracker.invert_normal;
 }
 
 } // end of <anonymous> namespace
@@ -194,7 +194,7 @@ State DriverComplete::operator ()
     const auto transfer = std::dynamic_pointer_cast<const TriangleLink>
         (tracker.fragment)->transfers_to(crossing.side);
     constexpr const auto k_caller_name = "DriverComplete::handle_tracker";
-    if (!transfer.target) {
+    if (!transfer.target()) {
         auto abgv = env.on_transfer_absent_link(*tracker.segment, crossing, new_loc);
         if (auto * disv2 = get_if<Vector2>(&abgv)) {
             OnSegment rv{tracker};
@@ -214,14 +214,14 @@ State DriverComplete::operator ()
 
     auto outside_pt = triangle.point_at(crossing.outside);
     auto stgv = env.on_transfer
-        (*tracker.segment, crossing, transfer.target->segment(),
+        (*tracker.segment, crossing, transfer.target()->segment(),
          tracker.segment->point_at(new_loc));
     if (auto * res = get_if<EventHandler::TransferOnSegment>(&stgv)) {
 
         verify_decreasing_displacement<Vector2, Vector2>
             (res->displacement, tracker.displacement, k_caller_name);
         if (res->transfer_to_next) {
-            auto seg_loc = transfer.target->segment()
+            auto seg_loc = transfer.target()->segment()
                 .closest_contained_point(outside_pt);
 #           if 0
             std::cout << (new_invert_normal(transfer, tracker) ? "invert" : "regular") << std::endl;
@@ -233,7 +233,7 @@ State DriverComplete::operator ()
             std::cout << "on: " << transfer.target->segment() << std::endl;
 #           endif
             return OnSegment
-                {transfer.target, new_invert_normal(transfer, tracker),
+                {transfer.target(), new_invert_normal(transfer, tracker),
                  seg_loc, res->displacement};
         }
         OnSegment rv{tracker};

@@ -57,6 +57,9 @@ public:
 
     static bool linkless(const RegionAxisLinkEntry & entry);
 
+    static void attach_matching_points(const RegionAxisLinkEntry & lhs,
+                                       const RegionAxisLinkEntry & rhs);
+
     static RegionAxisLinkEntry computed_bounds
         (const SharedPtr<TriangleLink> & link_ptr, RegionAxis axis);
 
@@ -76,8 +79,6 @@ public:
     const SharedPtr<TriangleLink> & link() const { return m_link_ptr; }
 
     void set_link_to_null() { m_link_ptr = nullptr; }
-
-    void attempt_attachment_to(const RegionAxisLinkEntry &);
 
 private:
     template <Real (*get_i)(const Vector &)>

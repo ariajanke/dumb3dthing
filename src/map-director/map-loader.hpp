@@ -79,7 +79,7 @@ public:
 };
 
 using TriangleLinks = std::vector<SharedPtr<TriangleLink>>;
-
+#if 0
 inline void link_triangles
     (const Grid<View<std::vector<SharedPtr<TriangleLink>>::const_iterator>> & link_grid)
 {
@@ -98,3 +98,4 @@ inline void link_triangles
         }}
     }}
 }
+#endif

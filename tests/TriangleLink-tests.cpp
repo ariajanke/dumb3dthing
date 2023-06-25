@@ -43,9 +43,9 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
         TriangleLink links (triangle_a->segment());
         links.attempt_attachment_to(triangle_b);
         return test_that
-            (    links.transfers_to(Side::k_side_ab).target == triangle_b
-             && !links.transfers_to(Side::k_side_bc).target
-             && !links.transfers_to(Side::k_side_ca).target);
+            (    links.transfers_to(Side::k_side_ab).target() == triangle_b
+             && !links.transfers_to(Side::k_side_bc).target()
+             && !links.transfers_to(Side::k_side_ca).target());
     });
 });
 describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
@@ -66,18 +66,18 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
 
     mark_it("returns a valid transfer object for attached side", [&] {
         auto trans = links_b->transfers_to(Side::k_side_ab);
-        return test_that(trans.target == links_a);
+        return test_that(trans.target() == links_a);
     });
     mark_it("does not invert normal for this case's triangles", [&] {
-        return test_that(!links_b->transfers_to(Side::k_side_ab).inverts_normal);
+        return test_that(!links_b->transfers_to(Side::k_side_ab).inverts_normal());
     });
     mark_it("does not attach to any other side", [&] {
-        return test_that(   !links_b->transfers_to(Side::k_side_bc).target
-                         && !links_b->transfers_to(Side::k_side_ca).target);
+        return test_that(   !links_b->transfers_to(Side::k_side_bc).target()
+                         && !links_b->transfers_to(Side::k_side_ca).target());
     });
     mark_it("does not automatically attach other link to the first", [&] {
         auto a_trans = links_a->transfers_to(Side::k_side_ca);
-        return test_that(!a_trans.target);
+        return test_that(!a_trans.target());
     });
 });
 describe<TriangleLink>("TriangleLink #check_for_side_crossing")([] {
@@ -162,7 +162,7 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (anti-parallel)")([]
     mark_it("attaches to anti-parallel normal, without inverting", [&] {
         links_lhs->attempt_attachment_to(links_rhs);
         auto trans = links_lhs->transfers_to(Side::k_side_ca);
-        return test_that(!trans.inverts_normal);
+        return test_that(!trans.inverts_normal());
     });
 });
 describe<TriangleLink>("TriangleLink #attempt_attachment_to (orthogonal)")([] {
@@ -183,7 +183,7 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (orthogonal)")([] {
 
     mark_it("does not invert tracker normal for this context", [&] {
         auto trans = links_lhs->transfers_to(Side::k_side_ca);
-        return test_that(!trans.inverts_normal);
+        return test_that(!trans.inverts_normal());
     });
 });
 describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
@@ -202,7 +202,8 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
         // if you flip one way, you must flip the other
         auto floor_trans = links_floor->transfers_to(Side::k_side_bc);
         auto wall_trans = links_wall->transfers_to(Side::k_side_ab);
-        return test_that(floor_trans.inverts_normal == wall_trans.inverts_normal);
+        return test_that(floor_trans.inverts_normal() ==
+                         wall_trans.inverts_normal());
     });
 });
 describe<TriangleLink>("TriangleLink #attempt_attachment_to (equal normals, inverts tracker)")([] {
@@ -219,19 +220,19 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (equal normals, inve
     // split this test
     mark_it("attaches lhs to rhs as target", [&] {
         return test_that
-            (links_lhs->transfers_to(Side::k_side_ab).target == links_rhs);
+            (links_lhs->transfers_to(Side::k_side_ab).target() == links_rhs);
     });
     mark_it("attaches lhs inverting the tracker", [&] {
         return test_that
-            (links_lhs->transfers_to(Side::k_side_ab).inverts_normal);
+            (links_lhs->transfers_to(Side::k_side_ab).inverts_normal());
     });
     mark_it("attaches rhs to lhs as target", [&] {
         return test_that
-            (links_rhs->transfers_to(Side::k_side_bc).target == links_lhs);
+            (links_rhs->transfers_to(Side::k_side_bc).target() == links_lhs);
     });
     mark_it("attaches lhs inverting the tracker", [&] {
         return test_that
-            (links_rhs->transfers_to(Side::k_side_bc).inverts_normal);
+            (links_rhs->transfers_to(Side::k_side_bc).inverts_normal());
     });
 });
 describe<TriangleLink>("TriangleLink #attempt_attachment_to (arbitrary? normals)")([] {
@@ -250,25 +251,25 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (arbitrary? normals)
     mark_it("attaches lhs to rhs", [&] {
         links_lhs->attempt_attachment_to(links_rhs);
         auto trans = links_lhs->transfers_to(Side::k_side_ab);
-        return test_that(trans.target == links_rhs);
+        return test_that(trans.target() == links_rhs);
     });
 
     mark_it("inverts tracker normal from lhs to rhs", [&] {
         links_lhs->attempt_attachment_to(links_rhs);
         auto trans = links_lhs->transfers_to(Side::k_side_ab);
-        return test_that(trans.inverts_normal);
+        return test_that(trans.inverts_normal());
     });
 
     mark_it("attaches rhs to lhs", [&] {
         links_rhs->attempt_attachment_to(links_lhs);
         auto trans = links_rhs->transfers_to(Side::k_side_bc);
-        return test_that(trans.target == links_lhs);
+        return test_that(trans.target() == links_lhs);
     });
 
     mark_it("inverts tracker normal from rhs to lhs", [&] {
         links_rhs->attempt_attachment_to(links_lhs);
         auto trans = links_rhs->transfers_to(Side::k_side_bc);
-        return test_that(trans.inverts_normal);
+        return test_that(trans.inverts_normal());
     });
 });
 describe("TriangleLink::angle_of_rotation_for_left (east and north)")([] {
