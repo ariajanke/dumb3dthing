@@ -224,7 +224,10 @@ void link_triangles
                 assert(other_tri);
 
                 if (this_tri == other_tri) continue;
+                TriangleLink::attach_matching_points(this_tri, other_tri);
+#               if 0
                 this_tri->attempt_attachment_to(other_tri);
+#               endif
         }}
     }}
 }

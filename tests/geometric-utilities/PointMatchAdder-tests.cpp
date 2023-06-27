@@ -60,8 +60,7 @@ describe<PointPairFlip>("PointPairFlip::make")([] {
 });
 
 describe<PointMatchFinder>("PointMatchFinder::from_left_point")([] {
-    // from b find lhs ab attached to rhs ca (flipped?)
-    mark_it("", [&] {
+    mark_it("from b find lhs ab attached to rhs ca", [&] {
         TriangleSegment lhs
             {Vector{}, Vector{1, 0, 0}, Vector{1, 0, 1}};
         TriangleSegment rhs
@@ -70,19 +69,47 @@ describe<PointMatchFinder>("PointMatchFinder::from_left_point")([] {
         auto match = finder();
 
         if (!match) return test_that(false);
-        return test_that(match->left_point()  == Point::b &&
+        return test_that(match->left_point () == Point::b &&
                          match->right_point() == Point::c);
+    }).
+    mark_it("finds no match if starting point a, "
+            "does not match any point on right", []
+    {
+        // start from a
+        TriangleSegment lhs
+            {Vector{}, Vector{1, 0, 0}, Vector{1, 0, 1}};
+        // onto a triangle that *does* link
+        TriangleSegment rhs
+            {Vector{5, 0, 5}, Vector{1, 0, 1}, Vector{1, 0, 0}};
+        auto finder = PointMatchFinder::from_left_point<Point::a>(lhs, rhs);
+        return test_that(!finder().has_value());
     });
 });
 
 describe<SideToSideMapping>("SideToSideMapping::from_matches")([] {
-    mark_it("accurately reports when points are flipped", [] {
+    mark_it("accurately finds when points are flipped", [] {
         PointMatch a_match{Vector{       }, Point::a,
                            Vector{       }, Point::b};
         PointMatch b_match{Vector{1, 0, 0}, Point::b,
                            Vector{1, 0, 0}, Point::a};
         auto mapping = SideToSideMapping::from_matches(a_match, b_match);
         return test_that(mapping.sides_flip());
+    }).
+    mark_it("finds side of lhs triangle", [] {
+        PointMatch a_match{Vector{       }, Point::a,
+                           Vector{       }, Point::c};
+        PointMatch b_match{Vector{1, 0, 0}, Point::b,
+                           Vector{1, 0, 0}, Point::a};
+        auto mapping = SideToSideMapping::from_matches(a_match, b_match);
+        return test_that(mapping.left_side() == Side::k_side_ab);
+    }).
+    mark_it("finds side of rhs triangle", [] {
+        PointMatch a_match{Vector{       }, Point::a,
+                           Vector{       }, Point::c};
+        PointMatch b_match{Vector{1, 0, 0}, Point::b,
+                           Vector{1, 0, 0}, Point::a};
+        auto mapping = SideToSideMapping::from_matches(a_match, b_match);
+        return test_that(mapping.right_side() == Side::k_side_ca);
     });
 });
 
@@ -111,6 +138,31 @@ describe<PointMatchAdder>("PointMatchAdder::add")([] {
         return test_that(side_to_side.left_side () == Side::k_side_ab &&
                          side_to_side.right_side() == Side::k_side_ab &&
                          side_to_side.sides_flip());
+    });
+});
+
+describe<PointMatchAdder>("PointMatchAdder::find_point_match")([] {
+    //
+    // left side: ab
+    //   a: -0.5, 3, -18.5
+    //   b:  0.5, 3, -19.5
+    //   c:  0.5, 3, -18.5
+    // right side: ca
+    //   a: -0.5, 3, -18.5
+    //   b: -0.5, 3, -19.5
+    //   c:  0.5, 3, -19.5
+    // a demo time scraped test
+    mark_it("finds corrects side for matching points", [] {
+        TriangleSegment lhs{Vector{-0.5, 3, -18.5},
+                            Vector{ 0.5, 3, -19.5},
+                            Vector{ 0.5, 3, -18.5}};
+        TriangleSegment rhs{Vector{-0.5, 3, -18.5},
+                            Vector{-0.5, 3, -19.5},
+                            Vector{ 0.5, 3, -19.5}};
+        auto res = PointMatchAdder::find_point_match(lhs, rhs);
+        if (!res) return test_that(false);
+        return test_that(res->left_side () == Side::k_side_ab &&
+                         res->right_side() == Side::k_side_ca   );
     });
 });
 

@@ -43,11 +43,9 @@ void attach
      const SharedPtr<TriangleLink> & rhs,
      const TriangleLinkAttachment & attachment)
 {
-    if (lhs->has_side_attached(attachment.left_side()) ||
+    if (lhs->has_side_attached(attachment.left_side ()) ||
         rhs->has_side_attached(attachment.right_side()))
-    {
-        return;
-    }
+    { return; }
     reattach(lhs, rhs, attachment);
 }
 
@@ -99,7 +97,7 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
 /* static */ bool TriangleLink::has_matching_normals
     (const Triangle & lhs, Side left_side, const Triangle & rhs, Side right_side)
 {
-#   if 0
+#   if 1
     // assumption, sides "line up"
     assert(([&] {
         auto [la, lb] = lhs.side_points(left_side);
@@ -166,24 +164,16 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
     (const SharedPtr<TriangleLink> & lhs,
      const SharedPtr<TriangleLink> & rhs)
 {
-#   if 1
     if (auto attachment = TriangleLinkAttachment::find(lhs, rhs))
         { ::reattach(lhs, rhs, *attachment); }
-#   else
-    (void)act_on_matching_points<reattach_matching_points_>(lhs, rhs);
-#   endif
 }
 
 /* static */ void TriangleLink::attach_matching_points
     (const SharedPtr<TriangleLink> & lhs,
      const SharedPtr<TriangleLink> & rhs)
 {
-#   if 1
     if (auto attachment = TriangleLinkAttachment::find(lhs, rhs))
         { attach(lhs, rhs, *attachment); }
-#   else
-    (void)act_on_matching_points<attach_matching_points_>(lhs, rhs);
-#   endif
 }
 
 TriangleLink::TriangleLink(const Triangle & triangle):

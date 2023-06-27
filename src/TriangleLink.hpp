@@ -92,51 +92,6 @@ private:
 class TriangleLink final : public TriangleFragment {
 public:
     using Side = TriangleSide;
-#   if 0
-    struct Transfer final {
-        /// set if there is a valid transfer to be had
-        SharedPtr<const TriangleLink> target;
-        /// which side of the target did the tracker transfer to
-        Side side = Side::k_inside;
-        /// caller should flip normal vector of tracker
-        bool inverts_normal = false;
-        // true -> (1 - t)
-        bool flips = false;
-    };
-
-    class Transfer final {
-    public:
-        Transfer() {}
-
-        Transfer(SharedPtr<const TriangleLink> && target_,
-                 Side side_,
-                 bool inverts_normal_,
-                 bool flips_position_):
-            m_target(std::move(target_)),
-            m_side(side_),
-            m_inverts_normal(inverts_normal_),
-            m_flips(flips_position_) {}
-
-        const SharedPtr<const TriangleLink> & target() const
-            { return m_target; }
-
-        Side target_side() const { return m_side; }
-
-        bool inverts_normal() const { return m_inverts_normal; }
-
-        bool flips_position() const { return m_flips; }
-
-    private:
-        /// set if there is a valid transfer to be had
-        SharedPtr<const TriangleLink> m_target;
-        /// which side of the target did the tracker transfer to
-        Side m_side = Side::k_inside;
-        /// caller should flip normal vector of tracker
-        bool m_inverts_normal = false;
-        // true -> (1 - t)
-        bool m_flips = false;
-    };
-#   endif
     using Transfer = TriangleLinkTransfer;
 
     static bool has_matching_normals(const Triangle &, Side, const Triangle &, Side);
@@ -155,6 +110,7 @@ public:
         (const SharedPtr<TriangleLink> & lhs,
          const SharedPtr<TriangleLink> & rhs);
 
+    // still 95% broken...
     static void attach_matching_points
         (const SharedPtr<TriangleLink> & lhs,
          const SharedPtr<TriangleLink> & rhs);

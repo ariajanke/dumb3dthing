@@ -38,9 +38,9 @@ public:
     SideToSideMapping(TriangleSide left_, TriangleSide right_, bool flips):
         m_left(left_), m_right(right_), m_flips(flips) {}
 
-    TriangleSide left_side() const { return m_right; }
+    TriangleSide left_side () const { return m_left; }
 
-    TriangleSide right_side() const { return m_left; }
+    TriangleSide right_side() const { return m_right; }
 
     bool sides_flip() const { return m_flips; }
 
@@ -131,11 +131,11 @@ class PointMatchAdder final {
 public:
     static Optional<SideToSideMapping> find_point_match
         (const TriangleSegment & lhs, const TriangleSegment & rhs);
-
+#   if 0
     static Optional<SideToSideMapping> find_point_match
         (const SharedPtr<const TriangleLink> & lhs,
          const SharedPtr<const TriangleLink> & rhs);
-
+#   endif
     PointMatchAdder();
 
     PointMatchAdder(const PointMatchAdder &) = delete;

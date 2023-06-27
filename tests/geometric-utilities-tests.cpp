@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "../src/geometric-utilities.hpp"
+#include "../src/TriangleLink.hpp"
 #include "test-helpers.hpp"
 
 #include <ariajanke/cul/TreeTestSuite.hpp>
@@ -54,7 +55,6 @@ describe<LineSegmentIntersection<Vector>>("LineSegmentIntersection::find")([] {
                              Vector2I{0, 4}, Vector2I{4, 0}).value() == Vector2I{2, 2});
 
     mark_it("finds intersection for two line segments", [] {
-
         auto finder = ::find_intersection(force_rt_zero_vec(), Vector2{4, 4},
                                           Vector2{0, 4}, Vector2{4, 0});
         static_assert(std::is_same_v
@@ -62,10 +62,43 @@ describe<LineSegmentIntersection<Vector>>("LineSegmentIntersection::find")([] {
                            Vector2>);
         auto intx = finder.value();
         return test_that(are_very_close(intx, Vector2{2, 2}));
+    }).
+    mark_it("no solution if intersection occurs outside one line segment", [] {
+        auto finder = ::find_intersection(force_rt_zero_vec(), Vector2{4, 4},
+                                          Vector2{0, 4}      , Vector2{-4, 8});
+        return test_that(!finder.has_value());
+    }).
+    mark_it("no solution if intersection occurs outside the other line segment", [] {
+        auto finder = ::find_intersection
+            (force_rt_zero_vec() + Vector2{4, 4}, Vector2{8, 8},
+             Vector2{0, 4}      , Vector2{4, 0});
+        return test_that(!finder.has_value());
+    }).
+    mark_it("parallel lines that do not overlap", [] {
+        auto finder = ::find_intersection
+            (force_rt_zero_vec(), Vector2{0, 4},
+             Vector2{4, 0}      , Vector2{8, 0});
+        return test_that(!finder.has_value());
+    }).
+    mark_it("parallel lines that overlap", [] {
+        auto finder = ::find_intersection
+            (force_rt_zero_vec(), Vector2{0, 4},
+             force_rt_zero_vec(), Vector2{0, 4});
+        return test_that(!finder.has_value());
     });
-    // there maybe four additional tests
-    // intx outside one segment and the other
-    // parallel line segments that overlap and do not
+});
+
+describe<TriangleLinkAttachment>("TriangleLinkAttachment::find")([] {
+    using Side = TriangleSide;
+    mark_it("finds attachment for two triangles side by side", [] {
+        auto link_a = make_shared<TriangleLink>
+            (Vector{}, Vector{1, 0, 0}, Vector{0, 0, 1});
+        auto link_b = make_shared<TriangleLink>
+            (Vector{1, 0, 0}, Vector{0, 0, 1}, Vector{1, 0, 1});
+        auto attachment = TriangleLinkAttachment::find(link_a, link_b);
+        if (!attachment) return test_that(false);
+        return test_that(attachment->left_side() == Side::k_side_bc);
+    });
 });
 
 return [] {};

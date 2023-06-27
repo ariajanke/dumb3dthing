@@ -30,7 +30,8 @@
     (const SharedPtr<const TriangleLink> & lhs,
      const SharedPtr<const TriangleLink> & rhs)
 {
-    auto point_match = PointMatchAdder::find_point_match(lhs, rhs);
+    auto point_match = PointMatchAdder::find_point_match
+        (lhs->segment(), rhs->segment());
     if (!point_match) return {};
     auto matching_normals = TriangleLink::has_matching_normals
         (lhs->segment(), point_match->left_side(),
@@ -57,21 +58,19 @@ TriangleLinkAttachment::TriangleLinkAttachment
     m_flips_position(flips_position_) {}
 
 TriangleLinkTransfer TriangleLinkAttachment::left_transfer() const
-        { return make_on_side(m_lhs, m_rhs_side); }
+    { return make_on_side(m_lhs, m_rhs_side); }
 
 TriangleLinkTransfer TriangleLinkAttachment::right_transfer() const
     { return make_on_side(m_rhs, m_lhs_side); }
 
-    TriangleSide TriangleLinkAttachment::left_side() const { return m_lhs_side; }
+TriangleSide TriangleLinkAttachment::left_side() const { return m_lhs_side; }
 
-    TriangleSide TriangleLinkAttachment::right_side() const { return m_rhs_side; }
+TriangleSide TriangleLinkAttachment::right_side() const { return m_rhs_side; }
 
-/* private */
-    TriangleLinkTransfer TriangleLinkAttachment::make_on_side
-        (const SharedPtr<const TriangleLink> & link,
-         TriangleSide side) const
-    {
-        return TriangleLinkTransfer
-            {SharedPtr<const TriangleLink>{link}, side,
-             m_has_matching_normals, m_flips_position};
-    }
+/* private */ TriangleLinkTransfer TriangleLinkAttachment::make_on_side
+    (const SharedPtr<const TriangleLink> & link, TriangleSide side) const
+{
+    return TriangleLinkTransfer
+        {SharedPtr<const TriangleLink>{link}, side,
+         m_has_matching_normals, m_flips_position};
+}
