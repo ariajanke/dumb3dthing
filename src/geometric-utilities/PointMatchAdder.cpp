@@ -113,12 +113,7 @@ template <std::size_t kt_idx>
         add(PointMatchFinder::from_left_point<TrianglePoint::c>(lhs, rhs)()).
         finish();
 }
-#if 0
-/* static */ Optional<SideToSideMapping> PointMatchAdder::find_point_match
-    (const SharedPtr<const TriangleLink> & lhs,
-     const SharedPtr<const TriangleLink> & rhs)
-{ return find_point_match(lhs->segment(), rhs->segment()); }
-#endif
+
 PointMatchAdder::PointMatchAdder():
     m_position(m_entries.begin()) {}
 

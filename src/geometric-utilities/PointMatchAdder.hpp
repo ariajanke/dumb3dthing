@@ -131,11 +131,7 @@ class PointMatchAdder final {
 public:
     static Optional<SideToSideMapping> find_point_match
         (const TriangleSegment & lhs, const TriangleSegment & rhs);
-#   if 0
-    static Optional<SideToSideMapping> find_point_match
-        (const SharedPtr<const TriangleLink> & lhs,
-         const SharedPtr<const TriangleLink> & rhs);
-#   endif
+
     PointMatchAdder();
 
     PointMatchAdder(const PointMatchAdder &) = delete;

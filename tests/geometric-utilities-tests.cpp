@@ -98,6 +98,17 @@ describe<TriangleLinkAttachment>("TriangleLinkAttachment::find")([] {
         auto attachment = TriangleLinkAttachment::find(link_a, link_b);
         if (!attachment) return test_that(false);
         return test_that(attachment->left_side() == Side::k_side_bc);
+    }).
+    mark_it("", [] {
+        // bc
+        auto link_a = make_shared<TriangleLink>
+            (Vector{19.5, 1., -.5}, Vector{19.5, 0, -1.5}, Vector{20.5, 0, -1.5});
+        // ca
+        auto link_b = make_shared<TriangleLink>
+            (Vector{19.5, 0, -1.5}, Vector{20.5, 0, -2.5}, Vector{20.5, 0, -1.5});
+        auto attachment = TriangleLinkAttachment::find(link_a, link_b);
+        if (!attachment) return test_that(false);
+        return test_that(attachment->right_side() == Side::k_side_ca);
     });
 });
 

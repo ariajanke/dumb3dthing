@@ -20,6 +20,8 @@
 
 #include "DriverComplete.hpp"
 
+#include <iostream>
+
 namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
@@ -226,11 +228,11 @@ State DriverComplete::operator ()
 #           if 0
             std::cout << (new_invert_normal(transfer, tracker) ? "invert" : "regular") << std::endl;
             OnSegment new_tracker
-                {transfer.target, new_invert_normal(transfer, tracker),
+                {transfer.target(), new_invert_normal(transfer, tracker),
                  seg_loc, res->displacement};
-            auto norm = transfer.target->segment().normal()*(new_tracker.invert_normal ? -1 : 1);
+            auto norm = transfer.target()->segment().normal()*(new_tracker.invert_normal ? -1 : 1);
             std::cout << norm << std::endl;
-            std::cout << "on: " << transfer.target->segment() << std::endl;
+            std::cout << "on: " << transfer.target()->segment() << std::endl;
 #           endif
             return OnSegment
                 {transfer.target(), new_invert_normal(transfer, tracker),

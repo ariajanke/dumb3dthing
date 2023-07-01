@@ -34,8 +34,9 @@ void reattach
      const SharedPtr<TriangleLink> & rhs,
      const TriangleLinkAttachment & attachment)
 {
-    lhs->set_transfer(attachment.left_side (), attachment. left_transfer());
-    rhs->set_transfer(attachment.right_side(), attachment.right_transfer());
+    // semantically icky, will need to be fixed
+    lhs->set_transfer(attachment.left_side (), attachment.right_transfer());
+    rhs->set_transfer(attachment.right_side(), attachment. left_transfer());
 }
 
 void attach

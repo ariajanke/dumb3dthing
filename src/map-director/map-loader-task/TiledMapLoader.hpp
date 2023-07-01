@@ -33,6 +33,164 @@
 #include <ariajanke/cul/RectangleUtils.hpp>
 #include <ariajanke/cul/OptionalEither.hpp>
 
+#include <ariajanke/cul/TypeSet.hpp>
+#include <ariajanke/cul/TypeList.hpp>
+
+
+template <typename Base, typename ... Types>
+class RestrictedStateMachineDriver final {
+public:
+    using StateTypeSet = cul::TypeSet<Types...>;
+private:
+    template <typename T>
+    using TypeInheritsFromBase = std::conditional_t<std::is_base_of_v<Base, T>, std::true_type, std::false_type>;
+
+    using TrueListInheritingFromBase = typename cul::TypeList<Types...>::template Transform<TypeInheritsFromBase>;
+    using StatesVariant = Variant<std::monostate, Types...>;
+public:
+    static_assert
+        (TrueListInheritingFromBase::template
+         kt_occurance_count<std::true_type> == sizeof...(Types),
+         "All state classes must inherit from Base");
+
+    // have a state switcher that auto advances and one that does not
+
+    class RestrictedStateSwitcher final {
+    public:
+        RestrictedStateSwitcher
+            (Base *& base_ptr,
+             StatesVariant *& next,
+             StatesVariant *& current):
+            m_base_ptr(base_ptr), m_current(current), m_next(next) {}
+
+        ~RestrictedStateSwitcher() { advance(); }
+
+        template <typename T, typename ... ConstructorTypes>
+        T & set_next_state(ConstructorTypes &&... constructor_args) {
+            *m_next = StatesVariant
+                {std::in_place_type_t<T>{},
+                 std::forward<ConstructorTypes>(constructor_args)...};
+            T * rv = std::get_if<T>(m_next);
+            m_base_ptr = rv;
+            return rv;
+        }
+
+    private:
+        void advance() {
+            if (std::holds_alternative<std::monostate>(*m_next))
+                { return; }
+            std::swap(m_current, m_next);
+            *m_next = StatesVariant{std::monostate{}};
+        }
+
+        Base *& m_base_ptr;
+        StatesVariant *& m_current;
+        StatesVariant *& m_next   ;
+    };
+
+    [[nodiscard]] RestrictedStateSwitcher state_switcher()
+        { return RestrictedStateSwitcher{m_base_ptr, m_next, m_current}; }
+
+    template <typename T, typename ... ConstructorTypes>
+    T & set_current_state(ConstructorTypes &&... constructor_args) {
+        *m_current = StatesVariant
+            {std::in_place_type_t<T>{},
+             std::forward<ConstructorTypes>(constructor_args)...};
+        *m_next = StatesVariant{std::monostate{}};
+        auto * ptr = std::get_if<T>(m_current);
+        m_base_ptr = ptr;
+        return *ptr;
+    }
+
+    Base * operator -> () const { return m_base_ptr; }
+
+    Base & operator * () const { return *m_base_ptr; }
+
+private:
+    StatesVariant m_left  = std::monostate{};
+    StatesVariant m_right = std::monostate{};
+    StatesVariant * m_current = &m_left;
+    StatesVariant * m_next    = &m_right;
+    Base * m_base_ptr = nullptr;
+};
+
+#if 0
+class StateSwitcherBase {
+protected:
+    StateSwitcherBase() {}
+
+    template <typename T>
+    static std::size_t type_id_for() {
+        static std::byte s;
+        return reinterpret_cast<std::size_t>(&s);
+    }
+};
+
+template <typename ... Types>
+class StorageFor {
+public:
+    static constexpr const std::size_t k_total_size  = 0;
+    static constexpr const std::size_t k_total_align = 1;
+
+    using Type = std::aligned_storage_t<k_total_size, k_total_align>;
+};
+
+template <typename Head, typename ... Types>
+class StorageFor<Head, Types...> {
+public:
+    static constexpr const std::size_t k_total_size =
+        std::max(StorageFor<Types...>::k_total_size, sizeof(Head));
+    static constexpr const std::size_t k_total_align =
+        std::max(StorageFor<Types...>::k_total_align, alignof(Head));
+
+    using Type = std::aligned_storage_t<k_total_size, k_total_align>;
+};
+
+template <typename ... Types>
+using StorageTypeFor = typename StorageFor<Types...>::Type;
+
+template <typename ... StateTypes>
+class TypeRestrictedStateMachine final {
+public:
+    using StateTypeSet = cul::TypeSet<StateTypes...>;
+
+    class StateSwitcher final : public StateSwitcherBase {
+    private:
+        virtual void destroy_next_state() = 0;
+
+        virtual void * space_for_next() = 0;
+    };
+
+private:
+    std::array<StorageTypeFor<StateTypes...>, 2> m_storage;
+    StorageTypeFor<StateTypes...> * m_current_state;
+    StorageTypeFor<StateTypes...> * m_next_state;
+};
+
+// can have different state switcher types
+template <typename StateBaseType, typename ... StateTypes>
+class RestrictedStateSwitcher {
+public:
+    using StateTypeSet = cul::TypeSet<StateTypes...>;
+
+    template <typename T, typename ... ConstructorTypes>
+    T & set_next_state(ConstructorTypes &&... constructor_args)
+    {
+        // in the other specialization, we check against the typeset and
+        // immediately report an error if we can
+        destroy_next_state();
+        void * space = space_for_type_id(type_id_for<T>());
+        return *new (space) T{std::forward<ConstructorTypes>(constructor_args)...};
+    }
+
+
+protected:
+    virtual ~StateSwitcher() {}
+
+    virtual void destroy_next_state() = 0;
+    virtual void * space_for_type_id(std::size_t) = 0;
+};
+#endif
 class MapLoadingStateHolder;
 class MapLoadingState;
 class MapLoadingWaitingForFileContents;
