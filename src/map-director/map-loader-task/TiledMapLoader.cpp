@@ -177,11 +177,6 @@ MapLoadResult WaitingForFileContents::update_progress
     using namespace map_loading_messages;
     using Lost = Future<std::string>::Lost;
 
-    std::vector<std::unique_ptr<int>> unique_pointers;
-    for (int i = 0; i != 10; ++i) {
-        unique_pointers.emplace_back(std::make_unique<int>(i));
-    }
-
     return (*m_file_contents)().map_left([] (Lost) {
         return MapLoadingError{k_tile_map_file_contents_not_retrieved};
     }).
@@ -319,6 +314,266 @@ MapLoadResult TiledMapLoader::update_progress() {
     }
     return rv;
 }
+
+// ----------------------------------------------------------------------------
+// all the new shit
+
+namespace tiled_map_loading {
+
+/* static */ Either<MapLoadingError, DocumentOwningNode>
+    DocumentOwningNode::load_root(std::string && file_contents)
+{
+    using namespace map_loading_messages;
+    struct OwnerImpl final : public Owner {
+        TiXmlDocument document;
+    };
+    // great, guaranteed dynamic allocation
+    // and file_contents is consumed
+    auto owner = make_shared<OwnerImpl>();
+    auto & document = owner->document;
+    if (document.Parse(file_contents.c_str()) != tinyxml2::XML_SUCCESS) {
+        return MapLoadingError{k_tile_map_file_contents_not_retrieved};
+    }
+    return DocumentOwningNode{owner, *document.RootElement()};
+}
+
+DocumentOwningNode DocumentOwningNode::make_with_same_owner
+    (const TiXmlElement & same_document_element) const
+{ m_element->ToDocument(); return DocumentOwningNode{m_owner, same_document_element}; }
+
+const TiXmlElement & DocumentOwningNode::element() const
+    { return *m_element; }
+
+
+// ----------------------------------------------------------------------------
+
+BaseState::MapLoadResult
+    FileContentsWaitState::update_progress(StateSwitcher & switcher)
+{
+    return (*m_future_contents)().
+    map_left([] (Future<std::string>::Lost) {
+        return MapLoadingError
+            {map_loading_messages::k_tile_map_file_contents_not_retrieved};
+    }).
+    chain([&] (std::string && contents) {
+        using namespace map_loading_messages;
+        return DocumentOwningNode::load_root(std::move(contents)).
+            fold<MapLoadResult>().
+            map([&] (DocumentOwningNode && root) {
+                switcher.set_next_state<InitialDocumentReadState>(std::move(root));
+                return MapLoadResult{};
+            }).
+            map_left([] (MapLoadingError error) {
+                return MapLoadResult{std::move(error)};
+            }).
+            value();
+    });
+}
+
+// ----------------------------------------------------------------------------
+
+/* static */ Optional<UnfinishedTileSetContent> UnfinishedTileSetContent::load
+    (const DocumentOwningNode & tileset,
+     Platform & platform,
+     MapLoadingWarningsAdder & warnings)
+{
+    using namespace cul::either;
+    using namespace map_loading_messages;
+    constexpr const int k_no_first_gid = -1;
+
+    auto first_gid = tileset->IntAttribute("firstgid", k_no_first_gid);
+    if (first_gid == k_no_first_gid) {
+        warnings.add(k_invalid_tile_data);
+        return {};
+    }
+
+    if (const auto * source = tileset->Attribute("source")) {
+        return UnfinishedTileSetContent
+            {first_gid, platform.promise_file_contents(source)};
+    } else {
+        return UnfinishedTileSetContent{first_gid, tileset};
+    }
+}
+
+Either<UnfinishedTileSetContent::Lost, Optional<TileSetContent>>
+    UnfinishedTileSetContent::update()
+{
+    if (m_tileset_element) {
+        return cul::either::right<Lost>().with(finish());
+    }
+    auto res = (*m_future_string)();
+    if (res.is_empty()) { return Optional<TileSetContent>{}; }
+    return res.
+        require().
+        chain([this] (std::string && contents) {
+            return DocumentOwningNode::load_root(std::move(contents)).
+                map_left([] (MapLoadingError) {
+                    // error lost :c
+                    return Lost{};
+                }).
+                map([this] (DocumentOwningNode && node)
+                    { return finish(std::move(node)); });
+            });
+}
+
+bool UnfinishedTileSetContent::is_finished() const
+    { return !m_future_string && !m_tileset_element; }
+
+/* private */ Optional<TileSetContent> UnfinishedTileSetContent::finish()
+    { return finish(std::move(m_tileset_element)); }
+
+/* private */ Optional<TileSetContent> UnfinishedTileSetContent::finish
+    (DocumentOwningNode && node)
+{
+    if (!node) {
+        using namespace cul::exceptions_abbr;
+        throw RtError{"UnfinishedTileSetContent::finish: owning node must "
+                      "refer to an element"};
+    }
+    return TileSetContent{m_first_gid, std::move(node)};
+}
+
+#if 0
+Either<Future<std::string>::Lost, UnfinishedTileSetContent::UpdateResponse>
+    UnfinishedTileSetContent::update()
+{
+    if (m_tileset_element) { return UpdateResponse::ready; }
+
+    auto res = (*m_future_string)();
+    if (res.is_empty()) { return UpdateResponse::in_progress; }
+    return res.require().
+        chain([this] (std::string && contents) {
+            return DocumentOwningNode::load_root(std::move(contents)).
+                map_left([] (MapLoadingError) {
+                    // error lost :c
+                    return Lost{};
+                }).
+                map([this] (DocumentOwningNode && node) {
+                    m_tileset_element = std::move(node);
+                    return UpdateResponse::ready;
+                });
+            });
+}
+
+TileSetContent UnfinishedTileSetContent::finish() {
+    if (!m_tileset_element) {
+        using namespace cul::exceptions_abbr;
+        throw RtError{"UnfinishedTileSetContent::finish: should not be called "
+                      "until UpdateResponse::ready is returned by update"};
+    }
+    return TileSetContent{m_first_gid, std::move(m_tileset_element)};
+}
+#endif
+/* private */ UnfinishedTileSetContent::UnfinishedTileSetContent
+    (int first_gid, FutureStringPtr && future_):
+    m_first_gid(first_gid),
+    m_future_string(std::move(future_)) {}
+
+/* private */ UnfinishedTileSetContent::UnfinishedTileSetContent
+    (int first_gid, const DocumentOwningNode & tilset_element):
+    m_first_gid(first_gid),
+    m_tileset_element(tilset_element) {}
+
+// ----------------------------------------------------------------------------
+
+/* static */ std::vector<Grid<int>>
+    InitialDocumentReadState::load_layers
+    (const TiXmlElement & document_root, MapLoadingWarningsAdder & warnings)
+{
+    std::vector<Grid<int>> layers;
+    for (auto & layer_el : XmlRange{document_root, "layer"}) {
+        auto ei = load_layer_(layer_el);
+        if (ei.is_left()) {
+            warnings.add(ei.left());
+        } else if (ei.is_right()) {
+            layers.emplace_back(ei.right());
+        }
+    }
+    return layers;
+}
+
+/* static */ std::vector<UnfinishedTileSetContent>
+    InitialDocumentReadState::load_unfinished_tilesets
+    (const DocumentOwningNode & document_root,
+     MapLoadingWarningsAdder & warnings,
+     Platform & platform)
+{
+    std::vector<UnfinishedTileSetContent> unfinished_tilesets;
+    for (auto & tileset : XmlRange{*document_root, "tileset"}) {
+        auto unfinished_content = UnfinishedTileSetContent::load
+            (document_root.make_with_same_owner(tileset), platform, warnings);
+        if (unfinished_content) {
+            unfinished_tilesets.push_back(*unfinished_content);
+        }
+    }
+    return unfinished_tilesets;
+}
+
+MapLoadResult InitialDocumentReadState::update_progress
+    (StateSwitcher & switcher)
+{
+    auto layers = load_layers(*m_document_root, warnings_adder());
+    auto unfinished_tilesets = load_unfinished_tilesets
+        (m_document_root, warnings_adder(), platform());
+    switcher.set_next_state<TileSetWaitState>
+        (std::move(m_document_root),
+         std::move(layers),
+         std::move(unfinished_tilesets));
+    return MapLoadResult{};
+}
+
+// ----------------------------------------------------------------------------
+
+/* static */ TileSetWaitState::UpdatedContainers
+    TileSetWaitState::UpdatedContainers::update
+    (std::vector<UnfinishedTileSetContent> && unfinished_container,
+     std::vector<TileSetContent> && finished_container,
+     MapLoadingWarningsAdder & warnings)
+{
+    // this is two functions :S
+    using Lost = UnfinishedTileSetContent::Lost;
+    for (auto & unfinished : unfinished_container) {
+        (void)unfinished.update().fold<int>().
+            map([&finished_container] (Optional<TileSetContent> && finished) {
+                if (finished) {
+                    finished_container.emplace_back(*std::move(finished));
+                }
+                return 0;
+            }).
+            map_left([&warnings] (Lost) {
+                // issue a warning at some point
+                (void)warnings;
+                return 0;
+            }).
+            value();
+    }
+
+    unfinished_container.erase
+        (std::remove_if(unfinished_container.begin(),
+                        unfinished_container.end  (),
+                        UnfinishedTileSetContent::finishable),
+         unfinished_container.end());
+    return UpdatedContainers{std::move(unfinished_container),
+                             std::move(finished_container  )};
+}
+
+MapLoadResult TileSetWaitState::update_progress(StateSwitcher & switcher) {
+    auto updated = UpdatedContainers::update
+        (std::move(m_unfinished_contents),
+         std::move(m_finished_contents  ),
+         warnings_adder()                );
+    m_unfinished_contents = updated.move_out_unfinished();
+    m_finished_contents = updated.move_out_finished();
+    if (m_unfinished_contents.empty()) {
+        switcher.set_next_state<TiledMapFinishedState>();
+    }
+    return MapLoadResult{};
+}
+
+} // end of tiled_map_loading namespace
+
+// end of new shit
+// ----------------------------------------------------------------------------
 
 namespace {
 

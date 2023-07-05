@@ -36,173 +36,584 @@
 #include <ariajanke/cul/TypeSet.hpp>
 #include <ariajanke/cul/TypeList.hpp>
 
+// types are forwarded only
 
-template <typename Base, typename ... Types>
-class RestrictedStateMachineDriver final {
+// I think I'm okay with losing constexpr
+template <typename Base>
+class ConstructorFunctions final {
 public:
-    using StateTypeSet = cul::TypeSet<Types...>;
-private:
+    using MoveFunction = Base * (*)(void * destination, void * source);
+
+    using CopyFunction = Base * (*)(void * destination, const void * source);
+
     template <typename T>
-    using TypeInheritsFromBase = std::conditional_t<std::is_base_of_v<Base, T>, std::true_type, std::false_type>;
-
-    using TrueListInheritingFromBase = typename cul::TypeList<Types...>::template Transform<TypeInheritsFromBase>;
-    using StatesVariant = Variant<std::monostate, Types...>;
-public:
-    static_assert
-        (TrueListInheritingFromBase::template
-         kt_occurance_count<std::true_type> == sizeof...(Types),
-         "All state classes must inherit from Base");
-
-    // have a state switcher that auto advances and one that does not
-
-    class RestrictedStateSwitcher final {
-    public:
-        RestrictedStateSwitcher
-            (Base *& base_ptr,
-             StatesVariant *& next,
-             StatesVariant *& current):
-            m_base_ptr(base_ptr), m_current(current), m_next(next) {}
-
-        ~RestrictedStateSwitcher() { advance(); }
-
-        template <typename T, typename ... ConstructorTypes>
-        T & set_next_state(ConstructorTypes &&... constructor_args) {
-            *m_next = StatesVariant
-                {std::in_place_type_t<T>{},
-                 std::forward<ConstructorTypes>(constructor_args)...};
-            T * rv = std::get_if<T>(m_next);
-            m_base_ptr = rv;
-            return rv;
-        }
-
-    private:
-        void advance() {
-            if (std::holds_alternative<std::monostate>(*m_next))
-                { return; }
-            std::swap(m_current, m_next);
-            *m_next = StatesVariant{std::monostate{}};
-        }
-
-        Base *& m_base_ptr;
-        StatesVariant *& m_current;
-        StatesVariant *& m_next   ;
-    };
-
-    [[nodiscard]] RestrictedStateSwitcher state_switcher()
-        { return RestrictedStateSwitcher{m_base_ptr, m_next, m_current}; }
-
-    template <typename T, typename ... ConstructorTypes>
-    T & set_current_state(ConstructorTypes &&... constructor_args) {
-        *m_current = StatesVariant
-            {std::in_place_type_t<T>{},
-             std::forward<ConstructorTypes>(constructor_args)...};
-        *m_next = StatesVariant{std::monostate{}};
-        auto * ptr = std::get_if<T>(m_current);
-        m_base_ptr = ptr;
-        return *ptr;
+    static const ConstructorFunctions & constructor_functions_for() {
+        static_assert(std::is_base_of_v<Base, T>);
+        static const ConstructorFunctions funcs
+            {copy_function_for<T>(), move_function_for<T>()};
+        return funcs;
     }
 
-    Base * operator -> () const { return m_base_ptr; }
+    ConstructorFunctions() {}
 
-    Base & operator * () const { return *m_base_ptr; }
+    ConstructorFunctions(CopyFunction copy_, MoveFunction move_):
+        m_move(move_), m_copy(copy_) {}
+
+    MoveFunction move_function() const { return m_move; }
+
+    CopyFunction copy_function() const { return m_copy; }
 
 private:
-    StatesVariant m_left  = std::monostate{};
-    StatesVariant m_right = std::monostate{};
-    StatesVariant * m_current = &m_left;
-    StatesVariant * m_next    = &m_right;
-    Base * m_base_ptr = nullptr;
+    template <typename T>
+    static std::enable_if_t<std::is_copy_constructible_v<T>, CopyFunction>
+        copy_function_for()
+    {
+        return [] (void * destination, const void * source) {
+            // destination is assumed to be free
+            const T & obj = *reinterpret_cast<const T *>(source);
+            return static_cast<Base *>(new (destination) T{obj});
+        };
+    }
+
+    template <typename T>
+    static std::enable_if_t<!std::is_copy_constructible_v<T>, CopyFunction>
+        copy_function_for()
+    {
+        return [] (void *, const void *) -> Base * {
+            using namespace cul::exceptions_abbr;
+            throw RtError{"Cannot copy this type"};
+        };
+    }
+
+    template <typename T>
+    static MoveFunction move_function_for() {
+        return [] (void * destination, void * source) {
+            // destination is assumed to be free
+            T & obj = *reinterpret_cast<T *>(source);
+            return static_cast<Base *>(new (destination) T{std::move(obj)});
+        };
+    }
+
+    MoveFunction m_move = nullptr;
+    CopyFunction m_copy = nullptr;
 };
 
-#if 0
-class StateSwitcherBase {
-protected:
-    StateSwitcherBase() {}
 
-    template <typename T>
-    static std::size_t type_id_for() {
-        static std::byte s;
-        return reinterpret_cast<std::size_t>(&s);
+template <typename Base, typename ... Types>
+class StateMachineDriver;
+
+template <typename Base>
+class RestrictedStateSwitcherBase {
+public:
+    virtual ~RestrictedStateSwitcherBase() {}
+
+protected:
+    using ConstructorFunctions_ = ConstructorFunctions<Base>;
+
+    virtual void * prepare_next_state_space() = 0;
+
+    virtual void assign_next_state_base
+        (Base *, const ConstructorFunctions_ &) = 0;
+};
+
+template <typename Base, typename ... Types>
+class RestrictedStateSwitcher :
+    public RestrictedStateSwitcherBase<Base>
+{
+public:
+    using StatesTypeSet = cul::TypeSet<Types...>;
+
+    using StatesDriver = StateMachineDriver<Base, Types...>;
+
+    template <typename T, typename ... ConstructorTypes>
+    T & set_next_state(ConstructorTypes &&... constructor_args) {
+        // only called when all types are complete
+        static_assert(StatesTypeSet::template kt_contains<T>);
+        static_assert(std::is_base_of_v<Base, T>);
+
+        using Super = RestrictedStateSwitcherBase<Base>;
+        using ConstructorFunctions_ = typename Super::ConstructorFunctions_;
+
+        T * rv = new (this->prepare_next_state_space())
+            T{std::forward<ConstructorTypes>(constructor_args)...};
+        const auto & funcs =
+            ConstructorFunctions_::template constructor_functions_for<T>();
+        this->assign_next_state_base(rv, funcs);
+        return *rv;
     }
+};
+
+// after types are complete
+
+template <typename Base>
+class StateEntry final {
+public:
+    using ConstructorFunctions_ = ConstructorFunctions<Base>;
+
+    explicit StateEntry(void * space): m_space(space) {}
+
+    void set_state
+        (Base * base_ptr,
+         const ConstructorFunctions_ & constructors)
+    {
+        m_base = base_ptr;
+        m_constructors = &constructors;
+    }
+
+    void * space() const
+        { return m_space; }
+
+    Base * base_state() const
+        { return m_base; }
+
+    const ConstructorFunctions_ * constructors() const
+        { return m_constructors; }
+
+    void swap(StateEntry & rhs) {
+        std::swap(m_space       , rhs.m_space       );
+        std::swap(m_base        , rhs.m_base        );
+        std::swap(m_constructors, rhs.m_constructors);
+    }
+
+    void move(StateEntry & rhs) {
+        // assumed clear
+        verify_has_no_state();
+        rhs.verify_has_state();
+        m_base         = rhs.constructors()->
+            move_function()(m_space, rhs.m_space);
+        m_constructors = rhs.constructors();
+        rhs.clear();
+    }
+
+    void copy(const StateEntry & rhs) {
+        verify_has_no_state();
+        rhs.verify_has_state();
+        m_base         = rhs.constructors()->
+            copy_function()(m_space, rhs.m_space);
+        m_constructors = rhs.constructors();
+    }
+
+    void clear() {
+        m_base->~Base();
+        m_base = nullptr;
+        m_constructors = nullptr;
+    }
+
+    bool has_state() const
+        { return m_base; }
+
+private:
+    void verify_has_state() const {
+        assert(m_base && m_constructors);
+    }
+
+    void verify_has_no_state() const {
+        assert(!m_base && !m_constructors);
+    }
+
+    void * m_space = nullptr;
+    Base * m_base = nullptr;
+    const ConstructorFunctions_ * m_constructors = nullptr;
+};
+
+template <typename Base, typename ... Types>
+class RestrictedStateSwitcherComplete final :
+    public RestrictedStateSwitcher<Base, Types...>
+{
+public:
+    static_assert(std::has_virtual_destructor_v<Base>);
+
+    using ConstructorFunctions_ = ConstructorFunctions<Base>;
+
+    using StateEntry_ = StateEntry<Base>;
+
+    explicit RestrictedStateSwitcherComplete(StateEntry_ & entry):
+        m_entry(entry) {}
+
+    void * prepare_next_state_space() final {
+        m_entry.clear();
+        return m_entry.space();
+    }
+
+    void assign_next_state_base
+        (Base * base_ptr,
+         const ConstructorFunctions_ & constructors) final
+    { m_entry.set_state(base_ptr, constructors); }
+
+private:
+    StateEntry_ & m_entry;
 };
 
 template <typename ... Types>
-class StorageFor {
+class AlignedSpace final {
 public:
-    static constexpr const std::size_t k_total_size  = 0;
-    static constexpr const std::size_t k_total_align = 1;
+    static const constexpr std::size_t k_size      = 0;
+    static const constexpr std::size_t k_alignment = 1;
 
-    using Type = std::aligned_storage_t<k_total_size, k_total_align>;
+    using SpaceType = std::aligned_storage_t<k_size, k_alignment>;
 };
 
 template <typename Head, typename ... Types>
-class StorageFor<Head, Types...> {
+class AlignedSpace<Head, Types...> final {
 public:
-    static constexpr const std::size_t k_total_size =
-        std::max(StorageFor<Types...>::k_total_size, sizeof(Head));
-    static constexpr const std::size_t k_total_align =
-        std::max(StorageFor<Types...>::k_total_align, alignof(Head));
+    static const constexpr std::size_t k_size =
+        std::max(AlignedSpace<Types...>::k_size, sizeof(Head));
+    static const constexpr std::size_t k_alignment =
+        std::max(AlignedSpace<Types...>::k_alignment, alignof(Head));
 
-    using Type = std::aligned_storage_t<k_total_size, k_total_align>;
+    using SpaceType = std::aligned_storage_t<k_size, k_alignment>;
 };
 
-template <typename ... Types>
-using StorageTypeFor = typename StorageFor<Types...>::Type;
 
-template <typename ... StateTypes>
-class TypeRestrictedStateMachine final {
+template <typename Base, typename ... Types>
+class StateMachineDriver final {
+    using ConstructorFunctions_ = ConstructorFunctions<Base>;
 public:
-    using StateTypeSet = cul::TypeSet<StateTypes...>;
+    using StatesSpace = typename AlignedSpace<Types...>::SpaceType;
 
-    class StateSwitcher final : public StateSwitcherBase {
-    private:
-        virtual void destroy_next_state() = 0;
+    using StateSwitcher = RestrictedStateSwitcherComplete<Base, Types...>;
 
-        virtual void * space_for_next() = 0;
-    };
+    StateMachineDriver():
+        m_current_entry(&m_space_a),
+        m_next_entry   (&m_space_b) {}
 
-private:
-    std::array<StorageTypeFor<StateTypes...>, 2> m_storage;
-    StorageTypeFor<StateTypes...> * m_current_state;
-    StorageTypeFor<StateTypes...> * m_next_state;
-};
+    StateMachineDriver(const StateMachineDriver & rhs):
+        StateMachineDriver()
+        { copy(rhs); }
 
-// can have different state switcher types
-template <typename StateBaseType, typename ... StateTypes>
-class RestrictedStateSwitcher {
-public:
-    using StateTypeSet = cul::TypeSet<StateTypes...>;
+    StateMachineDriver(StateMachineDriver && rhs):
+        StateMachineDriver()
+        { move(rhs); }
 
-    template <typename T, typename ... ConstructorTypes>
-    T & set_next_state(ConstructorTypes &&... constructor_args)
-    {
-        // in the other specialization, we check against the typeset and
-        // immediately report an error if we can
-        destroy_next_state();
-        void * space = space_for_type_id(type_id_for<T>());
-        return *new (space) T{std::forward<ConstructorTypes>(constructor_args)...};
+    ~StateMachineDriver()
+        { clear(); }
+
+    StateMachineDriver & operator = (const StateMachineDriver & rhs) {
+        if (this == &rhs)
+            { copy(rhs); }
+        return *this;
     }
 
+    StateMachineDriver & operator = (StateMachineDriver && rhs) {
+        if (this == &rhs)
+            { move(rhs); }
+        return *this;
+    }
 
-protected:
-    virtual ~StateSwitcher() {}
+    StateSwitcher state_switcher()
+        { return StateSwitcher{m_next_entry}; }
 
-    virtual void destroy_next_state() = 0;
-    virtual void * space_for_type_id(std::size_t) = 0;
+    template <void (Base::*preadvance_member_f)(const Base &)>
+    StateMachineDriver & on_advanceable() {
+        if (is_advanceable()) {
+            (m_next_entry.base_state()->*preadvance_member_f)
+                (*m_current_entry.base_state());
+        }
+        return *this;
+    }
+
+    StateMachineDriver & advance() {
+        if (is_advanceable()) {
+            m_current_entry.swap(m_next_entry);
+            m_next_entry.clear();
+        }
+        return *this;
+    }
+
+    bool is_advanceable() const
+        { return m_next_entry.has_state(); }
+
+    Base * operator -> () const { return m_current_entry.base_state(); }
+
+    Base & operator * () const { return *m_current_entry.base_state(); }
+
+private:
+    using Entry = StateEntry<Base>;
+
+    void move(StateMachineDriver & rhs) {
+        m_current_entry.move(rhs.m_current_entry);
+        m_next_entry   .move(rhs.m_next_entry   );
+    }
+
+    void copy(const StateMachineDriver & rhs) {
+        m_current_entry.copy(rhs.m_current_entry);
+        m_next_entry   .copy(rhs.m_next_entry   );
+    }
+
+    void clear() {
+        m_current_entry.clear();
+        m_next_entry.clear();
+    }
+
+    Entry m_current_entry;
+    Entry m_next_entry;
+    StatesSpace m_space_a, m_space_b;
 };
-#endif
-class MapLoadingStateHolder;
-class MapLoadingState;
-class MapLoadingWaitingForFileContents;
-class MapLoadingWaitingForTileSets;
-class MapLoadingReady;
-class MapLoadingExpired;
 
 struct MapLoadingSuccess final {
     UniquePtr<TiledMapRegion> loaded_region;
     MapLoadingWarnings warnings;
 };
 
+namespace tiled_map_loading {
+
+class BaseState;
+class FileContentsWaitState;
+// waits for string contents for each tileset
+class InitialDocumentReadState;
+
+// states for composite maps
+// ... none atm
+
+// states for producable maps
+class ProducableReady;
+class ExpiredState;
+
+class BaseState {
+public:
+    using MapLoadResult = OptionalEither<MapLoadingError, MapLoadingSuccess>;
+    using StateSwitcher = RestrictedStateSwitcher
+        <BaseState,
+         FileContentsWaitState, InitialDocumentReadState, ProducableReady, ExpiredState>;
+
+    virtual MapLoadResult update_progress(StateSwitcher &) = 0;
+
+    virtual ~BaseState() {}
+
+    // rename me
+    void carry_shared_state_stuff(const BaseState &);
+
+protected:
+    Platform & platform() const;
+
+    MapLoadingWarningsAdder & warnings_adder();
+
+private:
+    Platform * m_platform = nullptr;
+    UnfinishedMapLoadingWarnings m_unfinished_warnings;
+};
+
+class FileContentsWaitState final : public BaseState {
+public:
+    MapLoadResult update_progress(StateSwitcher &) final;
+
+private:
+    FutureStringPtr m_future_contents;
+};
+
+class TileSetContent;
+
+class DocumentOwningNode final {
+public:
+    static Either<MapLoadingError, DocumentOwningNode>
+        load_root(std::string && file_contents);
+
+    DocumentOwningNode() {}
+
+    DocumentOwningNode make_with_same_owner
+        (const TiXmlElement & same_document_element) const;
+
+    const TiXmlElement * operator -> () const { return &element(); }
+
+    const TiXmlElement & operator * () const { return element(); }
+
+    const TiXmlElement & element() const;
+
+    explicit operator bool() const { return m_element; }
+
+private:
+    struct Owner {
+        virtual ~Owner() {}
+    };
+
+    DocumentOwningNode
+        (const SharedPtr<Owner> & owner, const TiXmlElement & element_):
+        m_owner(owner), m_element(&element_) {}
+
+    SharedPtr<Owner> m_owner;
+    const TiXmlElement * m_element = nullptr;
+};
+
+class UnfinishedTileSetContent final {
+public:
+    using Lost = Future<std::string>::Lost;
+
+    static Optional<UnfinishedTileSetContent> load
+        (const DocumentOwningNode & tileset,
+         Platform & platform,
+         MapLoadingWarningsAdder &);
+
+    static bool finishable(const UnfinishedTileSetContent & content)
+        { return content.is_finished(); }
+
+    UnfinishedTileSetContent() {}
+
+    Either<Lost, Optional<TileSetContent>> update();
+
+    bool is_finished() const;
+
+private:
+    UnfinishedTileSetContent(int first_gid, FutureStringPtr &&);
+
+    UnfinishedTileSetContent(int first_gid, const DocumentOwningNode &);
+
+    Optional<TileSetContent> finish();
+
+    Optional<TileSetContent> finish(DocumentOwningNode &&);
+
+    int m_first_gid = 0;
+    FutureStringPtr m_future_string;
+    DocumentOwningNode m_tileset_element;
+};
+
+class TileSetContent final {
+public:
+    TileSetContent(int first_gid_, DocumentOwningNode && contents_):
+        m_first_gid(first_gid_), m_tileset_element(std::move(contents_)) {}
+
+    int first_gid() const { return m_first_gid; }
+
+    const TiXmlElement & element() const { return *m_tileset_element; }
+
+private:
+    int m_first_gid;
+    DocumentOwningNode m_tileset_element;
+};
+
+class InitialDocumentReadState final : public BaseState {
+public:
+    static std::vector<Grid<int>> load_layers
+        (const TiXmlElement & document_root, MapLoadingWarningsAdder &);
+
+    static std::vector<UnfinishedTileSetContent> load_unfinished_tilesets
+        (const DocumentOwningNode & document_root,
+         MapLoadingWarningsAdder &,
+         Platform &);
+
+    explicit InitialDocumentReadState
+        (DocumentOwningNode && root_node):
+        m_document_root(std::move(root_node)) {}
+
+    InitialDocumentReadState(const InitialDocumentReadState &) = delete;
+
+    InitialDocumentReadState(InitialDocumentReadState &&) = default;
+
+    MapLoadResult update_progress(StateSwitcher &) final;
+
+private:
+    DocumentOwningNode m_document_root;
+};
+
+class TileSetWaitState final : public BaseState {
+public:
+
+    class UpdatedContainers final {
+    public:
+        static UpdatedContainers update
+            (std::vector<UnfinishedTileSetContent> && unfinished,
+             std::vector<TileSetContent> && finished,
+             MapLoadingWarningsAdder &);
+
+        UpdatedContainers
+            (std::vector<UnfinishedTileSetContent> && unfinished,
+             std::vector<TileSetContent> && finished):
+            m_unfinished(std::move(unfinished)),
+            m_finished(std::move(finished)) {}
+
+        std::vector<UnfinishedTileSetContent> move_out_unfinished()
+            { return std::move(m_unfinished); }
+
+        std::vector<TileSetContent> move_out_finished()
+            { return std::move(m_finished); }
+
+    private:
+        std::vector<UnfinishedTileSetContent> m_unfinished;
+        std::vector<TileSetContent> m_finished;
+    };
+
+    TileSetWaitState
+        (DocumentOwningNode && document_root,
+         std::vector<Grid<int>> && layers,
+         std::vector<UnfinishedTileSetContent> && unfinished_tilesets):
+        m_document_root(std::move(document_root)),
+        m_layers(std::move(layers)),
+        m_unfinished_contents(std::move(unfinished_tilesets)) {}
+
+    MapLoadResult update_progress(StateSwitcher &) final;
+
+private:
+    DocumentOwningNode m_document_root;
+    std::vector<Grid<int>> m_layers;
+    std::vector<UnfinishedTileSetContent> m_unfinished_contents;
+    std::vector<TileSetContent> m_finished_contents;
+};
+
+// preverbial fork in the states road
+// State class names should tell me roughly what it does
+// and not "where in progress" it is
+// is this a strategy? a factory? a what?
+class TiledMapFinishedState final : public BaseState {
+
+};
+
+class ProducableReady final : public BaseState {
+public:
+    MapLoadResult update_progress(StateSwitcher &) final;
+};
+
+class ExpiredState final : public BaseState {
+public:
+    MapLoadResult update_progress(StateSwitcher &) final
+        { return {}; }
+};
+
+class MapLoadStateMachine final {
+public:
+    using MapLoadResult = BaseState::MapLoadResult;
+
+    MapLoadResult update_progress() {
+        auto switcher = m_state_driver.state_switcher();
+        auto result = m_state_driver.
+            on_advanceable<&BaseState::carry_shared_state_stuff>().
+            advance()->
+            update_progress(switcher);
+        if (result.is_empty() && m_state_driver.is_advanceable())
+            { return update_progress(); }
+        return result;
+    }
+
+private:
+    using StateSwitcher = BaseState::StateSwitcher;
+    // there is a way to dry this up, I just want to see if this works first
+    using CompleteStateSwitcher = RestrictedStateSwitcherComplete
+        <BaseState,
+         FileContentsWaitState, InitialDocumentReadState, ProducableReady, ExpiredState>;
+    using StateDriver =
+        StateMachineDriver
+        <BaseState,
+         FileContentsWaitState, InitialDocumentReadState, ProducableReady, ExpiredState>;
+#   if 1
+    StateDriver m_state_driver;
+#   endif
+#   if 0
+    CompleteStateSwitcher m_complete_switcher;
+#   endif
+};
+
+} // end of tiled_map_loading namespace
+
+class MapLoadingStateHolder;
+class MapLoadingState;
+class MapLoadingWaitingForFileContents;
+class MapLoadingWaitingForTileSets;
+class MapLoadingReady;
+class MapLoadingExpired;
+#if 0
+struct MapLoadingSuccess final {
+    UniquePtr<TiledMapRegion> loaded_region;
+    MapLoadingWarnings warnings;
+};
+#endif
 class MapLoadingContext {
 public:
     using State = MapLoadingState;
