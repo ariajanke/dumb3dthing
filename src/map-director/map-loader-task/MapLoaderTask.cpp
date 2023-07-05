@@ -29,7 +29,11 @@ using MapLoadResult = MapLoadingContext::MapLoadResult;
 } // end of <anonymous> namespace
 
 MapLoaderTask::MapLoaderTask
+#   ifndef MACRO_NEW_MAP_LOADER_STATES
     (TiledMapLoader && map_loader,
+#   else
+    (tiled_map_loading::MapLoadStateMachine && map_loader,
+#   endif
      const SharedPtr<MapRegionTracker> & target_region_instance,
      const Entity & player_physics):
      m_region_tracker(verify_region_tracker_presence
@@ -45,10 +49,6 @@ BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
             Entity{m_player_physics}.ensure<Velocity>();
             *m_region_tracker = MapRegionTracker
                 {std::move(res.loaded_region)};
-#           if 0
-                ,
-                 MapRegion::k_temp_region_size};
-#           endif
             return BackgroundCompletion::finished;
         }).
         map_left([] (MapLoadingError &&) {

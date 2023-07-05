@@ -29,6 +29,11 @@ SharedPtr<BackgroundTask> MapLoaderTask_::make
      const Entity & player_physics)
 {
     return make_shared<MapLoaderTask>
-        (TiledMapLoader{platform, initial_map}, target_region_instance,
+#       ifndef MACRO_NEW_MAP_LOADER_STATES
+        (TiledMapLoader{platform, initial_map},
+#       else
+        (tiled_map_loading::MapLoadStateMachine{platform, initial_map},
+#       endif
+         target_region_instance,
          player_physics);
 }

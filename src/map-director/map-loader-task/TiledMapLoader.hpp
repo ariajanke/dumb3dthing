@@ -117,13 +117,19 @@ protected:
 };
 
 template <typename Base, typename ... Types>
+class RestrictedStateSwitcherComplete;
+
+template <typename Base, typename ... Types>
 class RestrictedStateSwitcher :
     public RestrictedStateSwitcherBase<Base>
 {
 public:
     using StatesTypeSet = cul::TypeSet<Types...>;
 
+    // need complete types for most things in this class
     using StatesDriver = StateMachineDriver<Base, Types...>;
+
+    using StateSwitcherComplete = RestrictedStateSwitcherComplete<Base, Types...>;
 
     template <typename T, typename ... ConstructorTypes>
     T & set_next_state(ConstructorTypes &&... constructor_args) {
@@ -300,6 +306,21 @@ public:
         return *this;
     }
 
+    template <typename T, typename ... ConstructorTypes>
+    T & set_current_state(ConstructorTypes &&... constructor_args) {
+        using ConstructorFunctions_ = ConstructorFunctions<Base>;
+
+        if (m_current_entry.has_state()) {
+            m_current_entry.clear();
+        }
+
+        T * state = new (m_current_entry.space())
+            T{std::forward<ConstructorTypes>(constructor_args)...};
+        m_current_entry.set_state
+            (state, ConstructorFunctions_::template constructor_functions_for<T>());
+        return *state;
+    }
+
     StateSwitcher state_switcher()
         { return StateSwitcher{m_next_entry}; }
 
@@ -366,7 +387,10 @@ class InitialDocumentReadState;
 // ... none atm
 
 // states for producable maps
-class ProducableReady;
+class ProducableLoadState;
+class TileSetWaitState;
+class TiledMapStrategyState;
+
 class ExpiredState;
 
 class BaseState {
@@ -374,19 +398,23 @@ public:
     using MapLoadResult = OptionalEither<MapLoadingError, MapLoadingSuccess>;
     using StateSwitcher = RestrictedStateSwitcher
         <BaseState,
-         FileContentsWaitState, InitialDocumentReadState, ProducableReady, ExpiredState>;
+         FileContentsWaitState, InitialDocumentReadState, TileSetWaitState,
+         TiledMapStrategyState, ProducableLoadState, ExpiredState>;
 
     virtual MapLoadResult update_progress(StateSwitcher &) = 0;
 
     virtual ~BaseState() {}
 
     // rename me
-    void carry_shared_state_stuff(const BaseState &);
+    void carry_shared_state_stuff(const BaseState & rhs) {
+        m_platform = rhs.m_platform;
+        m_unfinished_warnings = rhs.m_unfinished_warnings;
+    }
 
 protected:
-    Platform & platform() const;
+    Platform & platform() const { return *m_platform; }
 
-    MapLoadingWarningsAdder & warnings_adder();
+    MapLoadingWarningsAdder & warnings_adder() { return m_unfinished_warnings; }
 
 private:
     Platform * m_platform = nullptr;
@@ -395,6 +423,9 @@ private:
 
 class FileContentsWaitState final : public BaseState {
 public:
+    explicit FileContentsWaitState(FutureStringPtr && future_):
+        m_future_contents(std::move(future_)) {}
+
     MapLoadResult update_progress(StateSwitcher &) final;
 
 private:
@@ -506,7 +537,6 @@ private:
 
 class TileSetWaitState final : public BaseState {
 public:
-
     class UpdatedContainers final {
     public:
         static UpdatedContainers update
@@ -539,6 +569,10 @@ public:
         m_layers(std::move(layers)),
         m_unfinished_contents(std::move(unfinished_tilesets)) {}
 
+    TileSetWaitState(const TileSetWaitState &) = delete;
+
+    TileSetWaitState(TileSetWaitState &&) = default;
+
     MapLoadResult update_progress(StateSwitcher &) final;
 
 private:
@@ -552,13 +586,49 @@ private:
 // State class names should tell me roughly what it does
 // and not "where in progress" it is
 // is this a strategy? a factory? a what?
-class TiledMapFinishedState final : public BaseState {
+class TiledMapStrategyState final : public BaseState {
+public:
+    TiledMapStrategyState
+        (DocumentOwningNode && document_root,
+         std::vector<Grid<int>> && layers,
+         std::vector<TileSetContent> && finished_tilesets);
 
+    MapLoadResult update_progress(StateSwitcher &) final;
+
+private:
+    DocumentOwningNode m_document_root;
+    std::vector<Grid<int>> m_layers;
+    std::vector<TileSetContent> m_finished_contents;
 };
 
-class ProducableReady final : public BaseState {
+class ProducableLoadState final : public BaseState {
 public:
+    using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+
+    static std::vector<TileSetAndStartGid>
+        convert_to_tileset_and_start_gids
+        (std::vector<TileSetContent> &&,
+         Platform & platform);
+
+    static ProducableTileViewGrid make_producable_view_grid
+        (std::vector<Grid<int>> &&,
+         TileMapIdToSetMapping &&);
+
+    ProducableLoadState
+        (DocumentOwningNode && document_root,
+         std::vector<Grid<int>> && layers,
+         std::vector<TileSetContent> && finished_tilesets);
+
     MapLoadResult update_progress(StateSwitcher &) final;
+
+private:
+    TileMapIdToSetMapping make_tidgid_mapping();
+
+    ProducableTileViewGrid make_producable_view_grid();
+
+    DocumentOwningNode m_document_root;
+    std::vector<Grid<int>> m_layers;
+    std::vector<TileSetContent> m_finished_contents;
 };
 
 class ExpiredState final : public BaseState {
@@ -570,6 +640,20 @@ public:
 class MapLoadStateMachine final {
 public:
     using MapLoadResult = BaseState::MapLoadResult;
+
+    MapLoadStateMachine() {}
+
+    MapLoadStateMachine(Platform & platform, const char * filename)
+        { initialize_starting_state(platform, filename); }
+
+    void initialize_starting_state
+        (Platform & platform, const char * filename)
+    {
+        auto file_contents_promise = platform.promise_file_contents(filename);
+        m_state_driver.
+            set_current_state<FileContentsWaitState>
+            (std::move(file_contents_promise));
+    }
 
     MapLoadResult update_progress() {
         auto switcher = m_state_driver.state_switcher();
@@ -585,19 +669,10 @@ public:
 private:
     using StateSwitcher = BaseState::StateSwitcher;
     // there is a way to dry this up, I just want to see if this works first
-    using CompleteStateSwitcher = RestrictedStateSwitcherComplete
-        <BaseState,
-         FileContentsWaitState, InitialDocumentReadState, ProducableReady, ExpiredState>;
-    using StateDriver =
-        StateMachineDriver
-        <BaseState,
-         FileContentsWaitState, InitialDocumentReadState, ProducableReady, ExpiredState>;
-#   if 1
+    using CompleteStateSwitcher = BaseState::StateSwitcher::StateSwitcherComplete;
+    using StateDriver = StateSwitcher::StatesDriver;
+
     StateDriver m_state_driver;
-#   endif
-#   if 0
-    CompleteStateSwitcher m_complete_switcher;
-#   endif
 };
 
 } // end of tiled_map_loading namespace
@@ -608,12 +683,7 @@ class MapLoadingWaitingForFileContents;
 class MapLoadingWaitingForTileSets;
 class MapLoadingReady;
 class MapLoadingExpired;
-#if 0
-struct MapLoadingSuccess final {
-    UniquePtr<TiledMapRegion> loaded_region;
-    MapLoadingWarnings warnings;
-};
-#endif
+
 class MapLoadingContext {
 public:
     using State = MapLoadingState;

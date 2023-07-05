@@ -433,37 +433,6 @@ bool UnfinishedTileSetContent::is_finished() const
     return TileSetContent{m_first_gid, std::move(node)};
 }
 
-#if 0
-Either<Future<std::string>::Lost, UnfinishedTileSetContent::UpdateResponse>
-    UnfinishedTileSetContent::update()
-{
-    if (m_tileset_element) { return UpdateResponse::ready; }
-
-    auto res = (*m_future_string)();
-    if (res.is_empty()) { return UpdateResponse::in_progress; }
-    return res.require().
-        chain([this] (std::string && contents) {
-            return DocumentOwningNode::load_root(std::move(contents)).
-                map_left([] (MapLoadingError) {
-                    // error lost :c
-                    return Lost{};
-                }).
-                map([this] (DocumentOwningNode && node) {
-                    m_tileset_element = std::move(node);
-                    return UpdateResponse::ready;
-                });
-            });
-}
-
-TileSetContent UnfinishedTileSetContent::finish() {
-    if (!m_tileset_element) {
-        using namespace cul::exceptions_abbr;
-        throw RtError{"UnfinishedTileSetContent::finish: should not be called "
-                      "until UpdateResponse::ready is returned by update"};
-    }
-    return TileSetContent{m_first_gid, std::move(m_tileset_element)};
-}
-#endif
 /* private */ UnfinishedTileSetContent::UnfinishedTileSetContent
     (int first_gid, FutureStringPtr && future_):
     m_first_gid(first_gid),
@@ -503,7 +472,7 @@ TileSetContent UnfinishedTileSetContent::finish() {
         auto unfinished_content = UnfinishedTileSetContent::load
             (document_root.make_with_same_owner(tileset), platform, warnings);
         if (unfinished_content) {
-            unfinished_tilesets.push_back(*unfinished_content);
+            unfinished_tilesets.emplace_back(*std::move(unfinished_content));
         }
     }
     return unfinished_tilesets;
@@ -565,9 +534,99 @@ MapLoadResult TileSetWaitState::update_progress(StateSwitcher & switcher) {
     m_unfinished_contents = updated.move_out_unfinished();
     m_finished_contents = updated.move_out_finished();
     if (m_unfinished_contents.empty()) {
-        switcher.set_next_state<TiledMapFinishedState>();
+        switcher.set_next_state<TiledMapStrategyState>
+            (std::move(m_document_root),
+             std::move(m_layers),
+             std::move(m_finished_contents));
     }
     return MapLoadResult{};
+}
+
+// ----------------------------------------------------------------------------
+
+TiledMapStrategyState::TiledMapStrategyState
+    (DocumentOwningNode && document_root,
+     std::vector<Grid<int>> && layers,
+     std::vector<TileSetContent> && finished_tilesets):
+    m_document_root(std::move(document_root)),
+    m_layers(std::move(layers)),
+    m_finished_contents(std::move(finished_tilesets)) {}
+
+MapLoadResult TiledMapStrategyState::update_progress
+    (StateSwitcher & switcher)
+{
+    // for now just pass on the producable ready
+    switcher.set_next_state<ProducableLoadState>
+        (std::move(m_document_root),
+         std::move(m_layers),
+         std::move(m_finished_contents));
+    return MapLoadResult{};
+}
+
+// ----------------------------------------------------------------------------
+
+using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+
+/* static */ std::vector<TileSetAndStartGid>
+    ProducableLoadState::convert_to_tileset_and_start_gids
+    (std::vector<TileSetContent> && tileset_contents,
+     Platform & platform)
+{
+    std::vector<TileSetAndStartGid> tilesets_and_start_gids;
+    tilesets_and_start_gids.reserve(tileset_contents.size());
+    for (auto & contents : tileset_contents) {
+        auto tileset = make_shared<TileSet>();
+        tileset->load(platform, contents.element());
+        tilesets_and_start_gids.emplace_back
+            (std::move(tileset), contents.first_gid());
+    }
+    return tilesets_and_start_gids;
+}
+
+/* static */ ProducableTileViewGrid
+    ProducableLoadState::make_producable_view_grid
+    (std::vector<Grid<int>> && layers,
+     TileMapIdToSetMapping && gid_to_tid_mapping)
+{
+    UnfinishedProducableTileViewGrid unfinished_grid_view;
+    for (auto & layer : layers) {
+        auto tid_layer = gid_layer_to_tid_layer(layer, gid_to_tid_mapping);
+        auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
+        unfinished_grid_view = make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
+            move_self_to(std::move(unfinished_grid_view));
+    }
+    return unfinished_grid_view.finish(gid_to_tid_mapping);
+}
+
+ProducableLoadState::ProducableLoadState
+    (DocumentOwningNode && document_root,
+     std::vector<Grid<int>> && layers,
+     std::vector<TileSetContent> && finished_tilesets):
+    m_document_root(std::move(document_root)),
+    m_layers(std::move(layers)),
+    m_finished_contents(std::move(finished_tilesets)) {}
+
+MapLoadResult ProducableLoadState::update_progress
+    (StateSwitcher & switcher)
+{
+    MapLoadingSuccess success;
+    success.loaded_region =
+        make_unique<TiledMapRegion>(make_producable_view_grid());
+    switcher.set_next_state<ExpiredState>();
+    return success;
+}
+
+/* private */ TileMapIdToSetMapping ProducableLoadState::make_tidgid_mapping() {
+    return TileMapIdToSetMapping
+        {convert_to_tileset_and_start_gids(std::move(m_finished_contents),
+         platform())};
+}
+
+/* private */ ProducableTileViewGrid
+    ProducableLoadState::make_producable_view_grid()
+{
+    return make_producable_view_grid
+        (std::move(m_layers), make_tidgid_mapping());
 }
 
 } // end of tiled_map_loading namespace
