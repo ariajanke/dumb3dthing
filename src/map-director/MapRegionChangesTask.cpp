@@ -88,12 +88,10 @@ void RegionLoadJob::operator ()
         triangle_entities_adder.advance_grid_position();
     }
 
-    auto triangle_grid = //triangle_entities_adder.finish_triangle_grid();
+    auto triangle_grid =
         make_shared<ViewGridTriangle>(triangle_entities_adder.finish_triangle_grid());
     auto entities = triangle_entities_adder.move_out_entities();
-#   if 0
-    RegionEdgeLinksContainer link_edge_container{triangle_grid};
-#   endif
+
     for (auto & link : triangle_grid->elements()) {
         callbacks.add(link);
     }

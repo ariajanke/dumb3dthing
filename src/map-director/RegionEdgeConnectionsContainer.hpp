@@ -89,6 +89,7 @@ private:
     SharedPtr<TriangleLink> m_link_ptr;
 };
 
+// run away effect present
 class RegionAxisLinksContainer final {
 public:
     RegionAxisLinksContainer() {}
@@ -170,11 +171,16 @@ public:
 private:
     using Entry = RegionAxisLinkEntry;
 
+    static constexpr const bool k_verify_removals_exist_in_container = true;
+
     static std::vector<RegionAxisLinkEntry> verify_entries
         (std::vector<RegionAxisLinkEntry> &&);
 
+    void verify_in_entries(const SharedPtr<TriangleLink> &);
+
     RegionAxis m_axis = RegionAxis::uninitialized;
     std::vector<RegionAxisLinkEntry> m_entries;
+    std::size_t m_original_size = 0;
 };
 
 class RegionEdgeConnectionsContainer;

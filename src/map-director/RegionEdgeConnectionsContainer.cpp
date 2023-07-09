@@ -22,6 +22,8 @@
 
 #include "../TriangleLink.hpp"
 
+#include <iostream>
+
 namespace {
 
 using namespace cul::exceptions_abbr;
@@ -32,6 +34,27 @@ constexpr bool k_enable_console_logging = true;
 Real get_x(const Vector & r) { return r.x; }
 
 Real get_z(const Vector & r) { return r.z; }
+
+template <typename ItemType, typename IteratorType, typename ComparisonFunc>
+ItemType * generalize_seek
+    (IteratorType begin, IteratorType end, ComparisonFunc && compare)
+{
+    while (begin != end) {
+        auto mid = begin + (end - begin) / 2;
+        auto res = [compare = std::move(compare), &mid] {
+            const ItemType & mid_item = *mid;
+            return compare(mid_item);
+        } ();
+        if (res == 0) {
+            return &*mid;
+        } else if (res < 0) {
+            end = mid;
+        } else {
+            begin = mid + 1;
+        }
+    }
+    return nullptr;
+}
 
 } // end of <anonymous> namespace
 
@@ -127,6 +150,13 @@ template <Real (*get_i)(const Vector &)>
     RegionAxisLinksAdder::sort_and_sweep
     (std::vector<RegionAxisLinkEntry> && entries)
 {
+#   if 1
+    static std::size_t max_count = 0;
+    if (max_count < entries.size()) {
+        max_count = entries.size();
+        std::cout << "New sort and sweep max: " << max_count << std::endl;
+    }
+#   endif
     std::sort(entries.begin(), entries.end(),
               RegionAxisLinkEntry::bounds_less_than);
     for (auto itr = entries.begin(); itr != entries.end(); ++itr) {
@@ -179,12 +209,17 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
     std::sort(entries.begin(), entries.end(),
               RegionAxisLinkEntry::pointer_less_than);
     SharedPtr<TriangleLink> last;
+    int count_to_remove = 0;
     for (auto & entry : entries) {
         bool is_to_clear_link = entry.link() == last;
         last = entry.link();
         if (is_to_clear_link) {
             entry.set_link_to_null();
+            ++count_to_remove;
         }
+    }
+    if (count_to_remove && false) {
+        std::cout << "Removing " << count_to_remove << " link pointers" << std::endl;
     }
     return std::move(entries);
 }
@@ -195,7 +230,7 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
 {
     entries.erase
         (std::remove_if(entries.begin(), entries.end(), Entry::linkless),
-         entries.end());
+         entries.end()); 
     return std::move(entries);
 }
 
@@ -204,10 +239,18 @@ RegionAxisLinksRemover::RegionAxisLinksRemover
      RegionAxis axis_):
     m_axis(axis_),
     m_entries(verify_entries(std::move(entries_)))
-{}
+{
+    if constexpr (k_verify_removals_exist_in_container) {
+        m_original_size = m_entries.size();
+        std::sort(m_entries.begin(), m_entries.end(), Entry::pointer_less_than);
+    }
+}
 
-void RegionAxisLinksRemover::add(const SharedPtr<TriangleLink> & link_ptr)
-    { m_entries.emplace_back(link_ptr); }
+void RegionAxisLinksRemover::add(const SharedPtr<TriangleLink> & link_ptr) {
+    if constexpr (k_verify_removals_exist_in_container)
+        { verify_in_entries(link_ptr); }
+    m_entries.emplace_back(link_ptr);
+}
 
 RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
     return RegionAxisLinksContainer
@@ -219,7 +262,6 @@ RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
     (std::vector<RegionAxisLinkEntry> && entries)
 {
 #   if MACRO_DEBUG
-    using Entry = RegionAxisLinkEntry;
     std::sort(entries.begin(), entries.end(), Entry::pointer_less_than);
     auto itr = std::unique(entries.begin(), entries.end(), Entry::pointer_equal);
     if (itr != entries.end()) {
@@ -227,6 +269,17 @@ RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
     }
 #   endif
     return std::move(entries);
+}
+
+/* private */ void RegionAxisLinksRemover::verify_in_entries
+    (const SharedPtr<TriangleLink> & link_ptr)
+{
+    if constexpr (k_verify_removals_exist_in_container) {
+        assert(generalize_seek<Entry>
+            (m_entries.begin(), m_entries.begin() + m_original_size,
+             [&link_ptr] (const Entry & entry)
+             { return static_cast<int>(link_ptr.get() - entry.link().get()); }));
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -288,6 +341,11 @@ int RegionAxisAddress::compare(const RegionAxisAddress & rhs) const {
 /* static */ RegionEdgeConnectionEntry * RegionEdgeConnectionEntry::seek
     (const RegionAxisAddress & saught, Iterator begin, Iterator end)
 {
+    return generalize_seek<RegionEdgeConnectionEntry>
+        (begin, end,
+         [&saught] (const RegionEdgeConnectionEntry & entry)
+        { return saught.compare(entry.address()); });
+#   if 0
     while (begin != end) {
         auto mid = begin + (end - begin) / 2;
         auto res = saught.compare(mid->address());
@@ -300,6 +358,7 @@ int RegionAxisAddress::compare(const RegionAxisAddress & rhs) const {
         }
     }
     return nullptr;
+#   endif
 }
 
 /* static */ RegionEdgeConnectionEntry RegionEdgeConnectionEntry::start_as_adder
@@ -359,12 +418,12 @@ void RegionEdgeConnectionEntry::reset_as_remover() {
     for (const auto & change : changes) {
         auto * entry = Entry::seek
             (change.address(), entries.begin(), entries.begin() + old_size);
-        if (!entry) {
-            // have to make one
-            entries.emplace_back
-                (Entry::start_as_adder(change.address(),
-                                       side_to_axis(change.grid_side())));
-        }
+        if (entry) { continue; }
+
+        // have to make one
+        entries.emplace_back
+            (Entry::start_as_adder(change.address(),
+                                   side_to_axis(change.grid_side())));
     }
     return std::move(entries);
 }
