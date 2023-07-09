@@ -42,8 +42,8 @@ private:
 
 class RegionLoadRequest final {
 public:
-    static constexpr Size2I k_default_max_region_size = Size2I{10, 10};
-    static constexpr Real k_triangle_area = 0.5*16*10;
+    static constexpr Size2I k_default_max_region_size = Size2I{1, 1};
+    static constexpr Real k_triangle_area = 1.5;// 0.5*16*10;
     static constexpr auto k_plane_normal  = k_up;
 
     static RegionLoadRequest find
@@ -58,11 +58,6 @@ public:
 
     static cul::Rectangle<Real> to_on_field_rectangle
         (const RectangleI & tile_rectangle);
-
-    // cul issue 5
-    static bool are_intersecting_lines
-        (const Vector2 & a_first, const Vector2 & a_second,
-         const Vector2 & b_first, const Vector2 & b_second);
 
     RegionLoadRequest(const Vector2 & triangle_a,
                       const Vector2 & triangle_b,

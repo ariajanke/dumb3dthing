@@ -24,9 +24,6 @@
 #include <ariajanke/cul/VectorUtils.hpp>
 #include <ariajanke/cul/Vector3.hpp>
 #include <ariajanke/cul/OptionalEither.hpp>
-#if 0
-#include <ariajanke/cul/Util.hpp>
-#endif
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
 #include <ariajanke/ecs3/HashTableEntity.hpp>
 #include <ariajanke/ecs3/Scene.hpp>

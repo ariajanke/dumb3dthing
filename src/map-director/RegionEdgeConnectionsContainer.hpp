@@ -27,7 +27,13 @@
 
 #include <iostream>
 
-enum class RegionSide { left, right, bottom, top, uninitialized };
+enum class RegionSide {
+    left  , // west
+    right , // east
+    bottom, // south
+    top   , // north
+    uninitialized
+};
 
 class RegionAxisLinksAdder;
 class RegionAxisLinksRemover;
@@ -219,6 +225,8 @@ public:
     RegionAxisAddress address() const { return m_address; }
 
     RegionSide side() const { return m_side; }
+
+    bool operator == (const RegionAxisAddressAndSide &) const;
 
 private:
     RegionAxisAddress m_address;

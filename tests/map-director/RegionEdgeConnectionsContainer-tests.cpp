@@ -141,6 +141,33 @@ describe<RegionAxisLinksAdder>("RegionAxisLinksAdder::sort_and_sweep").
         return test_that(a.e->transfers_to(TriangleSide::k_side_bc).target() == b.w);
     });
 });
+
+describe<RegionAxisAddressAndSide>("RegionAxisAddressAndSide::for_")([]
+{
+    using AddrAndSide = RegionAxisAddressAndSide;
+    using Axis        = RegionAxis;
+    using Side        = RegionSide;
+    mark_it("contains correct north side", [] {
+        auto res = AddrAndSide::for_(Vector2I{1, 1}, Size2I{1, 1});
+        AddrAndSide expected{Axis::x_ways, 1, Side::top};
+        return test_that(std::find(res.begin(), res.end(), expected));
+    }).
+    mark_it("contains correct south side", [] {
+        auto res = AddrAndSide::for_(Vector2I{1, 1}, Size2I{1, 2});
+        AddrAndSide expected{Axis::x_ways, 3, Side::bottom};
+        return test_that(std::find(res.begin(), res.end(), expected));
+    }).
+    mark_it("contains correct west side", [] {
+        auto res = AddrAndSide::for_(Vector2I{2, 1}, Size2I{1, 1});
+        AddrAndSide expected{Axis::z_ways, 2, Side::left};
+        return test_that(std::find(res.begin(), res.end(), expected));
+    }).
+    mark_it("contains correct east side", [] {
+        auto res = AddrAndSide::for_(Vector2I{2, 1}, Size2I{3, 1});
+        AddrAndSide expected{Axis::z_ways, 5, Side::right};
+        return test_that(std::find(res.begin(), res.end(), expected));
+    });
+});
 #if 0
 describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::null_out_dupelicates").
     depends_on<RegionAxisLinkEntry>()([]

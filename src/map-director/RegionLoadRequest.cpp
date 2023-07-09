@@ -24,6 +24,8 @@
 
 #include "../TriangleSegment.hpp"
 
+#include "../geometric-utilities.hpp"
+
 namespace {
 
 constexpr const auto k_bad_facing_msg =
@@ -92,34 +94,6 @@ RegionLoadRequest::RegionLoadRequest
     return find_triangle_with_adjusted(position, facing, speed);
 }
 
-/* static */ bool RegionLoadRequest::are_intersecting_lines
-    (const Vector2 & a_first, const Vector2 & a_second,
-     const Vector2 & b_first, const Vector2 & b_second)
-{
-    auto p = a_first;
-    auto r = a_second - p;
-
-    auto q = b_first;
-    auto s = b_second - q;
-
-    auto r_cross_s = cross(r, s);
-    if (r_cross_s == 0) return false;
-
-    auto q_sub_p = q - p;
-    auto t_num = cross(q_sub_p, s);
-
-
-    auto outside_0_1 = [](const Real & num, const Real & denom)
-        { return num*denom < 0 || magnitude(num) > magnitude(denom); };
-
-    // overflow concerns?
-    if (outside_0_1(t_num, r_cross_s)) return false;
-
-    if (outside_0_1(cross(q_sub_p, r), r_cross_s)) return false;
-
-    return true;
-}
-
 /* static */ cul::Rectangle<Real> RegionLoadRequest::to_on_field_rectangle
     (const RectangleI & tile_rectangle)
 {
@@ -171,9 +145,11 @@ bool RegionLoadRequest::has_any_intersecting_lines_with
         for (auto & rectangle_line : rectangle_lines) {
             using std::get;
             // 12 intersection checks
-            bool lines_intersect = are_intersecting_lines
+            bool lines_intersect = ::find_intersection
                 (get<0>(triangle_line ), get<1>(triangle_line ),
-                 get<0>(rectangle_line), get<1>(rectangle_line));
+                 get<0>(rectangle_line), get<1>(rectangle_line)).
+                has_value();
+
             if (lines_intersect) return true;
         }
     }
@@ -231,11 +207,11 @@ TriangleSegment find_triangle_with_adjusted
     (const Vector & position, const Vector & facing, Real speed)
 {
     static constexpr Real k_max_speed   = 8;
-    static constexpr Real k_low_offset  = 4;
+    static constexpr Real k_low_offset  = 1.1;//4;
     static constexpr Real k_high_offset = 1;
     static_assert(k_low_offset > k_high_offset);
-    static constexpr Real k_out_point_offset_low  = k_low_offset + 6;
-    static constexpr Real k_out_point_offset_high = k_low_offset + 10;
+    static constexpr Real k_out_point_offset_low  = k_low_offset;// + 6;
+    static constexpr Real k_out_point_offset_high = k_low_offset;// + 10;
 
     Real normalized_speed = std::min(speed, k_max_speed) / k_max_speed;
     auto a = position -

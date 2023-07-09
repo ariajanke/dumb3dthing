@@ -68,6 +68,15 @@ RegionAxis side_to_axis(RegionSide side) {
     }
 }
 
+const char * axis_to_string(RegionAxis axis) {
+    using Axis = RegionAxis;
+    switch (axis) {
+    case Axis::x_ways: return "x_ways";
+    case Axis::z_ways: return "z_ways";
+    default: return "uninitialized";
+    }
+}
+
 // ----------------------------------------------------------------------------
 
 /* static */ bool RegionAxisLinkEntry::bounds_less_than
@@ -331,6 +340,13 @@ int RegionAxisAddress::compare(const RegionAxisAddress & rhs) const {
     };
 }
 
+bool RegionAxisAddressAndSide::operator ==
+    (const RegionAxisAddressAndSide & rhs) const
+{
+    return address().compare(rhs.address()) == 0 &&
+           side() == rhs.side();
+}
+
 // ----------------------------------------------------------------------------
 
 /* static */ bool RegionEdgeConnectionEntry::less_than
@@ -345,20 +361,6 @@ int RegionAxisAddress::compare(const RegionAxisAddress & rhs) const {
         (begin, end,
          [&saught] (const RegionEdgeConnectionEntry & entry)
         { return saught.compare(entry.address()); });
-#   if 0
-    while (begin != end) {
-        auto mid = begin + (end - begin) / 2;
-        auto res = saught.compare(mid->address());
-        if (res == 0) {
-            return &*mid;
-        } else if (res < 0) {
-            end = mid;
-        } else {
-            begin = mid + 1;
-        }
-    }
-    return nullptr;
-#   endif
 }
 
 /* static */ RegionEdgeConnectionEntry RegionEdgeConnectionEntry::start_as_adder
@@ -437,6 +439,9 @@ void RegionEdgeConnectionEntry::reset_as_remover() {
         auto * entry = Entry::seek
             (change.address(), entries.begin(), entries.end());
         assert(entry);
+#       if 0
+        std::cout << axis_to_string(change.address().axis()) << " " << change.address().value() << std::endl;
+#       endif
         RegionAxisLinksAdder::add_sides_from
             (change.grid_side(), *change.triangle_grid(), *entry->as_adder());
     }
