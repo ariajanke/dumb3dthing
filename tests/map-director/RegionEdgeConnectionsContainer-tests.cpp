@@ -168,13 +168,42 @@ describe<RegionAxisAddressAndSide>("RegionAxisAddressAndSide::for_")([]
         return test_that(std::find(res.begin(), res.end(), expected));
     });
 });
-#if 0
+
 describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::null_out_dupelicates").
     depends_on<RegionAxisLinkEntry>()([]
 {
+    using Entry = RegionAxisLinkEntry;
+    using LinksRemover = RegionAxisLinksRemover;
 
+    std::vector<Entry> entries;
+    auto link_a = make_shared<TriangleLink>();
+    auto link_b = make_shared<TriangleLink>();
+    auto null_out_dupelicates = [&entries]
+        { entries = LinksRemover::null_out_dupelicates(std::move(entries)); };
+
+    mark_it("clears out dupelicate link", [&] {
+        entries.push_back(Entry{link_a});
+        entries.push_back(Entry{link_b});
+        entries.push_back(Entry{link_a});
+        null_out_dupelicates();
+        return test_that(link_a.use_count() == 1);
+    }).
+    mark_it("retains unique link", [&] {
+        entries.push_back(Entry{link_a});
+        entries.push_back(Entry{link_b});
+        entries.push_back(Entry{link_a});
+        null_out_dupelicates();
+        return test_that(link_b.use_count() == 2);
+    }).
+    mark_it("clears dupelicates at the beginning of container", [&] {
+        entries.push_back(Entry{link_a});
+        entries.push_back(Entry{link_a});
+        entries.push_back(Entry{link_b});
+        null_out_dupelicates();
+        return test_that(link_a.use_count() == 1);
+    });
 });
-
+#if 0
 describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::remove_nulls").
     depends_on<RegionAxisLinkEntry>()([]
 {

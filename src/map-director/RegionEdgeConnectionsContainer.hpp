@@ -84,8 +84,6 @@ public:
     // sortable by link pointer
     const SharedPtr<TriangleLink> & link() const { return m_link_ptr; }
 
-    void set_link_to_null() { m_link_ptr = nullptr; }
-
 private:
     template <Real (*get_i)(const Vector &)>
     static RegionAxisLinkEntry computed_bounds_(const SharedPtr<TriangleLink> &);

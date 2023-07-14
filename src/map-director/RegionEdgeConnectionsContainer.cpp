@@ -215,21 +215,20 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
     RegionAxisLinksRemover::null_out_dupelicates
     (std::vector<RegionAxisLinkEntry> && entries)
 {
-    std::sort(entries.begin(), entries.end(),
-              RegionAxisLinkEntry::pointer_less_than);
-    SharedPtr<TriangleLink> last;
-    int count_to_remove = 0;
-    for (auto & entry : entries) {
-        bool is_to_clear_link = entry.link() == last;
-        last = entry.link();
-        if (is_to_clear_link) {
-            entry.set_link_to_null();
-            ++count_to_remove;
-        }
+    if (entries.size() < 2) return std::move(entries);
+    std::sort(entries.begin(), entries.end(), Entry::pointer_less_than);
+
+    auto last = entries[1].link();
+    if (entries[0].link() == entries[1].link())
+        { entries[0] = Entry{nullptr}; }
+
+    for (auto itr = entries.begin() + 1; itr != entries.end(); ++itr) {
+        auto next_last = itr->link();
+        if (itr->link() == last)
+            { *itr = Entry{nullptr}; }
+        last = std::move(next_last);
     }
-    if (count_to_remove && false) {
-        std::cout << "Removing " << count_to_remove << " link pointers" << std::endl;
-    }
+
     return std::move(entries);
 }
 
@@ -468,7 +467,7 @@ void RegionEdgeConnectionsAdder::add
      const SharedPtr<ViewGridTriangle> & triangle_grid)
 {
     if constexpr (k_enable_console_logging) {
-        std::cout << "Removed added at " << on_field_position.x << ", "
+        std::cout << "Region added at " << on_field_position.x << ", "
                   << on_field_position.y << std::endl;
     }
     auto addresses_and_sides = RegionAxisAddressAndSide::for_
