@@ -28,6 +28,7 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+using EntryContainer = RegionEdgeConnectionsContainerBase::EntryContainer;
 
 constexpr bool k_enable_console_logging = true;
 
@@ -255,8 +256,14 @@ RegionAxisLinksRemover::RegionAxisLinksRemover
 }
 
 void RegionAxisLinksRemover::add(const SharedPtr<TriangleLink> & link_ptr) {
-    if constexpr (k_verify_removals_exist_in_container)
-        { verify_in_entries(link_ptr); }
+    if constexpr (k_verify_removals_exist_in_container) {
+        auto found = generalize_seek<Entry>
+            (m_entries.begin(), m_entries.begin() + m_original_size,
+             [&link_ptr] (const Entry & entry)
+             { return static_cast<int>(link_ptr.get() - entry.link().get()); });
+        if (!found) return;
+        verify_in_entries(link_ptr);
+    }
     m_entries.emplace_back(link_ptr);
 }
 
@@ -315,11 +322,17 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder() {
 bool RegionAxisAddress::operator < (const RegionAxisAddress & rhs) const
     { return compare(rhs) < 0; }
 
+bool RegionAxisAddress::operator == (const RegionAxisAddress & rhs) const
+    { return compare(rhs) == 0; }
+
 int RegionAxisAddress::compare(const RegionAxisAddress & rhs) const {
     if (m_axis == rhs.m_axis)
         { return m_value - rhs.m_value; }
     return static_cast<int>(m_axis) - static_cast<int>(rhs.m_axis);
 }
+
+/* new */ std::size_t RegionAxisAddress::hash() const
+    { return std::hash<int>{}(m_value) ^ std::hash<RegionAxis>{}(m_axis); }
 
 // ----------------------------------------------------------------------------
 
@@ -347,7 +360,7 @@ bool RegionAxisAddressAndSide::operator ==
 }
 
 // ----------------------------------------------------------------------------
-
+#if 0
 /* static */ bool RegionEdgeConnectionEntry::less_than
     (const RegionEdgeConnectionEntry & lhs,
      const RegionEdgeConnectionEntry & rhs)
@@ -398,9 +411,9 @@ void RegionEdgeConnectionEntry::reset_as_remover() {
     m_axis_container(std::in_place_type_t<RegionAxisLinksAdder>{},
                      std::vector<RegionAxisLinkEntry>{}, axis_)
 {}
-
+#endif
 // ----------------------------------------------------------------------------
-
+#if 0
 /* protected static */ RegionEdgeConnectionsContainerBase::ChangeEntryContainer
     RegionEdgeConnectionsContainerBase::verify_change_entries
     (ChangeEntryContainer && entries)
@@ -408,11 +421,16 @@ void RegionEdgeConnectionEntry::reset_as_remover() {
     if (entries.empty()) return std::move(entries);
     throw InvArg{":c"};
 }
+#endif
+/* protected static */
+    const RegionEdgeConnectionsContainerBase::EntryContainer
+    RegionEdgeConnectionsContainerBase::s_default_entry_container =
+    RegionEdgeConnectionsContainerBase::EntryContainer{2, RegionAxisAddress{}};
 
 // ----------------------------------------------------------------------------
-
-/* static */ RegionEdgeConnectionsAdder::EntryContainer
-    RegionEdgeConnectionsAdder::ensure_entries_for_changes
+#if 0
+/* static */ RegionEdgeConnectionsAdder_Old::EntryContainer
+    RegionEdgeConnectionsAdder_Old::ensure_entries_for_changes
     (const ChangeEntryContainer & changes, EntryContainer && entries)
 {
     auto old_size = entries.size();
@@ -429,8 +447,8 @@ void RegionEdgeConnectionEntry::reset_as_remover() {
     return std::move(entries);
 }
 
-/* static */ RegionEdgeConnectionsAdder::EntryContainer
-    RegionEdgeConnectionsAdder::apply_additions
+/* static */ RegionEdgeConnectionsAdder_Old::EntryContainer
+    RegionEdgeConnectionsAdder_Old::apply_additions
     (const ChangeEntryContainer & changes, EntryContainer && entries)
 {
     std::sort(entries.begin(), entries.end(), Entry::less_than);
@@ -447,8 +465,8 @@ void RegionEdgeConnectionEntry::reset_as_remover() {
     return std::move(entries);
 }
 
-/* static */ RegionEdgeConnectionsAdder::EntryContainer
-    RegionEdgeConnectionsAdder::finish_adders(EntryContainer && entries)
+/* static */ RegionEdgeConnectionsAdder_Old::EntryContainer
+    RegionEdgeConnectionsAdder_Old::finish_adders(EntryContainer && entries)
 {
     for (auto & entry : entries) {
         entry.set_container(entry.as_adder()->finish());
@@ -456,13 +474,13 @@ void RegionEdgeConnectionEntry::reset_as_remover() {
     return std::move(entries);
 }
 
-RegionEdgeConnectionsAdder::RegionEdgeConnectionsAdder
+RegionEdgeConnectionsAdder_Old::RegionEdgeConnectionsAdder_Old
     (ChangeEntryContainer && change_entries_,
      EntryContainer && entries):
     m_change_entries(verify_change_entries(std::move(change_entries_))),
     m_entries(std::move(entries)) {}
 
-void RegionEdgeConnectionsAdder::add
+void RegionEdgeConnectionsAdder_Old::add
     (const Vector2I & on_field_position,
      const SharedPtr<ViewGridTriangle> & triangle_grid)
 {
@@ -470,6 +488,7 @@ void RegionEdgeConnectionsAdder::add
         std::cout << "Region added at " << on_field_position.x << ", "
                   << on_field_position.y << std::endl;
     }
+
     auto addresses_and_sides = RegionAxisAddressAndSide::for_
         (on_field_position, triangle_grid->size2());
     for (auto & res : addresses_and_sides) {
@@ -477,20 +496,22 @@ void RegionEdgeConnectionsAdder::add
     }
 }
 
-RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
+RegionEdgeConnectionsContainer_Old RegionEdgeConnectionsAdder_Old::finish() {
     m_entries = ensure_entries_for_changes(m_change_entries, std::move(m_entries));
     m_entries = apply_additions           (m_change_entries, std::move(m_entries));
     m_entries = finish_adders             (                  std::move(m_entries));
     m_change_entries.clear();
 
-    return RegionEdgeConnectionsContainer
+    // finishing becomes trivial
+
+    return RegionEdgeConnectionsContainer_Old
         {std::move(m_change_entries), std::move(m_entries)};
 }
-
+#endif
 // ----------------------------------------------------------------------------
-
-/* static */ RegionEdgeConnectionsRemover::EntryContainer
-    RegionEdgeConnectionsRemover::apply_removals
+#if 0
+/* static */ RegionEdgeConnectionsRemover_Old::EntryContainer
+    RegionEdgeConnectionsRemover_Old::apply_removals
     (const ChangeEntryContainer & changes, EntryContainer && entries)
 {
     for (auto & change : changes) {
@@ -507,8 +528,8 @@ RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
     return std::move(entries);
 }
 
-/* static */ RegionEdgeConnectionsRemover::EntryContainer
-    RegionEdgeConnectionsRemover::finish_removers(EntryContainer && entries)
+/* static */ RegionEdgeConnectionsRemover_Old::EntryContainer
+    RegionEdgeConnectionsRemover_Old::finish_removers(EntryContainer && entries)
 {
     for (auto & entry : entries) {
         entry.set_container(entry.as_remover()->finish());
@@ -516,13 +537,13 @@ RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
     return std::move(entries);
 }
 
-RegionEdgeConnectionsRemover::RegionEdgeConnectionsRemover
+RegionEdgeConnectionsRemover_Old::RegionEdgeConnectionsRemover_Old
     (ChangeEntryContainer && change_entries_,
      EntryContainer && entries):
     m_change_entries(verify_change_entries(std::move(change_entries_))),
     m_entries(std::move(entries)) {}
 
-void RegionEdgeConnectionsRemover::remove_region
+void RegionEdgeConnectionsRemover_Old::remove_region
     (const Vector2I & on_field_position,
      const SharedPtr<ViewGridTriangle> & triangle_grid)
 {
@@ -538,18 +559,18 @@ void RegionEdgeConnectionsRemover::remove_region
     }
 }
 
-RegionEdgeConnectionsContainer RegionEdgeConnectionsRemover::finish() {
+RegionEdgeConnectionsContainer_Old RegionEdgeConnectionsRemover_Old::finish() {
     m_entries = apply_removals (m_change_entries, std::move(m_entries));
     m_entries = finish_removers(std::move(m_entries));
     m_change_entries.clear();
 
-    return RegionEdgeConnectionsContainer
+    return RegionEdgeConnectionsContainer_Old
         {std::move(m_change_entries), std::move(m_entries)};
 }
-
+#endif
 // ----------------------------------------------------------------------------
-
-RegionEdgeConnectionsContainer::RegionEdgeConnectionsContainer
+#if 0
+RegionEdgeConnectionsContainer_Old::RegionEdgeConnectionsContainer_Old
     (ChangeEntryContainer && change_entries_,
      EntryContainer && entries):
     // assumes changes are empty
@@ -557,18 +578,166 @@ RegionEdgeConnectionsContainer::RegionEdgeConnectionsContainer
     m_change_entries(verify_change_entries(std::move(change_entries_))),
     m_entries(std::move(entries)) {}
 
-RegionEdgeConnectionsAdder RegionEdgeConnectionsContainer::make_adder() {
+RegionEdgeConnectionsAdder_Old RegionEdgeConnectionsContainer_Old::make_adder() {
     for (auto & entry : m_entries) {
         entry.reset_as_adder();
     }
-    return RegionEdgeConnectionsAdder
+    return RegionEdgeConnectionsAdder_Old
         {std::move(m_change_entries), std::move(m_entries)};
 }
 
-RegionEdgeConnectionsRemover RegionEdgeConnectionsContainer::make_remover() {
+RegionEdgeConnectionsRemover_Old RegionEdgeConnectionsContainer_Old::make_remover() {
     for (auto & entry : m_entries) {
         entry.reset_as_remover();
     }
-    return RegionEdgeConnectionsRemover
+    return RegionEdgeConnectionsRemover_Old
         {std::move(m_change_entries), std::move(m_entries)};
+}
+#endif
+// New Stuff
+// ----------------------------------------------------------------------------
+
+RegionEdgeConnectionsAdder::RegionEdgeConnectionsAdder
+    (EntryContainer && entries):
+    m_entries(verify_all_adders("RegionEdgeConnectionsAdder", std::move(entries)))
+{}
+
+void RegionEdgeConnectionsAdder::add
+    (const Vector2I & on_field_position,
+     const SharedPtr<ViewGridTriangle> & triangle_grid)
+{
+    if constexpr (k_enable_console_logging) {
+        std::cout << "Region added at " << on_field_position.x << ", "
+                  << on_field_position.y << std::endl;
+    }
+
+    auto addresses_and_sides = RegionAxisAddressAndSide::for_
+        (on_field_position, triangle_grid->size2());
+    for (auto & res : addresses_and_sides) {
+        auto & adder = ensure_adder(res.address());
+        for_each_tile_on_edge
+            (*triangle_grid, res.side(),
+             [&adder, &triangle_grid] (int x, int y)
+        {
+            for (auto & triangle_link : (*triangle_grid)(x, y))
+                { adder.add(triangle_link); }
+        });
+    }
+}
+
+RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
+    for (auto & entry : m_entries) {
+        entry.second = std::get_if<RegionAxisLinksAdder>(&entry.second)->
+            finish();
+    }
+    return RegionEdgeConnectionsContainer{std::move(m_entries)};
+}
+
+/* private static */ EntryContainer
+    RegionEdgeConnectionsAdder::verify_all_adders
+    (const char *, EntryContainer && entries)
+{
+    for (auto & entry : entries)
+        { (void)std::get<RegionAxisLinksAdder>(entry.second); }
+    return std::move(entries);
+}
+
+/* private */ RegionAxisLinksAdder &
+    RegionEdgeConnectionsAdder::ensure_adder
+    (const RegionAxisAddress & addr)
+{
+    RegionAxisLinksAdder new_adder
+        {std::vector<RegionAxisLinkEntry>{}, addr.axis()}; // LoD
+    auto itr = m_entries.ensure(addr, std::move(new_adder));
+    return *std::get_if<RegionAxisLinksAdder>(&itr->second);
+}
+
+// ----------------------------------------------------------------------------
+
+RegionEdgeConnectionsRemover::RegionEdgeConnectionsRemover
+    (EntryContainer && entries):
+    m_entries(verify_all_removers(std::move(entries)))
+{}
+
+void RegionEdgeConnectionsRemover::remove_region
+    (const Vector2I & on_field_position,
+     const SharedPtr<ViewGridTriangle> & triangle_grid)
+{
+    if constexpr (k_enable_console_logging) {
+        std::cout << "Removed region at " << on_field_position.x << ", "
+                  << on_field_position.y << std::endl;
+    }
+
+    auto addresses_and_sides = RegionAxisAddressAndSide::for_
+        (on_field_position, triangle_grid->size2());
+    for (auto & res : addresses_and_sides) {
+        auto * remover = find_remover(res.address());
+        assert(remover);
+        for_each_tile_on_edge(*triangle_grid, res.side(), [&](int x, int y)
+        {
+            for (auto & linkptr : (*triangle_grid)(x, y))
+                remover->add(linkptr);
+        });
+    }
+}
+
+RegionEdgeConnectionsContainer RegionEdgeConnectionsRemover::finish() {
+    for (auto & entry : m_entries) {
+        entry.second = std::get_if<RegionAxisLinksRemover>(&entry.second)->
+            finish();
+    }
+    return RegionEdgeConnectionsContainer{std::move(m_entries)};
+}
+
+/* private static */ EntryContainer
+    RegionEdgeConnectionsRemover::verify_all_removers
+    (EntryContainer && entries)
+{
+    for (auto & entry : entries)
+        { (void)std::get<RegionAxisLinksRemover>(entry.second); }
+    return std::move(entries);
+}
+
+/* private */ RegionAxisLinksRemover *
+    RegionEdgeConnectionsRemover::find_remover
+    (const RegionAxisAddress & addr)
+{
+    auto entry = m_entries.find(addr);
+    if (entry == m_entries.end()) return nullptr;
+    return std::get_if<RegionAxisLinksRemover>(&entry->second);
+}
+
+// ----------------------------------------------------------------------------
+
+RegionEdgeConnectionsContainer::RegionEdgeConnectionsContainer
+    (EntryContainer && entries):
+    m_entries(verify_containers(std::move(entries))) {}
+
+RegionEdgeConnectionsAdder
+    RegionEdgeConnectionsContainer::make_adder()
+{
+    for (auto & entry : m_entries) {
+        entry.second = std::get_if<RegionAxisLinksContainer>(&entry.second)->
+            make_adder();
+    }
+    return RegionEdgeConnectionsAdder{std::move(m_entries)};
+}
+
+RegionEdgeConnectionsRemover
+    RegionEdgeConnectionsContainer::make_remover()
+{
+    for (auto & entry : m_entries) {
+        entry.second = std::get_if<RegionAxisLinksContainer>(&entry.second)->
+            make_remover();
+    }
+    return RegionEdgeConnectionsRemover{std::move(m_entries)};
+}
+
+/* private static */ EntryContainer
+    RegionEdgeConnectionsContainer::verify_containers
+    (EntryContainer && entries)
+{
+    for (auto & entry : entries)
+        { (void)std::get<RegionAxisLinksContainer>(entry.second); }
+    return std::move(entries);
 }

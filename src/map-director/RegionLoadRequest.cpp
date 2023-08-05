@@ -207,11 +207,11 @@ TriangleSegment find_triangle_with_adjusted
     (const Vector & position, const Vector & facing, Real speed)
 {
     static constexpr Real k_max_speed   = 8;
-    static constexpr Real k_low_offset  = 1.1;//4;
+    static constexpr Real k_low_offset  = 4; // 1.1
     static constexpr Real k_high_offset = 1;
     static_assert(k_low_offset > k_high_offset);
-    static constexpr Real k_out_point_offset_low  = k_low_offset;// + 6;
-    static constexpr Real k_out_point_offset_high = k_low_offset;// + 10;
+    static constexpr Real k_out_point_offset_low  = k_low_offset + 6;
+    static constexpr Real k_out_point_offset_high = k_low_offset + 10;
 
     Real normalized_speed = std::min(speed, k_max_speed) / k_max_speed;
     auto a = position -

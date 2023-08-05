@@ -25,6 +25,8 @@
 
 #include "MapRegion.hpp"
 
+#include <rigtorp/HashMap.h>
+
 #include <iostream>
 
 enum class RegionSide {
@@ -198,6 +200,8 @@ public:
 
     bool operator < (const RegionAxisAddress &) const;
 
+    bool operator == (const RegionAxisAddress &) const;
+
     RegionAxis axis() const { return m_axis; }
 
     // I want space ship :c
@@ -205,9 +209,16 @@ public:
 
     int value() const { return m_value; }
 
+    /* new */ std::size_t hash() const;
+
 private:
     RegionAxis m_axis = RegionAxis::uninitialized;
     int m_value = 0;
+};
+
+struct RegionAxisAddressHasher_New final {
+    std::size_t operator () (const RegionAxisAddress & addr) const
+        { return addr.hash(); }
 };
 
 class RegionAxisAddressAndSide final {
@@ -230,7 +241,7 @@ private:
     RegionAxisAddress m_address;
     RegionSide m_side;
 };
-
+#if 0
 // useful for additions and removals
 class RegionEdgeConnectionChangeEntry final {
 public:
@@ -258,7 +269,8 @@ private:
     RegionAxisAddress m_address;
     SharedPtr<ViewGridTriangle> m_triangle_grid;
 };
-
+#endif
+#if 0
 class RegionEdgeConnectionEntry final {
 public:
     using Container = std::vector<RegionEdgeConnectionEntry>;
@@ -300,20 +312,186 @@ private:
             RegionAxisLinksAdder,
             RegionAxisLinksRemover> m_axis_container = RegionAxisLinksContainer{};
 };
+#endif
+#if 0
+// nah, just use it directly, and rewrite the classes
+class RegionAxisContainerWrapper_New final {
+public:
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
+    class LinkRemover final {
+    public:
+        LinkRemover(ViewGridTriangle & grid, RegionAxisLinksRemover & remover):
+            m_grid(grid), m_remover(remover) {}
+
+        void operator() (int x, int y) const {
+            for (auto & linkptr : m_grid(x, y))
+                m_remover.add(linkptr);
+        }
+
+    private:
+        ViewGridTriangle & m_grid;
+        RegionAxisLinksRemover & m_remover;
+    };
+
+    class LinkAdder final {
+    public:
+        LinkAdder(ViewGridTriangle & grid, RegionAxisLinksAdder & adder):
+            m_grid(grid), m_adder(adder) {}
+
+        void operator() (int x, int y) const {
+            for (auto & linkptr : m_grid(x, y))
+                m_adder.add(linkptr);
+        }
+
+    private:
+        ViewGridTriangle & m_grid;
+        RegionAxisLinksAdder & m_adder;
+    };
+
+    // MitM??
+    RegionAxisContainerWrapper_New();
+
+    void remove_links(const RegionAxisAddressAndSide & addr_side,
+                      ViewGridTriangle & grid)
+    {
+        auto * remover = find_remover(addr_side.address());
+        if (!remover) return;
+
+        for_each_tile_on_edge
+            (grid, addr_side.side(), LinkRemover{grid, *remover});
+    }
+
+    void add_links(const RegionAxisAddressAndSide & addr_side,
+                   ViewGridTriangle & grid)
+    {
+        auto & adder = ensure_adder(addr_side.address());
+        for_each_tile_on_edge
+            (grid, addr_side.side(), LinkAdder{grid, adder});
+    }
+
+    bool are_all_adders() const;
+
+    bool are_all_removers() const;
+
+    bool are_all_containers() const;
+
+
+
+private:
+    using EntryContainer_New = rigtorp::HashMap
+        <RegionAxisAddress,
+         Variant<RegionAxisLinksContainer,
+                 RegionAxisLinksAdder,
+                 RegionAxisLinksRemover>,
+         RegionAxisAddressHasher_New>;
+
+    RegionAxisLinksRemover * find_remover(const RegionAxisAddress & addr) {
+        auto entry = m_entries_new.find(addr);
+        if (entry == m_entries_new.end()) return nullptr;
+        return std::get_if<RegionAxisLinksRemover>(&entry->second);
+    }
+
+    RegionAxisLinksAdder & ensure_adder(const RegionAxisAddress & addr) {
+        auto itr = m_entries_new.ensure
+            (addr,
+             RegionAxisLinksAdder{std::vector<RegionAxisLinkEntry>{},
+                                  addr.axis()});
+        return *std::get_if<RegionAxisLinksAdder>(&itr->second);
+    }
+
+    EntryContainer_New m_entries_new;
+};
+#endif
 class RegionEdgeConnectionsContainerBase {
 public:
+#   if 0
     using Entry = RegionEdgeConnectionEntry;
     using ChangeEntryContainer = std::vector<RegionEdgeConnectionChangeEntry>;
     using EntryContainer = RegionEdgeConnectionEntry::Container;
+#   endif
+    using EntryContainer = rigtorp::HashMap
+        <RegionAxisAddress,
+         Variant<RegionAxisLinksContainer,
+                 RegionAxisLinksAdder,
+                 RegionAxisLinksRemover>,
+         RegionAxisAddressHasher_New>;
 
 protected:
+#   if 0
     static ChangeEntryContainer verify_change_entries(ChangeEntryContainer &&);
-
+#   endif
     RegionEdgeConnectionsContainerBase() {}
+
+    static const EntryContainer s_default_entry_container;
+};
+#if 0
+class RegionEdgeConnectionsContainer_Old;
+#endif
+class RegionEdgeConnectionsAdder final :
+    public RegionEdgeConnectionsContainerBase
+{
+public:
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+    RegionEdgeConnectionsAdder() {}
+
+    explicit RegionEdgeConnectionsAdder(EntryContainer &&);
+
+    void add(const Vector2I & on_field_position,
+             const SharedPtr<ViewGridTriangle> & triangle_grid);
+
+    RegionEdgeConnectionsContainer finish();
+
+private:
+    static EntryContainer verify_all_adders
+        (const char * caller, EntryContainer &&);
+
+    RegionAxisLinksAdder & ensure_adder(const RegionAxisAddress & addr);
+
+    EntryContainer m_entries = s_default_entry_container;
 };
 
-class RegionEdgeConnectionsAdder final : public RegionEdgeConnectionsContainerBase {
+class RegionEdgeConnectionsRemover final :
+    public RegionEdgeConnectionsContainerBase {
+public:
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+    RegionEdgeConnectionsRemover() {}
+
+    explicit RegionEdgeConnectionsRemover(EntryContainer &&);
+
+    void remove_region(const Vector2I & on_field_position,
+                       const SharedPtr<ViewGridTriangle> & triangle_grid);
+
+    RegionEdgeConnectionsContainer finish();
+
+private:
+    static EntryContainer verify_all_removers(EntryContainer &&);
+
+    RegionAxisLinksRemover * find_remover(const RegionAxisAddress &);
+
+    EntryContainer m_entries = s_default_entry_container;
+};
+
+class RegionEdgeConnectionsContainer final :
+    public RegionEdgeConnectionsContainerBase {
+public:
+    RegionEdgeConnectionsContainer() {}
+
+    explicit RegionEdgeConnectionsContainer(EntryContainer &&);
+
+    RegionEdgeConnectionsAdder make_adder();
+
+    RegionEdgeConnectionsRemover make_remover();
+
+private:
+    static EntryContainer verify_containers(EntryContainer &&);
+
+    EntryContainer m_entries = s_default_entry_container;
+};
+#if 0
+class RegionEdgeConnectionsAdder_Old final : public RegionEdgeConnectionsContainerBase {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
@@ -325,10 +503,10 @@ public:
 
     static EntryContainer finish_adders(EntryContainer &&);
 
-    RegionEdgeConnectionsAdder() {}
+    RegionEdgeConnectionsAdder_Old() {}
 
-    RegionEdgeConnectionsAdder(ChangeEntryContainer &&,
-                               EntryContainer &&);
+    RegionEdgeConnectionsAdder_Old(ChangeEntryContainer &&,
+                                   EntryContainer &&);
 
     // need a different entry type
     // four entries per add
@@ -343,14 +521,15 @@ public:
     // for each "axis address" exists an Entry
     //
     // clear new entries, and keep the oh so useful buffer
-    RegionEdgeConnectionsContainer finish();
+    RegionEdgeConnectionsContainer_Old finish();
 
 private:
     ChangeEntryContainer m_change_entries;
     EntryContainer m_entries;
 };
-
-class RegionEdgeConnectionsRemover final : public RegionEdgeConnectionsContainerBase {
+#endif
+#if 0
+class RegionEdgeConnectionsRemover_Old final : public RegionEdgeConnectionsContainerBase {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
@@ -359,23 +538,24 @@ public:
 
     static EntryContainer finish_removers(EntryContainer &&);
 
-    RegionEdgeConnectionsRemover
+    RegionEdgeConnectionsRemover_Old
         (ChangeEntryContainer && change_entries_,
          EntryContainer && entries);
 
     void remove_region(const Vector2I & on_field_position,
                        const SharedPtr<ViewGridTriangle> & triangle_grid);
 
-    RegionEdgeConnectionsContainer finish();
+    RegionEdgeConnectionsContainer_Old finish();
 
 private:
     ChangeEntryContainer m_change_entries;
     EntryContainer m_entries;
 };
-
+#endif
+#if 0
 // RegionEdgeConnectionsContainer
 //
-class RegionEdgeConnectionsContainer final : public RegionEdgeConnectionsContainerBase {
+class RegionEdgeConnectionsContainer_Old final : public RegionEdgeConnectionsContainerBase {
 public:
     // testings thoughts:
     // - smallest possibles (1x1 grids)
@@ -383,21 +563,21 @@ public:
     // - test that things link up
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
-    RegionEdgeConnectionsContainer() {}
+    RegionEdgeConnectionsContainer_Old() {}
 
-    RegionEdgeConnectionsContainer
+    RegionEdgeConnectionsContainer_Old
         (ChangeEntryContainer && change_entries_,
          EntryContainer && entries);
 
-    RegionEdgeConnectionsAdder make_adder();
+    RegionEdgeConnectionsAdder_Old make_adder();
 
-    RegionEdgeConnectionsRemover make_remover();
+    RegionEdgeConnectionsRemover_Old make_remover();
 
 private:
     ChangeEntryContainer m_change_entries;
     EntryContainer m_entries;
 };
-
+#endif
 template <typename T, typename Func>
 void for_each_tile_on_edge
     (const ViewGrid<T> & view_grid, RegionSide side, Func && f)

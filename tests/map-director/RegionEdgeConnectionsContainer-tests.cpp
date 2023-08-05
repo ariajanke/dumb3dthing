@@ -176,40 +176,88 @@ describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::null_out_dupelicates")
     using LinksRemover = RegionAxisLinksRemover;
 
     std::vector<Entry> entries;
-    auto link_a = make_shared<TriangleLink>();
-    auto link_b = make_shared<TriangleLink>();
+
+    SharedPtr<TriangleLink> low_link, high_link;
+    std::tie(low_link, high_link) = [] {
+        auto link_a = make_shared<TriangleLink>();
+        auto link_b = make_shared<TriangleLink>();
+        auto link_low  = link_a < link_b ? link_a : link_b;
+        auto link_high = link_a < link_b ? link_b : link_a;
+        return make_tuple(link_low, link_high);
+    } ();
+
     auto null_out_dupelicates = [&entries]
         { entries = LinksRemover::null_out_dupelicates(std::move(entries)); };
 
     mark_it("clears out dupelicate link", [&] {
-        entries.push_back(Entry{link_a});
-        entries.push_back(Entry{link_b});
-        entries.push_back(Entry{link_a});
+        entries.push_back(Entry{high_link});
+        entries.push_back(Entry{ low_link});
+        entries.push_back(Entry{high_link});
         null_out_dupelicates();
-        return test_that(link_a.use_count() == 1);
+        return test_that(high_link.use_count() == 1);
     }).
     mark_it("retains unique link", [&] {
-        entries.push_back(Entry{link_a});
-        entries.push_back(Entry{link_b});
-        entries.push_back(Entry{link_a});
+        entries.push_back(Entry{high_link});
+        entries.push_back(Entry{ low_link});
+        entries.push_back(Entry{high_link});
         null_out_dupelicates();
-        return test_that(link_b.use_count() == 2);
+        return test_that(low_link.use_count() == 2);
     }).
     mark_it("clears dupelicates at the beginning of container", [&] {
-        entries.push_back(Entry{link_a});
-        entries.push_back(Entry{link_a});
-        entries.push_back(Entry{link_b});
+        entries.push_back(Entry{ low_link});
+        entries.push_back(Entry{ low_link});
+        entries.push_back(Entry{high_link});
         null_out_dupelicates();
-        return test_that(link_a.use_count() == 1);
+        return test_that(low_link.use_count() == 1);
     });
 });
-#if 0
+
 describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::remove_nulls").
     depends_on<RegionAxisLinkEntry>()([]
 {
+    using Entry = RegionAxisLinkEntry;
+    using LinksRemover = RegionAxisLinksRemover;
 
+    std::vector<Entry> entries;
+    entries.emplace_back(make_shared<TriangleLink>());
+    entries.emplace_back(nullptr);
+    entries = LinksRemover::remove_nulls(std::move(entries));
+    mark_it("reduces container to appropriate size", [&] {
+        return test_that(entries.size() == 1);
+    }).
+    mark_it("remaining entries are not null", [&] {
+        return test_that(!!entries[0].link());
+    });
 });
 
+struct Whatevs final {};
+
+describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+    auto samp_0_0_old = make_view_grid_for_tile(Vector2I{});
+    auto samp_1_0     = make_view_grid_for_tile(Vector2I{1, 0});
+    auto samp_0_0_new = make_view_grid_for_tile(Vector2I{});
+
+    auto samp_0_0_old_ptr = make_shared<ViewGridTriangle>(samp_0_0_old.view_grid);
+    auto samp_1_0_ptr     = make_shared<ViewGridTriangle>(samp_1_0    .view_grid);
+    auto samp_0_0_new_ptr = make_shared<ViewGridTriangle>(samp_0_0_new.view_grid);
+
+    auto adder_first = RegionEdgeConnectionsContainer{}.make_adder();
+    RegionEdgeConnectionsContainer cont_first;
+    mark_it("adding links to container, container owns the given links", [&] {
+        auto usec00 = samp_0_0_old.e.use_count();
+        auto usec10 = samp_1_0.e.use_count();
+        adder_first.add(Vector2I{    }, samp_0_0_old_ptr);
+        adder_first.add(Vector2I{1, 0}, samp_1_0_ptr    );
+        cont_first = adder_first.finish();
+        // triangles neighbor four axises with 1x1 grids
+        return test_that(samp_0_0_old.e.use_count() - usec00 == 4 &&
+                         samp_1_0    .e.use_count() - usec10 == 4   );
+    });
+
+});
+#if 0
 // can't depend_on multiple :c
 
 describe<RegionEdgeConnectionsAdder>("RegionEdgeConnectionsAdder::ensure_entries_for_changes")([] {
