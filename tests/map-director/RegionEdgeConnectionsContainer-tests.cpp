@@ -209,6 +209,14 @@ describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::null_out_dupelicates")
         entries.push_back(Entry{high_link});
         null_out_dupelicates();
         return test_that(low_link.use_count() == 1);
+    }).
+    mark_it("clears all two links which are dupelicates", [&] {
+        entries.push_back(Entry{ low_link});
+        entries.push_back(Entry{high_link});
+        entries.push_back(Entry{ low_link});
+        entries.push_back(Entry{high_link});
+        null_out_dupelicates();
+        return test_that(high_link.use_count() == 1 && low_link.use_count() == 1);
     });
 });
 
@@ -240,20 +248,48 @@ describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
     auto samp_0_0_new = make_view_grid_for_tile(Vector2I{});
 
     auto samp_0_0_old_ptr = make_shared<ViewGridTriangle>(samp_0_0_old.view_grid);
-    auto samp_1_0_ptr     = make_shared<ViewGridTriangle>(samp_1_0    .view_grid);
-    auto samp_0_0_new_ptr = make_shared<ViewGridTriangle>(samp_0_0_new.view_grid);
 
-    auto adder_first = RegionEdgeConnectionsContainer{}.make_adder();
+    RegionEdgeConnectionsAdder adder_first;
     RegionEdgeConnectionsContainer cont_first;
-    mark_it("adding links to container, container owns the given links", [&] {
-        auto usec00 = samp_0_0_old.e.use_count();
-        auto usec10 = samp_1_0.e.use_count();
-        adder_first.add(Vector2I{    }, samp_0_0_old_ptr);
+    RegionEdgeConnectionsRemover remover_first;
+
+    auto usec00_old = samp_0_0_old.e.use_count();
+    auto usec10     = samp_1_0    .e.use_count();
+    auto usec00_new = samp_0_0_new.e.use_count();
+
+    adder_first.add(Vector2I{    }, samp_0_0_old_ptr);
+    {
+        auto samp_1_0_ptr = make_shared<ViewGridTriangle>(samp_1_0.view_grid);
         adder_first.add(Vector2I{1, 0}, samp_1_0_ptr    );
-        cont_first = adder_first.finish();
+    }
+    cont_first = adder_first.finish();
+
+    mark_it("adding links to container, container owns the given links", [&] {        
         // triangles neighbor four axises with 1x1 grids
-        return test_that(samp_0_0_old.e.use_count() - usec00 == 4 &&
+        return test_that(samp_0_0_old.e.use_count() - usec00_old == 4 &&
                          samp_1_0    .e.use_count() - usec10 == 4   );
+    }).
+    next([&] {
+        remover_first = cont_first.make_remover();
+        remover_first.remove_region(Vector2I{}, samp_0_0_old_ptr);
+        cont_first = remover_first.finish();
+    }).
+    mark_it("then remove one region of links, the container no longer owns the links", [&] {
+        auto a = samp_0_0_old.e.use_count();
+        auto b = samp_1_0    .e.use_count();
+        return test_that(samp_0_0_old.e.use_count() - usec00_old == 0 &&
+                         samp_1_0    .e.use_count() - usec10     == 4   );
+    }).
+    next([&] {
+        auto samp_0_0_new_ptr = make_shared<ViewGridTriangle>(samp_0_0_new.view_grid);
+        adder_first = cont_first.make_adder();
+        adder_first.add(Vector2I{}, samp_0_0_new_ptr);
+        cont_first = adder_first.finish();
+    }).
+    mark_it("then add new links into the same region", [&] {
+        return test_that(samp_0_0_old.e.use_count() - usec00_old == 0 &&
+                         samp_1_0    .e.use_count() - usec10     == 4 &&
+                         samp_0_0_new.e.use_count() - usec00_new == 4);
     });
 
 });
