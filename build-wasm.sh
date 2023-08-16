@@ -29,6 +29,7 @@ if [[ true ]]; then
 				$(find src/geometric-utilities | grep 'cpp\b') \
         --shell-file src/platform/wasm/shell.html \
         -Ilib/cul/inc -Ilib/ecs3/inc -Ilib/tinyxml2 \
+				-Ilib/HashMap/include \
 				-Ilib/tl-expected/include \
         -Wno-unqualified-std-cast-call \
         -sNO_EXIT_RUNTIME=1 -sNO_DISABLE_EXCEPTION_CATCHING \

@@ -65,17 +65,71 @@ public:
     const char * speak() const final { return k_dog_speach; }
 };
 
+class Elephant final : public Animal, public InstCounted<Elephant> {
+public:
+    static constexpr const char * k_elephant_speach = "*blows trunk*";
+
+    Elephant() {}
+
+    Elephant(const Elephant &) = delete;
+
+    Elephant(Elephant && elephant):
+        InstCounted<Elephant>(elephant) {}
+
+    const char * speak() const final { return k_elephant_speach; }
+};
+
+class Sponge final : public Animal, public InstCounted<Sponge> {
+public:
+    static constexpr const char * k_sponge_speach = "*spongy silence*";
+
+    Sponge() {}
+
+    Sponge(const Sponge & sponge):
+        InstCounted<Sponge>(sponge) {}
+
+    Sponge(Sponge &&) = delete;
+
+    const char * speak() const final { return k_sponge_speach; }
+};
+
+template <typename HeadType, typename ... Types>
+void reset_all_instance_counts_of() {
+    InstCounted<HeadType>::reset_instance_count();
+    if constexpr (sizeof...(Types) > 0)
+        reset_all_instance_counts_of<Types...>();
+}
+
 void reset_all_instance_counts() {
-    Cat::reset_instance_count();
-    Dog::reset_instance_count();
+    reset_all_instance_counts_of<Cat, Dog, Elephant, Sponge>();
 }
 
 [[maybe_unused]] static auto s_add_describes = [] {
 
 using namespace cul::tree_ts;
-using TestStateDriver = StateMachineDriver<Animal, Cat, Dog>;
+using TestStateDriver = StateMachineDriver<Animal, Cat, Dog, Elephant, Sponge>;
 
 // need to clean up test output (there are too many now o___o)
+describe<TestStateDriver>("StateMachineDriver move semantics")([] {
+    mark_it("Stateless state machine is movable", [] {
+        TestStateDriver driver;
+        TestStateDriver other;
+        other.set_current_state<Elephant>();
+        other = std::move(driver);
+        return test_that(InstCounted<Elephant>::instance_count() == 0);
+    });
+});
+
+describe<TestStateDriver>("StateMachineDriver copy semantics")([] {
+    mark_it("Stateless state machine is copyable", [] {
+        TestStateDriver driver;
+        TestStateDriver other;
+        other.set_current_state<Elephant>();
+        other = driver;
+        return test_that(InstCounted<Elephant>::instance_count() == 0);
+    });
+});
+
 describe<TestStateDriver>("StateMachineDriver::set_current_state")([] {
     mark_it("creates a new instance of the state", [] {
         Cat::reset_instance_count();

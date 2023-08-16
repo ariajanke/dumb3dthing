@@ -24,16 +24,12 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
-using MapLoadResult = MapLoadingContext::MapLoadResult;
+using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
 } // end of <anonymous> namespace
 
 MapLoaderTask::MapLoaderTask
-#   ifndef MACRO_NEW_MAP_LOADER_STATES
-    (TiledMapLoader && map_loader,
-#   else
     (tiled_map_loading::MapLoadStateMachine && map_loader,
-#   endif
      const SharedPtr<MapRegionTracker> & target_region_instance,
      const Entity & player_physics):
      m_region_tracker(verify_region_tracker_presence

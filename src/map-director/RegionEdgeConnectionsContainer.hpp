@@ -220,7 +220,7 @@ private:
     int m_value = 0;
 };
 
-struct RegionAxisAddressHasher_New final {
+struct RegionAxisAddressHasher final {
     std::size_t operator () (const RegionAxisAddress & addr) const
         { return addr.hash(); }
 };
@@ -253,7 +253,7 @@ public:
          Variant<RegionAxisLinksContainer,
                  RegionAxisLinksAdder,
                  RegionAxisLinksRemover>,
-         RegionAxisAddressHasher_New>;
+         RegionAxisAddressHasher>;
 
 protected:
     RegionEdgeConnectionsContainerBase() {}

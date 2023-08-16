@@ -61,6 +61,19 @@ private:
     ProducableTileViewGrid m_producables_view_grid;
 };
 
+class CompositeMapRegion final : public MapRegion {
+public:
+    void process_load_request
+        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+         RegionLoadCollectorBase &) final;
+private:
+    // not just MapRegions, but how to load them...
+    // is it a view grid? not really
+    // want to support 3D? nah, not for this "ticket"
+};
+
+// --- below should probably be its own header/source
+
 struct Vector2IHasher final {
     std::size_t operator () (const Vector2I & r) const {
         using IntHash = std::hash<int>;

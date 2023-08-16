@@ -29,11 +29,7 @@
 class MapLoaderTask final : public BackgroundTask {
 public:
     MapLoaderTask
-#        ifndef MACRO_NEW_MAP_LOADER_STATES
-        (TiledMapLoader && map_loader,
-#        else
         (tiled_map_loading::MapLoadStateMachine && map_loader,
-#        endif
          const SharedPtr<MapRegionTracker> & target_region_instance,
          const Entity & player_physics);
 
@@ -45,10 +41,6 @@ private:
         (const char * caller, const SharedPtr<MapRegionTracker> &);
 
     SharedPtr<MapRegionTracker> m_region_tracker;
-#   ifndef MACRO_NEW_MAP_LOADER_STATES
-    TiledMapLoader m_map_loader;
-#   else
     tiled_map_loading::MapLoadStateMachine m_map_loader;
-#   endif
     EntityRef m_player_physics;
 };
