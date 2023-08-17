@@ -26,8 +26,6 @@ namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
 
-//using namespace cul::exceptions_abbr;
-
 using cul::exceptions_abbr::InvArg;
 
 using Side = TriangleSide;
@@ -37,13 +35,7 @@ using LimitIntersection = TriangleSegment::LimitIntersection;
 using cul::find_smallest_diff, cul::make_nonsolution_sentinel,
       cul::make_zero_vector;
 using std::min_element;
-#if 0
-Real find_intersecting_position_for_first
-    (Vector2 first_line_a , Vector2 first_line_b ,
-     Vector2 second_line_a, Vector2 second_line_b);
 
-bool is_solution(Real x);
-#endif
 Real get_component_for_basis(const Vector & pt_on_place, const Vector & basis);
 
 Vector2 find_point_c_in_2d(const Vector & a, const Vector & b, const Vector & c);
@@ -60,9 +52,9 @@ TriangleSegment::SideCrossing::SideCrossing
 {}
 
 TriangleSegment::TriangleSegment():
-    m_a(Vector{1, 0, 0}),
-    m_b(Vector{0, 1, 0}),
-    m_c(Vector{0, 0, 1}),
+    m_a(k_east ),
+    m_b(k_up   ),
+    m_c(k_north),
     m_bx_2d(find_point_b_x_in_2d(m_a, m_b)),
     m_c_2d(find_point_c_in_2d(m_a, m_b, m_c))
     { check_invarients(); }
@@ -102,7 +94,7 @@ Vector TriangleSegment::basis_j() const {
     // basis j must be a vector such that i x j = n
     // unit vector cross unit vector = another unit vector
     auto rv = cross(normal(), basis_i());
-#   if 1
+#   ifdef MACRO_DEBUG
     assert(are_very_close(magnitude(rv), 1.));
 #   endif
     return rv;
@@ -140,26 +132,14 @@ SideCrossing TriangleSegment::check_for_side_crossing
     auto a2 = point_a_in_2d();
     auto b2 = point_b_in_2d();
     auto c2 = point_c_in_2d();
-#   if 0
-    auto gv = find_intersecting_position_for_first(a2, b2, old, new_);
-    if (is_solution(gv))
-        { return mk_crossing(k_side_ab, a2 + gv*(b2 - a2)); }
 
-    gv = find_intersecting_position_for_first(b2, c2, old, new_);
-    if (is_solution(gv))
-        { return mk_crossing(k_side_bc, b2 + gv*(c2 - b2)); }
-
-    gv = find_intersecting_position_for_first(c2, a2, old, new_);
-    if (is_solution(gv))
-        { return mk_crossing(k_side_ca, c2 + gv*(a2 - c2)); }
-#   else
     if (auto gv = ::find_intersection(a2, b2, old, new_))
         { return mk_crossing(k_side_ab, gv.value()); }
     if (auto gv = ::find_intersection(b2, c2, old, new_))
         { return mk_crossing(k_side_bc, gv.value()); }
     if (auto gv = ::find_intersection(c2, a2, old, new_))
         { return mk_crossing(k_side_ca, gv.value()); }
-#   endif
+
     return mk_crossing(
         contains_point(new_) ? point_region(old) : point_region(new_),
         old + new_);
@@ -358,13 +338,8 @@ Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
     // mmm... always use the same method? floating points are quite odd
     // if there's a solution... r must be outside
     auto center = center_in_2d();
-#   if 0
-    auto is_crossed_line = [r, center] (const Vector2 & a, const Vector2 & b)
-        { return is_solution(find_intersecting_position_for_first(a, b, center, r)); };
-#   else
     auto is_crossed_line = [r, center] (const Vector2 & a, const Vector2 & b)
         { return ::find_intersection(a, b, center, r).has_value(); };
-#   endif
     auto a = point_a_in_2d();
     auto b = point_b_in_2d();
     if (are_parallel(a - b, a - r)) return k_inside;
@@ -397,44 +372,11 @@ const char * to_string(TriangleSide side) {
 }
 
 namespace {
-#if 0
-static const constexpr Real k_no_intersection_2d =
-    std::numeric_limits<Real>::infinity();
-#endif
+
 // a possible way to expand cul
 // angle between being an object, check for obtuse, and possibly get the value
 bool angle_between_is_obtuse(const Vector &, const Vector &);
-#if 0
-// cul issue 5
-Real find_intersecting_position_for_first
-    (Vector2 first_line_a , Vector2 first_line_b ,
-     Vector2 second_line_a, Vector2 second_line_b)
-{    
-    auto p = first_line_a;
-    auto r = first_line_b - p;
 
-    auto q = second_line_a;
-    auto s = second_line_b - q;
-
-    auto r_cross_s = cross(r, s);
-    if (r_cross_s == 0.0) return k_no_intersection_2d;
-
-    auto q_sub_p = q - p;
-    auto t = cross(q_sub_p, s) / r_cross_s;
-    if (t < 0. || t > 1.) return k_no_intersection_2d;
-
-    auto u = cross(q_sub_p, r) / r_cross_s;
-    if (u < 0. || u > 1.) return k_no_intersection_2d;
-
-    if (are_parallel(first_line_a - first_line_b, second_line_a - second_line_b))
-        { return k_no_intersection_2d; }
-
-    return t;
-}
-
-bool is_solution(Real x)
-    { return !std::equal_to<Real>{}(x, k_no_intersection_2d); }
-#endif
 Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
     // basis is assumed to be a normal vector
     assert(are_very_close(magnitude(basis), 1.));

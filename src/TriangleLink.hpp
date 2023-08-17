@@ -44,16 +44,6 @@ private:
     Triangle m_segment;
 };
 
-class VectorRotater final {
-public:
-    explicit VectorRotater(const Vector & axis_of_rotation);
-
-    Vector operator () (const Vector & v, Real angle) const;
-
-private:
-    Vector m_axis_of_rotation;
-};
-
 class TriangleLinkTransfer final {
 public:
     using Side = TriangleSide;
@@ -94,12 +84,6 @@ public:
     using Side = TriangleSide;
     using Transfer = TriangleLinkTransfer;
 
-    static bool has_matching_normals(const Triangle &, Side, const Triangle &, Side);
-
-    static Real angle_of_rotation_for_left_to_right
-        (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,
-         const VectorRotater & rotate_vec);
-
     static void reattach
         (const SharedPtr<TriangleLink> & lhs, Side lhs_side,
          const SharedPtr<TriangleLink> & rhs, Side rhs_side,
@@ -110,7 +94,6 @@ public:
         (const SharedPtr<TriangleLink> & lhs,
          const SharedPtr<TriangleLink> & rhs);
 
-    // still 95% broken...
     static void attach_matching_points
         (const SharedPtr<TriangleLink> & lhs,
          const SharedPtr<TriangleLink> & rhs);
@@ -120,13 +103,6 @@ public:
     explicit TriangleLink(const Triangle &);
 
     TriangleLink(const Vector & a, const Vector & b, const Vector & c);
-
-    // attempts all sides
-    [[deprecated]] TriangleLink & attempt_attachment_to
-        (const SharedPtr<const TriangleLink> &);
-
-    [[deprecated]] TriangleLink & attempt_attachment_to
-        (const SharedPtr<const TriangleLink> &, Side);
 
     void set_transfer(Side on_side, Transfer && transfer_to);
 

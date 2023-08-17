@@ -35,10 +35,10 @@
  *        that:
  *        (ts.point_at(r) - ts.point_at(next_in_direction(r, dir) == Vector(0, 0, 0))
  */
-Vector next_in_direction(Vector r, Vector dir);
+Vector next_in_direction(const Vector & r, const Vector & dir);
 
 /** @copydoc next_in_direction(Vector,Vector) */
-Vector2 next_in_direction(Vector2 r, Vector2 dir);
+Vector2 next_in_direction(const Vector2 & r, const Vector2 & dir);
 
 template <typename T>
 using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
@@ -93,11 +93,29 @@ constexpr cul::EnableIf<
 
 class TriangleLinkTransfer;
 
+class VectorRotater final {
+public:
+    explicit VectorRotater(const Vector & axis_of_rotation);
+
+    Vector operator () (const Vector & v, Real angle) const;
+
+private:
+    Vector m_axis_of_rotation;
+};
+
 class TriangleLinkAttachment final {
 public:
     static Optional<TriangleLinkAttachment> find
         (const SharedPtr<const TriangleLink> & lhs,
          const SharedPtr<const TriangleLink> & rhs);
+
+    static bool has_matching_normals
+        (const TriangleSegment & lhs, TriangleSide lhs_side,
+         const TriangleSegment & rhs, TriangleSide rhs_side);
+
+    static Real angle_of_rotation_for_left_to_right
+        (const Vector & pivot, const Vector & left_opp, const Vector & right_opp,
+         const VectorRotater & rotate_vec);
 
     TriangleLinkAttachment();
 

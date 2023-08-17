@@ -112,5 +112,38 @@ describe<TriangleLinkAttachment>("TriangleLinkAttachment::find")([] {
     });
 });
 
+describe("TriangleLinkAttachment::angle_of_rotation_for_left"
+         " (east and north)"                                 )([]
+{
+    VectorRotater rotator{k_up};
+    auto angle = TriangleLinkAttachment::angle_of_rotation_for_left_to_right
+        (Vector{}, k_east, k_north, rotator);
+    mark_it("rotates east onto north", [&] {
+        auto res = rotator(k_east, angle);
+        return test_that(are_very_close(res, k_north));
+    });
+    mark_it("use an angle of rotation of -pi/2 radians", [&] {
+        return test_that(are_very_close(angle, -k_pi*0.5));
+    });
+});
+
+describe("TriangleLinkAttachment::angle_of_rotation_for_left"
+         " (w/ non-zero pivot)"                              )([]
+{
+    VectorRotater rotator{k_east};
+    Vector left {0, 0 , 0.5};
+    Vector right{0, 2, -0.5};
+    Vector pivot{0, 1, -0.5};
+    auto angle = TriangleLinkAttachment::angle_of_rotation_for_left_to_right
+        (pivot, left, right, rotator);
+    mark_it("provides an angle that rotates left - pivot to right - pivot", [&] {
+        auto res = rotator(left - pivot, angle);
+        return test_that(are_very_close(angle_between(res, right - pivot), 0));
+    });
+    mark_it("provides a negative angle not less than -pi", [&] {
+        return test_that(angle < -k_pi*0.5 && angle > -k_pi);
+    });
+});
+
 return [] {};
 } ();

@@ -38,17 +38,6 @@ BadBranchException::BadBranchException(int line, const char * file):
                        + std::to_string(line))
 {}
 
-Vector next_in_direction(Vector r, Vector dir) {
-    return Vector{std::nextafter(r.x, r.x + dir.x),
-                  std::nextafter(r.y, r.y + dir.y),
-                  std::nextafter(r.z, r.z + dir.z)};
-}
-
-Vector2 next_in_direction(Vector2 r, Vector2 dir) {
-    return Vector2{std::nextafter(r.x, r.x + dir.x),
-                   std::nextafter(r.y, r.y + dir.y)};
-}
-
 bool are_very_close(Vector a, Vector b)
     { return cul::sum_of_squares(a - b) <= k_error*k_error; }
 
