@@ -131,7 +131,8 @@ RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
 {
     RegionAxisLinksAdder new_adder
         {std::vector<RegionAxisLinkEntry>{}, addr.axis()}; // LoD
-    auto itr = m_entries.ensure(addr, std::move(new_adder));
+    auto itr = m_entries.
+        insert(std::make_pair(addr, std::move(new_adder))).first;
     return *std::get_if<RegionAxisLinksAdder>(&itr->second);
 }
 
