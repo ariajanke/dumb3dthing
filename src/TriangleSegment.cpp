@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,11 +20,13 @@
 
 #include "TriangleSegment.hpp"
 
+#include "geometric-utilities.hpp"
+
 namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
 
-using namespace cul::exceptions_abbr;
+using cul::exceptions_abbr::InvArg;
 
 using Side = TriangleSide;
 using SideCrossing = TriangleSegment::SideCrossing;
@@ -33,12 +35,6 @@ using LimitIntersection = TriangleSegment::LimitIntersection;
 using cul::find_smallest_diff, cul::make_nonsolution_sentinel,
       cul::make_zero_vector;
 using std::min_element;
-
-Real find_intersecting_position_for_first
-    (Vector2 first_line_a , Vector2 first_line_b ,
-     Vector2 second_line_a, Vector2 second_line_b);
-
-bool is_solution(Real x);
 
 Real get_component_for_basis(const Vector & pt_on_place, const Vector & basis);
 
@@ -56,9 +52,9 @@ TriangleSegment::SideCrossing::SideCrossing
 {}
 
 TriangleSegment::TriangleSegment():
-    m_a(Vector{1, 0, 0}),
-    m_b(Vector{0, 1, 0}),
-    m_c(Vector{0, 0, 1}),
+    m_a(k_east ),
+    m_b(k_up   ),
+    m_c(k_north),
     m_bx_2d(find_point_b_x_in_2d(m_a, m_b)),
     m_c_2d(find_point_c_in_2d(m_a, m_b, m_c))
     { check_invarients(); }
@@ -98,11 +94,13 @@ Vector TriangleSegment::basis_j() const {
     // basis j must be a vector such that i x j = n
     // unit vector cross unit vector = another unit vector
     auto rv = cross(normal(), basis_i());
+#   ifdef MACRO_DEBUG
     assert(are_very_close(magnitude(rv), 1.));
+#   endif
     return rv;
 }
 
-bool TriangleSegment::can_be_projected_onto(const Vector & n) const noexcept {
+bool TriangleSegment::projectable_onto(const Vector & n) const noexcept {
     auto [a, b, c] = project_onto_plane_(n);
     return !are_parallel(b - a, b - c);
 }
@@ -134,17 +132,13 @@ SideCrossing TriangleSegment::check_for_side_crossing
     auto a2 = point_a_in_2d();
     auto b2 = point_b_in_2d();
     auto c2 = point_c_in_2d();
-    auto gv = find_intersecting_position_for_first(a2, b2, old, new_);
-    if (is_solution(gv))
-        { return mk_crossing(k_side_ab, a2 + gv*(b2 - a2)); }
 
-    gv = find_intersecting_position_for_first(b2, c2, old, new_);
-    if (is_solution(gv))
-        { return mk_crossing(k_side_bc, b2 + gv*(c2 - b2)); }
-
-    gv = find_intersecting_position_for_first(c2, a2, old, new_);
-    if (is_solution(gv))
-        { return mk_crossing(k_side_ca, c2 + gv*(a2 - c2)); }
+    if (auto gv = ::find_intersection(a2, b2, old, new_))
+        { return mk_crossing(k_side_ab, gv.value()); }
+    if (auto gv = ::find_intersection(b2, c2, old, new_))
+        { return mk_crossing(k_side_bc, gv.value()); }
+    if (auto gv = ::find_intersection(c2, a2, old, new_))
+        { return mk_crossing(k_side_ca, gv.value()); }
 
     return mk_crossing(
         contains_point(new_) ? point_region(old) : point_region(new_),
@@ -180,7 +174,7 @@ TriangleSegment TriangleSegment::flip() const noexcept {
     auto old_norm = normal();
     TriangleSegment rv{point_b(), point_a(), point_c()};
     auto new_norm = rv.normal();
-    assert(are_very_close(angle_between(new_norm, old_norm), k_pi));
+    assert(are_very_close(::angle_between(new_norm, old_norm), k_pi));
     return rv;
 }
 
@@ -345,8 +339,7 @@ Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
     // if there's a solution... r must be outside
     auto center = center_in_2d();
     auto is_crossed_line = [r, center] (const Vector2 & a, const Vector2 & b)
-        { return is_solution(find_intersecting_position_for_first(a, b, center, r)); };
-
+        { return ::find_intersection(a, b, center, r).has_value(); };
     auto a = point_a_in_2d();
     auto b = point_b_in_2d();
     if (are_parallel(a - b, a - r)) return k_inside;
@@ -380,40 +373,6 @@ const char * to_string(TriangleSide side) {
 
 namespace {
 
-static const constexpr Real k_no_intersection_2d =
-    std::numeric_limits<Real>::infinity();
-
-bool angle_between_is_obtuse(const Vector &, const Vector &);
-
-Real find_intersecting_position_for_first
-    (Vector2 first_line_a , Vector2 first_line_b ,
-     Vector2 second_line_a, Vector2 second_line_b)
-{    
-    auto p = first_line_a;
-    auto r = first_line_b - p;
-
-    auto q = second_line_a;
-    auto s = second_line_b - q;
-
-    auto r_cross_s = cross(r, s);
-    if (r_cross_s == 0.0) return k_no_intersection_2d;
-
-    auto q_sub_p = q - p;
-    auto t = cross(q_sub_p, s) / r_cross_s;
-    if (t < 0. || t > 1.) return k_no_intersection_2d;
-
-    auto u = cross(q_sub_p, r) / r_cross_s;
-    if (u < 0. || u > 1.) return k_no_intersection_2d;
-
-    if (are_parallel(first_line_a - first_line_b, second_line_a - second_line_b))
-        { return k_no_intersection_2d; }
-
-    return t;
-}
-
-bool is_solution(Real x)
-    { return !std::equal_to<Real>{}(x, k_no_intersection_2d); }
-
 Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
     // basis is assumed to be a normal vector
     assert(are_very_close(magnitude(basis), 1.));
@@ -433,19 +392,12 @@ Vector2 find_point_c_in_2d
     auto i_proj = project_onto(ca, ba);
 
     return Vector2{
-        (angle_between_is_obtuse(ca, ba) ? -1 : 1)*magnitude(i_proj),
+        (find_angle_between(ca, ba)->is_obtuse() ? -1 : 1)*magnitude(i_proj),
         magnitude(ca - i_proj)};
 }
 
 Real find_point_b_x_in_2d
     (const Vector & a, const Vector & b)
 { return magnitude(b - a); }
-
-// ----------------------------------------------------------------------------
-
-bool angle_between_is_obtuse(const Vector & a, const Vector & b) {
-    auto res = dot(a, b);
-    return res < 0;
-}
 
 } // end of <anonymous> namespace

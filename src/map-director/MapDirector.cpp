@@ -20,6 +20,7 @@
 
 #include "MapDirector.hpp"
 #include "map-loader-task.hpp"
+#include "RegionLoadRequest.hpp"
 
 #include "../point-and-plane.hpp"
 
@@ -33,17 +34,15 @@ SharedPtr<BackgroundTask> MapDirector::begin_initial_map_loading
     (const char * initial_map, Platform & platform, const Entity & player_physics)
 {
     m_region_tracker = make_shared<MapRegionTracker>();
-
     return MapLoaderTask_::make
-        (initial_map, platform, m_region_tracker, player_physics,
-         m_region_size_in_tiles);
+        (initial_map, platform, m_region_tracker, player_physics);
 }
 
 void MapDirector::on_every_frame
     (TaskCallbacks & callbacks, const Entity & physic_ent)
 { check_for_other_map_segments(callbacks, physic_ent); }
 
-/* private static */ Vector2I MapDirector::to_segment_location
+/* private static */ Vector2I MapDirector::to_region_location
     (const Vector & location, const Size2I & segment_size)
 {
     return Vector2I
@@ -59,16 +58,15 @@ void MapDirector::on_every_frame
     // this may turn into its own class
     // there's just so much behavior potential here
 
-    // good enough for now
-    using namespace point_and_plane;
-    auto & pstate = physics_ent.get<PpState>();
-    auto delta = physics_ent.has<Velocity>() ? physics_ent.get<Velocity>()*0.5 : Vector{};
-    for (auto pt : { location_of(pstate), location_of(pstate) + delta }) {
-        auto target_region = to_segment_location(pt, m_region_size_in_tiles);
-        m_region_tracker->frame_hit(target_region, callbacks);
-        for (auto offset : k_plus_shape_neighbor_offsets) {
-            m_region_tracker->frame_hit(offset + target_region, callbacks);
-        }
-    }
-    m_region_tracker->frame_refresh(callbacks);
+    auto facing = [&physics_ent] () -> Optional<Vector> {
+        auto & camera = physics_ent.get<Camera>();
+        if (!are_very_close(camera.target, camera.position))
+            return {};
+        return normalize(camera.target - camera.position);
+    } ();
+    auto player_position = point_and_plane::location_of(physics_ent.get<PpState>());
+    auto player_velocity = physics_ent.get<Velocity>().value;
+    auto request = RegionLoadRequest::find
+        (player_position, facing, player_velocity);
+    m_region_tracker->process_load_requests(request, callbacks);
 }

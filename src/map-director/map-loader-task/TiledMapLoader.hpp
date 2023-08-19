@@ -23,183 +23,294 @@
 #include "TileMapIdToSetMapping.hpp"
 #include "MapLoadingError.hpp"
 #include "TileSetCollection.hpp"
+#include "StateMachineDriver.hpp"
 
 #include "../ParseHelpers.hpp"
 #include "../ProducableGrid.hpp"
+#include "../MapRegion.hpp"
 
 #include "../../platform.hpp"
 
 #include <ariajanke/cul/RectangleUtils.hpp>
 #include <ariajanke/cul/OptionalEither.hpp>
 
-class MapLoadingStateHolder;
-class MapLoadingState;
-class MapLoadingWaitingForFileContents;
-class MapLoadingWaitingForTileSets;
-class MapLoadingReady;
-class MapLoadingExpired;
+#include <ariajanke/cul/TypeSet.hpp>
+#include <ariajanke/cul/TypeList.hpp>
 
 struct MapLoadingSuccess final {
-    ProducableTileViewGrid producables_view_grid;
+    UniquePtr<TiledMapRegion> loaded_region;
     MapLoadingWarnings warnings;
 };
 
-class MapLoadingContext {
+namespace tiled_map_loading {
+
+class BaseState;
+class FileContentsWaitState;
+class InitialDocumentReadState;
+class ProducableLoadState;
+class TileSetWaitState;
+class TiledMapStrategyState;
+
+class ExpiredState;
+
+class BaseState {
 public:
-    using State = MapLoadingState;
-    using WaitingForFileContents = MapLoadingWaitingForFileContents;
-    using WaitingForTileSets = MapLoadingWaitingForTileSets;
-    using Ready = MapLoadingReady;
-    using Expired = MapLoadingExpired;
-    using StateHolder = MapLoadingStateHolder;
     using MapLoadResult = OptionalEither<MapLoadingError, MapLoadingSuccess>;
+    using StateSwitcher = RestrictedStateSwitcher
+        <BaseState,
+         FileContentsWaitState, InitialDocumentReadState, TileSetWaitState,
+         TiledMapStrategyState, ProducableLoadState, ExpiredState>;
+
+    virtual MapLoadResult update_progress(StateSwitcher &) = 0;
+
+    virtual ~BaseState() {}
+
+    void copy_platform_and_warnings(const BaseState &);
 
 protected:
-    MapLoadingContext() {}
-};
+    BaseState() {}
 
-class MapLoadingState {
-public:
-    using MapLoadResult = MapLoadingContext::MapLoadResult;
+    explicit BaseState(Platform & platform_):
+        m_platform(&platform_) {}
 
-    virtual ~MapLoadingState() {}
-
-    virtual MapLoadResult
-        update_progress(MapLoadingStateHolder &)
-        { return {}; }
-
-    MapLoadingState & set_others_stuff(MapLoadingState & lhs) const {
-        lhs.m_platform = m_platform;
-        lhs.m_unfinished_warnings = std::move(m_unfinished_warnings);
-        return lhs;
-    }
-
-protected:
-    MapLoadingState() {}
-
-    explicit MapLoadingState
-        (Platform & platform):
-        m_platform(&platform) {}
-
-    Platform & platform() const;
+    Platform & platform() const { return *m_platform; }
 
     MapLoadingWarningsAdder & warnings_adder() { return m_unfinished_warnings; }
 
-    MapLoadingSuccess finish_map_loading(ProducableTileViewGrid && view_grid)
-    {
-        MapLoadingSuccess success;
-        success.producables_view_grid = std::move(view_grid);
-        success.warnings = m_unfinished_warnings.finish();
-        return success;
-    }
-
 private:
-    void verify_shared_set() const;
-
     Platform * m_platform = nullptr;
     UnfinishedMapLoadingWarnings m_unfinished_warnings;
 };
 
-class MapLoadingWaitingForFileContents final : public MapLoadingState {
+class FileContentsWaitState final : public BaseState {
 public:
-    MapLoadingWaitingForFileContents
-        (Platform & platform, const char * filename):
-         MapLoadingState(platform)
-    { m_file_contents = platform.promise_file_contents(filename); }
+    FileContentsWaitState(FutureStringPtr && future_, Platform & platform):
+        BaseState(platform),
+        m_future_contents(std::move(future_)) {}
 
-    MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
+    MapLoadResult update_progress(StateSwitcher &) final;
 
 private:
-    void add_tileset(const TiXmlElement & tileset, UnfinishedTileSetCollection &);
-
-    FutureStringPtr m_file_contents;
+    FutureStringPtr m_future_contents;
 };
 
-class MapLoadingWaitingForTileSets final : public MapLoadingState {
-public:
-    MapLoadingWaitingForTileSets
-        (InProgressTileSetCollection && cont_, std::vector<Grid<int>> && layers_):
-        m_tilesets_container(make_shared<InProgressTileSetCollection>(std::move(cont_))),
-        m_layers(std::move(layers_)) {}
+class TileSetContent;
 
-    MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
+class DocumentOwningNode final {
+public:
+    static Either<MapLoadingError, DocumentOwningNode>
+        load_root(std::string && file_contents);
+
+    DocumentOwningNode() {}
+
+    DocumentOwningNode make_with_same_owner
+        (const TiXmlElement & same_document_element) const;
+
+    const TiXmlElement * operator -> () const { return &element(); }
+
+    const TiXmlElement & operator * () const { return element(); }
+
+    const TiXmlElement & element() const;
+
+    explicit operator bool() const { return m_element; }
 
 private:
-    SharedPtr<InProgressTileSetCollection> m_tilesets_container;
+    struct Owner {
+        virtual ~Owner() {}
+    };
+
+    DocumentOwningNode
+        (const SharedPtr<Owner> & owner, const TiXmlElement & element_):
+        m_owner(owner), m_element(&element_) {}
+
+    SharedPtr<Owner> m_owner;
+    const TiXmlElement * m_element = nullptr;
+};
+
+class UnfinishedTileSetContent final {
+public:
+    using Lost = Future<std::string>::Lost;
+
+    static Optional<UnfinishedTileSetContent> load
+        (const DocumentOwningNode & tileset,
+         Platform & platform,
+         MapLoadingWarningsAdder &);
+
+    static bool finishable(const UnfinishedTileSetContent & content)
+        { return content.is_finished(); }
+
+    UnfinishedTileSetContent() {}
+
+    Either<Lost, Optional<TileSetContent>> update();
+
+    bool is_finished() const;
+
+private:
+    UnfinishedTileSetContent(int first_gid, FutureStringPtr &&);
+
+    UnfinishedTileSetContent(int first_gid, const DocumentOwningNode &);
+
+    Optional<TileSetContent> finish();
+
+    Optional<TileSetContent> finish(DocumentOwningNode &&);
+
+    int m_first_gid = 0;
+    FutureStringPtr m_future_string;
+    DocumentOwningNode m_tileset_element;
+};
+
+class TileSetContent final {
+public:
+    TileSetContent(int first_gid_, DocumentOwningNode && contents_):
+        m_first_gid(first_gid_), m_tileset_element(std::move(contents_)) {}
+
+    int first_gid() const { return m_first_gid; }
+
+    const TiXmlElement & element() const { return *m_tileset_element; }
+
+private:
+    int m_first_gid;
+    DocumentOwningNode m_tileset_element;
+};
+
+class InitialDocumentReadState final : public BaseState {
+public:
+    static std::vector<Grid<int>> load_layers
+        (const TiXmlElement & document_root, MapLoadingWarningsAdder &);
+
+    static std::vector<UnfinishedTileSetContent> load_unfinished_tilesets
+        (const DocumentOwningNode & document_root,
+         MapLoadingWarningsAdder &,
+         Platform &);
+
+    explicit InitialDocumentReadState
+        (DocumentOwningNode && root_node):
+        m_document_root(std::move(root_node)) {}
+
+    InitialDocumentReadState(const InitialDocumentReadState &) = delete;
+
+    InitialDocumentReadState(InitialDocumentReadState &&) = default;
+
+    MapLoadResult update_progress(StateSwitcher &) final;
+
+private:
+    DocumentOwningNode m_document_root;
+};
+
+class TileSetWaitState final : public BaseState {
+public:
+    class UpdatedContainers final {
+    public:
+        static UpdatedContainers update
+            (std::vector<UnfinishedTileSetContent> && unfinished,
+             std::vector<TileSetContent> && finished,
+             MapLoadingWarningsAdder &);
+
+        UpdatedContainers
+            (std::vector<UnfinishedTileSetContent> && unfinished,
+             std::vector<TileSetContent> && finished);
+
+        std::vector<UnfinishedTileSetContent> move_out_unfinished();
+
+        std::vector<TileSetContent> move_out_finished();
+
+    private:
+        std::vector<UnfinishedTileSetContent> m_unfinished;
+        std::vector<TileSetContent> m_finished;
+    };
+
+    TileSetWaitState
+        (DocumentOwningNode && document_root,
+         std::vector<Grid<int>> && layers,
+         std::vector<UnfinishedTileSetContent> &&);
+
+    TileSetWaitState(const TileSetWaitState &) = delete;
+
+    TileSetWaitState(TileSetWaitState &&) = default;
+
+    MapLoadResult update_progress(StateSwitcher &) final;
+
+private:
+    DocumentOwningNode m_document_root;
     std::vector<Grid<int>> m_layers;
+    std::vector<UnfinishedTileSetContent> m_unfinished_contents;
+    std::vector<TileSetContent> m_finished_contents;
 };
 
-class MapLoadingReady final : public MapLoadingState {
+// preverbial fork in the states road
+// State class names should tell me roughly what it does
+// and not "where in progress" it is
+// is this a strategy? a factory? a what?
+class TiledMapStrategyState final : public BaseState {
 public:
-    MapLoadingReady
-        (TileMapIdToSetMapping && idtrans_,
-         std::vector<Grid<int>> && layers_):
-        m_tidgid_translator(std::move(idtrans_)),
-        m_layers(std::move(layers_)) {}
+    TiledMapStrategyState
+        (DocumentOwningNode && document_root,
+         std::vector<Grid<int>> && layers,
+         std::vector<TileSetContent> && finished_tilesets);
 
-    MapLoadResult update_progress(MapLoadingStateHolder & next_state) final;
+    MapLoadResult update_progress(StateSwitcher &) final;
 
 private:
-    TileMapIdToSetMapping m_tidgid_translator;
+    DocumentOwningNode m_document_root;
     std::vector<Grid<int>> m_layers;
+    std::vector<TileSetContent> m_finished_contents;
 };
 
-class MapLoadingExpired final : public MapLoadingState {
+class ProducableLoadState final : public BaseState {
 public:
-    MapLoadingExpired() {}
-};
+    using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
 
-class MapLoadingStateHolder final : public MapLoadingContext {
-public:
-    using StateSpace = Variant<
-        WaitingForFileContents,
-        WaitingForTileSets,
-        Ready, Expired>;
+    static std::vector<TileSetAndStartGid>
+        convert_to_tileset_and_start_gids
+        (std::vector<TileSetContent> &&,
+         Platform & platform);
 
-    using StatePtrGetter = State * (*)(StateSpace &);
+    static ProducableTileViewGrid make_producable_view_grid
+        (std::vector<Grid<int>> &&,
+         TileMapIdToSetMapping &&);
 
-    template <typename NextState, typename ... Types>
-    NextState & set_next_state(Types && ...args) {
-        m_space = NextState{std::forward<Types>(args)...};
-        m_get_state = [](StateSpace & space) -> State *
-            { return &std::get<NextState>(space); };
-        return std::get<NextState>(m_space);
-    }
+    ProducableLoadState
+        (DocumentOwningNode && document_root,
+         std::vector<Grid<int>> && layers,
+         std::vector<TileSetContent> && finished_tilesets);
 
-    bool has_next_state() const noexcept;
-
-    void move_state(StatePtrGetter & state_getter_ptr, StateSpace & space);
-
-    Tuple<StatePtrGetter, StateSpace> move_out_state();
+    MapLoadResult update_progress(StateSwitcher &) final;
 
 private:
-    StatePtrGetter m_get_state = nullptr;
-    StateSpace m_space = MapLoadingExpired{};
+    TileMapIdToSetMapping make_tidgid_mapping();
+
+    ProducableTileViewGrid make_producable_view_grid();
+
+    DocumentOwningNode m_document_root;
+    std::vector<Grid<int>> m_layers;
+    std::vector<TileSetContent> m_finished_contents;
 };
 
-/// loads a TiledMap asset file
-class TiledMapLoader final : public MapLoadingContext {
+class ExpiredState final : public BaseState {
 public:
-    using StateHolder = MapLoadingStateHolder;
-    using StateSpace = Variant
-        <WaitingForFileContents, WaitingForTileSets, Ready, Expired>;
+    MapLoadResult update_progress(StateSwitcher &) final
+        { return {}; }
+};
 
-    template <typename ... Types>
-    TiledMapLoader
-        (Types && ... args):
-         m_state_space(WaitingForFileContents{ std::forward<Types>(args)... }),
-         m_get_state([] (StateSpace & space) -> State * { return &std::get<WaitingForFileContents>(space); })
-    {}
+class MapLoadStateMachine final {
+public:
+    using MapLoadResult = BaseState::MapLoadResult;
 
-    // return instead a grid of tile factories
-    // (note: that grid must own tilesets)
+    MapLoadStateMachine() {}
+
+    MapLoadStateMachine(Platform &, const char * filename);
+
+    void initialize_starting_state(Platform &, const char * filename);
+
     MapLoadResult update_progress();
 
-    bool is_expired() const
-        { return std::holds_alternative<Expired>(m_state_space); }
-
 private:
-    using StatePtrGetter = State * (*)(StateSpace &);
-    StateSpace m_state_space;
-    StatePtrGetter m_get_state = nullptr;
+    using StateSwitcher = BaseState::StateSwitcher;
+    using CompleteStateSwitcher =
+        BaseState::StateSwitcher::StateSwitcherComplete;
+    using StateDriver = StateSwitcher::StatesDriver;
+
+    StateDriver m_state_driver;
 };
+
+} // end of tiled_map_loading namespace

@@ -32,7 +32,7 @@ public:
 
     ~MapDirector_() {}
 
-    static SharedPtr<MapDirector_> make(PpDriver *, Size2I chunk_size);
+    static SharedPtr<MapDirector_> make(PpDriver *);
 
     virtual SharedPtr<BackgroundTask> begin_initial_map_loading
         (const char * initial_map, Platform & platform,

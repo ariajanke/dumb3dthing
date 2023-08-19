@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,16 +23,12 @@
 #include <ariajanke/cul/Grid.hpp>
 #include <ariajanke/cul/VectorUtils.hpp>
 #include <ariajanke/cul/Vector3.hpp>
-#include <ariajanke/cul/Util.hpp>
-
+#include <ariajanke/cul/OptionalEither.hpp>
 #include <ariajanke/ecs3/AvlTreeEntity.hpp>
 #include <ariajanke/ecs3/HashTableEntity.hpp>
 #include <ariajanke/ecs3/Scene.hpp>
 #include <ariajanke/ecs3/SingleSystem.hpp>
-#include <ariajanke/cul/OptionalEither.hpp>
-#if 0
-#include <tl/expected.hpp>
-#endif
+
 #include <variant>
 #include <memory>
 #include <iosfwd>
@@ -99,13 +95,12 @@ public:
 
 using cul::normalize;
 using cul::magnitude;
-using cul::angle_between;
+// using cul::angle_between; -> favor internal implementation
 using cul::convert_to;
 using cul::project_onto;
 using cul::project_onto_plane;
 using std::make_shared;
 using std::get_if;
-// using std::get; <- too short and contextually vague for comfort
 using std::make_tuple;
 using std::make_unique;
 
@@ -120,27 +115,6 @@ bool are_very_close(Vector, Vector);
 bool are_very_close(Vector2, Vector2);
 
 bool are_very_close(Real, Real);
-
-/** Gets the "nextafter" vector following a given direction
- *  @param r starting position
- *  @param dir direction to go in
- *  @return vector with the smallest possible difference from r in the
- *          direction of dir
- *  @note gotcha here with TriangleSurface::point_at it may not necessarily be
- *        the case that for some given TriangleSurface ts, Vector r, Vector dir
- *        that:
- *        (ts.point_at(r) - ts.point_at(next_in_direction(r, dir) == Vector(0, 0, 0))
- */
-Vector next_in_direction(Vector r, Vector dir);
-
-/** @copydoc next_in_direction(Vector,Vector) */
-Vector2 next_in_direction(Vector2 r, Vector2 dir);
-
-template <typename T>
-using EnableBoolIfVec = std::enable_if_t<cul::k_is_vector_type<T>, bool>;
-// didn't need to move this...
-template <typename Vec>
-EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b);
 
 // ----------------------------- Global Constants -----------------------------
 
@@ -159,53 +133,3 @@ constexpr const Vector k_north{0, 0, 1};
 [[maybe_unused]] constexpr const std::array k_plus_shape_neighbor_offsets = {
     Vector2I{0, 1}, Vector2I{0, -1}, Vector2I{1, 0}, Vector2I{-1, 0}
 };
-
-// ----------------------------------------------------------------------------
-
-template <typename Vec>
-EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
-#   if 0 // gdb *really* doesn't like me short circutting functions :c
-    auto mag = magnitude(normalize(a) + normalize(b));
-    return are_very_close(mag, 0) || are_very_close(mag, 2);
-#   elif 1
-    auto mk_zero = [] {
-        constexpr auto k_dim = cul::VectorTraits<Vec>::k_dimension_count;
-        static_assert(k_dim == 2 || k_dim == 3,
-            "<anonymous>::are_parallel: must be used only with 2 or 3 dimensions.");
-        if constexpr (k_dim == 2) return 0;
-        else return cul::make_zero_vector<Vec>();
-    };
-    return are_very_close(mk_zero(), cross(a, b));
-#   else
-    auto frac = (dot(a, b)*dot(a, b)) / (sum_of_squares(a)*sum_of_squares(b));
-    return are_very_close(magnitude(frac), 1);
-#   endif
-}
-
-// ------------------------------ prototype stuff -----------------------------
-
-template <typename Head, typename ... Types>
-Tuple<Head, Types...> validate_graphical_components
-    (Head && obj, Types && ... args)
-{
-    using AcceptedTypes = TypeList<SharedPtr<const Texture>, SharedPtr<const RenderModel>>;
-    static_assert(AcceptedTypes::kt_occurance_count<Head>,
-        "Type not contained in accepted graphical types.");
-    using std::tuple_cat;
-    if constexpr (sizeof...(Types) > 0) {
-        return tuple_cat(make_tuple(std::move( obj )),
-                         validate_graphical_components(std::forward<Types>(args)...));
-    } else {
-        return make_tuple( std::move(obj) );
-    }
-}
-
-template <typename ... Types>
-void add_components(Entity & e, Tuple<Types...> && tup) {
-    if constexpr (sizeof...(Types) > 1) {
-        e.add<Types...>() = std::move(tup);
-    } else if constexpr (sizeof...(Types) == 1) {
-        using Head = typename TypeList<Types...>::template TypeAtIndex<0>;
-        e.add<Head>() = std::get<Head>(tup);
-    }
-}

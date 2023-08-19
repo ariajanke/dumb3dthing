@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../Defs.hpp"
+#include "../Definitions.hpp"
 
 namespace twist_loop_filler_names {
 

@@ -33,10 +33,8 @@ class MapDirector final : public MapDirector_ {
 public:
     using PpDriver = point_and_plane::Driver;
 
-    MapDirector(PpDriver * ppdriver, Size2I chunk_size):
-        m_ppdriver(ppdriver),
-        m_region_size_in_tiles(chunk_size)
-    {}
+    explicit MapDirector(PpDriver * ppdriver):
+        m_ppdriver(ppdriver) {}
 
     SharedPtr<BackgroundTask> begin_initial_map_loading
         (const char * initial_map, Platform & platform,
@@ -46,7 +44,7 @@ public:
         (TaskCallbacks & callbacks, const Entity & physics_ent) final;
 
 private:
-    static Vector2I to_segment_location
+    static Vector2I to_region_location
         (const Vector & location, const Size2I & segment_size);
 
     void check_for_other_map_segments
@@ -54,6 +52,5 @@ private:
 
     // there's only one per game and it never changes
     PpDriver * m_ppdriver = nullptr;
-    Size2I m_region_size_in_tiles;
     SharedPtr<MapRegionTracker> m_region_tracker;
 };

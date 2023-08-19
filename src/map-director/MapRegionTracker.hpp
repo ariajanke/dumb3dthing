@@ -20,36 +20,15 @@
 
 #pragma once
 
+#include "RegionLoadRequest.hpp"
+#include "RegionEdgeConnectionsContainer.hpp"
 #include "MapRegion.hpp"
 
-#include <unordered_map>
-
-class MapRegionContainer final : public GridMapRegionCompleter {
-public:
-    void on_complete
-        (const Vector2I & region_position,
-         InterTriangleLinkContainer && link_container,
-         SharedPtr<TeardownTask> && teardown_task) final;
-
-    void ensure_region_available(const Vector2I & r);
-
-    bool find_and_keep(const Vector2I & r);
-
-    void frame_refresh(TaskCallbacks & callbacks);
-
-private:
-    struct LoadedMapRegion {
-        InterTriangleLinkContainer link_edge_container;
-        SharedPtr<TeardownTask> teardown;
-        bool keep_on_refresh = true;
-    };
-    using LoadedRegionMap = std::unordered_map
-        <Vector2I, LoadedMapRegion, Vector2IHasher>;
-
-    LoadedMapRegion * find(const Vector2I & r);
-
-    LoadedRegionMap m_loaded_regions;
-};
+class TaskCallbacks;
+class RegionLoadRequest;
+class RegionLoadCollector;
+class RegionDecayCollector;
+class LoaderTask;
 
 /// keeps track of already loaded map regions
 ///
@@ -59,19 +38,22 @@ class MapRegionTracker final {
 public:
     MapRegionTracker() {}
 
-    MapRegionTracker
-        (UniquePtr<MapRegion> && root_region,
-         const Size2I & region_size_in_tiles);
+    explicit MapRegionTracker
+        (UniquePtr<MapRegion> && root_region):
+        m_root_region(std::move(root_region)) {}
 
-    void frame_refresh(TaskCallbacks & callbacks);
-
-    void frame_hit(const Vector2I & global_region_location, TaskCallbacks & callbacks);
+    void process_load_requests(const RegionLoadRequest &, TaskCallbacks &);
 
     bool has_root_region() const noexcept
         { return !!m_root_region; }
 
 private:
-    MapRegionContainer m_loaded_regions;
+    RegionDecayCollector process_into_decay_collector
+        (const RegionLoadRequest & request, RegionLoadCollector &&);
+
+    SharedPtr<LoaderTask> process_decays_into_task(RegionDecayCollector &&);
+
+    RegionEdgeConnectionsContainer m_edge_container;
+    MapRegionContainer m_container;
     UniquePtr<MapRegion> m_root_region;
-    Size2I m_region_size_in_tiles;
 };

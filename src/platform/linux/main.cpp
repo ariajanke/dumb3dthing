@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "../../Defs.hpp"
+#include "../../Definitions.hpp"
 #include "../../GameDriver.hpp"
 #include "../../Systems.hpp"
 

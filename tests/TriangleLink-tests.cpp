@@ -36,19 +36,18 @@ static auto make_tri = [](Vec2 a, Vec2 b, Vec2 c) {
     auto to_v3 = [](Vec2 r) { return Vector{r.x, r.y, 0}; };
     return make_shared<TriangleLink>(to_v3(a), to_v3(b), to_v3(c));
 };
-describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
+describe<TriangleLink>("TriangleLink::reattach_matching_points")([] {
     mark_it("attaches to only one side", [] {
         auto triangle_a = make_tri(Vec2{0, 0}, Vec2{0, 1}, Vec2{ 1, 1});
         auto triangle_b = make_tri(Vec2{0, 0}, Vec2{0, 1}, Vec2{-1, 0});
-        TriangleLink links (triangle_a->segment());
-        links.attempt_attachment_to(triangle_b);
+        TriangleLink::attach_matching_points(triangle_a, triangle_b);
         return test_that
-            (    links.transfers_to(Side::k_side_ab).target == triangle_b
-             && !links.transfers_to(Side::k_side_bc).target
-             && !links.transfers_to(Side::k_side_ca).target);
+            (    triangle_a->transfers_to(Side::k_side_ab).target() == triangle_b
+             && !triangle_a->transfers_to(Side::k_side_bc).target()
+             && !triangle_a->transfers_to(Side::k_side_ca).target());
     });
 });
-describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
+describe<TriangleLink>("TriangleLink::reattach_matching_points")([] {
     // triangle a's ca side to...
     Triangle triangle_a{
         // pt_a             , pt_b                , pt_c
@@ -62,22 +61,22 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
     auto links_a = make_shared<TriangleLink>(triangle_a);
     auto links_b = make_shared<TriangleLink>(triangle_b);
 
-    links_b->attempt_attachment_to(links_a);
+    TriangleLink::attach_matching_points(links_a, links_b);
 
     mark_it("returns a valid transfer object for attached side", [&] {
         auto trans = links_b->transfers_to(Side::k_side_ab);
-        return test_that(trans.target == links_a);
+        return test_that(trans.target() == links_a);
     });
     mark_it("does not invert normal for this case's triangles", [&] {
-        return test_that(!links_b->transfers_to(Side::k_side_ab).inverts_normal);
+        return test_that(!links_b->transfers_to(Side::k_side_ab).inverts_normal());
     });
     mark_it("does not attach to any other side", [&] {
-        return test_that(   !links_b->transfers_to(Side::k_side_bc).target
-                         && !links_b->transfers_to(Side::k_side_ca).target);
+        return test_that(   !links_b->transfers_to(Side::k_side_bc).target()
+                         && !links_b->transfers_to(Side::k_side_ca).target());
     });
-    mark_it("does not automatically attach other link to the first", [&] {
+    mark_it("attachs other link to the first", [&] {
         auto a_trans = links_a->transfers_to(Side::k_side_ca);
-        return test_that(!a_trans.target);
+        return test_that(!!a_trans.target());
     });
 });
 describe<TriangleLink>("TriangleLink #check_for_side_crossing")([] {
@@ -143,7 +142,7 @@ describe<TriangleLink>("TriangleLink #check_for_side_crossing")([] {
         // displacement (how can I test this?)
     });
 #   endif
-describe<TriangleLink>("TriangleLink #attempt_attachment_to (anti-parallel)")([] {
+describe<TriangleLink>("TriangleLink::reattach_matching_points (anti-parallel)")([] {
     // these triangle's normals are anti-parallel
     Triangle lhs
         {Vector{0, 0, -0.5}, Vector{1, 1, -1.5}, Vector{1, 0, -0.5}};
@@ -153,19 +152,18 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (anti-parallel)")([]
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
 
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
     mark_it("attaches to another segment with anti-parallel normal", [&] {
-        links_lhs->attempt_attachment_to(links_rhs);
         return test_that(links_lhs->has_side_attached(Side::k_side_ca));
     });
     // note: there are cases of anti-parallel normals that should *not* invert
     //       a tracker
     mark_it("attaches to anti-parallel normal, without inverting", [&] {
-        links_lhs->attempt_attachment_to(links_rhs);
         auto trans = links_lhs->transfers_to(Side::k_side_ca);
-        return test_that(!trans.inverts_normal);
+        return test_that(!trans.inverts_normal());
     });
 });
-describe<TriangleLink>("TriangleLink #attempt_attachment_to (orthogonal)")([] {
+describe<TriangleLink>("TriangleLink::reattach_matching_points (orthogonal)")([] {
     // normals that are orthogonal
     Triangle lhs{
         Vector{0, 0, 0}, Vector{0, 0, 1}, Vector{1, 0, 0}};
@@ -174,7 +172,7 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (orthogonal)")([] {
 
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
-    links_lhs->attempt_attachment_to(links_rhs);
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
 
     mark_it("is linking triangle's with orthogonal normals", [&] {
         auto ang = angle_between(lhs.normal(), rhs.normal());
@@ -183,10 +181,10 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (orthogonal)")([] {
 
     mark_it("does not invert tracker normal for this context", [&] {
         auto trans = links_lhs->transfers_to(Side::k_side_ca);
-        return test_that(!trans.inverts_normal);
+        return test_that(!trans.inverts_normal());
     });
 });
-describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
+describe<TriangleLink>("TriangleLink::reattach_matching_points")([] {
     // normal: <x: 0, y: -1, z: 0> bc
     Triangle floor
         {Vector{10.5, 0, 14.5}, Vector{11.5, 0, 13.5}, Vector{11.5, 0, 14.5}};
@@ -196,45 +194,44 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to")([] {
     auto links_floor = make_shared<TriangleLink>(floor);
     auto links_wall = make_shared<TriangleLink>(wall);
 
-    links_floor->attempt_attachment_to(links_wall);
-    links_wall->attempt_attachment_to(links_floor);
+    TriangleLink::attach_matching_points(links_wall, links_floor);
     mark_it("has consistent inversion flags both ways", [&] {
         // if you flip one way, you must flip the other
         auto floor_trans = links_floor->transfers_to(Side::k_side_bc);
         auto wall_trans = links_wall->transfers_to(Side::k_side_ab);
-        return test_that(floor_trans.inverts_normal == wall_trans.inverts_normal);
+        return test_that(floor_trans.inverts_normal() ==
+                         wall_trans.inverts_normal());
     });
 });
-describe<TriangleLink>("TriangleLink #attempt_attachment_to (equal normals, inverts tracker)")([] {
+describe<TriangleLink>("TriangleLink::reattach_matching_points (equal normals, inverts tracker)")([] {
     // normal x: 0, y: 0, z: -1 ab
     Triangle lhs{Vector{1.5, 2, 6.5}, Vector{2.5, 2, 6.5}, Vector{1.5, 3, 6.5}};
     // normal x: 0, y: 0, z: -1 bc
     Triangle rhs{Vector{2.5, 1, 6.5}, Vector{1.5, 2, 6.5}, Vector{2.5, 2, 6.5}};
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
-    links_lhs->attempt_attachment_to(links_rhs);
-    links_rhs->attempt_attachment_to(links_lhs);
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
 
     assert(!are_very_close(lhs.normal(), rhs.normal()));
     // split this test
     mark_it("attaches lhs to rhs as target", [&] {
         return test_that
-            (links_lhs->transfers_to(Side::k_side_ab).target == links_rhs);
+            (links_lhs->transfers_to(Side::k_side_ab).target() == links_rhs);
     });
     mark_it("attaches lhs inverting the tracker", [&] {
         return test_that
-            (links_lhs->transfers_to(Side::k_side_ab).inverts_normal);
+            (links_lhs->transfers_to(Side::k_side_ab).inverts_normal());
     });
     mark_it("attaches rhs to lhs as target", [&] {
         return test_that
-            (links_rhs->transfers_to(Side::k_side_bc).target == links_lhs);
+            (links_rhs->transfers_to(Side::k_side_bc).target() == links_lhs);
     });
     mark_it("attaches lhs inverting the tracker", [&] {
         return test_that
-            (links_rhs->transfers_to(Side::k_side_bc).inverts_normal);
+            (links_rhs->transfers_to(Side::k_side_bc).inverts_normal());
     });
 });
-describe<TriangleLink>("TriangleLink #attempt_attachment_to (arbitrary? normals)")([] {
+describe<TriangleLink>("TriangleLink::reattach_matching_points (arbitrary? normals)")([] {
     // flip values are wrong, I believe they need to invert at least from
     // lhs to rhs
     // regular
@@ -247,55 +244,26 @@ describe<TriangleLink>("TriangleLink #attempt_attachment_to (arbitrary? normals)
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
 
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
+
     mark_it("attaches lhs to rhs", [&] {
-        links_lhs->attempt_attachment_to(links_rhs);
         auto trans = links_lhs->transfers_to(Side::k_side_ab);
-        return test_that(trans.target == links_rhs);
+        return test_that(trans.target() == links_rhs);
     });
 
     mark_it("inverts tracker normal from lhs to rhs", [&] {
-        links_lhs->attempt_attachment_to(links_rhs);
         auto trans = links_lhs->transfers_to(Side::k_side_ab);
-        return test_that(trans.inverts_normal);
+        return test_that(trans.inverts_normal());
     });
 
     mark_it("attaches rhs to lhs", [&] {
-        links_rhs->attempt_attachment_to(links_lhs);
         auto trans = links_rhs->transfers_to(Side::k_side_bc);
-        return test_that(trans.target == links_lhs);
+        return test_that(trans.target() == links_lhs);
     });
 
     mark_it("inverts tracker normal from rhs to lhs", [&] {
-        links_rhs->attempt_attachment_to(links_lhs);
         auto trans = links_rhs->transfers_to(Side::k_side_bc);
-        return test_that(trans.inverts_normal);
-    });
-});
-describe("TriangleLink::angle_of_rotation_for_left (east and north)")([] {
-    VectorRotater rotator{k_up};
-    auto angle = TriangleLink::angle_of_rotation_for_left_to_right
-        (Vector{}, k_east, k_north, rotator);
-    mark_it("rotates east onto north", [&] {
-        auto res = rotator(k_east, angle);
-        return test_that(are_very_close(res, k_north));
-    });
-    mark_it("use an angle of rotation of -pi/2 radians", [&] {
-        return test_that(are_very_close(angle, -k_pi*0.5));
-    });
-});
-describe("TriangleLink::angle_of_rotation_for_left (w/ non-zero pivot)")([] {
-    VectorRotater rotator{k_east};
-    Vector left {0, 0 , 0.5};
-    Vector right{0, 2, -0.5};
-    Vector pivot{0, 1, -0.5};
-    auto angle = TriangleLink::angle_of_rotation_for_left_to_right
-        (pivot, left, right, rotator);
-    mark_it("provides an angle that rotates left - pivot to right - pivot", [&] {
-        auto res = rotator(left - pivot, angle);
-        return test_that(are_very_close(angle_between(res, right - pivot), 0));
-    });
-    mark_it("provides a negative angle not less than -pi", [&] {
-        return test_that(angle < -k_pi*0.5 && angle > -k_pi);
+        return test_that(trans.inverts_normal());
     });
 });
 

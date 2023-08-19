@@ -19,24 +19,23 @@
 *****************************************************************************/
 
 #include "MapLoaderTask.hpp"
-#include "../../Defs.hpp"
+#include "../../Definitions.hpp"
 
 namespace {
 
 using namespace cul::exceptions_abbr;
-using MapLoadResult = MapLoadingContext::MapLoadResult;
+using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
 } // end of <anonymous> namespace
 
 MapLoaderTask::MapLoaderTask
-    (TiledMapLoader && map_loader,
+    (tiled_map_loading::MapLoadStateMachine && map_loader,
      const SharedPtr<MapRegionTracker> & target_region_instance,
-     const Entity & player_physics, const Size2I & region_size_in_tiles):
+     const Entity & player_physics):
      m_region_tracker(verify_region_tracker_presence
          ("MapLoaderTask", target_region_instance)),
      m_map_loader(std::move(map_loader)),
-     m_player_physics(player_physics),
-     m_region_size_in_tiles(region_size_in_tiles) {}
+     m_player_physics(player_physics) {}
 
 BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
     return m_map_loader.
@@ -45,9 +44,7 @@ BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
         map([this] (MapLoadingSuccess && res) {
             Entity{m_player_physics}.ensure<Velocity>();
             *m_region_tracker = MapRegionTracker
-                {make_unique<TiledMapRegion>
-                    (std::move(res.producables_view_grid), m_region_size_in_tiles),
-                m_region_size_in_tiles};
+                {std::move(res.loaded_region)};
             return BackgroundCompletion::finished;
         }).
         map_left([] (MapLoadingError &&) {

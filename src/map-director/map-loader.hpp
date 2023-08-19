@@ -23,7 +23,7 @@
 #include <ariajanke/cul/Grid.hpp>
 #include <ariajanke/cul/RectangleUtils.hpp>
 
-#include "../Defs.hpp"
+#include "../Definitions.hpp"
 #include "../TriangleSegment.hpp"
 #include "../TriangleLink.hpp"
 
@@ -79,22 +79,3 @@ public:
 };
 
 using TriangleLinks = std::vector<SharedPtr<TriangleLink>>;
-
-inline void link_triangles
-    (const Grid<View<std::vector<SharedPtr<TriangleLink>>::const_iterator>> & link_grid)
-{
-    // now link them together
-    for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
-    for (auto & this_tri : link_grid(r)) {
-        assert(this_tri);
-        for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
-/*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
-            if (!link_grid.has_position(v)) continue;
-            for (auto & other_tri : link_grid(v)) {
-                assert(other_tri);
-
-                if (this_tri == other_tri) continue;
-                this_tri->attempt_attachment_to(other_tri);
-        }}
-    }}
-}

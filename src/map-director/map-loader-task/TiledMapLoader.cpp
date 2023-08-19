@@ -28,58 +28,8 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
-using State = MapLoadingState;
-using WaitingForFileContents = MapLoadingWaitingForFileContents;
-using WaitingForTileSets = MapLoadingWaitingForTileSets;
-using Ready = MapLoadingReady;
-using Expired = MapLoadingExpired;
-using StateHolder = MapLoadingStateHolder;
-using MapLoadResult = MapLoadingContext::MapLoadResult;
 
-template <typename Key, typename Value, typename Comparator, typename Key2, typename Func>
-void on_key_found(const std::map<Key, Value, Comparator> & map, const Key2 & key, Func && f_) {
-    auto itr = map.find(key);
-    if (itr == map.end()) return;
-    f_(itr->second);
-}
-
-template <typename Key, typename Value, typename Comparator, typename Key2>
-Value find_key(const std::map<Key, Value, Comparator> & map, const Key2 & key, const Value & default_val) {
-    auto itr = map.find(key);
-    if (itr == map.end()) return default_val;
-    return itr->second;
-}
-
-template <typename Key, typename Comparator, typename Key2>
-const char * find_key_cstr(const std::map<Key, const char *, Comparator> & map, const Key2 & key) {
-    return find_key(map, key, static_cast<const char *>(nullptr));
-}
-
-class XmlPropertiesReader final {
-public:
-    XmlPropertiesReader() {}
-
-    void load(const TiXmlElement * el) {
-        for (auto & pair : m_properties) {
-            pair.second = nullptr;
-        }
-        const auto props = XmlRange{el ? el->FirstChildElement("properties") : el, "property"};
-        for (auto & property : props) {
-           auto * name = property.Attribute("name");
-           if (!name) continue;
-
-           m_properties[std::string{name}] = property.Attribute("value");
-       }
-    }
-
-    const char * value_for(const char * key) const
-        { return find_key_cstr(m_properties, key); }
-
-private:
-    std::map<std::string, const char *> m_properties;
-};
-
-static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
+using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
 Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement &);
 
@@ -149,177 +99,384 @@ ProducableGroupTileLayer make_unfinsihed_tile_group_grid
     return unfinished_grid;
 }
 
-
-// grid ids, to filler groups and specific types
-// groups provide specific factory types
-// what's difficult here:
-// I need to instantiate specificly typed factories, much like tileset does now
-// Each group will have to do this for a subset of tileset.
-//
-
 } // end of <anonymous> namespace
 
-Platform & State::platform() const {
-    verify_shared_set();
-    return *m_platform;
-}
+// ----------------------------------------------------------------------------
 
-/* private */ void State::verify_shared_set() const {
-    if (m_platform) return;
-    throw RtError{"Unset stuff"};
+namespace tiled_map_loading {
+
+void BaseState::copy_platform_and_warnings(const BaseState & rhs) {
+    m_platform = rhs.m_platform;
+    m_unfinished_warnings = rhs.m_unfinished_warnings;
 }
 
 // ----------------------------------------------------------------------------
 
-MapLoadResult WaitingForFileContents::update_progress
-    (StateHolder & next_state)
+/* static */ Either<MapLoadingError, DocumentOwningNode>
+    DocumentOwningNode::load_root(std::string && file_contents)
 {
     using namespace map_loading_messages;
-    using Lost = Future<std::string>::Lost;
-
-    std::vector<std::unique_ptr<int>> unique_pointers;
-    for (int i = 0; i != 10; ++i) {
-        unique_pointers.emplace_back(std::make_unique<int>(i));
-    }
-
-    return (*m_file_contents)().map_left([] (Lost) {
-        return MapLoadingError{k_tile_map_file_contents_not_retrieved};
-    }).
-    chain([this, &next_state] (std::string && contents) {
+    struct OwnerImpl final : public Owner {
         TiXmlDocument document;
-        if (document.Parse(contents.c_str()) != tinyxml2::XML_SUCCESS) {
-            // ...idk
-            return MapLoadResult{ MapLoadingError{k_tile_map_file_contents_not_retrieved} };
-        }
+    };
+    // great, guaranteed dynamic allocation
+    // and file_contents is consumed
+    auto owner = make_shared<OwnerImpl>();
+    auto & document = owner->document;
+    if (document.Parse(file_contents.c_str()) != tinyxml2::XML_SUCCESS) {
+        return MapLoadingError{k_tile_map_file_contents_not_retrieved};
+    }
+    return DocumentOwningNode{owner, *document.RootElement()};
+}
 
-        auto * root = document.RootElement();
-        XmlPropertiesReader propreader;
-        propreader.load(root);
+DocumentOwningNode DocumentOwningNode::make_with_same_owner
+    (const TiXmlElement & same_document_element) const
+{ m_element->ToDocument(); return DocumentOwningNode{m_owner, same_document_element}; }
 
-        UnfinishedTileSetCollection tilesets_container{warnings_adder()};
-        for (auto & tileset : XmlRange{root, "tileset"}) {
-            add_tileset(tileset, tilesets_container);
-        }
+const TiXmlElement & DocumentOwningNode::element() const
+    { return *m_element; }
 
-        std::vector<Grid<int>> layers;
-        for (auto & layer_el : XmlRange{root, "layer"}) {
-            auto ei = load_layer_(layer_el);
-            if (ei.is_left()) {
-                warnings_adder().add(ei.left());
-            } else if (ei.is_right()) {
-                layers.emplace_back(ei.right());
-            }
-        }
 
-        set_others_stuff
-            (next_state.set_next_state<WaitingForTileSets>
-                (tilesets_container.finish(), std::move(layers)));
-        return MapLoadResult{};
+// ----------------------------------------------------------------------------
+
+BaseState::MapLoadResult
+    FileContentsWaitState::update_progress(StateSwitcher & switcher)
+{
+    return (*m_future_contents)().
+    map_left([] (Future<std::string>::Lost) {
+        return MapLoadingError
+            {map_loading_messages::k_tile_map_file_contents_not_retrieved};
+    }).
+    chain([&] (std::string && contents) {
+        using namespace map_loading_messages;
+        return DocumentOwningNode::load_root(std::move(contents)).
+            fold<MapLoadResult>().
+            map([&] (DocumentOwningNode && root) {
+                switcher.set_next_state<InitialDocumentReadState>(std::move(root));
+                return MapLoadResult{};
+            }).
+            map_left([] (MapLoadingError error) {
+                return MapLoadResult{std::move(error)};
+            }).
+            value();
     });
 }
 
-/* private */ void WaitingForFileContents::add_tileset
-    (const TiXmlElement & tileset,
-     UnfinishedTileSetCollection & collection)
+// ----------------------------------------------------------------------------
+
+/* static */ Optional<UnfinishedTileSetContent> UnfinishedTileSetContent::load
+    (const DocumentOwningNode & tileset,
+     Platform & platform,
+     MapLoadingWarningsAdder & warnings)
 {
     using namespace cul::either;
     using namespace map_loading_messages;
     constexpr const int k_no_first_gid = -1;
 
-    auto first_gid = tileset.IntAttribute("firstgid", k_no_first_gid);
+    auto first_gid = tileset->IntAttribute("firstgid", k_no_first_gid);
     if (first_gid == k_no_first_gid) {
-        return collection.add(k_invalid_tile_data);
+        warnings.add(k_invalid_tile_data);
+        return {};
     }
 
-    if (const auto * source = tileset.Attribute("source")) {
-        return collection.add(first_gid, platform().promise_file_contents(source));
+    if (const auto * source = tileset->Attribute("source")) {
+        return UnfinishedTileSetContent
+            {first_gid, platform.promise_file_contents(source)};
     } else {
-        // platform(), tileset
-        auto tileset_ = make_shared<TileSet>();
-        tileset_->load(platform(), tileset);
-        return collection.add(first_gid, std::move(tileset_));
+        return UnfinishedTileSetContent{first_gid, tileset};
     }
 }
 
+Either<UnfinishedTileSetContent::Lost, Optional<TileSetContent>>
+    UnfinishedTileSetContent::update()
+{
+    if (m_tileset_element) {
+        return cul::either::right<Lost>().with(finish());
+    }
+    auto res = (*m_future_string)();
+    if (res.is_empty()) { return Optional<TileSetContent>{}; }
+    m_future_string = nullptr;
+    return res.
+        require().
+        chain([this] (std::string && contents) {
+            return DocumentOwningNode::load_root(std::move(contents)).
+                map_left([] (MapLoadingError) {
+                    // error lost :c
+                    return Lost{};
+                }).
+                map([this] (DocumentOwningNode && node)
+                    { return finish(std::move(node)); });
+            });
+}
+
+bool UnfinishedTileSetContent::is_finished() const
+    { return !m_future_string && !m_tileset_element; }
+
+/* private */ Optional<TileSetContent> UnfinishedTileSetContent::finish()
+    { return finish(std::move(m_tileset_element)); }
+
+/* private */ Optional<TileSetContent> UnfinishedTileSetContent::finish
+    (DocumentOwningNode && node)
+{
+    if (!node) {
+        using namespace cul::exceptions_abbr;
+        throw RtError{"UnfinishedTileSetContent::finish: owning node must "
+                      "refer to an element"};
+    }
+    return TileSetContent{m_first_gid, std::move(node)};
+}
+
+/* private */ UnfinishedTileSetContent::UnfinishedTileSetContent
+    (int first_gid, FutureStringPtr && future_):
+    m_first_gid(first_gid),
+    m_future_string(std::move(future_)) {}
+
+/* private */ UnfinishedTileSetContent::UnfinishedTileSetContent
+    (int first_gid, const DocumentOwningNode & tilset_element):
+    m_first_gid(first_gid),
+    m_tileset_element(tilset_element) {}
+
 // ----------------------------------------------------------------------------
 
-MapLoadResult WaitingForTileSets::update_progress
-    (StateHolder & next_state)
+/* static */ std::vector<Grid<int>>
+    InitialDocumentReadState::load_layers
+    (const TiXmlElement & document_root, MapLoadingWarningsAdder & warnings)
 {
-    // no short circuting permitted, therefore STL sequence algorithms
-    // not appropriate
-    auto res = m_tilesets_container->attempt_finish(platform());
-    if (!res) return {};
+    std::vector<Grid<int>> layers;
+    for (auto & layer_el : XmlRange{document_root, "layer"}) {
+        auto ei = load_layer_(layer_el);
+        if (ei.is_left()) {
+            warnings.add(ei.left());
+        } else if (ei.is_right()) {
+            layers.emplace_back(ei.right());
+        }
+    }
+    return layers;
+}
 
-    set_others_stuff
-        (next_state.set_next_state<Ready>
-            (std::move(*res), std::move(m_layers)));
-    return {};
+/* static */ std::vector<UnfinishedTileSetContent>
+    InitialDocumentReadState::load_unfinished_tilesets
+    (const DocumentOwningNode & document_root,
+     MapLoadingWarningsAdder & warnings,
+     Platform & platform)
+{
+    std::vector<UnfinishedTileSetContent> unfinished_tilesets;
+    for (auto & tileset : XmlRange{*document_root, "tileset"}) {
+        auto unfinished_content = UnfinishedTileSetContent::load
+            (document_root.make_with_same_owner(tileset), platform, warnings);
+        if (unfinished_content) {
+            unfinished_tilesets.emplace_back(*std::move(unfinished_content));
+        }
+    }
+    return unfinished_tilesets;
+}
+
+MapLoadResult InitialDocumentReadState::update_progress
+    (StateSwitcher & switcher)
+{
+    auto layers = load_layers(*m_document_root, warnings_adder());
+    auto unfinished_tilesets = load_unfinished_tilesets
+        (m_document_root, warnings_adder(), platform());
+    switcher.set_next_state<TileSetWaitState>
+        (std::move(m_document_root),
+         std::move(layers),
+         std::move(unfinished_tilesets));
+    return MapLoadResult{};
 }
 
 // ----------------------------------------------------------------------------
 
-MapLoadResult TiledMapLoader::Ready::update_progress
-    (StateHolder & next_state)
+/* static */ TileSetWaitState::UpdatedContainers
+    TileSetWaitState::UpdatedContainers::update
+    (std::vector<UnfinishedTileSetContent> && unfinished_container,
+     std::vector<TileSetContent> && finished_container,
+     MapLoadingWarningsAdder & warnings)
+{
+    // this is two functions :S
+    using Lost = UnfinishedTileSetContent::Lost;
+    for (auto & unfinished : unfinished_container) {
+        (void)unfinished.update().fold<int>().
+            map([&finished_container] (Optional<TileSetContent> && finished) {
+                if (finished) {
+                    finished_container.emplace_back(*std::move(finished));
+                }
+                return 0;
+            }).
+            map_left([&warnings] (Lost) {
+                // issue a warning at some point
+                (void)warnings;
+                return 0;
+            }).
+            value();
+    }
+
+    unfinished_container.erase
+        (std::remove_if(unfinished_container.begin(),
+                        unfinished_container.end  (),
+                        UnfinishedTileSetContent::finishable),
+         unfinished_container.end());
+    return UpdatedContainers{std::move(unfinished_container),
+                             std::move(finished_container  )};
+}
+
+TileSetWaitState::UpdatedContainers::UpdatedContainers
+    (std::vector<UnfinishedTileSetContent> && unfinished,
+     std::vector<TileSetContent> && finished):
+    m_unfinished(std::move(unfinished)),
+    m_finished(std::move(finished)) {}
+
+std::vector<UnfinishedTileSetContent>
+    TileSetWaitState::UpdatedContainers::move_out_unfinished()
+    { return std::move(m_unfinished); }
+
+std::vector<TileSetContent>
+    TileSetWaitState::UpdatedContainers::move_out_finished()
+    { return std::move(m_finished); }
+
+TileSetWaitState::TileSetWaitState
+    (DocumentOwningNode && document_root,
+     std::vector<Grid<int>> && layers,
+     std::vector<UnfinishedTileSetContent> && unfinished_tilesets):
+    m_document_root(std::move(document_root)),
+    m_layers(std::move(layers)),
+    m_unfinished_contents(std::move(unfinished_tilesets)) {}
+
+MapLoadResult TileSetWaitState::update_progress(StateSwitcher & switcher) {
+    auto updated = UpdatedContainers::update
+        (std::move(m_unfinished_contents),
+         std::move(m_finished_contents  ),
+         warnings_adder()                );
+    m_unfinished_contents = updated.move_out_unfinished();
+    m_finished_contents = updated.move_out_finished();
+    if (m_unfinished_contents.empty()) {
+        switcher.set_next_state<TiledMapStrategyState>
+            (std::move(m_document_root),
+             std::move(m_layers),
+             std::move(m_finished_contents));
+    }
+    return MapLoadResult{};
+}
+
+// ----------------------------------------------------------------------------
+
+TiledMapStrategyState::TiledMapStrategyState
+    (DocumentOwningNode && document_root,
+     std::vector<Grid<int>> && layers,
+     std::vector<TileSetContent> && finished_tilesets):
+    m_document_root(std::move(document_root)),
+    m_layers(std::move(layers)),
+    m_finished_contents(std::move(finished_tilesets)) {}
+
+MapLoadResult TiledMapStrategyState::update_progress
+    (StateSwitcher & switcher)
+{
+    // for now just pass on the producable ready
+    switcher.set_next_state<ProducableLoadState>
+        (std::move(m_document_root),
+         std::move(m_layers),
+         std::move(m_finished_contents));
+    return MapLoadResult{};
+}
+
+// ----------------------------------------------------------------------------
+
+using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+
+/* static */ std::vector<TileSetAndStartGid>
+    ProducableLoadState::convert_to_tileset_and_start_gids
+    (std::vector<TileSetContent> && tileset_contents,
+     Platform & platform)
+{
+    std::vector<TileSetAndStartGid> tilesets_and_start_gids;
+    tilesets_and_start_gids.reserve(tileset_contents.size());
+    for (auto & contents : tileset_contents) {
+        auto tileset = make_shared<TileSet>();
+        tileset->load(platform, contents.element());
+        tilesets_and_start_gids.emplace_back
+            (std::move(tileset), contents.first_gid());
+    }
+    return tilesets_and_start_gids;
+}
+
+/* static */ ProducableTileViewGrid
+    ProducableLoadState::make_producable_view_grid
+    (std::vector<Grid<int>> && layers,
+     TileMapIdToSetMapping && gid_to_tid_mapping)
 {
     UnfinishedProducableTileViewGrid unfinished_grid_view;
-    for (auto & layer : m_layers) {
-        auto tid_layer = gid_layer_to_tid_layer(layer, m_tidgid_translator);
+    for (auto & layer : layers) {
+        auto tid_layer = gid_layer_to_tid_layer(layer, gid_to_tid_mapping);
         auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
         unfinished_grid_view = make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
             move_self_to(std::move(unfinished_grid_view));
     }
-    next_state.set_next_state<Expired>();
+    return unfinished_grid_view.finish(gid_to_tid_mapping);
+}
 
+ProducableLoadState::ProducableLoadState
+    (DocumentOwningNode && document_root,
+     std::vector<Grid<int>> && layers,
+     std::vector<TileSetContent> && finished_tilesets):
+    m_document_root(std::move(document_root)),
+    m_layers(std::move(layers)),
+    m_finished_contents(std::move(finished_tilesets)) {}
+
+MapLoadResult ProducableLoadState::update_progress
+    (StateSwitcher & switcher)
+{
     MapLoadingSuccess success;
-    success.producables_view_grid = unfinished_grid_view.finish(m_tidgid_translator);
+    success.loaded_region =
+        make_unique<TiledMapRegion>(make_producable_view_grid());
+    switcher.set_next_state<ExpiredState>();
     return success;
 }
 
-// ----------------------------------------------------------------------------
-
-bool StateHolder::has_next_state() const noexcept
-    { return m_get_state; }
-
-void StateHolder::move_state(StatePtrGetter & state_getter_ptr, StateSpace & space) {
-    if (!m_get_state) {
-        throw RtError{"No state to move"};
-    }
-
-    space.swap(m_space);
-    state_getter_ptr = m_get_state;
-    m_get_state = nullptr;
+/* private */ TileMapIdToSetMapping ProducableLoadState::make_tidgid_mapping() {
+    return TileMapIdToSetMapping
+        {convert_to_tileset_and_start_gids(std::move(m_finished_contents),
+         platform())};
 }
 
-Tuple<StateHolder::StatePtrGetter, StateHolder::StateSpace>
-    StateHolder::move_out_state()
+/* private */ ProducableTileViewGrid
+    ProducableLoadState::make_producable_view_grid()
 {
-    if (!m_get_state) {
-        throw RtError{"No state to move"};
-    }
-    auto getter = m_get_state;
-    auto space = std::move(m_space);
-    m_space = MapLoadingExpired{};
-    m_get_state = nullptr;
-    return make_tuple(getter, std::move(space));
+    return make_producable_view_grid
+        (std::move(m_layers), make_tidgid_mapping());
 }
 
 // ----------------------------------------------------------------------------
 
-MapLoadResult TiledMapLoader::update_progress() {
-    StateHolder next;
-    MapLoadResult rv;
-    while (true) {
-        rv = m_get_state(m_state_space)->update_progress(next);
-        if (!next.has_next_state()) break;
+MapLoadStateMachine::MapLoadStateMachine
+    (Platform & platform, const char * filename)
+    { initialize_starting_state(platform, filename); }
 
-        next.move_state(m_get_state, m_state_space);
-        if (!rv.is_empty()) break;
-    }
-    return rv;
+void MapLoadStateMachine::initialize_starting_state
+    (Platform & platform, const char * filename)
+{
+    auto file_contents_promise = platform.promise_file_contents(filename);
+    m_state_driver.
+        set_current_state<FileContentsWaitState>
+        (std::move(file_contents_promise), platform);
 }
+
+MapLoadResult MapLoadStateMachine::update_progress() {
+    auto switcher = m_state_driver.state_switcher();
+    auto result = m_state_driver.
+        on_advanceable<&BaseState::copy_platform_and_warnings>().
+        advance()->
+        update_progress(switcher);
+    if (result.is_empty() && m_state_driver.is_advanceable())
+        { return update_progress(); }
+    return result;
+}
+
+} // end of tiled_map_loading namespace
+
+// ----------------------------------------------------------------------------
 
 namespace {
+
+static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
 Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement & layer_el) {
     using namespace map_loading_messages;

@@ -20,88 +20,54 @@
 
 #pragma once
 
-#include "map-loader-helpers.hpp"
 #include "ProducableGrid.hpp"
+
+#include <unordered_map>
 
 class MapRegionPreparer;
 
-/// a map region is a grid of task pairs, one to load, one to teardown
+class RegionLoadRequest;
+class MapRegionContainer;
+
+class RegionLoadCollectorBase {
+public:
+    using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
+
+    virtual ~RegionLoadCollectorBase() {}
+
+    virtual void add_tiles
+        (const Vector2I & on_field_position,
+         const Vector2I & maps_offset, const ProducableSubGrid &) = 0;
+};
+
 class MapRegion {
 public:
     virtual ~MapRegion() {}
 
-    virtual void request_region_load
-        (const Vector2I & local_position,
-         const SharedPtr<MapRegionPreparer> & region_preparer, TaskCallbacks &) = 0;
+    virtual void process_load_request
+        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+         RegionLoadCollectorBase &) = 0;
 };
 
-/// a map region for tiled maps
 class TiledMapRegion final : public MapRegion {
 public:
-    TiledMapRegion
-        (ProducableTileViewGrid && full_factory_grid,
-         const Size2I & region_size_in_tiles):
-         m_region_size(region_size_in_tiles),
-         m_factory_grid(std::move(full_factory_grid)) {}
+    explicit TiledMapRegion(ProducableTileViewGrid && full_factory_grid);
 
-    void request_region_load
-        (const Vector2I & local_region_position,
-         const SharedPtr<MapRegionPreparer> & region_preparer,
-         TaskCallbacks & callbacks) final;
+    void process_load_request
+        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+         RegionLoadCollectorBase &) final;
 
 private:
-    Size2I map_size_in_regions() const;
-
-    Size2I m_region_size;
-    ProducableTileViewGrid m_factory_grid;
+    ProducableTileViewGrid m_producables_view_grid;
 };
 
-class GridMapRegionCompleter {
+class CompositeMapRegion final : public MapRegion {
 public:
-    virtual ~GridMapRegionCompleter() {}
-
-    virtual void on_complete
-        (const Vector2I & region_position,
-         InterTriangleLinkContainer && link_container,
-         SharedPtr<TeardownTask> && teardown_task) = 0;
-};
-
-class MapRegionCompleter final {
-public:
-    MapRegionCompleter() {}
-
-    MapRegionCompleter
-        (const Vector2I & region_position,
-         GridMapRegionCompleter & grid_completer);
-
-    template <typename ... Types>
-    void on_complete(Types && ... args) const
-        { verify_completer().on_complete(m_pos, std::forward<Types>(args)...); }
-
+    void process_load_request
+        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+         RegionLoadCollectorBase &) final;
 private:
-    GridMapRegionCompleter & verify_completer() const;
-
-    Vector2I m_pos;
-    GridMapRegionCompleter * m_completer = nullptr;
-};
-
-/// a loader task that prepares a region of the map
-class MapRegionPreparer final : public LoaderTask {
-public:
-    explicit MapRegionPreparer(const Vector2I & tile_offset);
-
-    void operator () (LoaderTask::Callbacks & callbacks) const final;
-
-    void assign_tile_producable_grid
-        (const RectangleI & region_range,
-         const ProducableTileViewGrid & tile_factory_grid);
-
-    void set_completer(const MapRegionCompleter &);
-
-private:
-    const ProducableTileViewGrid * m_tile_producable_grid = nullptr;
-    RectangleI m_producable_grid_range;
-
-    MapRegionCompleter m_completer;
-    Vector2I m_tile_offset;
+    // not just MapRegions, but how to load them...
+    // is it a view grid? not really
+    // want to support 3D? nah, not for this "ticket"
 };

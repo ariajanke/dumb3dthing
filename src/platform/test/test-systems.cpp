@@ -66,9 +66,7 @@ bool run_systems_tests() {
         auto make_pdriver = []
             (SharedPtr<TriangleLink> links_a, SharedPtr<TriangleLink> links_b)
         {
-            links_a->attempt_attachment_to(links_b);
-            links_b->attempt_attachment_to(links_a);
-
+            TriangleLink::attach_matching_points(links_a, links_b);
             auto pdriver = point_and_plane::Driver::make_driver();
             pdriver->add_triangle(links_a);
             pdriver->add_triangle(links_b);

@@ -24,12 +24,14 @@
 
 #include "../MapRegionTracker.hpp"
 
+#include "../../Components.hpp"
+
 class MapLoaderTask final : public BackgroundTask {
 public:
     MapLoaderTask
-        (TiledMapLoader && map_loader,
+        (tiled_map_loading::MapLoadStateMachine && map_loader,
          const SharedPtr<MapRegionTracker> & target_region_instance,
-         const Entity & player_physics, const Size2I & region_size_in_tiles);
+         const Entity & player_physics);
 
     BackgroundCompletion operator () (Callbacks &) final;
 
@@ -39,7 +41,6 @@ private:
         (const char * caller, const SharedPtr<MapRegionTracker> &);
 
     SharedPtr<MapRegionTracker> m_region_tracker;
-    TiledMapLoader m_map_loader;
+    tiled_map_loading::MapLoadStateMachine m_map_loader;
     EntityRef m_player_physics;
-    Size2I m_region_size_in_tiles;
 };

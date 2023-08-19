@@ -29,5 +29,5 @@ public:
     static SharedPtr<BackgroundTask> make
         (const char * initial_map, Platform & platform,
          const SharedPtr<MapRegionTracker> & target_region_instance,
-         const Entity & player_physics, const Size2I & region_size_in_tiles);
+         const Entity & player_physics);
 };
