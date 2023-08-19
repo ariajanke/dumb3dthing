@@ -28,8 +28,8 @@ SharedPtr<BackgroundTask> MapLoaderTask_::make
      const SharedPtr<MapRegionTracker> & target_region_instance,
      const Entity & player_physics)
 {
+    using tiled_map_loading::MapLoadStateMachine;
     return make_shared<MapLoaderTask>
-        (tiled_map_loading::MapLoadStateMachine{platform, initial_map},
-         target_region_instance,
-         player_physics);
+        (MapLoadStateMachine{platform, initial_map},
+         target_region_instance, player_physics     );
 }

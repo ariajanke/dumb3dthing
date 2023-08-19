@@ -22,7 +22,7 @@
 
 #include "ProducableGrid.hpp"
 
-#include "../Defs.hpp"
+#include "../Definitions.hpp"
 
 struct TileLocation final {
     Vector2I on_map;

@@ -22,8 +22,6 @@
 
 #include "../TriangleSegment.hpp"
 
-class TriangleLink;
-
 enum class TrianglePoint { a, b, c };
 
 class PointMatch;
@@ -138,8 +136,6 @@ public:
 
     PointMatchAdder(PointMatchAdder &&) = delete;
 
-    // information is getting lost here
-    // I need to know if tracker position get flipped...
     PointMatchAdder & add(const Optional<PointMatch> &);
 
     Optional<SideToSideMapping> finish();

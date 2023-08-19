@@ -30,8 +30,7 @@ public:
     PlayerUpdateTask
         (SharedPtr<MapDirector_> && map_director, const EntityRef & physics_ent):
         m_map_director(std::move(map_director)),
-        m_physics_ent(physics_ent)
-    {}
+        m_physics_ent(physics_ent) {}
 
     SharedPtr<BackgroundTask> load_initial_map(const char * initial_map, Platform & platform);
 

@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Defs.hpp"
+#include "Definitions.hpp"
 
 /** Describes a triangle, with various utilities for use with "point and
  *  plane" physics.

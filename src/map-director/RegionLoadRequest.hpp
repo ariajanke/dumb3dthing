@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "../Defs.hpp"
+#include "../Definitions.hpp"
 
 #include <ariajanke/cul/RectangleUtils.hpp>
 

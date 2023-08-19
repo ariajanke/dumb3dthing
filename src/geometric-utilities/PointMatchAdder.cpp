@@ -20,8 +20,6 @@
 
 #include "PointMatchAdder.hpp"
 
-#include "../TriangleLink.hpp"
-
 /* static */ SideToSideMapping SideToSideMapping::from_matches
     (const PointMatch & match_a, const PointMatch & match_b)
 {
@@ -57,9 +55,8 @@ Optional<PointMatch> PointMatch::meeting_points() const
     using Side = TriangleSide;
     using namespace cul::exceptions_abbr;
     bool flip = static_cast<int>(a) > static_cast<int>(b);
-    if (flip) {
-        std::swap(a, b);
-    }
+    if (flip)
+        { std::swap(a, b); }
 
     switch (a) {
     case Pt::a:
@@ -98,7 +95,7 @@ template <std::size_t kt_idx>
 /* private */ Optional<PointMatch> PointMatchFinder::find_meeting_points() const
 {
     if (auto rv = m_possible_matches[kt_idx].meeting_points())
-        return rv;
+        { return rv; }
     return find_meeting_points<kt_idx + 1>();
 }
 
@@ -119,9 +116,10 @@ PointMatchAdder::PointMatchAdder():
 
 PointMatchAdder & PointMatchAdder::add(const Optional<PointMatch> & match) {
     using namespace cul::exceptions_abbr;
-    if (!match) return *this;
+    if (!match) { return *this; }
     if (m_position == m_entries.end()) {
-        throw RtError{"used wrong"};
+        throw RtError{"PointMatchAdder::add: maybe called at most " +
+                      std::to_string(m_entries.size()) + " times"    };
     }
     *m_position++ = *match;
     return *this;

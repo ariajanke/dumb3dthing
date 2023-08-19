@@ -40,7 +40,7 @@ describe<TriangleLink>("TriangleLink::reattach_matching_points")([] {
     mark_it("attaches to only one side", [] {
         auto triangle_a = make_tri(Vec2{0, 0}, Vec2{0, 1}, Vec2{ 1, 1});
         auto triangle_b = make_tri(Vec2{0, 0}, Vec2{0, 1}, Vec2{-1, 0});
-        TriangleLink::reattach_matching_points(triangle_a, triangle_b);
+        TriangleLink::attach_matching_points(triangle_a, triangle_b);
         return test_that
             (    triangle_a->transfers_to(Side::k_side_ab).target() == triangle_b
              && !triangle_a->transfers_to(Side::k_side_bc).target()
@@ -61,7 +61,7 @@ describe<TriangleLink>("TriangleLink::reattach_matching_points")([] {
     auto links_a = make_shared<TriangleLink>(triangle_a);
     auto links_b = make_shared<TriangleLink>(triangle_b);
 
-    TriangleLink::reattach_matching_points(links_a, links_b);
+    TriangleLink::attach_matching_points(links_a, links_b);
 
     mark_it("returns a valid transfer object for attached side", [&] {
         auto trans = links_b->transfers_to(Side::k_side_ab);
@@ -152,7 +152,7 @@ describe<TriangleLink>("TriangleLink::reattach_matching_points (anti-parallel)")
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
 
-    TriangleLink::reattach_matching_points(links_lhs, links_rhs);
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
     mark_it("attaches to another segment with anti-parallel normal", [&] {
         return test_that(links_lhs->has_side_attached(Side::k_side_ca));
     });
@@ -172,7 +172,7 @@ describe<TriangleLink>("TriangleLink::reattach_matching_points (orthogonal)")([]
 
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
-    TriangleLink::reattach_matching_points(links_lhs, links_rhs);
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
 
     mark_it("is linking triangle's with orthogonal normals", [&] {
         auto ang = angle_between(lhs.normal(), rhs.normal());
@@ -194,7 +194,7 @@ describe<TriangleLink>("TriangleLink::reattach_matching_points")([] {
     auto links_floor = make_shared<TriangleLink>(floor);
     auto links_wall = make_shared<TriangleLink>(wall);
 
-    TriangleLink::reattach_matching_points(links_wall, links_floor);
+    TriangleLink::attach_matching_points(links_wall, links_floor);
     mark_it("has consistent inversion flags both ways", [&] {
         // if you flip one way, you must flip the other
         auto floor_trans = links_floor->transfers_to(Side::k_side_bc);
@@ -210,7 +210,7 @@ describe<TriangleLink>("TriangleLink::reattach_matching_points (equal normals, i
     Triangle rhs{Vector{2.5, 1, 6.5}, Vector{1.5, 2, 6.5}, Vector{2.5, 2, 6.5}};
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
-    TriangleLink::reattach_matching_points(links_lhs, links_rhs);
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
 
     assert(!are_very_close(lhs.normal(), rhs.normal()));
     // split this test
@@ -244,7 +244,7 @@ describe<TriangleLink>("TriangleLink::reattach_matching_points (arbitrary? norma
     auto links_lhs = make_shared<TriangleLink>(lhs);
     auto links_rhs = make_shared<TriangleLink>(rhs);
 
-    TriangleLink::reattach_matching_points(links_lhs, links_rhs);
+    TriangleLink::attach_matching_points(links_lhs, links_rhs);
 
     mark_it("attaches lhs to rhs", [&] {
         auto trans = links_lhs->transfers_to(Side::k_side_ab);

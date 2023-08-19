@@ -25,9 +25,6 @@
 
 #include <cassert>
 
-// types are forwarded only
-
-// I think I'm okay with losing constexpr
 template <typename Base>
 class ConstructorFunctions final {
 public:

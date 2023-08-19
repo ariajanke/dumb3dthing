@@ -174,7 +174,7 @@ TriangleSegment TriangleSegment::flip() const noexcept {
     auto old_norm = normal();
     TriangleSegment rv{point_b(), point_a(), point_c()};
     auto new_norm = rv.normal();
-    assert(are_very_close(angle_between(new_norm, old_norm), k_pi));
+    assert(are_very_close(::angle_between(new_norm, old_norm), k_pi));
     return rv;
 }
 
@@ -373,10 +373,6 @@ const char * to_string(TriangleSide side) {
 
 namespace {
 
-// a possible way to expand cul
-// angle between being an object, check for obtuse, and possibly get the value
-bool angle_between_is_obtuse(const Vector &, const Vector &);
-
 Real get_component_for_basis(const Vector & pt_on_plane, const Vector & basis) {
     // basis is assumed to be a normal vector
     assert(are_very_close(magnitude(basis), 1.));
@@ -396,19 +392,12 @@ Vector2 find_point_c_in_2d
     auto i_proj = project_onto(ca, ba);
 
     return Vector2{
-        (angle_between_is_obtuse(ca, ba) ? -1 : 1)*magnitude(i_proj),
+        (find_angle_between(ca, ba)->is_obtuse() ? -1 : 1)*magnitude(i_proj),
         magnitude(ca - i_proj)};
 }
 
 Real find_point_b_x_in_2d
     (const Vector & a, const Vector & b)
 { return magnitude(b - a); }
-
-// ----------------------------------------------------------------------------
-
-bool angle_between_is_obtuse(const Vector & a, const Vector & b) {
-    auto res = dot(a, b);
-    return res < 0;
-}
 
 } // end of <anonymous> namespace

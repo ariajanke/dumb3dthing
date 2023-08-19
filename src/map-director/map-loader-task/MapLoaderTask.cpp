@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "MapLoaderTask.hpp"
-#include "../../Defs.hpp"
+#include "../../Definitions.hpp"
 
 namespace {
 

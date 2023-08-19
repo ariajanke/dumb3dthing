@@ -20,12 +20,15 @@
 
 #pragma once
 
-#include "MapRegion.hpp"
 #include "RegionLoadRequest.hpp"
 #include "RegionEdgeConnectionsContainer.hpp"
+#include "MapRegion.hpp"
 
 class TaskCallbacks;
 class RegionLoadRequest;
+class RegionLoadCollector;
+class RegionDecayCollector;
+class LoaderTask;
 
 /// keeps track of already loaded map regions
 ///
@@ -39,13 +42,17 @@ public:
         (UniquePtr<MapRegion> && root_region):
         m_root_region(std::move(root_region)) {}
 
-    // should rename
-    void frame_hit(const RegionLoadRequest &, TaskCallbacks &);
+    void process_load_requests(const RegionLoadRequest &, TaskCallbacks &);
 
     bool has_root_region() const noexcept
         { return !!m_root_region; }
 
 private:
+    RegionDecayCollector process_into_decay_collector
+        (const RegionLoadRequest & request, RegionLoadCollector &&);
+
+    SharedPtr<LoaderTask> process_decays_into_task(RegionDecayCollector &&);
+
     RegionEdgeConnectionsContainer m_edge_container;
     MapRegionContainer m_container;
     UniquePtr<MapRegion> m_root_region;

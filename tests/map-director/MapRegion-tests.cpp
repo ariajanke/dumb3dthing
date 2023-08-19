@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "../../src/map-director/MapRegion.hpp"
+#include "../../src/map-director/MapRegionContainer.hpp"
 #include "../../src/TriangleLink.hpp"
 
 #include "../test-helpers.hpp"

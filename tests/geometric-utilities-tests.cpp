@@ -138,7 +138,7 @@ describe("TriangleLinkAttachment::angle_of_rotation_for_left"
         (pivot, left, right, rotator);
     mark_it("provides an angle that rotates left - pivot to right - pivot", [&] {
         auto res = rotator(left - pivot, angle);
-        return test_that(are_very_close(angle_between(res, right - pivot), 0));
+        return test_that(are_very_close(::angle_between(res, right - pivot), 0));
     });
     mark_it("provides a negative angle not less than -pi", [&] {
         return test_that(angle < -k_pi*0.5 && angle > -k_pi);

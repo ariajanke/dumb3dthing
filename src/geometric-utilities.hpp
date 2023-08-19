@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Defs.hpp"
+#include "Definitions.hpp"
 #include "TriangleSegment.hpp"
 
 #include <ariajanke/cul/VectorUtils.hpp>
@@ -83,6 +83,39 @@ private:
     VectorType m_first, m_second;
 };
 
+template <typename VecT>
+class DotStageAngleBetween final {
+public:
+    using ScalarType = typename cul::VectorTraits<VecT>::ScalarType;
+
+    static Optional<DotStageAngleBetween<VecT>> find
+        (const VecT &, const VecT &);
+
+    bool is_obtuse() const { return m_dot_product < 0; }
+
+    bool is_acute() const { return m_dot_product > 0; }
+
+    ScalarType radians() const;
+
+private:
+    DotStageAngleBetween
+        (const VecT & u_,
+         const VecT & v_,
+         const ScalarType & dot_prod_):
+        m_u(u_), m_v(v_), m_dot_product(dot_prod_) {}
+
+    VecT m_u, m_v;
+    ScalarType m_dot_product;
+};
+
+template <typename VecT>
+Optional<DotStageAngleBetween<VecT>> find_angle_between
+    (const VecT &, const VecT &);
+
+template <typename VecT>
+typename cul::VectorTraits<VecT>::ScalarType angle_between
+    (const VecT &, const VecT &);
+
 template <typename Vec>
 constexpr cul::EnableIf<
     cul::VectorTraits<Vec>::k_dimension_count == 2,
@@ -90,8 +123,6 @@ constexpr cul::EnableIf<
     find_intersection
     (const Vec & a_first, const Vec & a_second,
      const Vec & b_first, const Vec & b_second);
-
-class TriangleLinkTransfer;
 
 class VectorRotater final {
 public:
@@ -102,6 +133,8 @@ public:
 private:
     Vector m_axis_of_rotation;
 };
+
+class TriangleLinkTransfer;
 
 class TriangleLinkAttachment final {
 public:
@@ -154,7 +187,7 @@ EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
 #   if 0 // gdb *really* doesn't like me short circutting functions :c
     auto mag = magnitude(normalize(a) + normalize(b));
     return are_very_close(mag, 0) || are_very_close(mag, 2);
-#   elif 1
+#   elif 0
     auto mk_zero = [] {
         constexpr auto k_dim = cul::VectorTraits<Vec>::k_dimension_count;
         static_assert(k_dim == 2 || k_dim == 3,
@@ -163,11 +196,46 @@ EnableBoolIfVec<Vec> are_parallel(const Vec & a, const Vec & b) {
         else return cul::make_zero_vector<Vec>();
     };
     return are_very_close(mk_zero(), cross(a, b));
-#   else
+#   elif 0
     auto frac = (dot(a, b)*dot(a, b)) / (sum_of_squares(a)*sum_of_squares(b));
     return are_very_close(magnitude(frac), 1);
+#   else
+    return are_very_close(magnitude(cross(a, b)), 0);
 #   endif
 }
+
+template <typename VecT>
+/* static */ Optional<DotStageAngleBetween<VecT>>
+    DotStageAngleBetween<VecT>::find(const VecT & u, const VecT & v)
+{
+    if (!is_real(v) || !is_real(u))
+        { return {}; }
+    if (is_zero_vector(v) || is_zero_vector(u))
+        { return {}; }
+    return DotStageAngleBetween{u, v, dot(v, u)};
+}
+
+template <typename VecT>
+typename DotStageAngleBetween<VecT>::ScalarType
+    DotStageAngleBetween<VecT>::radians() const
+{
+    auto mag_v = magnitude(m_v);
+    auto mag_u = magnitude(m_u);
+    auto frac = m_dot_product / (mag_v*mag_u);
+    if      (frac >  1) { return 0   ; }
+    else if (frac < -1) { return k_pi; }
+    return std::acos(frac);
+}
+
+template <typename VecT>
+Optional<DotStageAngleBetween<VecT>> find_angle_between
+    (const VecT & u, const VecT & v)
+{ return DotStageAngleBetween<VecT>::find(u, v); }
+
+template <typename VecT>
+typename cul::VectorTraits<VecT>::ScalarType angle_between
+    (const VecT & u, const VecT & v)
+{ return find_angle_between(u, v)->radians(); }
 
 template <typename Vec>
 constexpr cul::EnableIf<

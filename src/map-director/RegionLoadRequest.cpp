@@ -58,7 +58,6 @@ RegionLoadRequest::RegionLoadRequest
     m_max_size(max_region_size)
 {}
 
-// maybe micro-optimization: it maybe better to adjust the player's data
 /* static */ RegionLoadRequest RegionLoadRequest::find
     (const Vector & player_position, const Optional<Vector> & player_facing,
      const Vector & player_velocity, Size2I max_region_size)
@@ -76,7 +75,7 @@ RegionLoadRequest::RegionLoadRequest
     (const Vector & player_position, const Optional<Vector> & player_facing,
      const Vector & player_velocity)
 {
-    // screen parameters
+    // check parameters
     if (player_facing) {
         if (!are_very_close(magnitude(*player_facing), 1)) {
             using namespace cul::exceptions_abbr;
@@ -144,7 +143,6 @@ bool RegionLoadRequest::has_any_intersecting_lines_with
     for (auto & triangle_line : triangle_lines) {
         for (auto & rectangle_line : rectangle_lines) {
             using std::get;
-            // 12 intersection checks
             bool lines_intersect = ::find_intersection
                 (get<0>(triangle_line ), get<1>(triangle_line ),
                  get<0>(rectangle_line), get<1>(rectangle_line)).

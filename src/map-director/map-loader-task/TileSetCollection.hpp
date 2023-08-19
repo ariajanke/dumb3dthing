@@ -30,7 +30,6 @@
 
 class InProgressTileSetCollection;
 
-// next point of attack
 class UnfinishedTileSetCollection final {
 public:
     struct LoadEntry final {

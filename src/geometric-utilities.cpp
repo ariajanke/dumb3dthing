@@ -129,7 +129,7 @@ Vector VectorRotater::operator () (const Vector & v, Real angle) const {
 
     // only one of these solutions is correct, because we need the right
     // direction
-    auto t0 = angle_between(piv_to_left, piv_to_right);
+    auto t0 = ::angle_between(piv_to_left, piv_to_right);
     auto t1 = -t0;
 
     auto sol0 = rotate_vec(piv_to_left, t0);

@@ -29,32 +29,20 @@ namespace {
 using namespace cul::exceptions_abbr;
 using Triangle = TriangleLink::Triangle;
 
-void reattach
-    (const SharedPtr<TriangleLink> & lhs,
-     const SharedPtr<TriangleLink> & rhs,
-     const TriangleLinkAttachment & attachment)
-{
-    // semantically icky, will need to be fixed
-    lhs->set_transfer(attachment.left_side (), attachment.right_transfer());
-    rhs->set_transfer(attachment.right_side(), attachment. left_transfer());
-}
+constexpr std::array k_triangle_sides =
+    { TriangleSide::k_side_ab, TriangleSide::k_side_bc, TriangleSide::k_side_ca };
 
-void attach
+template <typename Func>
+void attach_if
     (const SharedPtr<TriangleLink> & lhs,
      const SharedPtr<TriangleLink> & rhs,
-     const TriangleLinkAttachment & attachment)
-{
-    if (lhs->has_side_attached(attachment.left_side ()) ||
-        rhs->has_side_attached(attachment.right_side()))
-    { return; }
-    reattach(lhs, rhs, attachment);
-}
+     Func && f);
 
 } // end of <anonymous> namespace
 
 // ----------------------------------------------------------------------------
 
-/* static */ void TriangleLink::reattach
+/* static */ void TriangleLink::attach
     (const SharedPtr<TriangleLink> & lhs, Side lhs_side,
      const SharedPtr<TriangleLink> & rhs, Side rhs_side,
      bool inverts_normal,
@@ -68,20 +56,19 @@ void attach
     rhs->set_transfer(rhs_side, std::move(rhs_transfer));
 }
 
-/* static */ void TriangleLink::reattach_matching_points
-    (const SharedPtr<TriangleLink> & lhs,
-     const SharedPtr<TriangleLink> & rhs)
-{
-    if (auto attachment = TriangleLinkAttachment::find(lhs, rhs))
-        { ::reattach(lhs, rhs, *attachment); }
-}
-
 /* static */ void TriangleLink::attach_matching_points
     (const SharedPtr<TriangleLink> & lhs,
      const SharedPtr<TriangleLink> & rhs)
+{ attach_if(lhs, rhs, [] (const TriangleLinkAttachment &) { return true; }); }
+
+/* static */ void TriangleLink::attach_unattached_matching_points
+    (const SharedPtr<TriangleLink> & lhs,
+     const SharedPtr<TriangleLink> & rhs)
 {
-    if (auto attachment = TriangleLinkAttachment::find(lhs, rhs))
-        { attach(lhs, rhs, *attachment); }
+    attach_if(lhs, rhs, [&lhs, &rhs] (const TriangleLinkAttachment & attachment) {
+        return !lhs->has_side_attached(attachment.left_side ()) &&
+               !rhs->has_side_attached(attachment.right_side());
+    });
 }
 
 TriangleLink::TriangleLink(const Triangle & triangle):
@@ -112,19 +99,38 @@ TriangleLink::Transfer TriangleLink::transfers_to(Side side) const {
 }
 
 int TriangleLink::sides_attached_count() const {
-    auto list = { Side::k_side_ab, Side::k_side_bc, Side::k_side_ca };
-    return std::count_if(list.begin(), list.end(), [this](Side side)
-        { return has_side_attached(side); });
+    return std::count_if
+        (k_triangle_sides.begin(), k_triangle_sides.end(),
+         [this](Side side) { return has_side_attached(side); });
 }
 
 /* private static */ TriangleSide TriangleLink::verify_valid_side
     (const char * caller, Side side)
 {
-    switch (side) {
-    case Side::k_side_ab: case Side::k_side_bc: case Side::k_side_ca:
-        return side;
-    default: break;
-    }
+    auto itr = std::find
+        (k_triangle_sides.begin(), k_triangle_sides.end(), side);
+    if (itr != k_triangle_sides.end()) return side;
     throw InvArg{  std::string{caller}
                  + ": side must be valid value and not k_inside."};
 }
+
+namespace {
+
+template <typename Func>
+void attach_if
+    (const SharedPtr<TriangleLink> & lhs,
+     const SharedPtr<TriangleLink> & rhs,
+     Func && f)
+{
+    static_assert
+        (cul::FunctionTraitsOf<Func>::ArgumentTypes::
+         template kt_equal_to_list<cul::TypeList<const TriangleLinkAttachment &>>);
+    auto attachment = TriangleLinkAttachment::find(lhs, rhs);
+    if (!attachment) return;
+    if (!f(*attachment)) return;
+
+    lhs->set_transfer(attachment->left_side (), attachment->right_transfer());
+    rhs->set_transfer(attachment->right_side(), attachment-> left_transfer());
+}
+
+} // end of <anonymous> namespace

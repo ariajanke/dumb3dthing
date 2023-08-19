@@ -168,7 +168,7 @@ void RegionDecayCollector::add
          std::move(entities));
 }
 
-SharedPtr<LoaderTask> RegionDecayCollector::finish
+SharedPtr<LoaderTask> RegionDecayCollector::finish_into_task_with
     (RegionEdgeConnectionsContainer & edge_container,
      MapRegionContainer & container)
 {
@@ -211,19 +211,21 @@ namespace {
 void link_triangles
     (EntityAndLinkInsertingAdder::ViewGridTriangle & link_grid)
 {
-    // now link them together
     for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
     for (auto & this_tri : link_grid(r)) {
         assert(this_tri);
         for (Vector2I v : { r, Vector2I{1, 0} + r, Vector2I{-1,  0} + r,
-/*                          */ Vector2I{0, 1} + r, Vector2I{ 0, -1} + r}) {
+                               Vector2I{0, 1} + r, Vector2I{ 0, -1} + r})
+        {
             if (!link_grid.has_position(v)) continue;
             for (auto & other_tri : link_grid(v)) {
                 assert(other_tri);
 
                 if (this_tri == other_tri) continue;
-                TriangleLink::attach_matching_points(this_tri, other_tri);
-        }}
+                TriangleLink::attach_unattached_matching_points
+                    (this_tri, other_tri);
+            }
+        }
     }}
 }
 

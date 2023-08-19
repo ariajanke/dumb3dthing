@@ -24,7 +24,7 @@
 #include "ParseHelpers.hpp"
 #include "TileTexture.hpp"
 
-#include "../Defs.hpp"
+#include "../Definitions.hpp"
 #include "../platform.hpp"
 
 #include <map>

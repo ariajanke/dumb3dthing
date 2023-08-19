@@ -23,7 +23,7 @@
 #include <ariajanke/cul/Grid.hpp>
 #include <ariajanke/cul/RectangleUtils.hpp>
 
-#include "../Defs.hpp"
+#include "../Definitions.hpp"
 #include "../TriangleSegment.hpp"
 #include "../TriangleLink.hpp"
 

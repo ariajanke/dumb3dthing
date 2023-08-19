@@ -46,13 +46,7 @@ namespace tiled_map_loading {
 
 class BaseState;
 class FileContentsWaitState;
-// waits for string contents for each tileset
 class InitialDocumentReadState;
-
-// states for composite maps
-// ... none atm
-
-// states for producable maps
 class ProducableLoadState;
 class TileSetWaitState;
 class TiledMapStrategyState;

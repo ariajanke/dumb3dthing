@@ -22,19 +22,27 @@
 #include "TileFactory.hpp"
 #include "MapRegionChangesTask.hpp"
 
-void MapRegionTracker::frame_hit
+void MapRegionTracker::process_load_requests
     (const RegionLoadRequest & request, TaskCallbacks & callbacks)
 {
     if (!m_root_region) return;
-    // the two different containers are a data clump
-    // let's see how it turns out, and extract a class from that...
+    callbacks.add
+        (process_decays_into_task
+            (process_into_decay_collector
+                (request, RegionLoadCollector{m_container})));
+}
 
-    // need to include adder
-    RegionLoadCollector collector{m_container};
+/* private */ RegionDecayCollector
+    MapRegionTracker::process_into_decay_collector
+    (const RegionLoadRequest & request, RegionLoadCollector && collector)
+{
     m_root_region->process_load_request(request, Vector2I{}, collector);
+    return collector.finish();
+}
 
-    // need to include remover
-    auto decay_collector = collector.finish();
+/* private */ SharedPtr<LoaderTask> MapRegionTracker::process_decays_into_task
+    (RegionDecayCollector && decay_collector)
+{
     m_container.decay_regions(decay_collector);
-    callbacks.add(decay_collector.finish(m_edge_container, m_container));
+    return decay_collector.finish_into_task_with(m_edge_container, m_container);
 }

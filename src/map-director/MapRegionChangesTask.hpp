@@ -20,11 +20,12 @@
 
 #pragma once
 
-#include "../Defs.hpp"
+#include "../Definitions.hpp"
 #include "../Components.hpp"
 
 #include "ProducableGrid.hpp"
 #include "MapRegionTracker.hpp"
+#include "MapRegion.hpp"
 
 class RegionDecayCollector;
 
@@ -66,7 +67,6 @@ private:
     std::vector<Entity> m_entities;
 };
 
-// finish into a decay collector
 class RegionLoadCollector final : public RegionLoadCollectorBase {
 public:
     explicit RegionLoadCollector(MapRegionContainer &);
@@ -94,7 +94,7 @@ public:
              SharedPtr<ViewGridTriangle> && triangle_links,
              std::vector<Entity> && entities) final;
 
-    SharedPtr<LoaderTask> finish
+    SharedPtr<LoaderTask> finish_into_task_with
         (RegionEdgeConnectionsContainer &,
          MapRegionContainer &);
 

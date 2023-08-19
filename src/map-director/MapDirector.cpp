@@ -34,7 +34,6 @@ SharedPtr<BackgroundTask> MapDirector::begin_initial_map_loading
     (const char * initial_map, Platform & platform, const Entity & player_physics)
 {
     m_region_tracker = make_shared<MapRegionTracker>();
-
     return MapLoaderTask_::make
         (initial_map, platform, m_region_tracker, player_physics);
 }
@@ -69,8 +68,5 @@ void MapDirector::on_every_frame
     auto player_velocity = physics_ent.get<Velocity>().value;
     auto request = RegionLoadRequest::find
         (player_position, facing, player_velocity);
-    m_region_tracker->frame_hit(request, callbacks);
+    m_region_tracker->process_load_requests(request, callbacks);
 }
-
-Vector2 to_global_tile_position(const Vector & r)
-    { return Vector2{ r.x, -r.z } + Vector2{ 0.5, 0.5 }; }

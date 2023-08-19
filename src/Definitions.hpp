@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -95,7 +95,7 @@ public:
 
 using cul::normalize;
 using cul::magnitude;
-using cul::angle_between;
+// using cul::angle_between; -> favor internal implementation
 using cul::convert_to;
 using cul::project_onto;
 using cul::project_onto_plane;

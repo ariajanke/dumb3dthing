@@ -22,9 +22,10 @@
 
 #include "TriangleSegment.hpp"
 
-// can represent anything which has a triangle
 class TriangleFragment {
 public:
+    // pp OnSegment doesn't need to know about a link's neighbors
+    // (a target of a refactor effort itself at a later date)
     using Triangle = TriangleSegment;
 
     virtual ~TriangleFragment() {}
@@ -64,7 +65,7 @@ public:
     Side target_side() const { return m_side; }
 
     bool inverts_normal() const { return m_inverts_normal; }
-    // this is unused?!
+
     bool flips_position() const { return m_flips; }
 
 private:
@@ -84,17 +85,17 @@ public:
     using Side = TriangleSide;
     using Transfer = TriangleLinkTransfer;
 
-    static void reattach
+    static void attach
         (const SharedPtr<TriangleLink> & lhs, Side lhs_side,
          const SharedPtr<TriangleLink> & rhs, Side rhs_side,
          bool inverts_normal,
          bool flips_position);
 
-    static void reattach_matching_points
+    static void attach_matching_points
         (const SharedPtr<TriangleLink> & lhs,
          const SharedPtr<TriangleLink> & rhs);
 
-    static void attach_matching_points
+    static void attach_unattached_matching_points
         (const SharedPtr<TriangleLink> & lhs,
          const SharedPtr<TriangleLink> & rhs);
 

@@ -24,10 +24,6 @@
 
 #include "../map-director.hpp"
 
-TriangleSegment find_region_load_request
-    (const Vector & player_position, const Vector & player_facing,
-     const Vector & player_velocity);
-
 /** @brief The MapDirector turns player physics things into map region
  *         loading/unloading.
  *
@@ -58,5 +54,3 @@ private:
     PpDriver * m_ppdriver = nullptr;
     SharedPtr<MapRegionTracker> m_region_tracker;
 };
-
-Vector2 to_global_tile_position(const Vector &);
