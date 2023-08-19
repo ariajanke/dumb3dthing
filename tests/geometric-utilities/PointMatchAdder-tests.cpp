@@ -18,9 +18,9 @@
 
 *****************************************************************************/
 
-#include "../src/TasksController.hpp"
+#include "../../src/TasksController.hpp"
 
-#include "../src/geometric-utilities/PointMatchAdder.hpp"
+#include "../../src/geometric-utilities/PointMatchAdder.hpp"
 
 #include "../test-helpers.hpp"
 
