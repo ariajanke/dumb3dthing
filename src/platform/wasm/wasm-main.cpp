@@ -126,6 +126,10 @@ EM_JS(void, from_js_view_matrix_look_at,
         [upX , upY , upZ ]);
 });
 
+EM_JS(void, from_js_model_matrix_scale, (float x, float y, float z), {
+    jsPlatform.modelMatrix.scale([x, y, z]);
+});
+
 EM_JS(void, from_js_view_matrix_apply, (), {
     jsPlatform.viewMatrix.apply();
 });
@@ -327,6 +331,10 @@ public:
 #               if 0
                 from_js_log_line("[cpp]: applying y rotation");
 #               endif
+            }
+            if (auto * scale = ent.ptr<ModelScale>()) {
+                const auto & r = scale->value;
+                from_js_model_matrix_scale(r.x, r.y, r.z);
             }
 #           if 0
             from_js_log_line("[cpp]: rendering model");

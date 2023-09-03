@@ -295,7 +295,6 @@ template <typename T, typename ... ConstructorTypes>
     T & RestrictedStateSwitcher<Base, Types...>::
     set_next_state(ConstructorTypes &&... constructor_args)
 {
-
     static_assert(StatesTypeSet::template kt_contains<T>);
     static_assert(std::is_base_of_v<Base, T>);
 

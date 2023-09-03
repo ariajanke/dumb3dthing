@@ -25,6 +25,8 @@
 
 #include <tinyxml2.h>
 
+#include <cstring>
+
 namespace {
 
 using namespace cul::exceptions_abbr;
@@ -407,7 +409,8 @@ using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
     for (auto & layer : layers) {
         auto tid_layer = gid_layer_to_tid_layer(layer, gid_to_tid_mapping);
         auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
-        unfinished_grid_view = make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
+        unfinished_grid_view =
+            make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
             move_self_to(std::move(unfinished_grid_view));
     }
     return unfinished_grid_view.finish(gid_to_tid_mapping);
@@ -426,7 +429,7 @@ MapLoadResult ProducableLoadState::update_progress
 {
     MapLoadingSuccess success;
     success.loaded_region =
-        make_unique<TiledMapRegion>(make_producable_view_grid());
+        make_unique<TiledMapRegion>(make_producable_view_grid(), map_scale());
     switcher.set_next_state<ExpiredState>();
     return success;
 }
@@ -442,6 +445,19 @@ MapLoadResult ProducableLoadState::update_progress
 {
     return make_producable_view_grid
         (std::move(m_layers), make_tidgid_mapping());
+}
+
+/* private */ ScaleComputation ProducableLoadState::map_scale() const {
+    // there maybe more properties in the future, but for now there's only one
+    auto props = m_document_root->FirstChildElement("properties");
+    for (auto & el : XmlRange{props, "property"}) {
+        if (::strcmp(el.Attribute("name"), "scale") == 0) {
+            auto scale = ScaleComputation::parse(el.Attribute("value"));
+            if (scale)
+                { return *scale; }
+        }
+    }
+    return ScaleComputation{};
 }
 
 // ----------------------------------------------------------------------------

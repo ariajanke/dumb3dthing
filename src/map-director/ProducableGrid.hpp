@@ -23,10 +23,50 @@
 #include "ProducableGroup.hpp"
 #include "ViewGrid.hpp"
 
-class EntityAndTrianglesAdder;
+#include "../Components.hpp"
+
 class Platform;
 class UnfinishedProducableTileViewGrid;
 class TileMapIdToSetMapping;
+
+class ProducableTileCallbacks {
+public:
+    virtual ~ProducableTileCallbacks() {}
+
+    void add_collidable(const TriangleSegment & triangle)
+        { add_collidable_(triangle); }
+
+    void add_collidable(const Vector & triangle_point_a,
+                        const Vector & triangle_point_b,
+                        const Vector & triangle_point_c);
+
+    template <typename ... Types>
+    void add_entity(Types &&... arguments) {
+        auto e = add_entity_();
+        e.
+            add<ModelScale, Types...>() =
+            make_tuple(model_scale(), std::forward<Types>(arguments)...);
+        if (e.has_all<Translation, ModelScale>()) {
+            auto & trans = e.get<Translation>();
+            auto & scale = e.get<ModelScale>();
+            trans.value.x *= scale.value.x;
+            trans.value.y *= scale.value.y;
+            trans.value.z *= scale.value.z;
+        }
+    }
+
+    virtual SharedPtr<RenderModel> make_render_model() = 0;
+
+    // for later
+    virtual void add_loader(const SharedPtr<LoaderTask> &) = 0;
+
+protected:
+    virtual void add_collidable_(const TriangleSegment &) = 0;
+
+    virtual Entity add_entity_() = 0;
+
+    virtual ModelScale model_scale() const = 0;
+};
 
 /// Represents how to make a single instance of a tile.
 /// It is local to the entire in game field.
@@ -35,7 +75,7 @@ public:
     virtual ~ProducableTile() {}
 
     virtual void operator () (const Vector2I & maps_offset,
-                              EntityAndTrianglesAdder &, Platform &) const = 0;
+                              ProducableTileCallbacks &) const = 0;
 };
 
 using ProducableTileViewSubGrid = ViewGrid<ProducableTile *>::SubGrid;
@@ -67,6 +107,8 @@ public:
 private:
     ViewGrid<ProducableTile *> m_factories;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
+    // What was this meant to be used for?
+    // So far, this object owns fillers and does nothing else with them.
     std::vector<SharedPtr<const ProducableGroupFiller>> m_fillers;
 };
 

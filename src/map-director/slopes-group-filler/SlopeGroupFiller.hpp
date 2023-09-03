@@ -34,8 +34,8 @@ public:
          const TileFactoryGridPtr & factory_map_layer);
 
     void operator ()
-        (const Vector2I & maps_offset, EntityAndTrianglesAdder & adder,
-         Platform & platform) const final;
+        (const Vector2I & maps_offset,
+         ProducableTileCallbacks & callbacks) const final;
 
 private:
     Vector2I m_map_position;

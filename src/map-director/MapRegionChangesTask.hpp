@@ -37,7 +37,8 @@ public:
 
     RegionLoadJob(const Vector2I & on_field_position,
                   const Vector2I & maps_offset,
-                  const ProducableSubGrid &);
+                  const ProducableSubGrid &,
+                  const ScaleComputation &);
 
     void operator () (MapRegionContainer &,
                       RegionEdgeConnectionsAdder &,
@@ -47,6 +48,7 @@ private:
     Vector2I m_on_field_position;
     Vector2I m_maps_offset;
     ProducableSubGrid m_subgrid;
+    ScaleComputation m_scale;
 };
 
 class RegionDecayJob final {
@@ -71,10 +73,11 @@ class RegionLoadCollector final : public RegionLoadCollectorBase {
 public:
     explicit RegionLoadCollector(MapRegionContainer &);
 
-    void add_tiles
+    void collect_load_job
         (const Vector2I & on_field_position,
          const Vector2I & maps_offset,
-         const ProducableSubGrid &);
+         const ProducableSubGrid &,
+         const ScaleComputation &) final;
 
     RegionDecayCollector finish();
 

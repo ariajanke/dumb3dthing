@@ -24,6 +24,8 @@
 
 #include <ariajanke/cul/RectangleUtils.hpp>
 
+class ScaleComputation;
+
 class RectanglePoints final {
 public:
     explicit RectanglePoints(const cul::Rectangle<Real> & rect);
@@ -71,10 +73,19 @@ public:
 
     Size2I max_region_size() const { return m_max_size; }
 
+    // not sure, maybe scale something else? :c
+    // RegionLoadRequest down_scale(const ScaleComputation &) const;
+
 private:
     static cul::Rectangle<Real> bounds_for
         (const Vector2 & triangle_a, const Vector2 & triangle_b,
          const Vector2 & triangle_c);
+
+    RegionLoadRequest(const cul::Rectangle<Real> & triangle_bounds,
+                      const Vector2 & triangle_a,
+                      const Vector2 & triangle_b,
+                      const Vector2 & triangle_c,
+                      Size2I max_region_size);
 
     bool has_any_intersecting_lines_with(const RectanglePoints &) const;
 

@@ -22,6 +22,8 @@
 
 #include "../TileFactory.hpp"
 
+class ProducableTileCallbacks;
+
 enum class CardinalDirection {
     n, s, e, w,
     nw, sw, se, ne
@@ -79,13 +81,16 @@ private:
 class TranslatableTileFactory : public TileFactory {
 protected:
     Vector translation() const { return m_translation; }
-
+#   if 0
     Entity make_entity
         (Platform & platform, Vector2I tile_loc,
          const SharedPtr<const RenderModel> & model_ptr) const;
-
+#   endif
     void setup_
         (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
+
+    Translation translation_from_tile_location(const Vector2I & tile_loc) const
+        { return Translation{m_translation + grid_position_to_v3(tile_loc)}; }
 
 private:
     Vector m_translation;
@@ -140,8 +145,8 @@ void SlopeFillerExtra::for_texture(const Key & key, Func && f) const {
 class SlopesBasedTileFactory : public TranslatableTileFactory {
 public:
     virtual void operator ()
-        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
-         Platform &) const = 0;
+        (const SlopeGroupNeighborhood &,
+         ProducableTileCallbacks &) const = 0;
 
     void setup(const TileSetXmlGrid &, Platform &,
                const SlopeFillerExtra &,

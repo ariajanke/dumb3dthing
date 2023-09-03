@@ -21,6 +21,19 @@
 #include "ProducableGrid.hpp"
 #include "ProducableGroupFiller.hpp"
 
+#include "../TriangleSegment.hpp"
+
+void ProducableTileCallbacks::add_collidable
+    (const Vector & triangle_point_a,
+     const Vector & triangle_point_b,
+     const Vector & triangle_point_c)
+{
+    add_collidable_
+        (TriangleSegment{triangle_point_a, triangle_point_b, triangle_point_c});
+}
+
+// ----------------------------------------------------------------------------
+
 ProducableTileViewGrid::ProducableTileViewGrid
     (ViewGrid<ProducableTile *> && factory_view_grid,
      std::vector<SharedPtr<ProducableGroup_>> && groups,

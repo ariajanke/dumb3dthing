@@ -176,7 +176,6 @@ Entity make_loop(Platform & callbacks,
 Entity make_sample_loop
     (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
 {
-
     static constexpr const Real k_y = 10;
 
     static constexpr const Real k_s = 5;
@@ -197,7 +196,7 @@ Entity make_sample_loop
     return rv;
 }
 
-static constexpr const Vector k_player_start{2, 5.1, -2};
+static constexpr const Vector k_player_start{2, 8.1, -2};
 
 // model entity, physical entity
 Tuple<Entity, Entity, SharedPtr<BackgroundTask>>

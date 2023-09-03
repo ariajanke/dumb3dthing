@@ -123,6 +123,12 @@ struct Visible final {
     bool value = true;
 };
 
+struct ModelScale final : public VectorLike<Translation> {
+    using LikeBase::LikeBase;
+    using LikeBase::operator=;
+    using LikeBase::operator+=;
+};
+
 inline bool should_be_visible(const EcsOpt<Visible> & vis)
     { return vis ? vis->value : true; }
 

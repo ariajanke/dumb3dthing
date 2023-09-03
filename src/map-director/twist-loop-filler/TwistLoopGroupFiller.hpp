@@ -40,7 +40,7 @@ public:
 
     virtual void operator ()
         (const Vector2I & position_in_group, const Vector2I & tile_offset,
-         EntityAndTrianglesAdder &, Platform &) const = 0;
+         ProducableTileCallbacks &) const = 0;
 
     Vector2I group_start() const { return m_group_start; }
 
@@ -66,7 +66,7 @@ public:
 
     void operator ()
         (const Vector2I & position_in_group, const Vector2I & tile_offset,
-         EntityAndTrianglesAdder &, Platform &) const final;
+         ProducableTileCallbacks &) const final;
 
 private:
     struct ElementsVerticesPair final {
@@ -91,8 +91,11 @@ public:
         m_twist_group(tile_group) {}
 
     void operator () (const Vector2I & maps_offset,
-                      EntityAndTrianglesAdder & adder, Platform & platform) const final
-        { (*m_twist_group)(m_position_in_group, m_position_in_map + maps_offset, adder, platform); }
+                      ProducableTileCallbacks & callbacks) const final
+    {
+        (*m_twist_group)
+            (m_position_in_group, m_position_in_map + maps_offset, callbacks);
+    }
 
 private:
     Vector2I m_position_in_map;

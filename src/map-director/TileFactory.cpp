@@ -20,6 +20,7 @@
 
 #include "TileFactory.hpp"
 #include "TileSetPropertiesGrid.hpp"
+#include "ProducableGrid.hpp"
 
 #include "../RenderModel.hpp"
 #include "../Components.hpp"
@@ -62,15 +63,27 @@ void TileFactory::setup
 
 /* protected static */ void TileFactory::add_triangles_based_on_model_details
     (Vector2I gridloc, Vector translation, const Slopes & slopes,
-     EntityAndTrianglesAdder & adder)
+     ProducableTileCallbacks & callbacks)
 {
+    auto offset = grid_position_to_v3(gridloc) + translation;
+#   if 0
     const auto & els = get_common_elements();
     const auto pos = get_points_for(slopes);
-    auto offset = grid_position_to_v3(gridloc) + translation;
-    adder.add_triangle(TriangleSegment{
+    callbacks.add(TriangleSegment{
         pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset});
-    adder.add_triangle(TriangleSegment{
+    callbacks.add(TriangleSegment{
         pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset});
+#   else
+    auto el_pt_of = [&slopes] {
+        const auto & els = get_common_elements();
+        const auto pos = get_points_for(slopes);
+        return [=] (int n) { return pos[els[n]]; };
+    } ();
+    TriangleSegment first {el_pt_of(0), el_pt_of(1), el_pt_of(2)};
+    TriangleSegment second{el_pt_of(3), el_pt_of(4), el_pt_of(5)};
+    callbacks.add_collidable(first .move(offset));
+    callbacks.add_collidable(second.move(offset));
+#   endif
 }
 
 /* protected static */ std::array<Vector, 4>
@@ -146,6 +159,7 @@ void TileFactory::setup
     return render_model;
 }
 
+#if 0
 /* protected */ Entity TileFactory::make_entity
     (Platform & platform, Vector translation,
      const SharedPtr<const RenderModel> & model_ptr) const
@@ -159,3 +173,4 @@ void TileFactory::setup
         (model_ptr, common_texture(), Translation{translation}, true);
     return ent;
 }
+#endif

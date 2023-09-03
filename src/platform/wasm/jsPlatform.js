@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -28,10 +28,10 @@ const kMustHaveInvalidated = Symbol();
 
 const textureLoader = (() => {
   let mImageTextureCache = {};
-  
+
   const isPowerOf2 = x => (x & (x - 1)) == 0;
 
-  const makeTextureCreator = (url, image) => 
+  const makeTextureCreator = (url, image) =>
     (gl, mustHaveInvalidatedOrUndef) =>
   {
     // call setContext to clear this cache
@@ -45,7 +45,7 @@ const textureLoader = (() => {
 
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
-  
+
     const level = 0;
     const internalFormat = gl.RGBA;
     const width = 1;
@@ -81,16 +81,16 @@ const textureLoader = (() => {
     if (mImageTextureCache[url]) {
       answerWhenReady(makeTextureCreator(url, mImageTextureCache[url].image));
     }
-  
+
     const image = new Image();
     image.onload = () => {
       mImageTextureCache[url] = { image };
       answerWhenReady(makeTextureCreator(url, image));
     };
-    
+
     image.src = url;
   };
-  
+
   return Object.freeze({
     //setContext: gl => blockReturn( mGlContext = gl ),
     invalidateTextureCache: () => { // call me when reseting context!
@@ -140,7 +140,7 @@ const mkTexture = () => {
         console.log('Refreshing texture on bind call.')
         refreshTexture();
       }
-      
+
       mGl.activeTexture(mUnit);
       mGl.bindTexture(mGl.TEXTURE_2D, mTexture);
       doWithUnit(mUnitIdx);
@@ -166,7 +166,7 @@ const mkRenderModel = () => {
     mGl.bufferData(enumTarget, typedArr, mGl.STATIC_DRAW);
     return buf;
   };
-  
+
   const doBufferRender = (buffer, attrLoc, numOfComps) => {
     mGl.bindBuffer(mGl.ARRAY_BUFFER, buffer);
     mGl.vertexAttribPointer(attrLoc, numOfComps, mGl.FLOAT, false, 0, 0);
@@ -210,7 +210,7 @@ const mkRenderModel = () => {
 };
 
 const mkJsPlatform = () => {
-  
+
   let mHandleTextureUnit = () => { throw 'jsPlatform.bindTexture: must setTextureUnitHandler before use.'; };
   let mRenderModelAttributesAccepter = () => { throw 'jsPlatform.renderRenderModel: must setRenderModelAttributesNeeder before use.'; };
   let mRenderModelAttributesAccepterFactory = () => { throw ''; };
@@ -259,6 +259,7 @@ const mkJsPlatform = () => {
       rotateX: angle => mat4.rotate(mMatrix, mMatrix, angle, kXAxis),
       rotateZ: angle => mat4.rotate(mMatrix, mMatrix, angle, kZAxis),
       translate: r => mat4.translate(mMatrix, mMatrix, r),
+      scale: r => mat4.scale(mMatrix, mMatrix, r),
       reset: () => blockReturn(mMatrix = mat4.create()),
       apply: () => mApplier(mMatrix),
       // !<needs to be set before start>!
@@ -325,11 +326,11 @@ const mkJsPlatform = () => {
     modelMatrix,
     viewMatrix,
     // !<needs to be set before start>!
-    setTextureUnitHandlerFactory: factory => 
+    setTextureUnitHandlerFactory: factory =>
       blockReturn( mTextureUnitHandlerFactory = factory),
     // !<needs to be set before start>!
     // provide me with an fn, that takes another fn, which itself takes the attrs
-    setRenderModelAttributesNeederFactory: factory => 
+    setRenderModelAttributesNeederFactory: factory =>
       blockReturn( mRenderModelAttributesAccepterFactory = factory ),
     promiseFileContents
   });

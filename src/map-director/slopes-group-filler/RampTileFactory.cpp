@@ -20,6 +20,7 @@
 
 #include "RampTileFactory.hpp"
 
+#include "../ProducableGrid.hpp"
 #include "../TileSetPropertiesGrid.hpp"
 
 namespace {
@@ -29,14 +30,19 @@ using namespace cul::exceptions_abbr;
 } // end of <anonymous> namespace
 
 void SingleModelSlopedTileFactory::operator ()
-    (EntityAndTrianglesAdder & adder, const SlopeGroupNeighborhood & nhood,
-     Platform & platform) const
+    (const SlopeGroupNeighborhood & nhood,
+     ProducableTileCallbacks & callbacks) const
 {
     auto r = nhood.tile_location_on_field();
 
     TileFactory::add_triangles_based_on_model_details
-        (r, translation(), model_tile_elevations(), adder);
-    adder.add_entity(make_entity(platform, r));
+        (r, translation(), model_tile_elevations(), callbacks);
+#   if 0
+    callbacks.add(make_entity(callbacks.platform(), r));
+#   else
+    auto model_translation = translation_from_tile_location(nhood.tile_location_on_field());
+    add_modeled_entity_with<Translation>(callbacks, std::move(model_translation));
+#   endif
 }
 
 /* protected */ void SingleModelSlopedTileFactory::setup_

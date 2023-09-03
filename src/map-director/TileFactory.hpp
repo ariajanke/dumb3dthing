@@ -23,6 +23,7 @@
 #include "map-loader.hpp"
 #include "ParseHelpers.hpp"
 #include "TileTexture.hpp"
+#include "ProducableGrid.hpp"
 
 #include "../Definitions.hpp"
 #include "../platform.hpp"
@@ -30,16 +31,7 @@
 #include <map>
 
 class TileProperties;
-
-class EntityAndTrianglesAdder {
-public:
-    virtual ~EntityAndTrianglesAdder() {}
-
-    virtual void add_entity(const Entity &) = 0;
-
-    virtual void add_triangle(const TriangleSegment &) = 0;
-};
-
+class ProducableTileCallbacks;
 class TileSetXmlGrid;
 
 /// A tile factory is a thing that produces tiles.
@@ -58,7 +50,7 @@ public:
 protected:
     static void add_triangles_based_on_model_details
         (Vector2I gridloc, Vector translation, const Slopes & slopes,
-         EntityAndTrianglesAdder & adder);
+         ProducableTileCallbacks & callbacks);
 
     static std::array<Vector, 4> get_points_for(const Slopes &);
 
@@ -68,9 +60,14 @@ protected:
         { return m_texture_ptr; }
 
     std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) const;
-
+#   if 0
     Entity make_entity(Platform & platform, Vector translation,
                        const SharedPtr<const RenderModel> & model_ptr) const;
+#   endif
+
+    template <typename ... Types>
+    void add_visual_entity_with(
+        ProducableTileCallbacks & callbacks, Types &&... arguments) const;
 
     SharedPtr<const RenderModel> make_render_model_with_common_texture_positions
         (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const;
@@ -93,3 +90,17 @@ private:
     Size2 m_texture_size;
     Size2 m_tile_size;
 };
+
+template <typename ... Types>
+void TileFactory::add_visual_entity_with(
+    ProducableTileCallbacks & callbacks, Types &&... arguments) const
+{
+    static_assert
+        (TypeList<Types...>::
+         template RemoveIf<std::is_reference>::
+         template kt_equal_to_list<Types...>,
+        "No reference types allowed");
+    callbacks.add_entity
+        <SharedPtr<const Texture>, Visible, Types...>
+        (common_texture(), Visible{true}, std::forward<Types>(arguments)...);
+}

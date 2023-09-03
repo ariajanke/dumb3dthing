@@ -151,8 +151,10 @@ public:
         }, [] (glm::mat4 & model, YRotation & rot_) {
             // was called "z" rotation...
             model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_up));
-        }
-        , [](PpState & state, glm::mat4 & model) {
+        }, [] (glm::mat4 & model, ModelScale & scale_) {
+            model = glm::scale(model, convert_to<glm::vec3>(scale_.value));
+        },
+        [](PpState & state, glm::mat4 & model) {
             auto on_surface = std::get_if<PpOnSegment>(&state);
             if (!on_surface) return;
             auto norm = on_surface->segment->normal();

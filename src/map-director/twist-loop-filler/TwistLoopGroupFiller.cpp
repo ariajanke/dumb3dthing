@@ -73,20 +73,33 @@ using cul::size_of, cul::top_left_of;
 
 void NorthSouthTwistTileGroup::operator ()
     (const Vector2I & position_in_group, const Vector2I & tile_offset,
-     EntityAndTrianglesAdder & adder, Platform & platform) const
+     ProducableTileCallbacks & callbacks) const
 {
     // I forgot the formula
     auto v3_offset = TileFactory::grid_position_to_v3(tile_offset)
         + k_twisty_origin;
     for (auto & triangle : m_collision_triangles(position_in_group)) {
-        adder.add_triangle(triangle.move(v3_offset));
+        callbacks.add_collidable(triangle.move(v3_offset));
     }
-    auto mod = platform.make_render_model();
+#   if 0
+    for (auto & triangle : m_collision_triangles(position_in_group)) {
+        callbacks.add(triangle.move(v3_offset));
+    }
+    // LoD x2
+    auto mod = callbacks.platform().make_render_model();
     auto & [elements, vertices] = m_elements_vertices(position_in_group);
     mod->load(elements, vertices);
-    auto entity = platform.make_renderable_entity();
+    auto entity = callbacks.platform().make_renderable_entity();
     entity.add<SharedPtr<const RenderModel>, Translation, Visible>()
         = make_tuple(mod, Translation{v3_offset}, Visible{});
+#   else
+    auto mod = callbacks.make_render_model();
+    auto & [elements, vertices] = m_elements_vertices(position_in_group);
+    mod->load(elements, vertices);
+    callbacks.
+        add_entity<SharedPtr<const RenderModel>, Translation, Visible>
+        (std::move(mod), Translation{v3_offset}, Visible{});
+#   endif
 }
 
 RectangleI RectanglarGroupOfPred::get_rectangular_group_of

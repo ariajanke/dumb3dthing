@@ -20,6 +20,7 @@
 
 #include "WallTileFactoryBase.hpp"
 
+#include "../ProducableGrid.hpp"
 #include "../TileSetPropertiesGrid.hpp"
 
 #include <numeric>
@@ -111,7 +112,7 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
     m_translation = *properties.for_value
         ("translation", Optional<Vector>{}, parse_vector);
 }
-
+#if 0
 /* protected */ Entity
     TranslatableTileFactory::make_entity
     (Platform & platform, Vector2I tile_loc,
@@ -120,7 +121,7 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
     return TileFactory::make_entity(platform,
         m_translation + grid_position_to_v3(tile_loc), model_ptr);
 }
-
+#endif
 
 // ----------------------------------------------------------------------------
 
@@ -175,23 +176,47 @@ VertexArray TriangleToFloorVerticies::operator ()
 /* private static */ WallTileFactoryBase::GraphicMap WallTileFactoryBase::s_bottom_graphics_cache;
 
 void WallTileFactoryBase::operator ()
-    (EntityAndTrianglesAdder & adder, const SlopeGroupNeighborhood & ninfo,
-     Platform & platform) const
+    (const SlopeGroupNeighborhood & ninfo,
+     ProducableTileCallbacks & callbacks) const
 {
+#   if 0
+    auto & platform = callbacks.platform();
     // physical triangles
-    make_physical_triangles(ninfo, adder);
+    make_physical_triangles(ninfo, callbacks);
 
     // top
     auto tile_loc = ninfo.tile_location_on_field();
-    adder.add_entity(make_entity(platform, tile_loc, m_top_model));
+    callbacks.add(make_entity(platform, tile_loc, m_top_model));
 
     // wall graphics
-    adder.add_entity(make_entity(
-        platform, tile_loc, ensure_wall_graphics(ninfo, platform)));
+    callbacks.add(make_entity(
+        platform, tile_loc,
+        ensure_wall_graphics(ninfo, platform)));
 
     // bottom
-    adder.add_entity(make_entity(
+    callbacks.add(make_entity(
         platform, tile_loc, ensure_bottom_model(ninfo, platform)));
+#   else
+    // physical triangles
+    make_physical_triangles(ninfo, callbacks);
+
+    // top
+    auto translation =
+        translation_from_tile_location(ninfo.tile_location_on_field());
+
+    // something's gone wrong with tile_loc...
+
+    SharedPtr<const RenderModel> ptr{m_top_model};
+    add_visual_entity_with(callbacks, Translation{translation}, std::move(ptr));
+
+    // wall graphics
+    add_visual_entity_with
+        (callbacks, Translation{translation}, ensure_wall_graphics(ninfo, callbacks));
+
+    // bottom
+    add_visual_entity_with
+        (callbacks, Translation{translation}, ensure_bottom_model(ninfo, callbacks));
+#   endif
 }
 
 Slopes WallTileFactoryBase::computed_tile_elevations
@@ -214,14 +239,15 @@ Slopes WallTileFactoryBase::computed_tile_elevations
 }
 
 void WallTileFactoryBase::make_physical_triangles
-    (const SlopeGroupNeighborhood & neighborhood, EntityAndTrianglesAdder & adder) const
+    (const SlopeGroupNeighborhood & neighborhood,
+     ProducableTileCallbacks & callbacks) const
 {
     auto elvs = computed_tile_elevations(neighborhood);
     auto offset = grid_position_to_v3(neighborhood.tile_location_on_field());
     make_triangles(
         elvs, k_physical_dip_thershold, k_both_flats_and_wall,
-        TriangleAdder::make([&adder, offset](const Triangle & triangle)
-    { adder.add_triangle(triangle.move(offset)); }));
+        TriangleAdder::make([&callbacks, offset](const Triangle & triangle)
+    { callbacks.add_collidable(triangle.move(offset)); }));
 }
 
 Slopes WallTileFactoryBase::tile_elevations() const {
@@ -248,11 +274,12 @@ Slopes WallTileFactoryBase::tile_elevations() const {
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::ensure_bottom_model
-    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood,
+     ProducableTileCallbacks & callbacks) const
 {
     return ensure_model
         (neighborhood, s_bottom_graphics_cache,
-         [&] { return make_bottom_graphics(neighborhood, platform); });
+         [&] { return make_bottom_graphics(neighborhood, callbacks); });
 }
 
 template <typename MakerFunc>
@@ -277,11 +304,12 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::ensure_wall_graphics
-    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood,
+     ProducableTileCallbacks & callbacks) const
 {
     return ensure_model
         (neighborhood, s_wall_graphics_cache,
-         [&] { return make_wall_graphics(neighborhood, platform); });
+         [&] { return make_wall_graphics(neighborhood, callbacks); });
 }
 
 /* protected */ TileTexture WallTileFactoryBase::floor_texture() const {
@@ -316,11 +344,12 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::make_bottom_graphics
-    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood,
+     ProducableTileCallbacks & callbacks) const
 {
     return make_model_graphics(
         computed_tile_elevations(neighborhood), k_bottom_only,
-        make_triangle_to_floor_verticies(), platform);
+        make_triangle_to_floor_verticies(), callbacks);
 }
 
 /* protected */ std::array<Tuple<bool, CardinalDirection>, 4>
@@ -339,11 +368,22 @@ template <typename MakerFunc>
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::make_model_graphics
     (const Slopes & elvs, SplitOpt split_opt,
-     const TriangleToVerticies & to_verticies, Platform & platform) const
+     const TriangleToVerticies & to_verticies,
+     ProducableTileCallbacks & callbacks) const
 {
-    auto mod_ptr = platform.make_render_model();
+    return make_model_graphics
+        (elvs, split_opt, to_verticies, callbacks.make_render_model());
+}
+
+/* protected */ SharedPtr<const RenderModel>
+    WallTileFactoryBase::make_model_graphics
+    (const Slopes & elevations,
+     SplitOpt split_opt,
+     const TriangleToVerticies & to_verticies,
+     SharedPtr<RenderModel> && model_to_use) const
+{
     std::vector<Vertex> verticies;
-    make_triangles(elvs, k_visual_dip_thershold,
+    make_triangles(elevations, k_visual_dip_thershold,
                    split_opt,
                    TriangleAdder::make([&verticies, &to_verticies] (const Triangle & triangle)
     {
@@ -353,28 +393,30 @@ template <typename MakerFunc>
     std::vector<unsigned> elements;
     elements.resize(verticies.size());
     std::iota(elements.begin(), elements.end(), 0);
-    mod_ptr->load(verticies, elements);
-    return mod_ptr;
+    model_to_use->load(verticies, elements);
+    return model_to_use;
 }
 
 /* protected */ SharedPtr<const RenderModel>
-    WallTileFactoryBase::make_top_model(Platform & platform) const
+    WallTileFactoryBase::make_top_model
+    (Platform & platform) const
 {
     return make_model_graphics(
         tile_elevations(), k_top_only,
-        make_triangle_to_floor_verticies(), platform);
+        make_triangle_to_floor_verticies(), platform.make_render_model());
 }
 
 /* protected */ SharedPtr<const RenderModel>
 WallTileFactoryBase::make_wall_graphics
-    (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const
+    (const SlopeGroupNeighborhood & neighborhood,
+     ProducableTileCallbacks & callbacks) const
 {
     const auto elvs = computed_tile_elevations(neighborhood);
     auto to_verticies = make_triangle_to_verticies([this] (const Triangle & triangle) {
         auto vtxs = wall::to_verticies(triangle.move(Vector{0, -translation().y, 0}));
         return wall::map_to_texture(vtxs, wall_texture());
     });
-    return make_model_graphics(elvs, k_wall_only, to_verticies, platform);
+    return make_model_graphics(elvs, k_wall_only, to_verticies, callbacks);
 }
 
 /* private */ void WallTileFactoryBase::setup_

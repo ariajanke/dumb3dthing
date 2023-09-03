@@ -281,6 +281,8 @@ private:
 
     ProducableTileViewGrid make_producable_view_grid();
 
+    ScaleComputation map_scale() const;
+
     DocumentOwningNode m_document_root;
     std::vector<Grid<int>> m_layers;
     std::vector<TileSetContent> m_finished_contents;

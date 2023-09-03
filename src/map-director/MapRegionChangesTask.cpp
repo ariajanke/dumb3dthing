@@ -22,87 +22,116 @@
 #include "TileFactory.hpp"
 
 namespace {
-
-class EntityAndLinkInsertingAdder final : public EntityAndTrianglesAdder {
+#if 0
+class EntityAndLinkInsertingAdder_New final : public ProducableTileCallbacks {
 public:
-    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
-    using ViewGridTriangleInserter = ViewGridTriangle::Inserter;
+    EntityAndLinkInsertingAdder_New
+        (LoaderTask::Callbacks &,
+         Size2I grid_size);
 
-    explicit EntityAndLinkInsertingAdder(const Size2I & grid_size):
-        m_triangle_inserter(grid_size) {}
+    void finish_into(const Vector2I & on_field_position,
+                     MapRegionContainer &,
+                     RegionEdgeConnectionsAdder &);
 
-    void add_triangle(const TriangleSegment & triangle) final
-        { m_triangle_inserter.push(triangle); }
+    void add(const SharedPtr<EveryFrameTask> &) final;
 
-    void add_entity(const Entity & ent) final
-        { m_entities.push_back(ent); }
+    void add(const SharedPtr<LoaderTask> &) final;
 
-    std::vector<Entity> move_out_entities()
-        { return std::move(m_entities); }
+    void add(const SharedPtr<BackgroundTask> &) final;
+
+    void add(const Entity &) final;
+
+    void add(const TriangleSegment &) final;
+
+    Platform & platform() final;
 
     void advance_grid_position()
         { m_triangle_inserter.advance(); }
 
-    ViewGridTriangle finish_triangle_grid() {
-        return m_triangle_inserter.
-            transform_values<SharedPtr<TriangleLink>>(to_link).
-            finish();
-    }
-
 private:
+    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
     static SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
         { return make_shared<TriangleLink>(segment); }
 
+    ViewGridTriangle finish_triangle_grid();
+
+    LoaderTask::Callbacks & m_callbacks;
     ViewGridInserter<TriangleSegment> m_triangle_inserter;
     std::vector<Entity> m_entities;
 };
+#else
 
-void link_triangles(EntityAndLinkInsertingAdder::ViewGridTriangle &);
+using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+
+class EntityAndLinkInsertingAdder_New final : public ProducableTileCallbacks {
+public:
+    EntityAndLinkInsertingAdder_New
+        (LoaderTask::Callbacks &,
+         Size2I grid_size,
+         const ScaleComputation &);
+
+    SharedPtr<RenderModel> make_render_model() final;
+
+    void add_collidable_(const TriangleSegment &) final;
+
+    Entity add_entity_() final;
+
+    void advance_grid_position()
+        { m_triangle_inserter.advance(); }
+
+    void add_loader(const SharedPtr<LoaderTask> &) final {}
+
+    void finish_into
+        (const Vector2I & on_field_position,
+         MapRegionContainer &,
+         RegionEdgeConnectionsAdder &);
+
+private:
+    ModelScale model_scale() const final
+        { return m_scale.to_model_scale(); }
+
+    ViewGridTriangle finish_triangle_grid();
+
+    LoaderTask::Callbacks & m_callbacks;
+    ViewGridInserter<TriangleSegment> m_triangle_inserter;
+    std::vector<Entity> m_entities;
+    ScaleComputation m_scale;
+};
+#endif
+
+void link_triangles(ViewGridTriangle &);
 
 } // end of <anonymous> namespace
 
 RegionLoadJob::RegionLoadJob
     (const Vector2I & on_field_position,
      const Vector2I & maps_offset,
-     const ProducableSubGrid & subgrid):
+     const ProducableSubGrid & subgrid,
+     const ScaleComputation & scale):
     m_on_field_position(on_field_position),
     m_maps_offset(maps_offset),
-    m_subgrid(subgrid) {}
+    m_subgrid(subgrid),
+    m_scale(scale) {}
 
 void RegionLoadJob::operator ()
     (MapRegionContainer & container,
      RegionEdgeConnectionsAdder & edge_container_adder,
      LoaderTask::Callbacks & callbacks) const
 {
-    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
-    const auto & producables = m_subgrid;
-    EntityAndLinkInsertingAdder triangle_entities_adder{producables.size2()};
-    for (auto & producables_view : producables) {
+    EntityAndLinkInsertingAdder_New triangle_entities_adder
+        {callbacks, m_subgrid.size2(), m_scale};
+    for (auto & producables_view : m_subgrid) {
         for (auto producable : producables_view) {
             if (!producable) continue;
             // producables need a map offset, not a region offset!
-            auto offset = m_maps_offset;
-            auto & platform = callbacks.platform();
-            (*producable)(offset, triangle_entities_adder, platform);
+            // how will this affect composite maps?
+            (*producable)(m_maps_offset, triangle_entities_adder);
         }
         triangle_entities_adder.advance_grid_position();
     }
-
-    auto triangle_grid =
-        make_shared<ViewGridTriangle>(triangle_entities_adder.finish_triangle_grid());
-    auto entities = triangle_entities_adder.move_out_entities();
-
-    for (auto & link : triangle_grid->elements()) {
-        callbacks.add(link);
-    }
-    for (auto & ent : entities) {
-        callbacks.add(ent);
-    }
-
-    link_triangles(*triangle_grid);
-    container.set_region(m_on_field_position, triangle_grid,
-                         std::move(entities));
-    edge_container_adder.add(m_on_field_position, std::move(triangle_grid));
+    triangle_entities_adder.finish_into
+        (m_on_field_position, container, edge_container_adder);
 }
 
 // ----------------------------------------------------------------------------
@@ -134,17 +163,19 @@ RegionLoadCollector::RegionLoadCollector
     (MapRegionContainer & container_):
     m_container(container_) {}
 
-void RegionLoadCollector::add_tiles
+void RegionLoadCollector::collect_load_job
     (const Vector2I & on_field_position,
      const Vector2I & maps_offset,
-     const ProducableSubGrid & subgrid)
+     const ProducableSubGrid & subgrid,
+     const ScaleComputation & scale)
 {
     if (auto refresh = m_container.region_refresh_at(on_field_position)) {
         refresh->keep_this_frame();
         return;
     }
 
-    m_entries.emplace_back(on_field_position, maps_offset, subgrid);
+    m_entries.emplace_back
+        (on_field_position, maps_offset, subgrid, scale);
 }
 
 RegionDecayCollector RegionLoadCollector::finish()
@@ -195,22 +226,74 @@ void MapRegionChangesTask::operator ()
     (LoaderTask::Callbacks & callbacks) const
 {
     auto adder = m_edge_container.make_adder();
-    for (auto & load_entry : m_load_entries) {
-        load_entry(m_container, adder, callbacks);
-    }
+    for (auto & load_entry : m_load_entries)
+        { load_entry(m_container, adder, callbacks); }
 
     auto remover = adder.finish().make_remover();
-    for (auto & decay_entry : m_decay_entries) {
-        decay_entry(remover, callbacks);
-    }
+    for (auto & decay_entry : m_decay_entries)
+        { decay_entry(remover, callbacks); }
     m_edge_container = remover.finish();
 }
 
 namespace {
 
-void link_triangles
-    (EntityAndLinkInsertingAdder::ViewGridTriangle & link_grid)
+SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
+    { return make_shared<TriangleLink>(segment); }
+
+EntityAndLinkInsertingAdder_New::EntityAndLinkInsertingAdder_New
+    (LoaderTask::Callbacks & callbacks,
+     Size2I grid_size,
+     const ScaleComputation & scale):
+    m_callbacks(callbacks),
+    m_triangle_inserter(grid_size),
+    m_scale(scale) {}
+
+void EntityAndLinkInsertingAdder_New::finish_into
+    (const Vector2I & on_field_position,
+     MapRegionContainer & container,
+     RegionEdgeConnectionsAdder & edge_container_adder)
 {
+    auto triangle_grid_ptr =
+        make_shared<ViewGridTriangle>(finish_triangle_grid());
+    for (auto & e : m_entities)
+        { m_callbacks.add(e); }
+    container.set_region
+        (on_field_position, triangle_grid_ptr, std::move(m_entities));
+    edge_container_adder.add(on_field_position, std::move(triangle_grid_ptr));
+}
+
+SharedPtr<RenderModel> EntityAndLinkInsertingAdder_New::make_render_model()
+    { return m_callbacks.platform().make_render_model(); }
+
+void EntityAndLinkInsertingAdder_New::add_collidable_
+    (const TriangleSegment & triangle_segment)
+{
+    const auto scaled = m_scale(triangle_segment);
+    m_triangle_inserter.push(scaled);
+}
+
+Entity EntityAndLinkInsertingAdder_New::add_entity_() {
+    auto e = m_callbacks.platform().make_renderable_entity();
+    m_entities.push_back(e);
+    // region load job makes the entity "active"
+    // it is not added to the platform until later
+    return e;
+}
+
+/* private */ ViewGridTriangle EntityAndLinkInsertingAdder_New::
+    finish_triangle_grid()
+{
+    auto triangle_grid = m_triangle_inserter.
+        transform_values<SharedPtr<TriangleLink>>(to_link).
+        finish();
+    for (auto & link : triangle_grid.elements())
+        { m_callbacks.add(link); }
+
+    link_triangles(triangle_grid);
+    return triangle_grid;
+}
+
+void link_triangles(ViewGridTriangle & link_grid) {
     for (Vector2I r; r != link_grid.end_position(); r = link_grid.next(r)) {
     for (auto & this_tri : link_grid(r)) {
         assert(this_tri);
