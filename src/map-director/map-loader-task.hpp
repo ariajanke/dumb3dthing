@@ -28,6 +28,5 @@ class MapLoaderTask_ {
 public:
     static SharedPtr<BackgroundTask> make
         (const char * initial_map, Platform & platform,
-         const SharedPtr<MapRegionTracker> & target_region_instance,
-         const Entity & player_physics);
+         const SharedPtr<MapRegionTracker> & target_region_instance);
 };

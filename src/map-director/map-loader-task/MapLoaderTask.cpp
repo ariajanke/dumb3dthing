@@ -30,19 +30,17 @@ using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
 MapLoaderTask::MapLoaderTask
     (tiled_map_loading::MapLoadStateMachine && map_loader,
-     const SharedPtr<MapRegionTracker> & target_region_instance,
-     const Entity & player_physics):
+     const SharedPtr<MapRegionTracker> & target_region_instance):
      m_region_tracker(verify_region_tracker_presence
          ("MapLoaderTask", target_region_instance)),
-     m_map_loader(std::move(map_loader)),
-     m_player_physics(player_physics) {}
+     m_map_loader(std::move(map_loader)) {}
 
 BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
     return m_map_loader.
         update_progress().
         fold<BackgroundCompletion>(BackgroundCompletion::in_progress).
         map([this] (MapLoadingSuccess && res) {
-            Entity{m_player_physics}.ensure<Velocity>();
+            // want to move this line out
             *m_region_tracker = MapRegionTracker
                 {std::move(res.loaded_region)};
             return BackgroundCompletion::finished;

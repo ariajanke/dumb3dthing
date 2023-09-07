@@ -46,7 +46,7 @@ public:
 
 private:
     Vector2I m_on_field_position;
-    Vector2I m_maps_offset;
+    Vector2I m_parent_maps_position;
     ProducableSubGrid m_subgrid;
     ScaleComputation m_scale;
 };

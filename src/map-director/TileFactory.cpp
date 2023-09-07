@@ -65,7 +65,9 @@ void TileFactory::setup
     (Vector2I gridloc, Vector translation, const Slopes & slopes,
      ProducableTileCallbacks & callbacks)
 {
+#   if 0
     auto offset = grid_position_to_v3(gridloc) + translation;
+#   endif
 #   if 0
     const auto & els = get_common_elements();
     const auto pos = get_points_for(slopes);
@@ -81,8 +83,13 @@ void TileFactory::setup
     } ();
     TriangleSegment first {el_pt_of(0), el_pt_of(1), el_pt_of(2)};
     TriangleSegment second{el_pt_of(3), el_pt_of(4), el_pt_of(5)};
+#   if 0
     callbacks.add_collidable(first .move(offset));
     callbacks.add_collidable(second.move(offset));
+#   else
+    callbacks.add_collidable(first );
+    callbacks.add_collidable(second);
+#   endif
 #   endif
 }
 

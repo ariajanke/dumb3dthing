@@ -22,45 +22,6 @@
 #include "TileFactory.hpp"
 
 namespace {
-#if 0
-class EntityAndLinkInsertingAdder_New final : public ProducableTileCallbacks {
-public:
-    EntityAndLinkInsertingAdder_New
-        (LoaderTask::Callbacks &,
-         Size2I grid_size);
-
-    void finish_into(const Vector2I & on_field_position,
-                     MapRegionContainer &,
-                     RegionEdgeConnectionsAdder &);
-
-    void add(const SharedPtr<EveryFrameTask> &) final;
-
-    void add(const SharedPtr<LoaderTask> &) final;
-
-    void add(const SharedPtr<BackgroundTask> &) final;
-
-    void add(const Entity &) final;
-
-    void add(const TriangleSegment &) final;
-
-    Platform & platform() final;
-
-    void advance_grid_position()
-        { m_triangle_inserter.advance(); }
-
-private:
-    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
-
-    static SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
-        { return make_shared<TriangleLink>(segment); }
-
-    ViewGridTriangle finish_triangle_grid();
-
-    LoaderTask::Callbacks & m_callbacks;
-    ViewGridInserter<TriangleSegment> m_triangle_inserter;
-    std::vector<Entity> m_entities;
-};
-#else
 
 using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
@@ -98,7 +59,6 @@ private:
     std::vector<Entity> m_entities;
     ScaleComputation m_scale;
 };
-#endif
 
 void link_triangles(ViewGridTriangle &);
 
@@ -110,7 +70,7 @@ RegionLoadJob::RegionLoadJob
      const ProducableSubGrid & subgrid,
      const ScaleComputation & scale):
     m_on_field_position(on_field_position),
-    m_maps_offset(maps_offset),
+    m_parent_maps_position(maps_offset),
     m_subgrid(subgrid),
     m_scale(scale) {}
 
@@ -126,7 +86,7 @@ void RegionLoadJob::operator ()
             if (!producable) continue;
             // producables need a map offset, not a region offset!
             // how will this affect composite maps?
-            (*producable)(m_maps_offset, triangle_entities_adder);
+            (*producable)(m_parent_maps_position, triangle_entities_adder);
         }
         triangle_entities_adder.advance_grid_position();
     }
@@ -162,6 +122,33 @@ void RegionDecayJob::operator ()
 RegionLoadCollector::RegionLoadCollector
     (MapRegionContainer & container_):
     m_container(container_) {}
+
+class TriangleSegmentTransformation final {
+public:
+    TriangleSegmentTransformation
+        (const ScaleComputation & scale,
+         const Vector2I & on_field_position):
+        m_scale(scale),
+        m_on_field_position(on_field_position) {}
+
+    TriangleSegment operator () (const TriangleSegment & triangle) const
+        { return m_scale(triangle).move(translation()); }
+
+    ModelTranslation model_translation() const
+        { return ModelTranslation{translation()}; }
+
+    ModelScale model_scale() const { return m_scale.to_model_scale(); }
+
+private:
+    Vector translation() const {
+        return Vector{Real(m_on_field_position.x),
+                      0,
+                      Real(-m_on_field_position.y)};
+    }
+
+    ScaleComputation m_scale;
+    Vector2I m_on_field_position;
+};
 
 void RegionLoadCollector::collect_load_job
     (const Vector2I & on_field_position,

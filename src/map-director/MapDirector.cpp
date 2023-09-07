@@ -31,11 +31,10 @@ using namespace cul::exceptions_abbr;
 } // end of <anonymous> namespace
 
 SharedPtr<BackgroundTask> MapDirector::begin_initial_map_loading
-    (const char * initial_map, Platform & platform, const Entity & player_physics)
+    (const char * initial_map, Platform & platform)
 {
     m_region_tracker = make_shared<MapRegionTracker>();
-    return MapLoaderTask_::make
-        (initial_map, platform, m_region_tracker, player_physics);
+    return MapLoaderTask_::make(initial_map, platform, m_region_tracker);
 }
 
 void MapDirector::on_every_frame
@@ -55,6 +54,7 @@ void MapDirector::on_every_frame
 {
     // should either be strongly not taken, or strongly taken
     if (!m_region_tracker->has_root_region()) return;
+    Entity{physics_ent}.ensure<Velocity>();
     // this may turn into its own class
     // there's just so much behavior potential here
 

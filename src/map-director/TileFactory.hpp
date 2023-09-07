@@ -101,6 +101,6 @@ void TileFactory::add_visual_entity_with(
          template kt_equal_to_list<Types...>,
         "No reference types allowed");
     callbacks.add_entity
-        <SharedPtr<const Texture>, Visible, Types...>
-        (common_texture(), Visible{true}, std::forward<Types>(arguments)...);
+        <SharedPtr<const Texture>, ModelVisibility, Types...>
+        (common_texture(), ModelVisibility{true}, std::forward<Types>(arguments)...);
 }

@@ -146,7 +146,7 @@ public:
 
         // model matrix... maybe this also should be a component, though that
         // introduces a nasty dependancy
-        ecs::make_singles_system<Entity>([] (glm::mat4 & model, Translation & trans_) {
+        ecs::make_singles_system<Entity>([] (glm::mat4 & model, ModelTranslation & trans_) {
             model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(trans_.value));
         }, [] (glm::mat4 & model, YRotation & rot_) {
             // was called "z" rotation...
@@ -176,11 +176,11 @@ public:
             if (are_very_close(crp, Vector{})) return;
             model = glm::rotate(model, float(angle), convert_to<glm::vec3>(normalize(crp)));
         }
-        ,[] (EcsOpt<Visible> vis, SharedPtr<const Texture> & texture) {
+        ,[] (EcsOpt<ModelVisibility> vis, SharedPtr<const Texture> & texture) {
             if (!should_be_visible(vis)) return;
             texture->bind_texture();
         }
-        , [this] (EcsOpt<Visible> vis, glm::mat4 & model, SharedPtr<const RenderModel> mod_) {
+        , [this] (EcsOpt<ModelVisibility> vis, glm::mat4 & model, SharedPtr<const RenderModel> mod_) {
             if (!should_be_visible(vis)) return;
             m_shader.set_mat4("model", model);
             mod_->render();

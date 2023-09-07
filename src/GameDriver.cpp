@@ -154,7 +154,7 @@ Entity make_sample_bezier_model
 
     // very airy
     Entity rv = make_bezier_strip_model(k_hump_side, k_low_side, callbacks, texture, resolution, k_offset, k_scale);
-    rv.add<Translation>() = Vector{ 4, 0, -3 };
+    rv.add<ModelTranslation>() = Vector{ 4, 0, -3 };
     return rv;
 }
 
@@ -192,7 +192,7 @@ Entity make_sample_loop
     constexpr const Vector2 k_offset{5./16, 1./16};
     constexpr const Real k_scale = 1. / 16;
     auto rv = make_bezier_strip_model(k_neg_side, k_pos_side, callbacks, texture, resolution, k_offset, k_scale);
-    rv.add<Translation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
+    rv.add<ModelTranslation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
     return rv;
 }
 
@@ -255,10 +255,10 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     auto tx = platform.make_texture();
     tx->load_from_file("ground.png");
     model_ent.add
-        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, Translation,
+        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
          TranslationFromParent>
         () = make_tuple
-        (tx, model, Translation{k_player_start},
+        (tx, model, ModelTranslation{k_player_start},
          TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
@@ -363,7 +363,7 @@ void GameDriverComplete::update_(Real seconds) {
             Entity{vis.next}.get<VisibilityChain>().visible = true;
         }
     },
-    [](TranslationFromParent & trans_from_parent, Translation & trans) {
+    [](TranslationFromParent & trans_from_parent, ModelTranslation & trans) {
         auto pent = Entity{trans_from_parent.parent};
         Real s = 1;
         auto & state = pent.get<PpState>();
@@ -380,7 +380,7 @@ void GameDriverComplete::update_(Real seconds) {
     CheckJump{},
     [ppstate = m_player_entities.physical.get<PpState>(),
      plyvel  = m_player_entities.physical.ptr<Velocity>()]
-        (Translation & trans, EcsOpt<Visible> vis)
+        (ModelTranslation & trans, EcsOpt<ModelVisibility> vis)
     {
         using point_and_plane::location_of;
         if (!vis) return;

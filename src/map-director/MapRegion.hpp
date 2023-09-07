@@ -49,6 +49,13 @@ public:
     virtual void process_load_request
         (const RegionLoadRequest &, const Vector2I & spawn_offset,
          RegionLoadCollectorBase &) = 0;
+
+    // can I send a request to only *part* of the map?
+    virtual void process_limited_load_request
+        (const RegionLoadRequest &,
+         const Vector2I & spawn_offset,
+         const RectangleI & grid_scope,
+         RegionLoadCollectorBase &) = 0;
 };
 
 class ScaleComputation final {
@@ -93,12 +100,31 @@ public:
     TiledMapRegion(ProducableTileViewGrid &&, ScaleComputation &&);
 
     void process_load_request
-        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+        (const RegionLoadRequest &,
+         const Vector2I & spawn_offset,
          RegionLoadCollectorBase &) final;
 
-    // can I send a request to only *part* of the map?
+    void process_limited_load_request
+        (const RegionLoadRequest &,
+         const Vector2I & spawn_offset,
+         const RectangleI & grid_scope,
+         RegionLoadCollectorBase &) final;
 
 private:
+    void collect_producables
+        (const Vector2I & position_in_region,
+         const Vector2I & offset,
+         const Size2I & subgrid_size,
+         RegionLoadCollectorBase &);
+
+    void process_load_request_
+        (ProducableTileViewGrid::SubGrid producables,
+         const RegionLoadRequest &,
+         const Vector2I & spawn_offset,
+         RegionLoadCollectorBase &);
+
+    Size2I region_size() const { return m_producables_view_grid.size2(); }
+
     // there's something that lives in here, but what?
     // something that breaks down into loadable "sub regions"
     ProducableTileViewGrid m_producables_view_grid;
@@ -112,11 +138,23 @@ private:
 class CompositeMapRegion final : public MapRegion {
 public:
 
-
     void process_load_request
-        (const RegionLoadRequest &, const Vector2I & spawn_offset,
+        (const RegionLoadRequest &,
+         const Vector2I & spawn_offset,
+         RegionLoadCollectorBase &) final;
+
+    void process_limited_load_request
+        (const RegionLoadRequest &,
+         const Vector2I & spawn_offset,
+         const RectangleI & grid_scope,
          RegionLoadCollectorBase &) final;
 private:
+
+    void collect_load_tasks
+        (const Vector2I & position_in_region,
+         const Vector2I & offset,
+         const Size2I & subgrid_size,
+         RegionLoadCollectorBase & collector);
 
     // not just MapRegions, but how to load them...
     // is it a view grid? not really

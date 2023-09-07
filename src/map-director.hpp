@@ -35,8 +35,7 @@ public:
     static SharedPtr<MapDirector_> make(PpDriver *);
 
     virtual SharedPtr<BackgroundTask> begin_initial_map_loading
-        (const char * initial_map, Platform & platform,
-         const Entity & player_physics) = 0;
+        (const char * initial_map, Platform & platform) = 0;
 
     virtual void on_every_frame
         (TaskCallbacks & callbacks, const Entity & physics_ent) = 0;

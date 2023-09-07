@@ -97,8 +97,8 @@ void NorthSouthTwistTileGroup::operator ()
     auto & [elements, vertices] = m_elements_vertices(position_in_group);
     mod->load(elements, vertices);
     callbacks.
-        add_entity<SharedPtr<const RenderModel>, Translation, Visible>
-        (std::move(mod), Translation{v3_offset}, Visible{});
+        add_entity<SharedPtr<const RenderModel>, ModelTranslation, ModelVisibility>
+        (std::move(mod), ModelTranslation{v3_offset}, ModelVisibility{});
 #   endif
 }
 

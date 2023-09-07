@@ -37,8 +37,7 @@ public:
         m_ppdriver(ppdriver) {}
 
     SharedPtr<BackgroundTask> begin_initial_map_loading
-        (const char * initial_map, Platform & platform,
-         const Entity & player_physics) final;
+        (const char * initial_map, Platform & platform) final;
 
     void on_every_frame
         (TaskCallbacks & callbacks, const Entity & physics_ent) final;

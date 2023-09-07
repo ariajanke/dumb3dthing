@@ -89,8 +89,8 @@ protected:
     void setup_
         (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
 
-    Translation translation_from_tile_location(const Vector2I & tile_loc) const
-        { return Translation{m_translation + grid_position_to_v3(tile_loc)}; }
+    ModelTranslation translation_from_tile_location(const Vector2I & tile_loc) const
+        { return ModelTranslation{m_translation + grid_position_to_v3(tile_loc)}; }
 
 private:
     Vector m_translation;

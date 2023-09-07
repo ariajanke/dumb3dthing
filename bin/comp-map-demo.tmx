@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
  <properties>
-  <property name="scale" value="0.5,0.5"/>
+  <property name="scale" value="5"/>
  </properties>
  <tileset firstgid="1" name="comps-demo-map-parts" tilewidth="32" tileheight="32" tilecount="4" columns="2">
   <properties>
    <property name="tiled-map-filename" value="comp-map-parts.tmx"/>
   </properties>
   <image source="comps-demo-map-parts.png" width="64" height="64"/>
+  <tile id="1">
+   <properties>
+    <property name="tiled-map-filename" value="comp-map-parts.tmx"/>
+   </properties>
+  </tile>
  </tileset>
  <layer id="1" name="Tile Layer 1" width="32" height="32">
   <data encoding="csv">

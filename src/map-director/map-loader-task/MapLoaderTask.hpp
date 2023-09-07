@@ -30,8 +30,7 @@ class MapLoaderTask final : public BackgroundTask {
 public:
     MapLoaderTask
         (tiled_map_loading::MapLoadStateMachine && map_loader,
-         const SharedPtr<MapRegionTracker> & target_region_instance,
-         const Entity & player_physics);
+         const SharedPtr<MapRegionTracker> & target_region_instance);
 
     BackgroundCompletion operator () (Callbacks &) final;
 
@@ -42,5 +41,4 @@ private:
 
     SharedPtr<MapRegionTracker> m_region_tracker;
     tiled_map_loading::MapLoadStateMachine m_map_loader;
-    EntityRef m_player_physics;
 };

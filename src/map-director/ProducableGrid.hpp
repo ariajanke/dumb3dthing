@@ -46,8 +46,8 @@ public:
         e.
             add<ModelScale, Types...>() =
             make_tuple(model_scale(), std::forward<Types>(arguments)...);
-        if (e.has_all<Translation, ModelScale>()) {
-            auto & trans = e.get<Translation>();
+        if (e.has_all<ModelTranslation, ModelScale>()) {
+            auto & trans = e.get<ModelTranslation>();
             auto & scale = e.get<ModelScale>();
             trans.value.x *= scale.value.x;
             trans.value.y *= scale.value.y;
@@ -74,6 +74,8 @@ class ProducableTile {
 public:
     virtual ~ProducableTile() {}
 
+    /// @param maps_offset describes the position of the tile on the map itself
+    // instead of maps_offset, can I pass TriangleSegmentTransformation instead?
     virtual void operator () (const Vector2I & maps_offset,
                               ProducableTileCallbacks &) const = 0;
 };
@@ -100,9 +102,13 @@ public:
 
     auto width() const { return m_factories.width(); }
 
+    auto size2() const { return m_factories.size2(); }
+
     /** this object must live at least as long as the return value */
     auto make_subgrid(const RectangleI & range) const
         { return m_factories.make_subgrid(range); }
+
+    auto make_subgrid() const { return m_factories.make_subgrid(); }
 
 private:
     ViewGrid<ProducableTile *> m_factories;

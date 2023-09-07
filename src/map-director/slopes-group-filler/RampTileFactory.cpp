@@ -41,7 +41,7 @@ void SingleModelSlopedTileFactory::operator ()
     callbacks.add(make_entity(callbacks.platform(), r));
 #   else
     auto model_translation = translation_from_tile_location(nhood.tile_location_on_field());
-    add_modeled_entity_with<Translation>(callbacks, std::move(model_translation));
+    add_modeled_entity_with<ModelTranslation>(callbacks, std::move(model_translation));
 #   endif
 }
 

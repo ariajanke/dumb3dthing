@@ -95,7 +95,7 @@ bool are_very_close(const VectorLike<T> & lhs, const VectorLike<T> & rhs)
 // What defines a graphical component: it is used by all platforms in rendering
 // entities.
 
-struct Translation final : public VectorLike<Translation> {
+struct ModelTranslation final : public VectorLike<ModelTranslation> {
     using LikeBase::LikeBase;
     using LikeBase::operator=;
     using LikeBase::operator+=;
@@ -114,7 +114,7 @@ struct Camera final {
     Vector position, target, up = k_up;
 };
 
-struct Visible final {
+struct ModelVisibility final {
     bool & operator = (bool b) { return (value = b); }
 
     explicit operator bool () const noexcept
@@ -123,13 +123,13 @@ struct Visible final {
     bool value = true;
 };
 
-struct ModelScale final : public VectorLike<Translation> {
+struct ModelScale final : public VectorLike<ModelTranslation> {
     using LikeBase::LikeBase;
     using LikeBase::operator=;
     using LikeBase::operator+=;
 };
 
-inline bool should_be_visible(const EcsOpt<Visible> & vis)
+inline bool should_be_visible(const EcsOpt<ModelVisibility> & vis)
     { return vis ? vis->value : true; }
 
 // ----------------------------- Other Components -----------------------------

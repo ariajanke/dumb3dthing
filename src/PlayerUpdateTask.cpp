@@ -29,13 +29,9 @@ using namespace cul::exceptions_abbr;
 
 SharedPtr<BackgroundTask> PlayerUpdateTask::load_initial_map
     (const char * initial_map, Platform & platform)
-{
-    return m_map_director->begin_initial_map_loading
-        (initial_map, platform, Entity{m_physics_ent});
-}
+{ return m_map_director->begin_initial_map_loading(initial_map, platform); }
 
 void PlayerUpdateTask::on_every_frame(Callbacks & callbacks, Real) {
-
     if (!m_physics_ent)
         { throw RtError{"Player entity deleted before its update task"}; }
     Entity physics_ent{m_physics_ent};

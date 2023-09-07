@@ -207,15 +207,15 @@ void WallTileFactoryBase::operator ()
     // something's gone wrong with tile_loc...
 
     SharedPtr<const RenderModel> ptr{m_top_model};
-    add_visual_entity_with(callbacks, Translation{translation}, std::move(ptr));
+    add_visual_entity_with(callbacks, ModelTranslation{translation}, std::move(ptr));
 
     // wall graphics
     add_visual_entity_with
-        (callbacks, Translation{translation}, ensure_wall_graphics(ninfo, callbacks));
+        (callbacks, ModelTranslation{translation}, ensure_wall_graphics(ninfo, callbacks));
 
     // bottom
     add_visual_entity_with
-        (callbacks, Translation{translation}, ensure_bottom_model(ninfo, callbacks));
+        (callbacks, ModelTranslation{translation}, ensure_bottom_model(ninfo, callbacks));
 #   endif
 }
 

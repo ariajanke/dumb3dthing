@@ -124,6 +124,8 @@ public:
 
     SubGrid make_subgrid(const RectangleI &) const;
 
+    SubGrid make_subgrid() const { return SubGrid{m_views}; }
+
     Vector2I next(const Vector2I & r) const noexcept { return m_views.next(r); }
 
     std::size_t size() const noexcept { return m_views.size(); }
