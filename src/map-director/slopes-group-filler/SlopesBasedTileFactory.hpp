@@ -63,34 +63,23 @@ class TileGroup;
 class SlopeGroupNeighborhood final {
 public:
     SlopeGroupNeighborhood
-        (const SlopesGridInterface &, Vector2I tile_loc_on_map,
-         Vector2I maps_spawner_offset);
+        (const SlopesGridInterface &, Vector2I tile_loc_on_map);
 
     Real neighbor_elevation(CardinalDirection) const;
-
-    Vector2I tile_location_on_field() const { return m_loc + m_offset; }
 
 private:
     Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
 
     const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
     Vector2I m_loc;
-    Vector2I m_offset;
 };
 
 class TranslatableTileFactory : public TileFactory {
 protected:
     Vector translation() const { return m_translation; }
-#   if 0
-    Entity make_entity
-        (Platform & platform, Vector2I tile_loc,
-         const SharedPtr<const RenderModel> & model_ptr) const;
-#   endif
+
     void setup_
         (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
-
-    ModelTranslation translation_from_tile_location(const Vector2I & tile_loc) const
-        { return ModelTranslation{m_translation + grid_position_to_v3(tile_loc)}; }
 
 private:
     Vector m_translation;

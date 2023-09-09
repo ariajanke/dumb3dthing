@@ -43,8 +43,7 @@ ProducableSlopeTile::ProducableSlopeTile
 {}
 
 void ProducableSlopeTile::operator ()
-    (const Vector2I & maps_offset,
-     ProducableTileCallbacks & callbacks) const
+    (ProducableTileCallbacks & callbacks) const
 {
     class Impl final : public SlopesGridInterface {
     public:
@@ -58,7 +57,7 @@ void ProducableSlopeTile::operator ()
         const TileFactoryGridPtr & m_grid;
     };
     Impl intf_impl{m_factory_map_layer};
-    SlopeGroupNeighborhood ninfo{intf_impl, m_map_position, maps_offset};
+    SlopeGroupNeighborhood ninfo{intf_impl, m_map_position};
 
     auto factory = (*m_factory_map_layer)(m_map_position);
     (*factory)(ninfo, callbacks);

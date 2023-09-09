@@ -112,16 +112,6 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
     m_translation = *properties.for_value
         ("translation", Optional<Vector>{}, parse_vector);
 }
-#if 0
-/* protected */ Entity
-    TranslatableTileFactory::make_entity
-    (Platform & platform, Vector2I tile_loc,
-     const SharedPtr<const RenderModel> & model_ptr) const
-{
-    return TileFactory::make_entity(platform,
-        m_translation + grid_position_to_v3(tile_loc), model_ptr);
-}
-#endif
 
 // ----------------------------------------------------------------------------
 
@@ -179,44 +169,23 @@ void WallTileFactoryBase::operator ()
     (const SlopeGroupNeighborhood & ninfo,
      ProducableTileCallbacks & callbacks) const
 {
-#   if 0
-    auto & platform = callbacks.platform();
     // physical triangles
     make_physical_triangles(ninfo, callbacks);
 
     // top
-    auto tile_loc = ninfo.tile_location_on_field();
-    callbacks.add(make_entity(platform, tile_loc, m_top_model));
-
-    // wall graphics
-    callbacks.add(make_entity(
-        platform, tile_loc,
-        ensure_wall_graphics(ninfo, platform)));
-
-    // bottom
-    callbacks.add(make_entity(
-        platform, tile_loc, ensure_bottom_model(ninfo, platform)));
-#   else
-    // physical triangles
-    make_physical_triangles(ninfo, callbacks);
-
-    // top
-    auto translation =
-        translation_from_tile_location(ninfo.tile_location_on_field());
-
-    // something's gone wrong with tile_loc...
-
     SharedPtr<const RenderModel> ptr{m_top_model};
-    add_visual_entity_with(callbacks, ModelTranslation{translation}, std::move(ptr));
+    add_visual_entity_with(callbacks, std::move(ptr)).
+        get<ModelTranslation>() += translation();
 
     // wall graphics
     add_visual_entity_with
-        (callbacks, ModelTranslation{translation}, ensure_wall_graphics(ninfo, callbacks));
+        (callbacks, ensure_wall_graphics(ninfo, callbacks)).
+        get<ModelTranslation>() += translation();
 
     // bottom
     add_visual_entity_with
-        (callbacks, ModelTranslation{translation}, ensure_bottom_model(ninfo, callbacks));
-#   endif
+        (callbacks, ensure_bottom_model(ninfo, callbacks)).
+        get<ModelTranslation>() += translation();
 }
 
 Slopes WallTileFactoryBase::computed_tile_elevations
@@ -243,11 +212,10 @@ void WallTileFactoryBase::make_physical_triangles
      ProducableTileCallbacks & callbacks) const
 {
     auto elvs = computed_tile_elevations(neighborhood);
-    auto offset = grid_position_to_v3(neighborhood.tile_location_on_field());
     make_triangles(
         elvs, k_physical_dip_thershold, k_both_flats_and_wall,
-        TriangleAdder::make([&callbacks, offset](const Triangle & triangle)
-    { callbacks.add_collidable(triangle.move(offset)); }));
+        TriangleAdder::make([&callbacks](const Triangle & triangle)
+    { callbacks.add_collidable(triangle); }));
 }
 
 Slopes WallTileFactoryBase::tile_elevations() const {

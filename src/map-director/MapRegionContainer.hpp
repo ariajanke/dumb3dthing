@@ -72,8 +72,6 @@ private:
 
     using LoadedRegionMap = std::unordered_map
         <Vector2I, LoadedMapRegion, Vector2IHasher>;
-#   if 0
-    LoadedMapRegion * find(const Vector2I &);
-#   endif
+
     LoadedRegionMap m_loaded_regions;
 };

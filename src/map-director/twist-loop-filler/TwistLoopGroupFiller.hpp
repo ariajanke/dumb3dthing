@@ -90,11 +90,10 @@ public:
         m_position_in_group(position_in_group),
         m_twist_group(tile_group) {}
 
-    void operator () (const Vector2I & maps_offset,
-                      ProducableTileCallbacks & callbacks) const final
+    void operator () (ProducableTileCallbacks & callbacks) const final
     {
         (*m_twist_group)
-            (m_position_in_group, m_position_in_map + maps_offset, callbacks);
+            (m_position_in_group, m_position_in_map, callbacks);
     }
 
 private:

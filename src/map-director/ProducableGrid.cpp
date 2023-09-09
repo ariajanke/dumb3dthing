@@ -23,6 +23,11 @@
 
 #include "../TriangleSegment.hpp"
 
+// TEMP
+TriangleSegment TriangleSegmentTransformation::operator ()
+    (const TriangleSegment & triangle) const
+{ return m_scale(triangle).move(translation()); }
+
 void ProducableTileCallbacks::add_collidable
     (const Vector & triangle_point_a,
      const Vector & triangle_point_b,

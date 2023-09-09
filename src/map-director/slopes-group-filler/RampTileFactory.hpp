@@ -32,20 +32,16 @@ public:
         { return translate_y(model_tile_elevations(), translation().y); }
 
 protected:
-#   if 0
-    Entity make_entity(Platform & platform, Vector2I r) const
-        { return TranslatableTileFactory::make_entity(platform, r, m_render_model); }
-#   else
     template <typename ... Types>
-    void add_modeled_entity_with(
+    Entity add_modeled_entity_with(
         ProducableTileCallbacks & callbacks, Types &&... arguments) const
     {
-        add_visual_entity_with
+        return add_visual_entity_with
             <SharedPtr<const RenderModel>, Types...>
             (callbacks, SharedPtr<const RenderModel>{m_render_model},
              std::forward<Types>(arguments)...);
     }
-#   endif
+
     virtual Slopes model_tile_elevations() const = 0;
 
     void setup_(const TileProperties &, Platform &,

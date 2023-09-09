@@ -54,24 +54,9 @@ void MapRegionContainer::set_region
      const SharedPtr<ViewGridTriangle> & triangle_grid,
      std::vector<Entity> && entities)
 {
-#   if 0
-    auto * region = find(on_field_position);
-    if (!region) {
-        region = &m_loaded_regions[on_field_position];
-    }
-#   endif
     auto * region = &m_loaded_regions[on_field_position];
-
     region->entities = std::move(entities);
     region->region_size = triangle_grid->size2();
     region->triangle_links = triangle_grid;
     region->keep_on_refresh = true;
 }
-#if 0
-/* private */ MapRegionContainer::LoadedMapRegion *
-    MapRegionContainer::find(const Vector2I & r)
-{
-    auto itr = m_loaded_regions.find(r);
-    return itr == m_loaded_regions.end() ? nullptr : &itr->second;
-}
-#endif

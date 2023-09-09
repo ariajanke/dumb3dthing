@@ -72,14 +72,16 @@ using cul::size_of, cul::top_left_of;
 }
 
 void NorthSouthTwistTileGroup::operator ()
-    (const Vector2I & position_in_group, const Vector2I & tile_offset,
+    (const Vector2I & position_in_group, const Vector2I &,
      ProducableTileCallbacks & callbacks) const
 {
+#   if 0
     // I forgot the formula
     auto v3_offset = TileFactory::grid_position_to_v3(tile_offset)
         + k_twisty_origin;
+#   endif
     for (auto & triangle : m_collision_triangles(position_in_group)) {
-        callbacks.add_collidable(triangle.move(v3_offset));
+        callbacks.add_collidable(triangle.move(k_twisty_origin));
     }
 #   if 0
     for (auto & triangle : m_collision_triangles(position_in_group)) {
@@ -96,9 +98,10 @@ void NorthSouthTwistTileGroup::operator ()
     auto mod = callbacks.make_render_model();
     auto & [elements, vertices] = m_elements_vertices(position_in_group);
     mod->load(elements, vertices);
-    callbacks.
-        add_entity<SharedPtr<const RenderModel>, ModelTranslation, ModelVisibility>
-        (std::move(mod), ModelTranslation{v3_offset}, ModelVisibility{});
+    auto e = callbacks.
+        add_entity<SharedPtr<const RenderModel>, ModelVisibility>
+        (std::move(mod), ModelVisibility{});
+    e.get<ModelTranslation>() += k_twisty_origin;
 #   endif
 }
 

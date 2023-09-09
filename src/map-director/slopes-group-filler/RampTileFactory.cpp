@@ -30,19 +30,13 @@ using namespace cul::exceptions_abbr;
 } // end of <anonymous> namespace
 
 void SingleModelSlopedTileFactory::operator ()
-    (const SlopeGroupNeighborhood & nhood,
+    (const SlopeGroupNeighborhood &,
      ProducableTileCallbacks & callbacks) const
 {
-    auto r = nhood.tile_location_on_field();
-
     TileFactory::add_triangles_based_on_model_details
-        (r, translation(), model_tile_elevations(), callbacks);
-#   if 0
-    callbacks.add(make_entity(callbacks.platform(), r));
-#   else
-    auto model_translation = translation_from_tile_location(nhood.tile_location_on_field());
-    add_modeled_entity_with<ModelTranslation>(callbacks, std::move(model_translation));
-#   endif
+        (translation(), model_tile_elevations(), callbacks);
+    add_modeled_entity_with(callbacks).
+        get<ModelTranslation>() += translation();
 }
 
 /* protected */ void SingleModelSlopedTileFactory::setup_

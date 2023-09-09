@@ -125,12 +125,6 @@ public:
         (const Vector2I & on_field_position,
          const Vector2I & maps_offset /* name? */);
 
-    // | do these seem relate?
-    // v they are but... word choice?
-    void on_producable_run
-        (ProducableTile & producable,
-         ProducableTileCallbacks & callbacks) const;
-
     Vector2I on_field_position() const;
 };
 
@@ -246,7 +240,7 @@ void TiledMapRegion::process_load_request
      RegionLoadCollectorBase & collector)
 {
     process_load_request_
-        (m_producables_view_grid.make_subgrid(RectangleI{7, 7, 16, 16}),
+        (m_producables_view_grid.make_subgrid(),//RectangleI{7, 7, 16, 16}),
          request,
          offset,
          collector);
@@ -275,8 +269,9 @@ void TiledMapRegion::process_limited_load_request
     auto subgrid = m_producables_view_grid.
         make_subgrid(RectangleI{position_in_region, subgrid_size});
 
+    TriangleSegmentTransformation triangle_trans{m_scale, offset};
     collector.collect_load_job
-        (on_field_position, offset, subgrid, m_scale);
+        (on_field_position, subgrid, triangle_trans);
 }
 
 /* private */ void TiledMapRegion::process_load_request_
@@ -295,15 +290,15 @@ void TiledMapRegion::process_limited_load_request
             // on scaling...
             // I'm not sure this would work well with composite maps...
             overlaps_with(m_scale(RectangleI{on_field_position, subgrid_size}));
-        if (!overlaps_this_subregion) return;
+        if (!overlaps_this_subregion) continue;
 
         auto subgrid = producables.
             make_sub_grid(r, subgrid_size.width, subgrid_size.height);
 
         collector.
-        //                   v for subgid       v for parent map
-            collect_load_job(on_field_position, spawn_offset - Vector2I{1, 1}*7,
-                             subgrid, m_scale);
+        //                   v for subgid
+            collect_load_job(on_field_position,
+                             subgrid, TriangleSegmentTransformation{m_scale, on_field_position});
     }}
 }
 

@@ -30,11 +30,9 @@ using namespace cul::exceptions_abbr;
 } // end of <anonymous> namespace
 
 SlopeGroupNeighborhood::SlopeGroupNeighborhood
-    (const SlopesGridInterface & slopesintf, Vector2I tilelocmap,
-     Vector2I spawner_offset):
+    (const SlopesGridInterface & slopesintf, Vector2I tilelocmap):
     m_grid(&slopesintf),
-    m_loc(tilelocmap),
-    m_offset(spawner_offset)
+    m_loc(tilelocmap)
 {}
 
 Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {

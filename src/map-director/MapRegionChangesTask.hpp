@@ -36,9 +36,8 @@ public:
     RegionLoadJob() {}
 
     RegionLoadJob(const Vector2I & on_field_position,
-                  const Vector2I & maps_offset,
                   const ProducableSubGrid &,
-                  const ScaleComputation &);
+                  const TriangleSegmentTransformation &);
 
     void operator () (MapRegionContainer &,
                       RegionEdgeConnectionsAdder &,
@@ -46,9 +45,8 @@ public:
 
 private:
     Vector2I m_on_field_position;
-    Vector2I m_parent_maps_position;
     ProducableSubGrid m_subgrid;
-    ScaleComputation m_scale;
+    TriangleSegmentTransformation m_triangle_transformation;
 };
 
 class RegionDecayJob final {
@@ -75,9 +73,8 @@ public:
 
     void collect_load_job
         (const Vector2I & on_field_position,
-         const Vector2I & maps_offset,
          const ProducableSubGrid &,
-         const ScaleComputation &) final;
+         const TriangleSegmentTransformation &) final;
 
     RegionDecayCollector finish();
 

@@ -37,9 +37,8 @@ public:
 
     virtual void collect_load_job
         (const Vector2I & on_field_position,
-         const Vector2I & maps_offset,
          const ProducableSubGrid &,
-         const ScaleComputation &) = 0;
+         const TriangleSegmentTransformation &) = 0;
 };
 
 class MapRegion {
@@ -56,43 +55,6 @@ public:
          const Vector2I & spawn_offset,
          const RectangleI & grid_scope,
          RegionLoadCollectorBase &) = 0;
-};
-
-class ScaleComputation final {
-public:
-    static Optional<ScaleComputation> parse(const char *);
-
-    ScaleComputation() {}
-
-    ScaleComputation(Real eastwest_factor,
-                     Real updown_factor,
-                     Real northsouth_factor);
-
-    TriangleSegment operator () (const TriangleSegment &) const;
-
-    Vector operator () (const Vector & r) const
-        { return scale(r); }
-
-    RectangleI operator () (const RectangleI & rect) const {
-        auto scale_ = [] (Real x, int n)
-            { return int(std::round(x*n)); };
-        auto scale_x = [this, &scale_] (int n)
-            { return scale_(m_factor.x, n); };
-        auto scale_z = [this, &scale_] (int n)
-            { return scale_(m_factor.z, n); };
-        return RectangleI
-            {scale_x(rect.left ), scale_z(rect.top   ),
-             scale_x(rect.width), scale_z(rect.height)};
-    }
-
-    ModelScale to_model_scale() const;
-
-private:
-    static constexpr Vector k_no_scaling{1, 1, 1};
-
-    Vector scale(const Vector &) const;
-
-    Vector m_factor = k_no_scaling;
 };
 
 class TiledMapRegion final : public MapRegion {

@@ -49,7 +49,7 @@ public:
 
 protected:
     static void add_triangles_based_on_model_details
-        (Vector2I gridloc, Vector translation, const Slopes & slopes,
+        (const Vector & translation, const Slopes & slopes,
          ProducableTileCallbacks & callbacks);
 
     static std::array<Vector, 4> get_points_for(const Slopes &);
@@ -60,13 +60,9 @@ protected:
         { return m_texture_ptr; }
 
     std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) const;
-#   if 0
-    Entity make_entity(Platform & platform, Vector translation,
-                       const SharedPtr<const RenderModel> & model_ptr) const;
-#   endif
 
     template <typename ... Types>
-    void add_visual_entity_with(
+    Entity add_visual_entity_with(
         ProducableTileCallbacks & callbacks, Types &&... arguments) const;
 
     SharedPtr<const RenderModel> make_render_model_with_common_texture_positions
@@ -92,7 +88,7 @@ private:
 };
 
 template <typename ... Types>
-void TileFactory::add_visual_entity_with(
+Entity TileFactory::add_visual_entity_with(
     ProducableTileCallbacks & callbacks, Types &&... arguments) const
 {
     static_assert
@@ -100,7 +96,7 @@ void TileFactory::add_visual_entity_with(
          template RemoveIf<std::is_reference>::
          template kt_equal_to_list<Types...>,
         "No reference types allowed");
-    callbacks.add_entity
+    return callbacks.add_entity
         <SharedPtr<const Texture>, ModelVisibility, Types...>
         (common_texture(), ModelVisibility{true}, std::forward<Types>(arguments)...);
 }

@@ -44,7 +44,7 @@ private:
 
 class RegionLoadRequest final {
 public:
-    static constexpr Size2I k_default_max_region_size = Size2I{2, 2}; //Size2I{10, 10};
+    static constexpr Size2I k_default_max_region_size = Size2I{10, 10};
     static constexpr Real k_triangle_area = 0.5*16*10;
     static constexpr auto k_plane_normal  = k_up;
 

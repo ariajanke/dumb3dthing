@@ -33,9 +33,7 @@ public:
         (const Vector2I & map_position,
          const TileFactoryGridPtr & factory_map_layer);
 
-    void operator ()
-        (const Vector2I & maps_offset,
-         ProducableTileCallbacks & callbacks) const final;
+    void operator () (ProducableTileCallbacks & callbacks) const final;
 
 private:
     Vector2I m_map_position;
