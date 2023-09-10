@@ -108,94 +108,47 @@ Vector ScaleComputation::scale(const Vector & r) const
 
 // ----------------------------------------------------------------------------
 
+void SubRegionPositionFraming::set_containers_with
+    (SharedPtr<ViewGridTriangle> && triangle_grid_ptr,
+     std::vector<Entity> && entities,
+     MapRegionContainer & container,
+     RegionEdgeConnectionsAdder & edge_container_adder) const
+{
+    container.set_region
+        (m_on_field_position, triangle_grid_ptr, std::move(entities));
+    edge_container_adder.add(m_on_field_position, triangle_grid_ptr);
+}
+
+// ----------------------------------------------------------------------------
+
 TiledMapRegion::TiledMapRegion
     (ProducableTileViewGrid && producables_view_grid,
      ScaleComputation && scale_computation):
     m_producables_view_grid(std::move(producables_view_grid)),
     m_scale(std::move(scale_computation)) {}
 
-// TileMapSubRegion?
-// PositionFraming?
-
-class OnFieldPositionFraming final {
-public:
-    // scale feels like it's a part of region framing (belongs here?)
-
-    OnFieldPositionFraming
-        (const Vector2I & on_field_position,
-         const Vector2I & maps_offset /* name? */);
-
-    Vector2I on_field_position() const;
-};
-
-class RegionPositionFraming final {
-public:
-    using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
-
-    RegionPositionFraming
-        (const Vector2I & spawn_offset,
-         const Vector2I & sub_region_position = Vector2I{});
-
-    template <typename OverlapFuncT>
-    void for_each_overlap(const ScaleComputation & scale,
-                          const RegionLoadRequest & request,
-                          const Size2I & region_size,
-                          OverlapFuncT && f) const;
-
-private:
-    struct OverlapFunc {
-        virtual ~OverlapFunc() {}
-
-        virtual void operator ()
-            (const RectangleI & sub_region,
-             const OnFieldPositionFraming &) const;
-    };
-
-    void for_each_overlap_(const ScaleComputation & scale,
-                           const RegionLoadRequest & request,
-                           const Size2I & region_size,
-                           const OverlapFunc & f) const
-    {
-        const auto step = region_load_step(region_size, request);
-        const auto subgrid_size = cul::convert_to<Size2I>(step);
-        for (Vector2I r; r.x < region_size.width ; r.x += step.x) {
-        for (r.y = 0   ; r.y < region_size.height; r.y += step.y) {
-            auto on_field_position = m_spawn_offset + r;
-            bool overlaps_this_subregion = request.
-                overlaps_with(scale(RectangleI{on_field_position, subgrid_size}));
-            if (!overlaps_this_subregion) return;
-
-            OnFieldPositionFraming framing
-                {on_field_position, m_spawn_offset - m_sub_region_position};
-            f(RectangleI{r, subgrid_size}, framing);
-        }}
-    }
-
-    Vector2I m_spawn_offset;
-    Vector2I m_sub_region_position;
-};
-
-template <typename OverlapFuncT>
-void RegionPositionFraming::for_each_overlap
+/* private */ void RegionPositionFraming::for_each_overlap_
     (const ScaleComputation & scale,
      const RegionLoadRequest & request,
      const Size2I & region_size,
-     OverlapFuncT && f) const
+     const OverlapFunc & f) const
 {
-    class Impl final : public OverlapFunc {
-    public:
-        explicit Impl(OverlapFuncT && f): m_f(std::move(f)) {}
+    const auto step = region_load_step(region_size, request);
+    const auto subgrid_size = cul::convert_to<Size2I>(step);
+    for (Vector2I r; r.x < region_size.width ; r.x += step.x) {
+    for (r.y = 0   ; r.y < region_size.height; r.y += step.y) {
+        auto on_field_position = m_spawn_offset + r;
+        bool overlaps_this_subregion = request.
+            overlaps_with(scale(RectangleI{on_field_position, subgrid_size}));
+        if (!overlaps_this_subregion) continue;
 
-        void operator ()
-            (const RectangleI & sub_region,
-             const OnFieldPositionFraming & framing) const final
-        { m_f(sub_region, framing); }
+        // m_spawn_offset - m_sub_region_position??
 
-    private:
-        OverlapFuncT m_f;
-    };
-    for_each_overlap_(scale, request, region_size, Impl{std::move(f)});
+        f(RectangleI{r, subgrid_size},
+          SubRegionPositionFraming{scale, on_field_position});
+    }}
 }
+
 
 // takes the space of exactly one tile in the composite map
 class TiledMapSubRegion final {
@@ -222,9 +175,10 @@ public:
         framing.for_each_overlap
             (ScaleComputation{}, request,
              Size2I{10, 10},
-             [](const RectangleI & rect, const OnFieldPositionFraming & framing)
+             [](const RectangleI & rect, const SubRegionPositionFraming & framing)
         {
-            framing.on_field_position();
+
+            //framing.on_field_position();
             // framing.on_producable_run()
         });
     }
@@ -236,27 +190,23 @@ private:
 
 void TiledMapRegion::process_load_request
     (const RegionLoadRequest & request,
-     const Vector2I & offset,
+     const RegionPositionFraming & framing,
      RegionLoadCollectorBase & collector)
 {
     process_load_request_
-        (m_producables_view_grid.make_subgrid(),//RectangleI{7, 7, 16, 16}),
-         request,
-         offset,
-         collector);
+        (m_producables_view_grid.make_subgrid(),
+         request, framing, collector);
 }
 
 void TiledMapRegion::process_limited_load_request
     (const RegionLoadRequest & request,
-     const Vector2I & spawn_offset,
+     const RegionPositionFraming & framing,
      const RectangleI & grid_scope,
      RegionLoadCollectorBase & collector)
 {
     process_load_request_
         (m_producables_view_grid.make_subgrid(grid_scope),
-         request,
-         spawn_offset,
-         collector);
+         request, framing, collector);
 }
 
 /* private */ void TiledMapRegion::collect_producables
@@ -268,43 +218,30 @@ void TiledMapRegion::process_limited_load_request
     auto on_field_position = offset + position_in_region;
     auto subgrid = m_producables_view_grid.
         make_subgrid(RectangleI{position_in_region, subgrid_size});
-
-    TriangleSegmentTransformation triangle_trans{m_scale, offset};
-    collector.collect_load_job
-        (on_field_position, subgrid, triangle_trans);
 }
 
 /* private */ void TiledMapRegion::process_load_request_
     (ProducableTileViewGrid::SubGrid producables,
      const RegionLoadRequest & request,
-     const Vector2I & spawn_offset,
+     const RegionPositionFraming & region_position_framing,
      RegionLoadCollectorBase & collector)
 {
-    const auto producables_size = producables.size2();
-    const auto step = region_load_step(producables_size, request);
-    const auto subgrid_size = cul::convert_to<Size2I>(step);
-    for (Vector2I r; r.x < producables_size.width ; r.x += step.x) {
-    for (r.y = 0   ; r.y < producables_size.height; r.y += step.y) {
-        auto on_field_position = spawn_offset + r;
-        bool overlaps_this_subregion = request.
-            // on scaling...
-            // I'm not sure this would work well with composite maps...
-            overlaps_with(m_scale(RectangleI{on_field_position, subgrid_size}));
-        if (!overlaps_this_subregion) continue;
-
-        auto subgrid = producables.
-            make_sub_grid(r, subgrid_size.width, subgrid_size.height);
-
-        collector.
-        //                   v for subgid
-            collect_load_job(on_field_position,
-                             subgrid, TriangleSegmentTransformation{m_scale, on_field_position});
-    }}
+    auto collect_load_jobs = [&producables, &collector]
+        (const RectangleI & subregion_bounds,
+         const SubRegionPositionFraming & region_framing)
+    {
+        collector.collect_load_job
+            (region_framing,
+             producables.make_sub_grid(cul::top_left_of(subregion_bounds), subregion_bounds.width, subregion_bounds.height));
+    };
+    region_position_framing.
+        for_each_overlap(m_scale, request, producables.size2(),
+                         std::move(collect_load_jobs));
 }
 
 void CompositeMapRegion::process_load_request
     (const RegionLoadRequest & request,
-     const Vector2I & spawn_offset,
+     const RegionPositionFraming &,
      RegionLoadCollectorBase & collector)
 {
     // will need to be able to spawn tasks
@@ -323,7 +260,7 @@ void CompositeMapRegion::process_load_request
 
 void CompositeMapRegion::process_limited_load_request
     (const RegionLoadRequest &,
-     const Vector2I & spawn_offset,
+     const RegionPositionFraming &,
      const RectangleI & grid_scope,
      RegionLoadCollectorBase &)
 {}

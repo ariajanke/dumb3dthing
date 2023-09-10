@@ -25,12 +25,14 @@ namespace {
 
 using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
+// has two jobs :/
+// becomes an entity and link grid adder
 class EntityAndLinkInsertingAdder final : public ProducableTileCallbacks {
 public:
     EntityAndLinkInsertingAdder
         (LoaderTask::Callbacks &,
          Size2I grid_size,
-         const TriangleSegmentTransformation &);
+         const TilePositionFraming &);
 
     SharedPtr<RenderModel> make_render_model() final;
 
@@ -39,31 +41,29 @@ public:
     Entity add_entity_() final;
 
     void advance_grid_position()
-        { m_triangle_inserter.advance(); }
+        { m_tile_framing = m_tile_framing.advance_with(m_triangle_inserter); }
 
     void add_loader(const SharedPtr<LoaderTask> &) final {}
 
-    void finish_into
-        (const Vector2I & on_field_position,
-         MapRegionContainer &,
-         RegionEdgeConnectionsAdder &);
+    std::vector<Entity> finish_adding_entites();
+
+    SharedPtr<ViewGridTriangle> finish_adding_triangles();
+
+    // wants a finish method
 
 private:
     ModelScale model_scale() const final
-        { return triangle_transformation().model_scale(); }
+        { return m_tile_framing.model_scale(); }
 
     ModelTranslation model_translation() const final
-        { return triangle_transformation().model_translation(); }
+        { return m_tile_framing.model_translation(); }
 
     ViewGridTriangle finish_triangle_grid();
-
-    TriangleSegmentTransformation triangle_transformation() const
-        { return m_triangle_transformation.move_by_tiles(m_triangle_inserter.position()); }
 
     LoaderTask::Callbacks & m_callbacks;
     ViewGridInserter<TriangleSegment> m_triangle_inserter;
     std::vector<Entity> m_entities;
-    TriangleSegmentTransformation m_triangle_transformation;
+    TilePositionFraming m_tile_framing;
 };
 
 void link_triangles(ViewGridTriangle &);
@@ -71,12 +71,10 @@ void link_triangles(ViewGridTriangle &);
 } // end of <anonymous> namespace
 
 RegionLoadJob::RegionLoadJob
-    (const Vector2I & on_field_position,
-     const ProducableSubGrid & subgrid,
-     const TriangleSegmentTransformation & triangle_transformation):
-    m_on_field_position(on_field_position),
-    m_subgrid(subgrid),
-    m_triangle_transformation(triangle_transformation) {}
+    (const SubRegionPositionFraming & sub_region_framing,
+     const ProducableSubGrid & subgrid):
+    m_sub_region_framing(sub_region_framing),
+    m_subgrid(subgrid) {}
 
 void RegionLoadJob::operator ()
     (MapRegionContainer & container,
@@ -84,15 +82,17 @@ void RegionLoadJob::operator ()
      LoaderTask::Callbacks & callbacks) const
 {
     EntityAndLinkInsertingAdder triangle_entities_adder
-        {callbacks, m_subgrid.size2(), m_triangle_transformation};
+        {callbacks, m_subgrid.size2(), m_sub_region_framing.tile_framing()};
     for (auto & producables_view : m_subgrid) {
         for (auto producable : producables_view) {
             (*producable)(triangle_entities_adder);
         }
         triangle_entities_adder.advance_grid_position();
     }
-    triangle_entities_adder.finish_into
-        (m_on_field_position, container, edge_container_adder);
+    m_sub_region_framing.set_containers_with
+        (triangle_entities_adder.finish_adding_triangles(),
+         triangle_entities_adder.finish_adding_entites(),
+         container, edge_container_adder);
 }
 
 // ----------------------------------------------------------------------------
@@ -125,17 +125,15 @@ RegionLoadCollector::RegionLoadCollector
     m_container(container_) {}
 
 void RegionLoadCollector::collect_load_job
-    (const Vector2I & on_field_position,
-     const ProducableSubGrid & subgrid,
-     const TriangleSegmentTransformation & triangle_transformation)
+    (const SubRegionPositionFraming & sub_region_framing,
+     const ProducableSubGrid & subgrid)
 {
-    if (auto refresh = m_container.region_refresh_at(on_field_position)) {
+    if (auto refresh = sub_region_framing.region_refresh_for(m_container)) {// .region_refresh_at(on_field_position)) {
         refresh->keep_this_frame();
         return;
     }
 
-    m_entries.emplace_back
-        (on_field_position, subgrid, triangle_transformation);
+    m_entries.emplace_back(sub_region_framing, subgrid);
 }
 
 RegionDecayCollector RegionLoadCollector::finish()
@@ -203,24 +201,19 @@ SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
 EntityAndLinkInsertingAdder::EntityAndLinkInsertingAdder
     (LoaderTask::Callbacks & callbacks,
      Size2I grid_size,
-     const TriangleSegmentTransformation & triangle_transformation):
+     const TilePositionFraming & tile_framing):
     m_callbacks(callbacks),
     m_triangle_inserter(grid_size),
-    m_triangle_transformation(triangle_transformation) {}
+    m_tile_framing(tile_framing) {}
 
-void EntityAndLinkInsertingAdder::finish_into
-    (const Vector2I & on_field_position,
-     MapRegionContainer & container,
-     RegionEdgeConnectionsAdder & edge_container_adder)
-{
-    auto triangle_grid_ptr =
-        make_shared<ViewGridTriangle>(finish_triangle_grid());
-    for (auto & e : m_entities) {
-        m_callbacks.add(e);
-    }
-    container.set_region
-        (on_field_position, triangle_grid_ptr, std::move(m_entities));
-    edge_container_adder.add(on_field_position, std::move(triangle_grid_ptr));
+std::vector<Entity> EntityAndLinkInsertingAdder::finish_adding_entites() {
+    for (auto & e : m_entities)
+        { m_callbacks.add(e); }
+    return std::move(m_entities);
+}
+
+SharedPtr<ViewGridTriangle> EntityAndLinkInsertingAdder::finish_adding_triangles() {
+    return make_shared<ViewGridTriangle>(finish_triangle_grid());
 }
 
 SharedPtr<RenderModel> EntityAndLinkInsertingAdder::make_render_model()
@@ -228,7 +221,7 @@ SharedPtr<RenderModel> EntityAndLinkInsertingAdder::make_render_model()
 
 void EntityAndLinkInsertingAdder::add_collidable_
     (const TriangleSegment & triangle_segment)
-{ m_triangle_inserter.push(triangle_transformation()(triangle_segment)); }
+{ m_triangle_inserter.push(m_tile_framing.transform(triangle_segment)); }
 
 Entity EntityAndLinkInsertingAdder::add_entity_() {
     auto e = m_callbacks.platform().make_renderable_entity();

@@ -36,7 +36,8 @@ void MapRegionTracker::process_load_requests
     MapRegionTracker::process_into_decay_collector
     (const RegionLoadRequest & request, RegionLoadCollector && collector)
 {
-    m_root_region->process_load_request(request, Vector2I{}, collector);
+    m_root_region->process_load_request
+        (request, RegionPositionFraming{Vector2I{}}, collector);
     return collector.finish();
 }
 

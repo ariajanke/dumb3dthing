@@ -35,18 +35,15 @@ public:
 
     RegionLoadJob() {}
 
-    RegionLoadJob(const Vector2I & on_field_position,
-                  const ProducableSubGrid &,
-                  const TriangleSegmentTransformation &);
+    RegionLoadJob(const SubRegionPositionFraming &, const ProducableSubGrid &);
 
     void operator () (MapRegionContainer &,
                       RegionEdgeConnectionsAdder &,
                       LoaderTask::Callbacks &) const;
 
 private:
-    Vector2I m_on_field_position;
+    SubRegionPositionFraming m_sub_region_framing;
     ProducableSubGrid m_subgrid;
-    TriangleSegmentTransformation m_triangle_transformation;
 };
 
 class RegionDecayJob final {
@@ -72,9 +69,7 @@ public:
     explicit RegionLoadCollector(MapRegionContainer &);
 
     void collect_load_job
-        (const Vector2I & on_field_position,
-         const ProducableSubGrid &,
-         const TriangleSegmentTransformation &) final;
+        (const SubRegionPositionFraming &, const ProducableSubGrid &) final;
 
     RegionDecayCollector finish();
 
