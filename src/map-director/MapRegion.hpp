@@ -20,10 +20,7 @@
 
 #pragma once
 
-#include "ProducableGrid.hpp"
-#include "MapRegionContainer.hpp"
-
-#include "../TriangleSegment.hpp"
+#include "RegionPositionFraming.hpp"
 
 #include <unordered_map>
 
@@ -33,127 +30,6 @@ class MapRegionContainer;
 class ScaleComputation;
 class RegionEdgeConnectionsAdder;
 
-class TilePositionFraming final {
-public:
-    TilePositionFraming() {}
-
-    TilePositionFraming
-        (const ScaleComputation & scale,
-         const Vector2I & on_field_position,
-         const Vector2I & inserter_position = Vector2I{}):
-        m_scale(scale),
-        m_on_field_region_position(on_field_position),
-        m_on_field_tile_position(on_field_position + inserter_position) {}
-
-    TriangleSegment transform(const TriangleSegment & triangle) const
-        { return triangle_transformation()(triangle); }
-
-    ModelScale model_scale() const
-        { return triangle_transformation().model_scale(); }
-
-    ModelTranslation model_translation() const
-        { return triangle_transformation().model_translation(); }
-
-    template <typename T>
-    TilePositionFraming advance_with(ViewGridInserter<T> & inserter) const {
-        inserter.advance();
-        return TilePositionFraming
-            {m_scale, m_on_field_region_position, inserter.position()};
-    }
-
-private:
-    TriangleSegmentTransformation triangle_transformation() const
-        { return TriangleSegmentTransformation{m_scale, m_on_field_tile_position}; }
-
-    ScaleComputation m_scale;
-    Vector2I m_on_field_region_position;
-    Vector2I m_on_field_tile_position;
-};
-
-class SubRegionPositionFraming final {
-public:
-    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
-
-    SubRegionPositionFraming() {}
-
-    SubRegionPositionFraming
-        (const ScaleComputation & scale,
-         const Vector2I & on_field_position):
-        m_scale(scale),
-        m_on_field_position(on_field_position) {}
-
-    TilePositionFraming tile_framing() const
-        { return TilePositionFraming{m_scale, m_on_field_position}; }
-
-    void set_containers_with
-        (SharedPtr<ViewGridTriangle> && triangle_grid,
-         std::vector<Entity> && entities,
-         MapRegionContainer & container,
-         RegionEdgeConnectionsAdder & edge_container_adder) const;
-
-    auto region_refresh_for(MapRegionContainer & container) const
-        { return container.region_refresh_at(m_on_field_position); }
-
-private:
-    ScaleComputation m_scale;
-    Vector2I m_on_field_position;
-};
-
-class RegionPositionFraming final {
-public:
-    using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
-
-    RegionPositionFraming
-        (const Vector2I & spawn_offset,
-         const Vector2I & sub_region_position = Vector2I{}):
-        m_spawn_offset(spawn_offset),
-        m_sub_region_position(sub_region_position) {}
-
-    template <typename OverlapFuncT>
-    void for_each_overlap(const ScaleComputation & scale,
-                          const RegionLoadRequest & request,
-                          const Size2I & region_size,
-                          OverlapFuncT && f) const;
-
-private:
-    struct OverlapFunc {
-        virtual ~OverlapFunc() {}
-
-        virtual void operator ()
-            (const RectangleI & sub_region,
-             const SubRegionPositionFraming &) const = 0;
-    };
-
-    void for_each_overlap_(const ScaleComputation & scale,
-                           const RegionLoadRequest & request,
-                           const Size2I & region_size,
-                           const OverlapFunc & f) const;
-
-    Vector2I m_spawn_offset;
-    Vector2I m_sub_region_position;
-};
-
-template <typename OverlapFuncT>
-void RegionPositionFraming::for_each_overlap
-    (const ScaleComputation & scale,
-     const RegionLoadRequest & request,
-     const Size2I & region_size,
-     OverlapFuncT && f) const
-{
-    class Impl final : public OverlapFunc {
-    public:
-        explicit Impl(OverlapFuncT && f): m_f(std::move(f)) {}
-
-        void operator ()
-            (const RectangleI & sub_region,
-             const SubRegionPositionFraming & framing) const final
-        { m_f(sub_region, framing); }
-
-    private:
-        OverlapFuncT m_f;
-    };
-    for_each_overlap_(scale, request, region_size, Impl{std::move(f)});
-}
 
 class RegionLoadCollectorBase {
 public:
@@ -198,12 +74,6 @@ public:
          RegionLoadCollectorBase &) final;
 
 private:
-    void collect_producables
-        (const Vector2I & position_in_region,
-         const Vector2I & offset,
-         const Size2I & subgrid_size,
-         RegionLoadCollectorBase &);
-
     void process_load_request_
         (ProducableTileViewGrid::SubGrid producables,
          const RegionLoadRequest &,
@@ -218,37 +88,87 @@ private:
     ScaleComputation m_scale;
 };
 
-// CompositeMapTileSet
-// - each tile represents a region in a tiled map
+class MapSubRegion final {
+public:
+    MapSubRegion() {}
 
+    MapSubRegion
+        (const RectangleI & sub_region_bounds,
+         const SharedPtr<MapRegion> & parent_region):
+        m_sub_region_bounds(sub_region_bounds),
+        m_parent_region(parent_region) {}
+
+    void process_load_request
+        (const RegionLoadRequest & request,
+         const RegionPositionFraming & framing,
+         RegionLoadCollectorBase & collector) const
+    {
+        m_parent_region->process_limited_load_request
+            (request, framing, m_sub_region_bounds, collector);
+    }
+
+private:
+    RectangleI m_sub_region_bounds;
+    SharedPtr<MapRegion> m_parent_region;
+};
 
 class CompositeMapRegion final : public MapRegion {
 public:
+    CompositeMapRegion() {}
+
+    CompositeMapRegion
+        (Grid<MapSubRegion> && sub_regions_grid,
+         const ScaleComputation & scale):
+        m_sub_regions(std::move(sub_regions_grid)),
+        m_scale(scale) {}
 
     void process_load_request
-        (const RegionLoadRequest &,
-         const RegionPositionFraming &,
-         RegionLoadCollectorBase &) final;
+        (const RegionLoadRequest & request,
+         const RegionPositionFraming & framing,
+         RegionLoadCollectorBase & collector) final
+    {
+        MapSubRegionSubGrid subgrid{m_sub_regions};
+         collect_load_tasks(request, framing, subgrid, collector);
+    }
 
     void process_limited_load_request
-        (const RegionLoadRequest &,
-         const RegionPositionFraming &,
+        (const RegionLoadRequest & request,
+         const RegionPositionFraming & framing,
          const RectangleI & grid_scope,
-         RegionLoadCollectorBase &) final;
+         RegionLoadCollectorBase & collector) final
+    {
+         MapSubRegionSubGrid subgrid{m_sub_regions, cul::top_left_of(grid_scope), grid_scope.width, grid_scope.height};
+         collect_load_tasks(request, framing, subgrid, collector);
+    }
+
 private:
+    using MapSubRegionGrid = Grid<MapSubRegion>;
+    using MapSubRegionSubGrid = cul::ConstSubGrid<MapSubRegionGrid::Element>;
 
     void collect_load_tasks
-        (const Vector2I & position_in_region,
-         const Vector2I & offset,
-         const Size2I & subgrid_size,
-         RegionLoadCollectorBase & collector);
+        (const RegionLoadRequest & request,
+         const RegionPositionFraming & framing,
+         const MapSubRegionSubGrid & subgrid,
+         RegionLoadCollectorBase & collector)
+    {
+        auto on_overlap =
+            [&collector, &subgrid, &request, &framing]
+            (const RectangleI & sub_region,
+             const ScaleComputation & scale, // ??
+             const Vector2I & on_field_position)
+        {
+            auto subsubgrid = subgrid.make_sub_grid
+                (top_left_of(sub_region), sub_region.width, sub_region.height);
+            for (Vector2I r; r != subsubgrid.end_position(); r = subsubgrid.next(r)) {
+                auto sub = subsubgrid(r);
+                auto subframing = framing.move(on_field_position + top_left_of(sub_region) + scale(r));
+                sub.process_load_request(request, subframing, collector);
+            }
+        };
+        framing.for_each_overlap
+            (m_scale, request, subgrid.size2(), std::move(on_overlap));
+    }
 
-    // not just MapRegions, but how to load them...
-    // is it a view grid? not really
-    // want to support 3D? nah, not for this "ticket"
-    //
-    // A tile is a chunk of map from the TiledMapRegion
-    // Yet, only tilesets may speak of tiles in that fashion
-
-
+    Grid<MapSubRegion> m_sub_regions;
+    ScaleComputation m_scale;
 };

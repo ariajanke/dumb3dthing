@@ -87,13 +87,10 @@ public:
     Vector operator () (const Vector & r) const
         { return scale(r); }
 
+    Vector2I operator () (const Vector2I & r) const
+        { return Vector2I{scale_x(r.x), scale_z(r.y)}; }
+
     RectangleI operator () (const RectangleI & rect) const {
-        auto scale_ = [] (Real x, int n)
-            { return int(std::round(x*n)); };
-        auto scale_x = [this, &scale_] (int n)
-            { return scale_(m_factor.x, n); };
-        auto scale_z = [this, &scale_] (int n)
-            { return scale_(m_factor.z, n); };
         return RectangleI
             {scale_x(rect.left ), scale_z(rect.top   ),
              scale_x(rect.width), scale_z(rect.height)};
@@ -101,8 +98,17 @@ public:
 
     ModelScale to_model_scale() const;
 
+    bool operator == (const ScaleComputation & rhs) const
+        { return m_factor == rhs.m_factor; }
+
 private:
     static constexpr Vector k_no_scaling{1, 1, 1};
+
+    static int scale_int(Real x, int n) { return int(std::round(x*n)); };
+
+    int scale_x(int n) const { return scale_int(m_factor.x, n); }
+
+    int scale_z(int n) const { return scale_int(m_factor.z, n); }
 
     Vector scale(const Vector &) const;
 
