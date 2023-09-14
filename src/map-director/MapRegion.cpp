@@ -40,21 +40,7 @@ void for_each_step_region
     (const ProducableTileViewGrid &,
      const RegionLoadRequest &,
      Func &&);
-#if 0
-Vector2I region_load_step
-    (const Size2I & region_size,
-     const RegionLoadRequest & request)
-{
-    auto step_of_ = [] (int length, int max) {
-        // I want as even splits as possible
-        if (length < max) return length;
-        return length / (length / max);
-    };
-    return Vector2I
-        {step_of_(region_size.width , request.max_region_size().width ),
-         step_of_(region_size.height, request.max_region_size().height)};
-}
-#endif
+
 constexpr const auto k_comma_splitter = [](char c) { return c == ','; };
 constexpr const auto k_whitespace_trimmer =
     make_trim_whitespace<const char *>();

@@ -121,6 +121,11 @@ public:
     RegionPositionFraming move(const Vector2I & r) const
         { return RegionPositionFraming{m_spawn_offset + r}; }
 
+    bool operator == (const RegionPositionFraming & rhs) const {
+        return m_spawn_offset == rhs.m_spawn_offset &&
+               m_sub_region_position == rhs.m_sub_region_position;
+    }
+
 private:
     struct OverlapFunc {
         virtual ~OverlapFunc() {}

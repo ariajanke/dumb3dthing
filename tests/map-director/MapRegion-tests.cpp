@@ -18,28 +18,62 @@
 
 *****************************************************************************/
 
-#include "../../src/map-director/MapRegionContainer.hpp"
+#include "../../src/map-director/MapRegion.hpp"
 #include "../../src/TriangleLink.hpp"
+#include "../../src/map-director/RegionLoadRequest.hpp"
 
 #include "../test-helpers.hpp"
 
 namespace {
 
-using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
+struct ReceivedLoadRequest final {
+    ReceivedLoadRequest() {}
 
-struct SingleLinkGrid final {
-    static SingleLinkGrid make() {
-        SingleLinkGrid rv;
-        rv.link = make_shared<TriangleLink>();
+    ReceivedLoadRequest
+        (const RegionPositionFraming & framing_,
+         const RectangleI & grid_scope_):
+        framing(framing_),
+        grid_scope(grid_scope_),
+        hit(true) {}
 
-        ViewGridTriangle::Inserter inserter{Size2I{1, 1}};
-        inserter.push(rv.link);
-        inserter.advance();
-        rv.grid = make_shared<ViewGridTriangle>(inserter.finish());
-        return rv;
+    bool operator == (const ReceivedLoadRequest & rhs) const {
+        return framing == rhs.framing && grid_scope == rhs.grid_scope &&
+               hit == rhs.hit;
     }
-    SharedPtr<TriangleLink> link;
-    SharedPtr<ViewGridTriangle> grid;
+
+    RegionPositionFraming framing;
+    RectangleI grid_scope;
+    bool hit = false;
+};
+
+struct TestMapRegion final : public MapRegion {
+    TestMapRegion() {}
+
+    explicit TestMapRegion(ReceivedLoadRequest & received_request):
+        received(&received_request) {}
+
+    void process_load_request
+        (const RegionLoadRequest &,
+         const RegionPositionFraming &,
+         RegionLoadCollectorBase &) final
+    {
+        throw std::runtime_error{"must not be called"};
+    }
+
+    void process_limited_load_request
+        (const RegionLoadRequest &,
+         const RegionPositionFraming & framing,
+         const RectangleI & grid_scope,
+         RegionLoadCollectorBase &) final
+    { *received = ReceivedLoadRequest{framing, grid_scope}; }
+
+    ReceivedLoadRequest * received = nullptr;
+};
+
+class TestRegionLoadCollector final : public RegionLoadCollectorBase {
+public:
+    void collect_load_job
+        (const SubRegionPositionFraming &, const ProducableSubGrid &) final {}
 };
 
 } // end of <anonymous> namespace
@@ -47,44 +81,36 @@ struct SingleLinkGrid final {
 [[maybe_unused]] static auto s_add_describes = [] {
 
 using namespace cul::tree_ts;
+using RectI = RectangleI;
 
-describe<MapRegionContainer>("MapRegionContainer")([]
-{
-    // yuck, complicated setup
-    MapRegionContainer container;
-    auto test_region = SingleLinkGrid::make();
-    container.set_region
-        (Vector2I{1, 1}, test_region.grid, std::vector<Entity>{});
+// make sure that sub regions are hit as expected
+// scale must propagate correctly
+// - as you go down
 
-    mark_it("decays the link that was for a given region", [&] {
-        struct Impl final : public MapRegionContainer::RegionDecayAdder {
-            void add(const Vector2I &,
-                     const Size2I &,
-                     SharedPtr<ViewGridTriangle> && view_grid,
-                     std::vector<Entity> &&) final
-            { decayed_link = *(*view_grid)(Vector2I{}).begin(); }
+describe<TiledMapRegion>("TiledMapRegion") ([] {
 
-            SharedPtr<TriangleLink> decayed_link;
-        };
-        Impl impl;
-        container.decay_regions(impl);
-        container.decay_regions(impl);
-        return test_that(impl.decayed_link == test_region.link);
+});
+
+describe<CompositeMapRegion>("CompositeMapRegion")([] {
+    ReceivedLoadRequest ne, nw, se, sw;
+    CompositeMapRegion comp_map{
+        Grid<MapSubRegion>{
+            { MapSubRegion{RectI{0, 0, 2, 2}, make_shared<TestMapRegion>(nw)},
+              MapSubRegion{RectI{0, 2, 2, 2}, make_shared<TestMapRegion>(ne)} },
+            { MapSubRegion{RectI{2, 0, 2, 2}, make_shared<TestMapRegion>(sw)},
+              MapSubRegion{RectI{2, 2, 2, 2}, make_shared<TestMapRegion>(se)} }
+        },
+        ScaleComputation{}};
+    const RegionLoadRequest request
+        {Vector2{0.1, 3.1}, Vector2{0.1, 4.9}, Vector2{2.1, 4}, Size2I{1, 1}};
+    const RegionPositionFraming framing{Vector2I{1, 1}};
+    TestRegionLoadCollector test_collector;
+    comp_map.process_load_request(request, framing, test_collector);
+    mark_it("does not hit ne corner", [&ne] {
+        return test_that(!ne.hit);
     }).
-    mark_it("decays the same region that was added", [&] {
-        struct Impl final : public MapRegionContainer::RegionDecayAdder {
-            void add(const Vector2I & r,
-                     const Size2I & sz,
-                     SharedPtr<ViewGridTriangle> &&,
-                     std::vector<Entity> &&) final
-            { decayed_region = RectangleI{r, sz}; }
-
-            RectangleI decayed_region;
-        };
-        Impl impl;
-        container.decay_regions(impl);
-        container.decay_regions(impl);
-        return test_that(impl.decayed_region == RectangleI{1, 1, 1, 1});
+    mark_it("does not hit nw corner", [&nw] {
+        return test_that(!nw.hit);
     });
 });
 
