@@ -28,6 +28,7 @@
 class RegionEdgeConnectionsAdder;
 class RegionLoadRequest;
 
+// but no, this is tile perspective??
 class TilePositionFraming final {
 public:
     TilePositionFraming() {}
@@ -35,19 +36,13 @@ public:
     TilePositionFraming
         (const ScaleComputation & scale,
          const Vector2I & on_field_position,
-         const Vector2I & inserter_position = Vector2I{}):
-        m_scale(scale),
-        m_on_field_region_position(on_field_position),
-        m_on_field_tile_position(on_field_position + inserter_position) {}
+         const Vector2I & inserter_position = Vector2I{});
 
-    TriangleSegment transform(const TriangleSegment & triangle) const
-        { return triangle_transformation()(triangle); }
+    TriangleSegment transform(const TriangleSegment &) const;
 
-    ModelScale model_scale() const
-        { return triangle_transformation().model_scale(); }
+    ModelScale model_scale() const;
 
-    ModelTranslation model_translation() const
-        { return triangle_transformation().model_translation(); }
+    ModelTranslation model_translation() const;
 
     template <typename T>
     TilePositionFraming advance_with(ViewGridInserter<T> & inserter) const {
@@ -57,14 +52,15 @@ public:
     }
 
 private:
-    TriangleSegmentTransformation triangle_transformation() const
-        { return TriangleSegmentTransformation{m_scale, m_on_field_tile_position}; }
+    TriangleSegmentTransformation triangle_transformation() const;
 
     ScaleComputation m_scale;
     Vector2I m_on_field_region_position;
     Vector2I m_on_field_tile_position;
 };
 
+// individual set of Tiles perspective
+// SubRegionContainerFraming
 class SubRegionPositionFraming final {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
@@ -99,71 +95,65 @@ private:
     Vector2I m_on_field_position;
 };
 
+// region perspective
 class RegionPositionFraming final {
 public:
     using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
 
-    RegionPositionFraming():
-        RegionPositionFraming(Vector2I{}) {}
+    RegionPositionFraming() {}
 
-    explicit RegionPositionFraming
-        (const Vector2I & spawn_offset,
-         const Vector2I & sub_region_position = Vector2I{}):
-        m_spawn_offset(spawn_offset),
-        m_sub_region_position(sub_region_position) {}
+    RegionPositionFraming
+        (const ScaleComputation & tile_scale,
+         const Size2I & region_size_in_tiles,
+         const Vector2I & on_field_position = Vector2I{});
 
     template <typename OverlapFuncT>
-    void for_each_overlap(const ScaleComputation & scale,
-                          const RegionLoadRequest & request,
-                          const Size2I & region_size,
+    void for_each_overlap(const RegionLoadRequest & request,
                           OverlapFuncT && f) const;
 
-    RegionPositionFraming move(const Vector2I & r) const
-        { return RegionPositionFraming{m_spawn_offset + r}; }
+    RegionPositionFraming overlay_with
+        (const ScaleComputation & tile_scale,
+         const Size2I & region_size_in_tiles,
+         const Vector2I & on_field_position = Vector2I{}) const;
 
-    bool operator == (const RegionPositionFraming & rhs) const {
-        return m_spawn_offset == rhs.m_spawn_offset &&
-               m_sub_region_position == rhs.m_sub_region_position;
-    }
+    RegionPositionFraming move(const Vector2I & r) const;
+
+    SubRegionPositionFraming as_sub_region_framing() const;
+
+    bool operator == (const RegionPositionFraming &) const;
 
 private:
     struct OverlapFunc {
         virtual ~OverlapFunc() {}
 
         virtual void operator ()
-            (const RectangleI & sub_region,
-             const ScaleComputation & scale,
-             const Vector2I & on_field_position) const = 0;
+            (const RegionPositionFraming & sub_frame,
+             const RectangleI & sub_region_size_in_tiles) const = 0;
     };
 
-    void for_each_overlap_(const ScaleComputation & scale,
-                           const RegionLoadRequest & request,
-                           const Size2I & region_size,
+    void for_each_overlap_(const RegionLoadRequest & request,
                            const OverlapFunc & f) const;
 
-    Vector2I m_spawn_offset;
-    Vector2I m_sub_region_position;
+    Vector2I m_on_field_position;
+    ScaleComputation m_tile_scale;
+    Size2I m_region_size_in_tiles;
 };
 
 template <typename OverlapFuncT>
 void RegionPositionFraming::for_each_overlap
-    (const ScaleComputation & scale,
-     const RegionLoadRequest & request,
-     const Size2I & region_size,
-     OverlapFuncT && f) const
+    (const RegionLoadRequest & request, OverlapFuncT && f) const
 {
     class Impl final : public OverlapFunc {
     public:
         explicit Impl(OverlapFuncT && f): m_f(std::move(f)) {}
 
         void operator ()
-            (const RectangleI & sub_region,
-             const ScaleComputation & scale,
-             const Vector2I & on_field_position) const final
-        { m_f(sub_region, scale, on_field_position); }
+            (const RegionPositionFraming & sub_frame,
+             const RectangleI & sub_region_size_in_tiles) const final
+        { m_f(sub_frame, sub_region_size_in_tiles); }
 
     private:
         OverlapFuncT m_f;
     };
-    for_each_overlap_(scale, request, region_size, Impl{std::move(f)});
+    for_each_overlap_(request, Impl{std::move(f)});
 }

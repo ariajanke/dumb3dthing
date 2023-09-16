@@ -48,14 +48,8 @@ public:
     virtual void process_load_request
         (const RegionLoadRequest &,
          const RegionPositionFraming &,
-         RegionLoadCollectorBase &) = 0;
-
-    // can I send a request to only *part* of the map?
-    virtual void process_limited_load_request
-        (const RegionLoadRequest &,
-         const RegionPositionFraming &,
-         const RectangleI & grid_scope,
-         RegionLoadCollectorBase &) = 0;
+         RegionLoadCollectorBase &,
+         const Optional<RectangleI> & grid_scope = {}) = 0;
 };
 
 class TiledMapRegion final : public MapRegion {
@@ -65,13 +59,8 @@ public:
     void process_load_request
         (const RegionLoadRequest &,
          const RegionPositionFraming &,
-         RegionLoadCollectorBase &) final;
-
-    void process_limited_load_request
-        (const RegionLoadRequest &,
-         const RegionPositionFraming &,
-         const RectangleI & grid_scope,
-         RegionLoadCollectorBase &) final;
+         RegionLoadCollectorBase &,
+         const Optional<RectangleI> & = {}) final;
 
 private:
     void process_load_request_
@@ -103,8 +92,8 @@ public:
          const RegionPositionFraming & framing,
          RegionLoadCollectorBase & collector) const
     {
-        m_parent_region->process_limited_load_request
-            (request, framing, m_sub_region_bounds, collector);
+        m_parent_region->process_load_request
+            (request, framing, collector, m_sub_region_bounds);
     }
 
 private:
@@ -125,20 +114,15 @@ public:
     void process_load_request
         (const RegionLoadRequest & request,
          const RegionPositionFraming & framing,
-         RegionLoadCollectorBase & collector) final
+         RegionLoadCollectorBase & collector,
+         const Optional<RectangleI> & grid_scope = {}) final
     {
-        MapSubRegionSubGrid subgrid{m_sub_regions};
-         collect_load_tasks(request, framing, subgrid, collector);
-    }
-
-    void process_limited_load_request
-        (const RegionLoadRequest & request,
-         const RegionPositionFraming & framing,
-         const RectangleI & grid_scope,
-         RegionLoadCollectorBase & collector) final
-    {
-         MapSubRegionSubGrid subgrid{m_sub_regions, cul::top_left_of(grid_scope), grid_scope.width, grid_scope.height};
-         collect_load_tasks(request, framing, subgrid, collector);
+        MapSubRegionSubGrid subgrid = [this, &grid_scope] () -> MapSubRegionSubGrid {
+            return grid_scope ?
+                MapSubRegionSubGrid{m_sub_regions, cul::top_left_of(*grid_scope), grid_scope->width, grid_scope->height} :
+                MapSubRegionSubGrid{m_sub_regions};
+        } ();
+        collect_load_tasks(request, framing, subgrid, collector);
     }
 
 private:
@@ -152,21 +136,21 @@ private:
          RegionLoadCollectorBase & collector)
     {
         auto on_overlap =
-            [&collector, &subgrid, &request, &framing]
-            (const RectangleI & sub_region,
-             const ScaleComputation & scale, // ??
-             const Vector2I & on_field_position)
+            [&collector, &subgrid, &request]
+            (const RegionPositionFraming & sub_frame,
+             const RectangleI & sub_region_bound_in_tiles)
         {
+            const auto & bounds = sub_region_bound_in_tiles;
             auto subsubgrid = subgrid.make_sub_grid
-                (top_left_of(sub_region), sub_region.width, sub_region.height);
+                (top_left_of(bounds), bounds.width, bounds.height);
             for (Vector2I r; r != subsubgrid.end_position(); r = subsubgrid.next(r)) {
                 auto sub = subsubgrid(r);
-                auto subframing = framing.move(on_field_position + top_left_of(sub_region) + scale(r));
-                sub.process_load_request(request, subframing, collector);
+                sub.process_load_request(request, sub_frame, collector);
             }
         };
-        framing.for_each_overlap
-            (m_scale, request, subgrid.size2(), std::move(on_overlap));
+        framing.
+            overlay_with(m_scale, m_sub_regions.size2()).
+            for_each_overlap(request, std::move(on_overlap));
     }
 
     Grid<MapSubRegion> m_sub_regions;

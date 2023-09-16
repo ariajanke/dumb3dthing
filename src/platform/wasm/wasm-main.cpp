@@ -314,12 +314,12 @@ public:
                 <SharedPtr<const Texture>, SharedPtr<const RenderModel>>
                 ())
             { continue; }
-            if (auto * vis = ent.ptr<Visible>()) {
+            if (auto * vis = ent.ptr<ModelVisibility>()) {
                 if (!vis->value)
                     continue;
             }
             from_js_reset_model_matrix();
-            if (auto * translation = ent.ptr<Translation>()) {
+            if (auto * translation = ent.ptr<ModelTranslation>()) {
                 const auto & r = translation->value;
                 from_js_model_matrix_translate(r.x, r.y, r.z);
 #               if 0

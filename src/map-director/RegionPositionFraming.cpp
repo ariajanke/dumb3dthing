@@ -41,6 +41,27 @@ Vector2I region_load_step
 
 } // end of <anonymous> namespace
 
+TilePositionFraming::TilePositionFraming
+    (const ScaleComputation & scale,
+     const Vector2I & on_field_position,
+     const Vector2I & inserter_position):
+    m_scale(scale),
+    m_on_field_region_position(on_field_position),
+    m_on_field_tile_position(on_field_position + inserter_position) {}
+
+TriangleSegment TilePositionFraming::transform(const TriangleSegment & triangle) const
+    { return triangle_transformation()(triangle); }
+
+ModelScale TilePositionFraming::model_scale() const
+    { return triangle_transformation().model_scale(); }
+
+ModelTranslation TilePositionFraming::model_translation() const
+    { return triangle_transformation().model_translation(); }
+
+/* private */ TriangleSegmentTransformation
+    TilePositionFraming::triangle_transformation() const
+    { return TriangleSegmentTransformation{m_scale, m_on_field_tile_position}; }
+
 // ----------------------------------------------------------------------------
 
 void SubRegionPositionFraming::set_containers_with
@@ -54,25 +75,60 @@ void SubRegionPositionFraming::set_containers_with
     edge_container_adder.add(m_on_field_position, triangle_grid_ptr);
 }
 
-/* private */ void RegionPositionFraming::for_each_overlap_
-    (const ScaleComputation & scale,
-     const RegionLoadRequest & request,
-     const Size2I & region_size,
-     const OverlapFunc & f) const
+// ----------------------------------------------------------------------------
+
+RegionPositionFraming::RegionPositionFraming
+    (const ScaleComputation & tile_scale,
+     const Size2I & region_size_in_tiles,
+     const Vector2I & on_field_position):
+    m_on_field_position(on_field_position),
+    m_tile_scale(tile_scale),
+    m_region_size_in_tiles(region_size_in_tiles) {}
+
+RegionPositionFraming RegionPositionFraming::overlay_with
+    (const ScaleComputation & tile_scale,
+     const Size2I & region_size_in_tiles,
+     const Vector2I & on_field_position) const
 {
-    const auto step = region_load_step(region_size, request);
+    return RegionPositionFraming
+        {tile_scale, region_size_in_tiles,
+         m_on_field_position + on_field_position};
+}
+
+RegionPositionFraming RegionPositionFraming::move(const Vector2I & r) const
+    { return overlay_with(m_tile_scale, m_region_size_in_tiles, r); }
+
+SubRegionPositionFraming RegionPositionFraming::as_sub_region_framing() const
+    { return SubRegionPositionFraming{m_tile_scale, m_on_field_position}; }
+
+bool RegionPositionFraming::operator ==
+    (const RegionPositionFraming & rhs) const
+{
+    return m_on_field_position == rhs.m_on_field_position &&
+           m_tile_scale == rhs.m_tile_scale &&
+           m_region_size_in_tiles == rhs.m_region_size_in_tiles;
+}
+
+/* private */ void RegionPositionFraming::for_each_overlap_
+    (const RegionLoadRequest & request, const OverlapFunc & f) const
+{
+    const auto step = region_load_step(m_region_size_in_tiles, request);
     const auto subgrid_size = cul::convert_to<Size2I>(step);
-    for (Vector2I r; r.x < region_size.width ; r.x += step.x) {
-    for (r.y = 0   ; r.y < region_size.height; r.y += step.y) {
-        auto on_field_position = m_spawn_offset + r;
+    for (Vector2I r; r.x < m_region_size_in_tiles.width ; r.x += step.x) {
+    for (r.y = 0   ; r.y < m_region_size_in_tiles.height; r.y += step.y) {
+        auto on_field_position = m_on_field_position + r;
+        RectangleI on_field_rect{on_field_position, subgrid_size};
         bool overlaps_this_subregion = request.
-            overlaps_with(scale(RectangleI{on_field_position, subgrid_size}));
+            overlaps_with(m_tile_scale(on_field_rect));
         if (!overlaps_this_subregion) continue;
 
-        // m_spawn_offset - m_sub_region_position??
-
+#       if 0
         f(RectangleI{r, subgrid_size},
           //SubRegionPositionFraming{scale, on_field_position}
           scale, on_field_position);
+#       else
+        f(RegionPositionFraming{m_tile_scale, subgrid_size, on_field_position},
+          RectangleI{r, subgrid_size});
+#       endif
     }}
 }

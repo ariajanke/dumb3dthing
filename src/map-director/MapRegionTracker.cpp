@@ -37,7 +37,7 @@ void MapRegionTracker::process_load_requests
     (const RegionLoadRequest & request, RegionLoadCollector && collector)
 {
     m_root_region->process_load_request
-        (request, RegionPositionFraming{Vector2I{}}, collector);
+        (request, RegionPositionFraming{}, collector);
     return collector.finish();
 }
 

@@ -54,18 +54,10 @@ struct TestMapRegion final : public MapRegion {
 
     void process_load_request
         (const RegionLoadRequest &,
-         const RegionPositionFraming &,
-         RegionLoadCollectorBase &) final
-    {
-        throw std::runtime_error{"must not be called"};
-    }
-
-    void process_limited_load_request
-        (const RegionLoadRequest &,
          const RegionPositionFraming & framing,
-         const RectangleI & grid_scope,
-         RegionLoadCollectorBase &) final
-    { *received = ReceivedLoadRequest{framing, grid_scope}; }
+         RegionLoadCollectorBase &,
+         const Optional<RectangleI> & grid_scope) final
+    { *received = ReceivedLoadRequest{framing, *grid_scope}; }
 
     ReceivedLoadRequest * received = nullptr;
 };
@@ -75,6 +67,9 @@ public:
     void collect_load_job
         (const SubRegionPositionFraming &, const ProducableSubGrid &) final {}
 };
+
+Vector2 to_field(Real x, Real y)
+    { return Vector2{x, -y} + Vector2{-0.5, 0.5}; }
 
 } // end of <anonymous> namespace
 
@@ -100,10 +95,10 @@ describe<CompositeMapRegion>("CompositeMapRegion")([] {
             { MapSubRegion{RectI{2, 0, 2, 2}, make_shared<TestMapRegion>(sw)},
               MapSubRegion{RectI{2, 2, 2, 2}, make_shared<TestMapRegion>(se)} }
         },
-        ScaleComputation{}};
+        ScaleComputation{2, 1, 2}};
     const RegionLoadRequest request
-        {Vector2{0.1, 3.1}, Vector2{0.1, 4.9}, Vector2{2.1, 4}, Size2I{1, 1}};
-    const RegionPositionFraming framing{Vector2I{1, 1}};
+        {to_field(0.1, 2.1), to_field(0.1, 3.9), to_field(2.1, 3), Size2I{1, 1}};
+    const RegionPositionFraming framing;
     TestRegionLoadCollector test_collector;
     comp_map.process_load_request(request, framing, test_collector);
     mark_it("does not hit ne corner", [&ne] {
@@ -111,6 +106,18 @@ describe<CompositeMapRegion>("CompositeMapRegion")([] {
     }).
     mark_it("does not hit nw corner", [&nw] {
         return test_that(!nw.hit);
+    }).
+    mark_it("hits se corner", [&se] {
+        return test_that(se.hit);
+    }).
+    mark_it("hits sw corner", [&sw] {
+        return test_that(sw.hit);
+    }).
+    mark_it("se corner sends correct grid scope", [&se] {
+        return test_that(se.grid_scope == RectI{2, 2, 2, 2});
+    }).
+    mark_it("sw corner sends correct grid scope", [&sw] {
+        return test_that(sw.grid_scope == RectI{2, 0, 2, 2});
     });
 });
 

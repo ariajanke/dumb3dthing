@@ -31,7 +31,7 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
-
+#if 0
 Vector2I region_load_step
     (const ProducableTileViewGrid &, const RegionLoadRequest &);
 
@@ -40,7 +40,7 @@ void for_each_step_region
     (const ProducableTileViewGrid &,
      const RegionLoadRequest &,
      Func &&);
-
+#endif
 constexpr const auto k_comma_splitter = [](char c) { return c == ','; };
 constexpr const auto k_whitespace_trimmer =
     make_trim_whitespace<const char *>();
@@ -103,22 +103,13 @@ TiledMapRegion::TiledMapRegion
 void TiledMapRegion::process_load_request
     (const RegionLoadRequest & request,
      const RegionPositionFraming & framing,
-     RegionLoadCollectorBase & collector)
+     RegionLoadCollectorBase & collector,
+     const Optional<RectangleI> & grid_scope)
 {
-    process_load_request_
-        (m_producables_view_grid.make_subgrid(),
-         request, framing, collector);
-}
-
-void TiledMapRegion::process_limited_load_request
-    (const RegionLoadRequest & request,
-     const RegionPositionFraming & framing,
-     const RectangleI & grid_scope,
-     RegionLoadCollectorBase & collector)
-{
-    process_load_request_
-        (m_producables_view_grid.make_subgrid(grid_scope),
-         request, framing, collector);
+    auto producables = grid_scope ?
+        m_producables_view_grid.make_subgrid(*grid_scope) :
+        m_producables_view_grid.make_subgrid();
+    process_load_request_(producables, request, framing, collector);
 }
 
 /* private */ void TiledMapRegion::process_load_request_
@@ -127,6 +118,7 @@ void TiledMapRegion::process_limited_load_request
      const RegionPositionFraming & region_position_framing,
      RegionLoadCollectorBase & collector)
 {
+#   if 0
     auto collect_load_jobs = [&producables, &collector]
         (const RectangleI & subregion_bounds,
          const ScaleComputation & scale,
@@ -139,8 +131,23 @@ void TiledMapRegion::process_limited_load_request
     region_position_framing.
         for_each_overlap(m_scale, request, producables.size2(),
                          std::move(collect_load_jobs));
+#   else
+    auto collect_load_jobs =
+        [&producables, &collector]
+        (const RegionPositionFraming & sub_frame,
+         const RectangleI & sub_region_bound_in_tiles)
+    {
+        const auto & bounds = sub_region_bound_in_tiles;
+        collector.collect_load_job
+            (sub_frame.as_sub_region_framing(),
+             producables.make_sub_grid(cul::top_left_of(bounds), bounds.width, bounds.height));
+    };
+    region_position_framing.
+        overlay_with(m_scale, producables.size2()).
+        for_each_overlap(request, std::move(collect_load_jobs));
+#   endif
 }
-
+#if 0
 // ----------------------------------------------------------------------------
 
 namespace {
@@ -177,3 +184,4 @@ Vector2I region_load_step
 }
 
 } // end of <anonymous> namespace
+#endif
