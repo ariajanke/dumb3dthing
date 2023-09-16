@@ -28,7 +28,6 @@
 class RegionEdgeConnectionsAdder;
 class RegionLoadRequest;
 
-// but no, this is tile perspective??
 class TilePositionFraming final {
 public:
     TilePositionFraming() {}
@@ -59,8 +58,6 @@ private:
     Vector2I m_on_field_tile_position;
 };
 
-// individual set of Tiles perspective
-// SubRegionContainerFraming
 class SubRegionPositionFraming final {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
@@ -95,12 +92,14 @@ private:
     Vector2I m_on_field_position;
 };
 
-// region perspective
 class RegionPositionFraming final {
 public:
     using ProducableSubGrid = ProducableTileViewGrid::SubGrid;
 
     RegionPositionFraming() {}
+
+    // scale here is a ratio between a map's tile size and a
+    // producable tile's size
 
     RegionPositionFraming
         (const ScaleComputation & tile_scale,
@@ -116,7 +115,7 @@ public:
          const Size2I & region_size_in_tiles,
          const Vector2I & on_field_position = Vector2I{}) const;
 
-    RegionPositionFraming move(const Vector2I & r) const;
+    RegionPositionFraming move(const Vector2I & map_tile_position) const;
 
     SubRegionPositionFraming as_sub_region_framing() const;
 

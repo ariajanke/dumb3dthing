@@ -31,16 +31,7 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
-#if 0
-Vector2I region_load_step
-    (const ProducableTileViewGrid &, const RegionLoadRequest &);
 
-template <typename Func>
-void for_each_step_region
-    (const ProducableTileViewGrid &,
-     const RegionLoadRequest &,
-     Func &&);
-#endif
 constexpr const auto k_comma_splitter = [](char c) { return c == ','; };
 constexpr const auto k_whitespace_trimmer =
     make_trim_whitespace<const char *>();
@@ -118,20 +109,6 @@ void TiledMapRegion::process_load_request
      const RegionPositionFraming & region_position_framing,
      RegionLoadCollectorBase & collector)
 {
-#   if 0
-    auto collect_load_jobs = [&producables, &collector]
-        (const RectangleI & subregion_bounds,
-         const ScaleComputation & scale,
-         const Vector2I & on_field_position)
-    {
-        collector.collect_load_job
-            (SubRegionPositionFraming{scale, on_field_position},
-             producables.make_sub_grid(cul::top_left_of(subregion_bounds), subregion_bounds.width, subregion_bounds.height));
-    };
-    region_position_framing.
-        for_each_overlap(m_scale, request, producables.size2(),
-                         std::move(collect_load_jobs));
-#   else
     auto collect_load_jobs =
         [&producables, &collector]
         (const RegionPositionFraming & sub_frame,
@@ -145,43 +122,67 @@ void TiledMapRegion::process_load_request
     region_position_framing.
         overlay_with(m_scale, producables.size2()).
         for_each_overlap(request, std::move(collect_load_jobs));
-#   endif
 }
-#if 0
+
 // ----------------------------------------------------------------------------
 
-namespace {
+MapSubRegion::MapSubRegion
+    (const RectangleI & sub_region_bounds,
+     const SharedPtr<MapRegion> & parent_region):
+    m_sub_region_bounds(sub_region_bounds),
+    m_parent_region(parent_region) {}
 
-Vector2I region_load_step
-    (const ProducableTileViewGrid &, const RegionLoadRequest &);
-
-template <typename Func>
-void for_each_step_region
-    (const ProducableTileViewGrid & producables_view_grid,
-     const RegionLoadRequest & request,
-     Func && f)
+void MapSubRegion::process_load_request
+    (const RegionLoadRequest & request,
+     const RegionPositionFraming & framing,
+     RegionLoadCollectorBase & collector) const
 {
-    const auto step = region_load_step(producables_view_grid, request);
-    const auto subgrid_size = cul::convert_to<Size2I>(step);
-    for (Vector2I r; r.x < producables_view_grid.width (); r.x += step.x) {
-    for (r.y = 0   ; r.y < producables_view_grid.height(); r.y += step.y) {
-        (void)f(r, subgrid_size);
-    }}
+    m_parent_region->process_load_request
+        (request, framing, collector, m_sub_region_bounds);
 }
 
-Vector2I region_load_step
-    (const ProducableTileViewGrid & view_grid,
-     const RegionLoadRequest & request)
+// ----------------------------------------------------------------------------
+
+CompositeMapRegion::CompositeMapRegion
+    (Grid<MapSubRegion> && sub_regions_grid,
+     const ScaleComputation & scale):
+    m_sub_regions(std::move(sub_regions_grid)),
+    m_scale(scale) {}
+
+void CompositeMapRegion::process_load_request
+    (const RegionLoadRequest & request,
+     const RegionPositionFraming & framing,
+     RegionLoadCollectorBase & collector,
+     const Optional<RectangleI> & grid_scope)
 {
-    auto step_of_ = [] (int length, int max) {
-        // I want as even splits as possible
-        if (length < max) return length;
-        return length / (length / max);
+    MapSubRegionSubGrid subgrid = [this, &grid_scope] () -> MapSubRegionSubGrid {
+        return grid_scope ?
+            MapSubRegionSubGrid{m_sub_regions, cul::top_left_of(*grid_scope), grid_scope->width, grid_scope->height} :
+            MapSubRegionSubGrid{m_sub_regions};
+    } ();
+    collect_load_tasks(request, framing, subgrid, collector);
+}
+
+/* private */ void CompositeMapRegion::collect_load_tasks
+    (const RegionLoadRequest & request,
+     const RegionPositionFraming & framing,
+     const MapSubRegionSubGrid & subgrid,
+     RegionLoadCollectorBase & collector)
+{
+    auto on_overlap =
+        [&collector, &subgrid, &request]
+        (const RegionPositionFraming & sub_frame,
+         const RectangleI & sub_region_bound_in_tiles)
+    {
+        const auto & bounds = sub_region_bound_in_tiles;
+        auto subsubgrid = subgrid.make_sub_grid
+            (top_left_of(bounds), bounds.width, bounds.height);
+        for (Vector2I r; r != subsubgrid.end_position(); r = subsubgrid.next(r)) {
+            subsubgrid(r).
+                process_load_request(request, sub_frame.move(r), collector);
+        }
     };
-    return Vector2I
-        {step_of_(view_grid.width (), request.max_region_size().width ),
-         step_of_(view_grid.height(), request.max_region_size().height)};
+    framing.
+        overlay_with(m_scale, m_sub_regions.size2()).
+        for_each_overlap(request, std::move(on_overlap));
 }
-
-} // end of <anonymous> namespace
-#endif

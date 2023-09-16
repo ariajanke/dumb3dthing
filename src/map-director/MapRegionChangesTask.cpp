@@ -128,7 +128,7 @@ void RegionLoadCollector::collect_load_job
     (const SubRegionPositionFraming & sub_region_framing,
      const ProducableSubGrid & subgrid)
 {
-    if (auto refresh = sub_region_framing.region_refresh_for(m_container)) {// .region_refresh_at(on_field_position)) {
+    if (auto refresh = sub_region_framing.region_refresh_for(m_container)) {
         refresh->keep_this_frame();
         return;
     }

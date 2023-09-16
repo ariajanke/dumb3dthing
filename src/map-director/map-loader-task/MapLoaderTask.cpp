@@ -46,15 +46,15 @@ BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
             auto composite_region = make_unique<CompositeMapRegion>
                 (Grid<MapSubRegion>{
                     {
-                        MapSubRegion{RectangleI{7, 7, 16 ,16}, parent},
-                        MapSubRegion{RectangleI{0, 7, 16 ,16}, parent}
+                        MapSubRegion{RectangleI{20, 20, 20, 20}, parent},
+                        MapSubRegion{RectangleI{ 0, 20, 20, 20}, parent}
                     },
                     {
-                        MapSubRegion{RectangleI{7, 0, 16 ,16}, parent},
-                        MapSubRegion{RectangleI{0, 0, 16 ,16}, parent}
+                        MapSubRegion{RectangleI{20,  0, 20, 20}, parent},
+                        MapSubRegion{RectangleI{ 0,  0, 20, 20}, parent}
                     },
                 },
-                ScaleComputation{16, 1, 16});
+                ScaleComputation{20, 1, 20});
             *m_region_tracker = MapRegionTracker{std::move(composite_region)};
             return BackgroundCompletion::finished;
         }).

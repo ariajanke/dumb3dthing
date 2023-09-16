@@ -95,8 +95,13 @@ RegionPositionFraming RegionPositionFraming::overlay_with
          m_on_field_position + on_field_position};
 }
 
-RegionPositionFraming RegionPositionFraming::move(const Vector2I & r) const
-    { return overlay_with(m_tile_scale, m_region_size_in_tiles, r); }
+RegionPositionFraming RegionPositionFraming::
+    move(const Vector2I & map_tile_position) const
+{
+    return overlay_with
+        (m_tile_scale, m_region_size_in_tiles,
+         m_tile_scale(map_tile_position));
+}
 
 SubRegionPositionFraming RegionPositionFraming::as_sub_region_framing() const
     { return SubRegionPositionFraming{m_tile_scale, m_on_field_position}; }
@@ -122,13 +127,7 @@ bool RegionPositionFraming::operator ==
             overlaps_with(m_tile_scale(on_field_rect));
         if (!overlaps_this_subregion) continue;
 
-#       if 0
-        f(RectangleI{r, subgrid_size},
-          //SubRegionPositionFraming{scale, on_field_position}
-          scale, on_field_position);
-#       else
         f(RegionPositionFraming{m_tile_scale, subgrid_size, on_field_position},
           RectangleI{r, subgrid_size});
-#       endif
     }}
 }
