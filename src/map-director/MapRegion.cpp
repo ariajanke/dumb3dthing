@@ -41,6 +41,7 @@ constexpr const auto k_whitespace_trimmer =
 /* static */ Optional<ScaleComputation>
     ScaleComputation::parse(const char * string)
 {
+    if (string == nullptr) return {};
     std::array<Real, 3> args;
     auto read_pos = args.begin();
     auto data_substrings = split_range

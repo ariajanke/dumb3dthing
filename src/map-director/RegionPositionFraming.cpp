@@ -109,8 +109,8 @@ SubRegionPositionFraming RegionPositionFraming::as_sub_region_framing() const
 bool RegionPositionFraming::operator ==
     (const RegionPositionFraming & rhs) const
 {
-    return m_on_field_position == rhs.m_on_field_position &&
-           m_tile_scale == rhs.m_tile_scale &&
+    return m_on_field_position    == rhs.m_on_field_position &&
+           m_tile_scale           == rhs.m_tile_scale &&
            m_region_size_in_tiles == rhs.m_region_size_in_tiles;
 }
 

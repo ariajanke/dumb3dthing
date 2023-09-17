@@ -31,19 +31,9 @@ using namespace cul::exceptions_abbr;
 using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 using EntryContainer = RegionEdgeConnectionsContainerBase::EntryContainer;
 
-constexpr bool k_enable_console_logging = true;
+constexpr bool k_enable_console_logging = false;
 
 } // end of <anonymous> namespace
-
-RegionAxis side_to_axis(RegionSide side) {
-    using Side = RegionSide;
-    using Axis = RegionAxis;
-    switch (side) {
-    case Side::bottom: case Side::top  : return Axis::x_ways;
-    case Side::left  : case Side::right: return Axis::z_ways;
-    default: return Axis::uninitialized;
-    }
-}
 
 const char * axis_to_string(RegionAxis axis) {
     using Axis = RegionAxis;

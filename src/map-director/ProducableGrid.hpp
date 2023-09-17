@@ -47,13 +47,6 @@ public:
             add<ModelScale, ModelTranslation, Types...>() =
             make_tuple(model_scale(), model_translation(),
                        std::forward<Types>(arguments)...  );
-        if (e.has_all<ModelTranslation, ModelScale>()) {
-            auto & trans = e.get<ModelTranslation>();
-            auto & scale = e.get<ModelScale>();
-            trans.value.x *= scale.value.x;
-            trans.value.y *= scale.value.y;
-            trans.value.z *= scale.value.z;
-        }
         return e;
     }
 
@@ -127,20 +120,12 @@ public:
 
     TriangleSegment operator () (const TriangleSegment & triangle) const;
 
-    TriangleSegmentTransformation move_by_tiles(const Vector2I & r) const
-        { return TriangleSegmentTransformation{m_scale, m_on_field_position + r}; }
+    ModelTranslation model_translation() const;
 
-    ModelTranslation model_translation() const
-        { return ModelTranslation{translation()}; }
-
-    ModelScale model_scale() const { return m_scale.to_model_scale(); }
+    ModelScale model_scale() const;
 
 private:
-    Vector translation() const {
-        return Vector{Real(m_on_field_position.x),
-                      0,
-                      Real(-m_on_field_position.y)};
-    }
+    Vector translation() const;
 
     ScaleComputation m_scale;
     Vector2I m_on_field_position;

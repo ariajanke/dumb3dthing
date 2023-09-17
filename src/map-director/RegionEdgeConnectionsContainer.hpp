@@ -24,8 +24,6 @@
 
 #include <rigtorp/HashMap.h>
 
-[[deprecated]] RegionAxis side_to_axis(RegionSide);
-
 class RegionEdgeConnectionsContainer;
 
 class RegionAxisAddress final {
