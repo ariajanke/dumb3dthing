@@ -79,55 +79,46 @@ void SubRegionPositionFraming::set_containers_with
 
 RegionPositionFraming::RegionPositionFraming
     (const ScaleComputation & tile_scale,
-     const Size2I & region_size_in_tiles,
      const Vector2I & on_field_position):
     m_on_field_position(on_field_position),
-    m_tile_scale(tile_scale),
-    m_region_size_in_tiles(region_size_in_tiles) {}
-
-RegionPositionFraming RegionPositionFraming::overlay_with
-    (const ScaleComputation & tile_scale,
-     const Size2I & region_size_in_tiles,
-     const Vector2I & on_field_position) const
-{
-    return RegionPositionFraming
-        {tile_scale, region_size_in_tiles,
-         m_on_field_position + on_field_position};
-}
-
-RegionPositionFraming RegionPositionFraming::
-    move(const Vector2I & map_tile_position) const
-{
-    return overlay_with
-        (m_tile_scale, m_region_size_in_tiles,
-         m_tile_scale(map_tile_position));
-}
-
-SubRegionPositionFraming RegionPositionFraming::as_sub_region_framing() const
-    { return SubRegionPositionFraming{m_tile_scale, m_on_field_position}; }
+    m_tile_scale(tile_scale) {}
 
 bool RegionPositionFraming::operator ==
     (const RegionPositionFraming & rhs) const
 {
     return m_on_field_position    == rhs.m_on_field_position &&
-           m_tile_scale           == rhs.m_tile_scale &&
-           m_region_size_in_tiles == rhs.m_region_size_in_tiles;
+           m_tile_scale           == rhs.m_tile_scale;
 }
 
-/* private */ void RegionPositionFraming::for_each_overlap_
-    (const RegionLoadRequest & request, const OverlapFunc & f) const
+SubRegionPositionFraming RegionPositionFraming::as_sub_region_framing() const
+    { return SubRegionPositionFraming{m_tile_scale, m_on_field_position}; }
+
+RegionPositionFraming RegionPositionFraming::move
+    (const Vector2I & map_tile_position) const
 {
-    const auto step = region_load_step(m_region_size_in_tiles, request);
+    return RegionPositionFraming
+        {m_tile_scale, m_on_field_position + m_tile_scale(map_tile_position)};
+}
+
+RegionPositionFraming RegionPositionFraming::with_scaling
+    (const ScaleComputation & map_scale) const
+{ return RegionPositionFraming{map_scale, m_on_field_position}; }
+
+/* private */ void RegionPositionFraming::for_each_overlap_
+    (const Size2I & region_size,
+     const RegionLoadRequest & request,
+     const OverlapFunc & f) const
+{
+    const auto step = region_load_step(region_size, request);
     const auto subgrid_size = cul::convert_to<Size2I>(step);
-    for (Vector2I r; r.x < m_region_size_in_tiles.width ; r.x += step.x) {
-    for (r.y = 0   ; r.y < m_region_size_in_tiles.height; r.y += step.y) {
+    for (Vector2I r; r.x < region_size.width ; r.x += step.x) {
+    for (r.y = 0   ; r.y < region_size.height; r.y += step.y) {
         auto on_field_position = m_on_field_position + r;
         RectangleI on_field_rect{on_field_position, subgrid_size};
         bool overlaps_this_subregion = request.
             overlaps_with(m_tile_scale(on_field_rect));
         if (!overlaps_this_subregion) continue;
 
-        f(RegionPositionFraming{m_tile_scale, subgrid_size, on_field_position},
-          RectangleI{r, subgrid_size});
+        f(move(r), RectangleI{r, subgrid_size});
     }}
 }

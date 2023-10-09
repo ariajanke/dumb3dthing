@@ -89,10 +89,13 @@ public:
              scale_x(rect.width), scale_z(rect.height)};
     }
 
-    ModelScale to_model_scale() const;
-
     bool operator == (const ScaleComputation & rhs) const
         { return m_factor == rhs.m_factor; }
+
+    // probably unneeded?
+    [[deprecated]] ScaleComputation downscale(const ScaleComputation &) const;
+
+    ModelScale to_model_scale() const;
 
 private:
     static constexpr Vector k_no_scaling{1, 1, 1};

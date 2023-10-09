@@ -121,6 +121,47 @@ describe<CompositeMapRegion>("CompositeMapRegion")([] {
     });
 });
 
+describe<CompositeMapRegion>("CompositeMapRegion with an offset")([] {
+    ReceivedLoadRequest ne, nw, se, sw;
+    CompositeMapRegion comp_map{
+        Grid<MapSubRegion>{
+            { MapSubRegion{RectI{0, 0, 2, 2}, make_shared<TestMapRegion>(nw)},
+              MapSubRegion{RectI{0, 2, 2, 2}, make_shared<TestMapRegion>(ne)} },
+            { MapSubRegion{RectI{2, 0, 2, 2}, make_shared<TestMapRegion>(sw)},
+              MapSubRegion{RectI{2, 2, 2, 2}, make_shared<TestMapRegion>(se)} }
+        },
+        ScaleComputation{2, 1, 2}};
+    const RegionLoadRequest request
+        {to_field(1.1, 1.1), to_field(1.1, 2.9), to_field(3.1, 2), Size2I{1, 1}};
+    const auto framing = RegionPositionFraming{}.move(Vector2I{-1, 1});
+    TestRegionLoadCollector test_collector;
+    comp_map.process_load_request(request, framing, test_collector);
+
+    mark_it("hits ne corner", [&ne] { return test_that(ne.hit); }).
+    mark_it("hits nw corner", [&nw] { return test_that(nw.hit); }).
+    mark_it("does not hit se corner", [&se] { return test_that(!se.hit); }).
+    mark_it("does not hit sw corner", [&sw] { return test_that(!sw.hit); });
+});
+
+describe<CompositeMapRegion>
+    ("CompositeMapRegion with irregularly split sub regions")([]
+{
+    ReceivedLoadRequest ne, nw, se, sw;
+    CompositeMapRegion comp_map{
+        Grid<MapSubRegion>{
+            { MapSubRegion{RectI{0, 0, 2, 2}, make_shared<TestMapRegion>(nw)},
+              MapSubRegion{RectI{0, 2, 2, 2}, make_shared<TestMapRegion>(ne)} },
+            { MapSubRegion{RectI{2, 0, 2, 2}, make_shared<TestMapRegion>(sw)},
+              MapSubRegion{RectI{2, 2, 2, 2}, make_shared<TestMapRegion>(se)} }
+        },
+        ScaleComputation{2, 1, 2}};
+    const RegionLoadRequest request
+        {to_field(0.1, 2.1), to_field(0.1, 3.9), to_field(2.1, 3), Size2I{1, 1}};
+    const RegionPositionFraming framing;
+    TestRegionLoadCollector test_collector;
+    comp_map.process_load_request(request, framing, test_collector);
+});
+
 return [] {};
 
 } ();

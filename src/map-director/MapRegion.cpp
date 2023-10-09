@@ -78,6 +78,14 @@ TriangleSegment ScaleComputation::
          scale(triangle.point_c())};
 }
 
+ScaleComputation ScaleComputation::downscale
+    (const ScaleComputation & other) const
+{
+    const auto & ofact = other.m_factor;
+    return ScaleComputation
+        {m_factor.x / ofact.x, m_factor.y / ofact.y, m_factor.z / ofact.z};
+}
+
 ModelScale ScaleComputation::to_model_scale() const
     { return ModelScale{m_factor}; }
 
@@ -121,8 +129,10 @@ void TiledMapRegion::process_load_request
              producables.make_sub_grid(cul::top_left_of(bounds), bounds.width, bounds.height));
     };
     region_position_framing.
-        overlay_with(m_scale, producables.size2()).
-        for_each_overlap(request, std::move(collect_load_jobs));
+        with_scaling(m_scale).
+        for_each_overlap(producables.size2(),
+                         request,
+                         std::move(collect_load_jobs));
 }
 
 // ----------------------------------------------------------------------------
@@ -184,6 +194,6 @@ void CompositeMapRegion::process_load_request
         }
     };
     framing.
-        overlay_with(m_scale, m_sub_regions.size2()).
-        for_each_overlap(request, std::move(on_overlap));
+        with_scaling(m_scale).
+        for_each_overlap(m_sub_regions.size2(), request, std::move(on_overlap));
 }

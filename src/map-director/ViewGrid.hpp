@@ -86,6 +86,8 @@ public:
         <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
     using Inserter          = ViewGridInserter<T>;
 
+    static ViewGrid from_grid(Grid<T> &&);
+
     ViewGrid() {}
 
     ViewGrid(ElementContainer &&, Grid<ElementView> &&);
@@ -236,6 +238,16 @@ template <typename T>
     m_index_pairs(std::move(tuple_grid)) {}
 
 // ----------------------------------------------------------------------------
+
+template <typename T>
+/* static */ ViewGrid<T> ViewGrid<T>::from_grid(Grid<T> && grid) {
+    ViewGridInserter<T> inserter{grid.size2()};
+    while (!inserter.filled()) {
+        inserter.push(grid(inserter.position()));
+        inserter.advance();
+    }
+    return inserter.finish();
+}
 
 template <typename T>
 ViewGrid<T>::ViewGrid(ElementContainer && owning_container,
