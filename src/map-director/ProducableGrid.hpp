@@ -22,6 +22,7 @@
 
 #include "ProducableGroup.hpp"
 #include "ViewGrid.hpp"
+#include "ScaleComputation.hpp"
 
 #include "../Components.hpp"
 
@@ -65,52 +66,7 @@ protected:
     virtual ModelTranslation model_translation() const = 0;
 };
 
-class ScaleComputation final {
-public:
-    static Optional<ScaleComputation> parse(const char *);
-
-    ScaleComputation() {}
-
-    ScaleComputation(Real eastwest_factor,
-                     Real updown_factor,
-                     Real northsouth_factor);
-
-    TriangleSegment operator () (const TriangleSegment &) const;
-
-    Vector operator () (const Vector & r) const
-        { return scale(r); }
-
-    Vector2I operator () (const Vector2I & r) const
-        { return Vector2I{scale_x(r.x), scale_z(r.y)}; }
-
-    RectangleI operator () (const RectangleI & rect) const {
-        return RectangleI
-            {scale_x(rect.left ), scale_z(rect.top   ),
-             scale_x(rect.width), scale_z(rect.height)};
-    }
-
-    bool operator == (const ScaleComputation & rhs) const
-        { return m_factor == rhs.m_factor; }
-
-    // probably unneeded?
-    [[deprecated]] ScaleComputation downscale(const ScaleComputation &) const;
-
-    ModelScale to_model_scale() const;
-
-private:
-    static constexpr Vector k_no_scaling{1, 1, 1};
-
-    static int scale_int(Real x, int n) { return int(std::round(x*n)); };
-
-    int scale_x(int n) const { return scale_int(m_factor.x, n); }
-
-    int scale_z(int n) const { return scale_int(m_factor.z, n); }
-
-    Vector scale(const Vector &) const;
-
-    Vector m_factor = k_no_scaling;
-};
-
+// TODO deprecated/remove this class
 class TriangleSegmentTransformation final {
 public:
     TriangleSegmentTransformation() {}

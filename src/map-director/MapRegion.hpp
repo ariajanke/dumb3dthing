@@ -25,11 +25,10 @@
 #include <unordered_map>
 
 class MapRegionPreparer;
-class RegionLoadRequest;
+class RegionLoadRequestBase;
 class MapRegionContainer;
 class ScaleComputation;
 class RegionEdgeConnectionsAdder;
-
 
 class RegionLoadCollectorBase {
 public:
@@ -46,7 +45,7 @@ public:
     virtual ~MapRegion() {}
 
     virtual void process_load_request
-        (const RegionLoadRequest &,
+        (const RegionLoadRequestBase &,
          const RegionPositionFraming &,
          RegionLoadCollectorBase &,
          const Optional<RectangleI> & grid_scope = {}) = 0;
@@ -57,7 +56,7 @@ public:
     TiledMapRegion(ProducableTileViewGrid &&, ScaleComputation &&);
 
     void process_load_request
-        (const RegionLoadRequest &,
+        (const RegionLoadRequestBase &,
          const RegionPositionFraming &,
          RegionLoadCollectorBase &,
          const Optional<RectangleI> & = {}) final;
@@ -65,7 +64,7 @@ public:
 private:
     void process_load_request_
         (ProducableTileViewGrid::SubGrid producables,
-         const RegionLoadRequest &,
+         const RegionLoadRequestBase &,
          const RegionPositionFraming &,
          RegionLoadCollectorBase &);
 
@@ -86,7 +85,7 @@ public:
          const SharedPtr<MapRegion> & parent_region);
 
     void process_load_request
-        (const RegionLoadRequest & request,
+        (const RegionLoadRequestBase & request,
          const RegionPositionFraming & framing,
          RegionLoadCollectorBase & collector) const;
 
@@ -104,7 +103,7 @@ public:
          const ScaleComputation & scale);
 
     void process_load_request
-        (const RegionLoadRequest & request,
+        (const RegionLoadRequestBase & request,
          const RegionPositionFraming & framing,
          RegionLoadCollectorBase & collector,
          const Optional<RectangleI> & grid_scope = {}) final;
@@ -114,7 +113,7 @@ private:
     using MapSubRegionSubGrid = cul::ConstSubGrid<MapSubRegionGrid::Element>;
 
     void collect_load_tasks
-        (const RegionLoadRequest & request,
+        (const RegionLoadRequestBase & request,
          const RegionPositionFraming & framing,
          const MapSubRegionSubGrid & subgrid,
          RegionLoadCollectorBase & collector);

@@ -69,77 +69,9 @@ BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
                     {
                         MapSubRegion{RectangleI{20, 20, 20, 20}, parent},
                         MapSubRegion{RectangleI{ 0, 20, 20, 20}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 21, 20, 1}, parent},
-                        MapSubRegion{RectangleI{ 0,  1, 20, 1}, parent}
-                    },
+                    }
                 },
-                ScaleComputation{20, 1, 20});
+                ScaleComputation{3*20, 1, 2*20});
             *m_region_tracker = MapRegionTracker{std::move(composite_region)};
             return BackgroundCompletion::finished;
         }).

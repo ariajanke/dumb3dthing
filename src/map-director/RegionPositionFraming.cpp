@@ -27,7 +27,7 @@ namespace {
 
 Vector2I region_load_step
     (const Size2I & region_size,
-     const RegionLoadRequest & request)
+     const RegionLoadRequestBase & request)
 {
     auto step_of_ = [] (int length, int max) {
         // I want as even splits as possible
@@ -70,9 +70,10 @@ void SubRegionPositionFraming::set_containers_with
      MapRegionContainer & container,
      RegionEdgeConnectionsAdder & edge_container_adder) const
 {
+    ScaledTriangleViewGrid scaled_view_grid{triangle_grid_ptr, m_scale};
     container.set_region
-        (m_on_field_position, triangle_grid_ptr, std::move(entities));
-    edge_container_adder.add(m_on_field_position, triangle_grid_ptr);
+        (m_on_field_position, scaled_view_grid, std::move(entities));
+    edge_container_adder.add(m_on_field_position, scaled_view_grid);
 }
 
 // ----------------------------------------------------------------------------
@@ -106,17 +107,17 @@ RegionPositionFraming RegionPositionFraming::with_scaling
 
 /* private */ void RegionPositionFraming::for_each_overlap_
     (const Size2I & region_size,
-     const RegionLoadRequest & request,
+     const RegionLoadRequestBase & request,
      const OverlapFunc & f) const
 {
     const auto step = region_load_step(region_size, request);
     const auto subgrid_size = cul::convert_to<Size2I>(step);
     for (Vector2I r; r.x < region_size.width ; r.x += step.x) {
     for (r.y = 0   ; r.y < region_size.height; r.y += step.y) {
-        auto on_field_position = m_on_field_position + r;
-        RectangleI on_field_rect{on_field_position, subgrid_size};
+        auto on_field_position = m_on_field_position + m_tile_scale(r);
+        RectangleI on_field_rect{on_field_position, m_tile_scale(subgrid_size)};
         bool overlaps_this_subregion = request.
-            overlaps_with(m_tile_scale(on_field_rect));
+            overlaps_with(on_field_rect);
         if (!overlaps_this_subregion) continue;
 
         f(move(r), RectangleI{r, subgrid_size});

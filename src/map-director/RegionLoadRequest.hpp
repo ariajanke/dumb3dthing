@@ -42,7 +42,16 @@ private:
     Vector2 m_top_left, m_top_right, m_bottom_left, m_bottom_right;
 };
 
-class RegionLoadRequest final {
+class RegionLoadRequestBase {
+public:
+    virtual ~RegionLoadRequestBase() {}
+
+    virtual bool overlaps_with(const RectangleI & tile_rectangle) const = 0;
+
+    virtual Size2I max_region_size() const = 0;
+};
+
+class RegionLoadRequest final : public RegionLoadRequestBase {
 public:
     static constexpr Size2I k_default_max_region_size = Size2I{10, 10};
     static constexpr Real k_triangle_area = 0.5*16*10;
@@ -66,13 +75,13 @@ public:
                       const Vector2 & triangle_c,
                       Size2I max_region_size = k_default_max_region_size);
 
-    bool overlaps_with(const RectangleI & tile_rectangle) const;
+    bool overlaps_with(const RectangleI & tile_rectangle) const final;
 
     bool overlaps_with_field_rectangle
         (const cul::Rectangle<Real> & field_rectangle) const;
 
     // data clumpy, but how can I cleanly separate it out?
-    Size2I max_region_size() const { return m_max_size; }
+    Size2I max_region_size() const final { return m_max_size; }
 
     // not sure, maybe scale something else? :c
     // RegionLoadRequest down_scale(const ScaleComputation &) const;

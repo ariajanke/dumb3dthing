@@ -20,79 +20,6 @@
 
 #include "MapRegion.hpp"
 #include "MapRegionTracker.hpp"
-#include "ParseHelpers.hpp"
-
-#include "../TriangleSegment.hpp"
-
-#include <iostream>
-
-#include <cstring>
-
-namespace {
-
-using namespace cul::exceptions_abbr;
-
-constexpr const auto k_comma_splitter = [](char c) { return c == ','; };
-constexpr const auto k_whitespace_trimmer =
-    make_trim_whitespace<const char *>();
-
-} // end of <anonymous> namespace
-
-/* static */ Optional<ScaleComputation>
-    ScaleComputation::parse(const char * string)
-{
-    if (string == nullptr) return {};
-    std::array<Real, 3> args;
-    auto read_pos = args.begin();
-    auto data_substrings = split_range
-        (string, string + ::strlen(string), k_comma_splitter,
-         k_whitespace_trimmer);
-    for (auto data_substring : data_substrings) {
-        // too many arguments
-        if (read_pos == args.end()) return {};
-        auto read_number = cul::string_to_number
-            (data_substring.begin(), data_substring.end(), *read_pos++);
-        if (!read_number) return {};
-    }
-    switch (read_pos - args.begin()) {
-    case 1: return ScaleComputation{args[0], args[0], args[0]};
-    case 3: return ScaleComputation{args[0], args[1], args[2]};
-    // 0 or 2 arguments
-    default: return {};
-    }
-}
-
-ScaleComputation::ScaleComputation
-    (Real eastwest_factor,
-     Real updown_factor,
-     Real northsouth_factor):
-    m_factor(eastwest_factor, updown_factor, northsouth_factor) {}
-
-TriangleSegment ScaleComputation::
-    operator () (const TriangleSegment & triangle) const
-{
-    // this is also LoD, but I don't wanna load up triangle segment too much
-    return TriangleSegment
-        {scale(triangle.point_a()),
-         scale(triangle.point_b()),
-         scale(triangle.point_c())};
-}
-
-ScaleComputation ScaleComputation::downscale
-    (const ScaleComputation & other) const
-{
-    const auto & ofact = other.m_factor;
-    return ScaleComputation
-        {m_factor.x / ofact.x, m_factor.y / ofact.y, m_factor.z / ofact.z};
-}
-
-ModelScale ScaleComputation::to_model_scale() const
-    { return ModelScale{m_factor}; }
-
-Vector ScaleComputation::scale(const Vector & r) const
-    { return Vector{r.x*m_factor.x, r.y*m_factor.y, r.z*m_factor.z}; }
-
-// ----------------------------------------------------------------------------
 
 TiledMapRegion::TiledMapRegion
     (ProducableTileViewGrid && producables_view_grid,
@@ -101,7 +28,7 @@ TiledMapRegion::TiledMapRegion
     m_scale(std::move(scale_computation)) {}
 
 void TiledMapRegion::process_load_request
-    (const RegionLoadRequest & request,
+    (const RegionLoadRequestBase & request,
      const RegionPositionFraming & framing,
      RegionLoadCollectorBase & collector,
      const Optional<RectangleI> & grid_scope)
@@ -114,7 +41,7 @@ void TiledMapRegion::process_load_request
 
 /* private */ void TiledMapRegion::process_load_request_
     (ProducableTileViewGrid::SubGrid producables,
-     const RegionLoadRequest & request,
+     const RegionLoadRequestBase & request,
      const RegionPositionFraming & region_position_framing,
      RegionLoadCollectorBase & collector)
 {
@@ -144,7 +71,7 @@ MapSubRegion::MapSubRegion
     m_parent_region(parent_region) {}
 
 void MapSubRegion::process_load_request
-    (const RegionLoadRequest & request,
+    (const RegionLoadRequestBase & request,
      const RegionPositionFraming & framing,
      RegionLoadCollectorBase & collector) const
 {
@@ -161,7 +88,7 @@ CompositeMapRegion::CompositeMapRegion
     m_scale(scale) {}
 
 void CompositeMapRegion::process_load_request
-    (const RegionLoadRequest & request,
+    (const RegionLoadRequestBase & request,
      const RegionPositionFraming & framing,
      RegionLoadCollectorBase & collector,
      const Optional<RectangleI> & grid_scope)
@@ -175,7 +102,7 @@ void CompositeMapRegion::process_load_request
 }
 
 /* private */ void CompositeMapRegion::collect_load_tasks
-    (const RegionLoadRequest & request,
+    (const RegionLoadRequestBase & request,
      const RegionPositionFraming & framing,
      const MapSubRegionSubGrid & subgrid,
      RegionLoadCollectorBase & collector)

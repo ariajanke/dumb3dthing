@@ -26,6 +26,25 @@
 
 namespace {
 
+class RequestAllRegions final : public RegionLoadRequestBase {
+public:
+    RequestAllRegions():
+        m_max_region_size(k_default_max_region_size) {}
+
+    explicit RequestAllRegions(const Size2I & max_region_size_):
+        m_max_region_size(max_region_size_) {}
+
+    bool overlaps_with(const RectangleI &) const { return true; }
+
+    Size2I max_region_size() const { return m_max_region_size; }
+
+private:
+    static constexpr auto k_max_int = std::numeric_limits<int>::max();
+    static constexpr Size2I k_default_max_region_size{k_max_int, k_max_int};
+
+    Size2I m_max_region_size;
+};
+
 struct ReceivedLoadRequest final {
     ReceivedLoadRequest() {}
 
@@ -53,7 +72,7 @@ struct TestMapRegion final : public MapRegion {
         received(&received_request) {}
 
     void process_load_request
-        (const RegionLoadRequest &,
+        (const RegionLoadRequestBase &,
          const RegionPositionFraming & framing,
          RegionLoadCollectorBase &,
          const Optional<RectangleI> & grid_scope) final
@@ -68,9 +87,6 @@ public:
         (const SubRegionPositionFraming &, const ProducableSubGrid &) final {}
 };
 
-Vector2 to_field(Real x, Real y)
-    { return Vector2{x, -y} + Vector2{-0.5, 0.5}; }
-
 } // end of <anonymous> namespace
 
 [[maybe_unused]] static auto s_add_describes = [] {
@@ -82,11 +98,8 @@ using RectI = RectangleI;
 // scale must propagate correctly
 // - as you go down
 
-describe<TiledMapRegion>("TiledMapRegion") ([] {
-
-});
-
 describe<CompositeMapRegion>("CompositeMapRegion")([] {
+    // example (b)
     ReceivedLoadRequest ne, nw, se, sw;
     CompositeMapRegion comp_map{
         Grid<MapSubRegion>{
@@ -95,71 +108,24 @@ describe<CompositeMapRegion>("CompositeMapRegion")([] {
             { MapSubRegion{RectI{2, 0, 2, 2}, make_shared<TestMapRegion>(sw)},
               MapSubRegion{RectI{2, 2, 2, 2}, make_shared<TestMapRegion>(se)} }
         },
-        ScaleComputation{2, 1, 2}};
-    const RegionLoadRequest request
-        {to_field(0.1, 2.1), to_field(0.1, 3.9), to_field(2.1, 3), Size2I{1, 1}};
-    const RegionPositionFraming framing;
+        ScaleComputation{6, 1, 6}};
     TestRegionLoadCollector test_collector;
-    comp_map.process_load_request(request, framing, test_collector);
-    mark_it("does not hit ne corner", [&ne] {
-        return test_that(!ne.hit);
+    const RegionPositionFraming framing{ScaleComputation{}, Vector2I{1, 3}};
+
+    mark_it("se framing in correct on field position", [&] {
+        comp_map.process_load_request
+            (RequestAllRegions{}, framing, test_collector);
+        return test_that(se.framing ==
+                         RegionPositionFraming{ScaleComputation{6, 1, 6},
+                                               Vector2I{6, 6} + Vector2I{1, 3}});
     }).
-    mark_it("does not hit nw corner", [&nw] {
-        return test_that(!nw.hit);
-    }).
-    mark_it("hits se corner", [&se] {
-        return test_that(se.hit);
-    }).
-    mark_it("hits sw corner", [&sw] {
-        return test_that(sw.hit);
-    }).
-    mark_it("se corner sends correct grid scope", [&se] {
-        return test_that(se.grid_scope == RectI{2, 2, 2, 2});
-    }).
-    mark_it("sw corner sends correct grid scope", [&sw] {
-        return test_that(sw.grid_scope == RectI{2, 0, 2, 2});
+    mark_it("se framing in correct on field position, 1x1 max region request", [&] {
+        comp_map.process_load_request
+            (RequestAllRegions{Size2I{1, 1}}, framing, test_collector);
+        return test_that(se.framing ==
+                         RegionPositionFraming{ScaleComputation{6, 1, 6},
+                                               Vector2I{6, 6} + Vector2I{1, 3}});
     });
-});
-
-describe<CompositeMapRegion>("CompositeMapRegion with an offset")([] {
-    ReceivedLoadRequest ne, nw, se, sw;
-    CompositeMapRegion comp_map{
-        Grid<MapSubRegion>{
-            { MapSubRegion{RectI{0, 0, 2, 2}, make_shared<TestMapRegion>(nw)},
-              MapSubRegion{RectI{0, 2, 2, 2}, make_shared<TestMapRegion>(ne)} },
-            { MapSubRegion{RectI{2, 0, 2, 2}, make_shared<TestMapRegion>(sw)},
-              MapSubRegion{RectI{2, 2, 2, 2}, make_shared<TestMapRegion>(se)} }
-        },
-        ScaleComputation{2, 1, 2}};
-    const RegionLoadRequest request
-        {to_field(1.1, 1.1), to_field(1.1, 2.9), to_field(3.1, 2), Size2I{1, 1}};
-    const auto framing = RegionPositionFraming{}.move(Vector2I{-1, 1});
-    TestRegionLoadCollector test_collector;
-    comp_map.process_load_request(request, framing, test_collector);
-
-    mark_it("hits ne corner", [&ne] { return test_that(ne.hit); }).
-    mark_it("hits nw corner", [&nw] { return test_that(nw.hit); }).
-    mark_it("does not hit se corner", [&se] { return test_that(!se.hit); }).
-    mark_it("does not hit sw corner", [&sw] { return test_that(!sw.hit); });
-});
-
-describe<CompositeMapRegion>
-    ("CompositeMapRegion with irregularly split sub regions")([]
-{
-    ReceivedLoadRequest ne, nw, se, sw;
-    CompositeMapRegion comp_map{
-        Grid<MapSubRegion>{
-            { MapSubRegion{RectI{0, 0, 2, 2}, make_shared<TestMapRegion>(nw)},
-              MapSubRegion{RectI{0, 2, 2, 2}, make_shared<TestMapRegion>(ne)} },
-            { MapSubRegion{RectI{2, 0, 2, 2}, make_shared<TestMapRegion>(sw)},
-              MapSubRegion{RectI{2, 2, 2, 2}, make_shared<TestMapRegion>(se)} }
-        },
-        ScaleComputation{2, 1, 2}};
-    const RegionLoadRequest request
-        {to_field(0.1, 2.1), to_field(0.1, 3.9), to_field(2.1, 3), Size2I{1, 1}};
-    const RegionPositionFraming framing;
-    TestRegionLoadCollector test_collector;
-    comp_map.process_load_request(request, framing, test_collector);
 });
 
 return [] {};

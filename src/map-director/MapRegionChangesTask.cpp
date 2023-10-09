@@ -98,12 +98,12 @@ void RegionLoadJob::operator ()
 // ----------------------------------------------------------------------------
 
 RegionDecayJob::RegionDecayJob
-    (const RectangleI & subgrid_bounds,
-     SharedPtr<ViewGridTriangle> && triangle_grid,
-     std::vector<Entity> && entities):
-    m_on_field_subgrid(subgrid_bounds),
-    m_triangle_grid(std::move(triangle_grid)),
-    m_entities(std::move(entities)) {}
+    (const Vector2I & on_field_position,
+     ScaledTriangleViewGrid && triangle_grid_,
+     std::vector<Entity> && entities_):
+    m_on_field_position(on_field_position),
+    m_triangle_grid(std::move(triangle_grid_)),
+    m_entities(std::move(entities_)) {}
 
 void RegionDecayJob::operator ()
     (RegionEdgeConnectionsRemover & connection_remover,
@@ -111,10 +111,10 @@ void RegionDecayJob::operator ()
 {
     for (auto ent : m_entities)
         { ent.request_deletion(); }
-    for (auto & linkptr : m_triangle_grid->elements())
-        { callbacks.remove(linkptr); }
+    for (const auto & link : m_triangle_grid.all_links())
+        { callbacks.remove(link); }
     connection_remover.remove_region
-        (cul::top_left_of(m_on_field_subgrid),
+        (m_on_field_position,
          m_triangle_grid);
 }
 
@@ -147,14 +147,11 @@ RegionDecayCollector::RegionDecayCollector
 
 void RegionDecayCollector::add
     (const Vector2I & on_field_position,
-     const Size2I & grid_size,
-     SharedPtr<ViewGridTriangle> && triangle_links,
+     ScaledTriangleViewGrid && scaled_grid,
      std::vector<Entity> && entities)
 {
     m_decay_entries.emplace_back
-        (RectangleI{on_field_position, grid_size},
-         std::move(triangle_links),
-         std::move(entities));
+        (on_field_position, std::move(scaled_grid), std::move(entities));
 }
 
 SharedPtr<LoaderTask> RegionDecayCollector::finish_into_task_with

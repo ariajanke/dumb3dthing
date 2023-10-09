@@ -46,23 +46,6 @@ const char * axis_to_string(RegionAxis axis) {
 
 // ----------------------------------------------------------------------------
 
-bool RegionAxisAddress::operator < (const RegionAxisAddress & rhs) const
-    { return compare(rhs) < 0; }
-
-bool RegionAxisAddress::operator == (const RegionAxisAddress & rhs) const
-    { return compare(rhs) == 0; }
-
-int RegionAxisAddress::compare(const RegionAxisAddress & rhs) const {
-    if (m_axis == rhs.m_axis)
-        { return m_value - rhs.m_value; }
-    return static_cast<int>(m_axis) - static_cast<int>(rhs.m_axis);
-}
-
-std::size_t RegionAxisAddress::hash() const
-    { return std::hash<int>{}(m_value) ^ std::hash<RegionAxis>{}(m_axis); }
-
-// ----------------------------------------------------------------------------
-
 /* protected static */
     const RegionEdgeConnectionsContainerBase::EntryContainer
     RegionEdgeConnectionsContainerBase::s_default_entry_container =
@@ -77,24 +60,19 @@ RegionEdgeConnectionsAdder::RegionEdgeConnectionsAdder
 
 void RegionEdgeConnectionsAdder::add
     (const Vector2I & on_field_position,
-     const SharedPtr<ViewGridTriangle> & triangle_grid)
+     const ScaledTriangleViewGrid & triangle_grid)
 {
     if constexpr (k_enable_console_logging) {
         std::cout << "Region added at " << on_field_position.x << ", "
                   << on_field_position.y << std::endl;
     }
-
-    auto addresses_and_sides = RegionAxisAddressAndSide::for_
-        (on_field_position, triangle_grid->size2());
+    auto addresses_and_sides = triangle_grid.
+        sides_and_addresses_at(on_field_position);
     for (auto & res : addresses_and_sides) {
         auto & adder = ensure_adder(res.address());
-        for_each_tile_on_edge
-            (*triangle_grid, res.side(),
-             [&adder, &triangle_grid] (int x, int y)
-        {
-            for (auto & triangle_link : (*triangle_grid)(x, y))
-                { adder.add(triangle_link); }
-        });
+        triangle_grid.for_each_link_on_side
+            (res.side(),
+             [&adder](const SharedPtr<TriangleLink> & link_ptr) { adder.add(link_ptr); });
     }
 }
 
@@ -135,23 +113,23 @@ RegionEdgeConnectionsRemover::RegionEdgeConnectionsRemover
 
 void RegionEdgeConnectionsRemover::remove_region
     (const Vector2I & on_field_position,
-     const SharedPtr<ViewGridTriangle> & triangle_grid)
+     const ScaledTriangleViewGrid & triangle_grid)
 {
     if constexpr (k_enable_console_logging) {
         std::cout << "Removed region at " << on_field_position.x << ", "
                   << on_field_position.y << std::endl;
     }
 
-    auto addresses_and_sides = RegionAxisAddressAndSide::for_
-        (on_field_position, triangle_grid->size2());
+    auto addresses_and_sides = triangle_grid.
+        sides_and_addresses_at(on_field_position);
     for (auto & res : addresses_and_sides) {
         auto * remover = find_remover(res.address());
         assert(remover);
-        for_each_tile_on_edge(*triangle_grid, res.side(), [&](int x, int y)
-        {
-            for (auto & linkptr : (*triangle_grid)(x, y))
-                remover->add(linkptr);
-        });
+        triangle_grid.for_each_link_on_side
+            (res.side(),
+             [remover]
+             (const SharedPtr<TriangleLink> & linkptr)
+             { remover->add(linkptr); });
     }
 }
 

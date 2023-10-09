@@ -26,7 +26,7 @@
 #include "../TriangleSegment.hpp"
 
 class RegionEdgeConnectionsAdder;
-class RegionLoadRequest;
+class RegionLoadRequestBase;
 
 class TilePositionFraming final {
 public:
@@ -47,7 +47,7 @@ public:
     TilePositionFraming advance_with(ViewGridInserter<T> & inserter) const {
         inserter.advance();
         return TilePositionFraming
-            {m_scale, m_on_field_region_position, inserter.position()};
+            {m_scale, m_on_field_region_position, m_scale(inserter.position())};
     }
 
 private:
@@ -186,10 +186,9 @@ public:
 
     template <typename OverlapFuncT>
     void for_each_overlap(const Size2I & region_size,
-                          const RegionLoadRequest & request,
+                          const RegionLoadRequestBase & request,
                           OverlapFuncT && f) const;
 
-    // meaning changed
     RegionPositionFraming move(const Vector2I & map_tile_position) const;
 
     RegionPositionFraming with_scaling(const ScaleComputation & map_scale) const;
@@ -204,7 +203,7 @@ private:
     };
 
     void for_each_overlap_(const Size2I & region_size,
-                           const RegionLoadRequest & request,
+                           const RegionLoadRequestBase & request,
                            const OverlapFunc & f) const;
 
     Vector2I m_on_field_position;
@@ -214,7 +213,7 @@ private:
 template <typename OverlapFuncT>
 void RegionPositionFraming::for_each_overlap
     (const Size2I & region_size,
-     const RegionLoadRequest & request,
+     const RegionLoadRequestBase & request,
      OverlapFuncT && f) const
 {
     class Impl final : public OverlapFunc {

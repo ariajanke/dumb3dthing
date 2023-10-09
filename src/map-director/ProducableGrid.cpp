@@ -44,8 +44,8 @@ ModelScale TriangleSegmentTransformation::model_scale() const
     { return m_scale.to_model_scale(); }
 
 /* private */ Vector TriangleSegmentTransformation::translation() const {
-    return m_scale(Vector
-        {Real(m_on_field_position.x), 0, Real(-m_on_field_position.y)});
+    return Vector
+        {Real(m_on_field_position.x), 0, Real(-m_on_field_position.y)};
 }
 
 // ----------------------------------------------------------------------------

@@ -104,19 +104,6 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
 
 // ----------------------------------------------------------------------------
 
-/* static */ void RegionAxisLinksAdder::add_sides_from
-    (RegionSide side,
-     const ViewGridTriangle & triangle_grid,
-     RegionAxisLinksAdder & adder)
-{
-    auto add_sides_for_tile = [&triangle_grid, &adder] (int x, int y) {
-        for (auto & link : triangle_grid(x, y))
-            adder.add(link);
-    };
-
-    for_each_tile_on_edge(triangle_grid, side, add_sides_for_tile);
-}
-
 /* static */ std::vector<RegionAxisLinkEntry>
     RegionAxisLinksAdder::dedupelicate
     (std::vector<RegionAxisLinkEntry> && entries)

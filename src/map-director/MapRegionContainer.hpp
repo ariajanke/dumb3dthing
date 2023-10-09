@@ -21,8 +21,11 @@
 #pragma once
 
 #include "ViewGrid.hpp"
+#include "ScaleComputation.hpp"
 
 #include <unordered_map>
+
+class ScaledTriangleViewGrid;
 
 struct Vector2IHasher final {
     std::size_t operator () (const Vector2I & r) const {
@@ -33,14 +36,13 @@ struct Vector2IHasher final {
 
 class MapRegionContainer final {
 public:
-    using ViewGridTriangle =  ViewGrid<SharedPtr<TriangleLink>>;
+    using ViewGridTriangle = ScaledTriangleViewGrid::ViewGridTriangle;
 
     struct RegionDecayAdder {
         virtual ~RegionDecayAdder() {}
 
         virtual void add(const Vector2I & on_field_position,
-                         const Size2I & grid_size,
-                         SharedPtr<ViewGridTriangle> &&,
+                         ScaledTriangleViewGrid &&,
                          std::vector<Entity> &&) = 0;
     };
 
@@ -59,14 +61,13 @@ public:
     void decay_regions(RegionDecayAdder &);
 
     void set_region(const Vector2I & on_field_position,
-                    const SharedPtr<ViewGridTriangle> & triangle_grid,
+                    const ScaledTriangleViewGrid & triangle_grid,
                     std::vector<Entity> && entities);
 
 private:
     struct LoadedMapRegion {
-        Size2I region_size;
         std::vector<Entity> entities;
-        SharedPtr<ViewGridTriangle> triangle_links;
+        ScaledTriangleViewGrid triangle_grid;
         bool keep_on_refresh = true;
     };
 

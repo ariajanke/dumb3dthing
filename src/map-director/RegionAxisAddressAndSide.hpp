@@ -20,7 +20,42 @@
 
 #pragma once
 
-#include "RegionEdgeConnectionsContainer.hpp"
+#include "../Definitions.hpp"
+
+enum class RegionSide {
+    left  , // west
+    right , // east
+    bottom, // south
+    top   , // north
+    uninitialized
+};
+
+enum class RegionAxis { x_ways, z_ways, uninitialized };
+
+class RegionAxisAddress final {
+public:
+    RegionAxisAddress() {}
+
+    RegionAxisAddress(RegionAxis axis_, int value_):
+        m_axis(axis_), m_value(value_) {}
+
+    bool operator < (const RegionAxisAddress &) const;
+
+    bool operator == (const RegionAxisAddress &) const;
+
+    RegionAxis axis() const { return m_axis; }
+
+    // I want space ship :c
+    int compare(const RegionAxisAddress &) const;
+
+    int value() const { return m_value; }
+
+    /* new */ std::size_t hash() const;
+
+private:
+    RegionAxis m_axis = RegionAxis::uninitialized;
+    int m_value = 0;
+};
 
 class RegionAxisAddressAndSide final {
 public:
@@ -40,6 +75,23 @@ private:
     RegionAxisAddress m_address;
     RegionSide m_side;
 };
+
+// ----------------------------------------------------------------------------
+
+inline bool RegionAxisAddress::operator < (const RegionAxisAddress & rhs) const
+    { return compare(rhs) < 0; }
+
+inline bool RegionAxisAddress::operator == (const RegionAxisAddress & rhs) const
+    { return compare(rhs) == 0; }
+
+inline int RegionAxisAddress::compare(const RegionAxisAddress & rhs) const {
+    if (m_axis == rhs.m_axis)
+        { return m_value - rhs.m_value; }
+    return static_cast<int>(m_axis) - static_cast<int>(rhs.m_axis);
+}
+
+inline std::size_t RegionAxisAddress::hash() const
+    { return std::hash<int>{}(m_value) ^ std::hash<RegionAxis>{}(m_axis); }
 
 // ----------------------------------------------------------------------------
 
