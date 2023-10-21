@@ -70,3 +70,71 @@ private:
     std::vector<TileSetAndStartGid> m_gid_map;
     int m_gid_end = 0;
 };
+
+class TileSetMapElementVisitor;
+
+class TileSetIdGrid final {
+public:
+    TileSetIdGrid();
+
+    TileSetIdGrid
+        (const Grid<int> & gid_layer, int start_gid, int end_gid);
+
+    // tid could possibly be zero in the data?
+    // perhaps take negative to mean that there's nothing there?
+    // this needs to be thought out at the time where we actually handle the
+    // tid
+    int to_tileset_id(int map_wide_id) const {
+        int within_range_mul =
+            -1*int(map_wide_id >= m_start_gid && map_wide_id < m_gid_end);
+        return (map_wide_id - m_start_gid)*within_range_mul;
+    }
+
+    // wait and see on iterating this
+
+private:
+    const Grid<int> * m_gid_layer = nullptr;
+    int m_start_gid = 0, m_gid_end = 0;
+};
+
+class TileMapIdToSetMappingElement final {
+public:
+
+    void add_map_elements(TileSetMapElementVisitor & visitor) const;
+};
+
+class TileMapIdToSetMappingIterator final {
+public:
+    using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+    // has to be a writable because we're consuming the thing :/
+    using IteratorImpl = std::vector<TileSetAndStartGid>::iterator;
+
+    explicit TileMapIdToSetMappingIterator(IteratorImpl);
+
+    TileMapIdToSetMappingIterator(const Grid<int> *, IteratorImpl);
+
+    TileMapIdToSetMappingElement & operator ++ ();
+
+    TileMapIdToSetMappingElement operator * () const;
+
+    TileMapIdToSetMappingElement * operator -> () const;
+
+    bool operator == (const TileMapIdToSetMappingIterator &) const;
+
+private:
+    IteratorImpl m_position;
+    TileMapIdToSetMappingElement m_element;
+};
+
+class TileMapIdToSetMapping_New final {
+public:
+    using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+
+    TileMapIdToSetMapping_New() {}
+
+    explicit TileMapIdToSetMapping_New(std::vector<TileSetAndStartGid> &&);
+
+    TileMapIdToSetMappingIterator begin_with(const Grid<int> &);
+
+    TileMapIdToSetMappingIterator end() const;
+};

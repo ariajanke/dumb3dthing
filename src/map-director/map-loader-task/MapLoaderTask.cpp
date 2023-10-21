@@ -40,39 +40,7 @@ BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
         update_progress().
         fold<BackgroundCompletion>(BackgroundCompletion::in_progress).
         map([this] (MapLoadingSuccess && res) {
-            // want to move this line out
-#           if 0
             *m_region_tracker = MapRegionTracker{std::move(res.loaded_region)};
-            return BackgroundCompletion::finished;
-#           endif
-
-            SharedPtr<MapRegion> parent;
-            parent.reset(res.loaded_region.release());
-            auto composite_region = make_unique<CompositeMapRegion>
-                (Grid<MapSubRegion>{
-                    {
-                        MapSubRegion{RectangleI{20, 20, 20, 20}, parent},
-                        MapSubRegion{RectangleI{ 0, 20, 20, 20}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20,  0, 20, 20}, parent},
-                        MapSubRegion{RectangleI{ 0,  0, 20, 20}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 20, 20, 20}, parent},
-                        MapSubRegion{RectangleI{ 0, 20, 20, 20}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20,  0, 20, 20}, parent},
-                        MapSubRegion{RectangleI{ 0,  0, 20, 20}, parent}
-                    },
-                    {
-                        MapSubRegion{RectangleI{20, 20, 20, 20}, parent},
-                        MapSubRegion{RectangleI{ 0, 20, 20, 20}, parent}
-                    }
-                },
-                ScaleComputation{3*20, 1, 2*20});
-            *m_region_tracker = MapRegionTracker{std::move(composite_region)};
             return BackgroundCompletion::finished;
         }).
         map_left([] (MapLoadingError &&) {

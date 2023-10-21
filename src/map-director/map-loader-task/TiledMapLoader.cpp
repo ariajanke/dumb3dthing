@@ -384,6 +384,23 @@ MapLoadResult TiledMapStrategyState::update_progress
 
 using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
 
+/* static */ TileSetAndStartGid
+    ProducableLoadState::contents_to_producables_with_start_gid
+    (TileSetContent && contents,
+     Platform & platform)
+{
+    auto * properties = contents.as_element().FirstChildElement("properties");
+    if (properties) {
+        for (auto & property : XmlRange{properties, "property"}) {
+            property.Attribute("type");
+        }
+    }
+    auto tileset = make_shared<TileSet>();
+    tileset->load(platform, contents.as_element());
+    return TileSetAndStartGid
+        {std::move(tileset), contents.first_gid()};
+}
+
 /* static */ std::vector<TileSetAndStartGid>
     ProducableLoadState::convert_to_tileset_and_start_gids
     (std::vector<TileSetContent> && tileset_contents,
@@ -392,10 +409,15 @@ using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
     std::vector<TileSetAndStartGid> tilesets_and_start_gids;
     tilesets_and_start_gids.reserve(tileset_contents.size());
     for (auto & contents : tileset_contents) {
+        tilesets_and_start_gids.emplace_back
+            (contents_to_producables_with_start_gid
+                (std::move(contents), platform));
+#       if 0
         auto tileset = make_shared<TileSet>();
-        tileset->load(platform, contents.element());
+        tileset->load(platform, contents.as_element());
         tilesets_and_start_gids.emplace_back
             (std::move(tileset), contents.first_gid());
+#       endif
     }
     return tilesets_and_start_gids;
 }

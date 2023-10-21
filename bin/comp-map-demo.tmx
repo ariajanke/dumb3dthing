@@ -5,7 +5,8 @@
  </properties>
  <tileset firstgid="1" name="comps-demo-map-parts" tilewidth="32" tileheight="32" tilecount="4" columns="2">
   <properties>
-   <property name="tiled-map-filename" value="comp-map-parts.tmx"/>
+   <property name="filename" value="comp-map-parts.tmx"/>
+   <property name="type" value="composite-map-tileset"/>
   </properties>
   <image source="comps-demo-map-parts.png" width="64" height="64"/>
   <tile id="1">

@@ -166,7 +166,7 @@ public:
 
     int first_gid() const { return m_first_gid; }
 
-    const TiXmlElement & element() const { return *m_tileset_element; }
+    const TiXmlElement & as_element() const { return *m_tileset_element; }
 
 private:
     int m_first_gid;
@@ -259,6 +259,11 @@ private:
 class ProducableLoadState final : public BaseState {
 public:
     using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+
+    static TileSetAndStartGid
+        contents_to_producables_with_start_gid
+        (TileSetContent &&,
+         Platform & platform);
 
     static std::vector<TileSetAndStartGid>
         convert_to_tileset_and_start_gids
