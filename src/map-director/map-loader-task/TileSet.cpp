@@ -53,6 +53,25 @@ MakeFillerGridRt make_filler_grid
 
 } // end of <anonymous> namespace
 
+/* static */ SharedPtr<TileSetBase> TileSetBase::make_and_load_tileset
+    (Platform & platform, const TiXmlElement & tileset_el)
+{
+    const char * type = nullptr;
+    auto * properties = tileset_el.FirstChildElement("properties");
+    if (properties) {
+        for (auto & property : XmlRange{properties, "property"}) {
+            type = property.Attribute("type");
+        }
+    }
+
+    SharedPtr<TileSetBase> rv;
+    if (!type) {
+        rv = make_shared<TileSet>();
+    }
+    rv->load(platform, tileset_el);
+    return rv;
+}
+
 /* static */ const TileSet::FillerFactoryMap & TileSet::builtin_fillers() {
     static auto s_map = [] {
         FillerFactoryMap s_map;
@@ -83,20 +102,6 @@ void TileSet::load
     m_unique_fillers = std::move(filler_things.unique_fillers);
 }
 
-std::vector<SharedPtr<const ProducableGroupFiller>> TileSet::move_out_fillers() {
-    m_filler_grid.clear();
-    auto rv = std::move(m_unique_fillers);
-    m_unique_fillers.clear();
-    return rv;
-}
-
-SharedPtr<ProducableGroupFiller> TileSet::find_filler(int tid) const
-    { return find_filler( tile_id_to_tileset_location(tid) ); }
-
-/* private */ SharedPtr<ProducableGroupFiller> TileSet::find_filler
-    (Vector2I r) const
-    { return m_filler_grid(r); }
-
 /* private */
 std::map<
     SharedPtr<ProducableGroupFiller>,
@@ -109,26 +114,20 @@ std::map<
         std::vector<TileLocation>> rv;
     for (auto & location : tile_layer_wrapper) {
         // more cleaning out can be done here I think
-        if (!find_filler(location.tile_id())) {
+        if (!m_filler_grid(location.on_tile_set())) {
             continue;
         }
-#       if MACRO_DEBUG
-        assert(find_filler(location.tile_id()));
-#       endif
-        rv[find_filler(location.tile_id())].
+
+        rv[m_filler_grid(location.on_tile_set())].
             push_back(location.to_tile_location());
     }
     return rv;
 }
 
-Vector2I TileSet::tile_id_to_tileset_location(int tid) const
-    { return TileSetXmlGrid::tid_to_tileset_location(m_filler_grid, tid); }
-
 void TileSet::add_map_elements
     (TileSetMapElementVisitor & visitor,
-     const TileSetLayerWrapper & mapping_view)
+     const TileSetLayerWrapper & mapping_view) const
 {
-    // v has a grid, and group pointers
     auto unfinished = ProducableGroupTileLayer::with_grid_size(mapping_view.grid_size());
     auto fillers_to_locs = make_fillers_and_locations(mapping_view);
     for (auto & [filler, locs] : fillers_to_locs) {

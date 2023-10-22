@@ -318,23 +318,14 @@ MapLoadResult TiledMapStrategyState::update_progress
 
 using TileSetAndStartGid = TileMapIdToSetMapping_New::TileSetAndStartGid;
 
-// TileMapIdToSetMapping_New
-
 /* static */ TileSetAndStartGid
     ProducableLoadState::contents_to_producables_with_start_gid
     (TileSetContent && contents,
      Platform & platform)
 {
-    auto * properties = contents.as_element().FirstChildElement("properties");
-    if (properties) {
-        for (auto & property : XmlRange{properties, "property"}) {
-            property.Attribute("type");
-        }
-    }
-    auto tileset = make_shared<TileSet>();
-    tileset->load(platform, contents.as_element());
     return TileSetAndStartGid
-        {std::move(tileset), contents.first_gid()};
+        {TileSetBase::make_and_load_tileset(platform, contents.as_element()),
+         contents.first_gid()};
 }
 
 /* static */ std::vector<TileSetAndStartGid>

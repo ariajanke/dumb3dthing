@@ -23,7 +23,7 @@
 #include "../../Definitions.hpp"
 #include "../ProducableGrid.hpp"
 
-class TileSet;
+class TileSetBase;
 class ProducableGroupFiller;
 
 class TileSetMapElementVisitor;
@@ -38,8 +38,8 @@ struct TileLocation;
 
 class TileSetMappingTile final {
 public:
-    using ConstTileSetPtr = SharedPtr<const TileSet>;
-    using TileSetPtr      = SharedPtr<TileSet>;
+    using ConstTileSetPtr = SharedPtr<const TileSetBase>;
+    using TileSetPtr      = SharedPtr<TileSetBase>;
     using MappingContainer = std::vector<TileSetMappingTile>;
     using MappingContainerIterator = MappingContainer::const_iterator;
     using MappingView = View<MappingContainerIterator>;
@@ -82,7 +82,7 @@ public:
 
     bool has_tileset() const { return static_cast<bool>(m_tileset_ptr); }
 
-    TileSet & tileset_of(const MappingView & view) const {
+    TileSetBase & tileset_of(const MappingView & view) const {
 #       if MACRO_DEBUG
         assert(std::all_of(view.begin(), view.end(),
                [this](const TileSetMappingTile & mapping_tile)
@@ -119,7 +119,7 @@ public:
     static std::vector<TileSetLayerWrapper> make_views_from_sorted
         (const MappingContainer & container, const Size2I & grid_size);
 
-    static TileSet * tileset_of(const MappingView & view) {
+    static TileSetBase * tileset_of(const MappingView & view) {
         if (view.begin() == view.end()) return nullptr;
         return &view.begin()->tileset_of(view);
     }
@@ -192,7 +192,7 @@ public:
 
 private:
     using ConstTileSetPtr = TileSetMappingTile::ConstTileSetPtr;
-    using TileSetPtr      = SharedPtr<TileSet>;
+    using TileSetPtr      = TileSetMappingTile::TileSetPtr;
 
     static bool order_by_gids(const TileSetAndStartGid &, const TileSetAndStartGid &);
 

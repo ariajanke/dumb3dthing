@@ -60,6 +60,8 @@ public:
          FileContentsWaitState, InitialDocumentReadState, TileSetWaitState,
          TiledMapStrategyState, ProducableLoadState, ExpiredState>;
 
+    // how can I make delays happen?
+    // If I do this, it makes a lot of stuff around here way easier
     virtual MapLoadResult update_progress(StateSwitcher &) = 0;
 
     virtual ~BaseState() {}

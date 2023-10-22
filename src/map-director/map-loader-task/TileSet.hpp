@@ -35,35 +35,6 @@ public:
 
 class TileSetIdGrid;
 
-class TileSetMapElementVisitor;
-
-class TileSetMappingTile;
-class TileSetLayerWrapper;
-
-class TileSetBase {
-public:
-    using MappingContainer = std::vector<TileSetMappingTile>;
-    using MappingView = View<MappingContainer::const_iterator>;
-
-    virtual ~TileSetBase() {}
-
-    // TODO add back const, fillers/resources need the ability to clone
-    // themselves
-    virtual void add_map_elements
-        (TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) = 0;
-
-    Vector2I tile_id_location(int tid) const {
-        auto sz = size2();
-        if (tid < 0 || tid >= sz.height*sz.height) {
-            throw std::invalid_argument{""};
-        }
-        return Vector2I{tid % sz.width, tid / sz.width};
-    }
-
-protected:
-    virtual Size2I size2() const = 0;
-};
-
 class TileSetMapElementVisitor {
 public:
     virtual ~TileSetMapElementVisitor() {}
@@ -73,6 +44,41 @@ public:
     virtual void add(StackableSubRegionGrid &&) = 0;
 };
 
+class TileSetMappingTile;
+class TileSetLayerWrapper;
+
+class TileSetBase {
+public:
+    using MappingContainer = std::vector<TileSetMappingTile>;
+    using MappingView = View<MappingContainer::const_iterator>;
+
+    static SharedPtr<TileSetBase> make_and_load_tileset
+        (Platform &, const TiXmlElement &);
+
+    virtual ~TileSetBase() {}
+
+    virtual void load(Platform &, const TiXmlElement &) = 0;
+
+    virtual void add_map_elements
+        (TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) const = 0;
+
+    Vector2I tile_id_location(int tid) const {
+        auto sz = size2();
+        if (tid < 0 || tid >= sz.height*sz.height) {
+            throw std::invalid_argument{""};
+        }
+        return Vector2I{tid % sz.width, tid / sz.width};
+    }
+
+    int total_tile_count() const {
+        auto sz = size2();
+        return sz.width*sz.height;
+    }
+
+protected:
+    virtual Size2I size2() const = 0;
+};
+
 /// Tilesets map tileset ids to tile group fillers.
 ///
 /// maybe a loader thing
@@ -80,29 +86,20 @@ class TileSet final : public TileSetBase {
 public:
     using FillerFactory = SharedPtr<ProducableGroupFiller>(*)(const TileSetXmlGrid &, Platform &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
+    using TileSetBase::load;
 
     static const FillerFactoryMap & builtin_fillers();
 
     void load(Platform &, const TiXmlElement &,
-              const FillerFactoryMap & = builtin_fillers());
+              const FillerFactoryMap &);
 
-    /// also clears out the entire tileset
-    std::vector<SharedPtr<const ProducableGroupFiller>> move_out_fillers();
+    void load(Platform & platform, const TiXmlElement & element) final
+        { load(platform, element, builtin_fillers()); }
 
-    SharedPtr<ProducableGroupFiller> find_filler(int tid) const;
-
-    Vector2I tile_id_to_tileset_location(int tid) const;
-
-    auto total_tile_count() const
-        { return m_filler_grid.size(); }
-
-    // should also pass along fillers...
-    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) final;
+    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) const final;
 
 private:
     Size2I size2() const final { return m_filler_grid.size2(); }
-
-    SharedPtr<ProducableGroupFiller> find_filler(Vector2I) const;
 
     // TODO
     // kind of ugly in general, reveals the need for refactoring of filler
@@ -121,9 +118,9 @@ public:
     // loading this: will have to go through steps of promises and so on
     // in order to load, so it needs to be non-blocking
 
-    void load(Platform &, const TiXmlElement &);
+    void load(Platform &, const TiXmlElement &) final;
 
-    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) final;
+    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) const final;
 
 private:
     Size2I size2() const final { return m_sub_regions_grid.size2(); }
