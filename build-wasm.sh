@@ -24,7 +24,7 @@ if [[ true ]]; then
     emcc -O3 -std=c++17 \
         src/platform/wasm/wasm-main.cpp lib/tinyxml2/tinyxml2.cpp \
 				$(find src -maxdepth 1 | grep 'cpp\b') \
-			  $(find src/map-director | grep 'cpp\b') \
+			  $(find src/map-director | grep 'cpp$') \
 				$(find src/point-and-plane | grep 'cpp\b') \
 				$(find src/geometric-utilities | grep 'cpp\b') \
         --shell-file src/platform/wasm/shell.html \

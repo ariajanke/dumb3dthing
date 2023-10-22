@@ -26,115 +26,20 @@
 class TileSet;
 class ProducableGroupFiller;
 
-/// Translates global ids to tileset ids, along with their tilesets
-///
-/// Can also be used as an owner for tilesets (needs to for translation to
-/// work). The tilesets maybe moved out, however this empties the translator.
-///   TileMapIdToSetMapping
-///   MapToSetIdMapping
-class TileMapIdToSetMapping final :
-    public UnfinishedProducableTileViewGrid::ProducableGroupFillerExtraction
-{
-public:
-    using ConstTileSetPtr = SharedPtr<const TileSet>;
-    using TileSetPtr      = SharedPtr<TileSet>;
-
-    struct TileSetAndStartGid final {
-        TileSetAndStartGid() {}
-
-        TileSetAndStartGid(TileSetPtr && tileset_, int start_gid_):
-            tileset(std::move(tileset_)),
-            start_gid(start_gid_)
-        {}
-
-        TileSetPtr tileset;
-        int start_gid = 0;
-    };
-
-    TileMapIdToSetMapping() {}
-
-    explicit TileMapIdToSetMapping(std::vector<TileSetAndStartGid> &&);
-
-    Tuple<int, ConstTileSetPtr> map_id_to_set(int map_wide_id) const;
-
-    [[nodiscard]] std::vector<SharedPtr<const ProducableGroupFiller>>
-        move_out_fillers() final;
-
-    void swap(TileMapIdToSetMapping &);
-
-private:
-    static bool order_by_gids(const TileSetAndStartGid &, const TileSetAndStartGid &);
-
-    [[nodiscard]] std::vector<SharedPtr<TileSet>> move_out_tilesets();
-
-    std::vector<TileSetAndStartGid> m_gid_map;
-    int m_gid_end = 0;
-};
-
 class TileSetMapElementVisitor;
-#if 0
-class TileSetIdGrid final {
-public:
-    TileSetIdGrid();
 
-    TileSetIdGrid
-        (const Grid<int> & gid_layer, int start_gid, int end_gid);
-
-    // tid could possibly be zero in the data?
-    // perhaps take negative to mean that there's nothing there?
-    // this needs to be thought out at the time where we actually handle the
-    // tid
-    int to_tileset_id(Vector2I r) const;
-
-    // wait and see on iterating this
-
-private:
-    const Grid<int> * m_gid_layer = nullptr;
-    int m_start_gid = 0, m_gid_end = 0;
-};
-#endif
 class TileMapIdToSetMappingElement final {
 public:
 
     void add_map_elements(TileSetMapElementVisitor & visitor) const;
 };
-#if 0
-class TileMapIdToSetMappingIterator final {
-public:
-    using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
-    // has to be a writable because we're consuming the thing :/
-    using IteratorImpl = std::vector<TileSetAndStartGid>::iterator;
-
-    explicit TileMapIdToSetMappingIterator(IteratorImpl);
-
-    TileMapIdToSetMappingIterator(const Grid<int> *, IteratorImpl);
-
-    TileMapIdToSetMappingElement & operator ++ ();
-
-    TileMapIdToSetMappingElement operator * () const;
-
-    TileMapIdToSetMappingElement * operator -> () const;
-
-    bool operator == (const TileMapIdToSetMappingIterator &) const;
-
-private:
-    IteratorImpl m_position;
-    TileMapIdToSetMappingElement m_element;
-};
-#endif
-#if 0
-struct TileLocationWithId final {
-    Vector2I on_map_location;
-    Vector2I on_tile_set_location;
-    int tile_id = 0;
-};
-#endif
 
 struct TileLocation;
 
 class TileSetMappingTile final {
 public:
     using ConstTileSetPtr = SharedPtr<const TileSet>;
+    using TileSetPtr      = SharedPtr<TileSet>;
     using MappingContainer = std::vector<TileSetMappingTile>;
     using MappingContainerIterator = MappingContainer::const_iterator;
     using MappingView = View<MappingContainerIterator>;
@@ -145,7 +50,7 @@ public:
 
     static TileSetMappingTile from_map_location(int x_on_map, int y_on_map) {
         return TileSetMappingTile
-            {Vector2I{x_on_map, y_on_map}, Vector2I{}, 0, ConstTileSetPtr{}};
+            {Vector2I{x_on_map, y_on_map}, Vector2I{}, 0, TileSetPtr{}};
     }
 
 
@@ -155,7 +60,7 @@ public:
         (const Vector2I & on_map,
          const Vector2I & on_tile_set,
          int tile_id_,
-         const ConstTileSetPtr & ptr):
+         const TileSetPtr & ptr):
         m_on_map(on_map),
         m_on_tile_set(on_tile_set),
         m_tile_id(tile_id_),
@@ -168,18 +73,20 @@ public:
     int tile_id() const { return m_tile_id; }
 
     TileSetMappingTile with_tileset
-        (int tile_id_, const ConstTileSetPtr & ptr) const;
+        (int tile_id_, const TileSetPtr & ptr) const;
 
     bool same_tileset(const TileSetMappingTile & rhs) const
         { return m_tileset_ptr == rhs.m_tileset_ptr; }
 
     TileLocation to_tile_location() const;
 
-    const TileSet & tileset_of(const MappingView & view) const {
+    bool has_tileset() const { return static_cast<bool>(m_tileset_ptr); }
+
+    TileSet & tileset_of(const MappingView & view) const {
 #       if MACRO_DEBUG
         assert(std::all_of(view.begin(), view.end(),
                [this](const TileSetMappingTile & mapping_tile)
-               { same_tileset(mapping_tile); }));
+               { return same_tileset(mapping_tile); }));
 #       endif
         return *m_tileset_ptr;
     }
@@ -188,7 +95,7 @@ private:
     Vector2I m_on_map;
     Vector2I m_on_tile_set;
     int m_tile_id;
-    ConstTileSetPtr m_tileset_ptr;
+    TileSetPtr m_tileset_ptr;
 };
 
 class TileSetLayerWrapper;
@@ -212,7 +119,7 @@ public:
     static std::vector<TileSetLayerWrapper> make_views_from_sorted
         (const MappingContainer & container, const Size2I & grid_size);
 
-    static const TileSet * tileset_of(const MappingView & view) {
+    static TileSet * tileset_of(const MappingView & view) {
         if (view.begin() == view.end()) return nullptr;
         return &view.begin()->tileset_of(view);
     }
@@ -258,9 +165,24 @@ private:
 
 class TileMapIdToSetMapping_New final {
 public:
-    using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+    struct TileSetAndStartGid final {
+        using TileSetPtr = TileSetMappingTile::TileSetPtr;
+
+        TileSetAndStartGid() {}
+
+        TileSetAndStartGid(TileSetPtr && tileset_, int start_gid_):
+            tileset(std::move(tileset_)),
+            start_gid(start_gid_)
+        {}
+
+        TileSetPtr tileset;
+        int start_gid = 0;
+    };
 
     static std::vector<TileSetMappingTile> make_locations(const Size2I &);
+
+    static std::vector<TileSetMappingTile> clean_null_tiles
+        (std::vector<TileSetMappingTile> &&);
 
     TileMapIdToSetMapping_New() {}
 
@@ -270,10 +192,11 @@ public:
 
 private:
     using ConstTileSetPtr = TileSetMappingTile::ConstTileSetPtr;
+    using TileSetPtr      = SharedPtr<TileSet>;
 
     static bool order_by_gids(const TileSetAndStartGid &, const TileSetAndStartGid &);
 
-    Tuple<int, ConstTileSetPtr> map_id_to_set(int map_wide_id) const;
+    Tuple<int, TileSetPtr> map_id_to_set(int map_wide_id) const;
 
     std::vector<TileSetAndStartGid> m_gid_map;
     int m_gid_end = 0;

@@ -35,75 +35,6 @@ using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
 Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement &);
 
-Grid<Tuple<int, SharedPtr<const TileSet>>> gid_layer_to_tid_layer
-    (const Grid<int> & gids, const TileMapIdToSetMapping & gidtid_translator)
-{
-    Grid<Tuple<int, SharedPtr<const TileSet>>> rv;
-    rv.set_size(gids.size2(), make_tuple(0, nullptr));
-
-    for (Vector2I r; r != rv.end_position(); r = rv.next(r)) {
-        // (change rt to tuple from pair)
-        auto [tid, tileset] = gidtid_translator.map_id_to_set(gids(r));
-        rv(r) = make_tuple(tid, tileset);
-    }
-
-    return rv;
-}
-
-struct FillerAndLocations final {
-    SharedPtr<ProducableGroupFiller> filler;
-    std::vector<TileLocation> tile_locations;
-};
-
-std::vector<FillerAndLocations>
-    tid_layer_to_fillables_and_locations
-    (const Grid<Tuple<int, SharedPtr<const TileSet>>> & tids_and_tilesets)
-{
-    std::map<
-        SharedPtr<ProducableGroupFiller>,
-        std::vector<TileLocation>> fillers_to_locs;
-    for (Vector2I layer_loc; layer_loc != tids_and_tilesets.end_position();
-         layer_loc = tids_and_tilesets.next(layer_loc))
-    {
-        auto [tid, tileset] = tids_and_tilesets(layer_loc);
-        if (!tileset) continue;
-        auto filler = tileset->find_filler(tid);
-        TileLocation tile_loc;
-        tile_loc.on_map     = layer_loc;
-        tile_loc.on_tileset = tileset->tile_id_to_tileset_location(tid);
-        fillers_to_locs[filler].push_back(tile_loc);
-    }
-
-
-    std::vector<FillerAndLocations> rv;
-    rv.reserve(fillers_to_locs.size());
-    for (auto & [filler, locs] : fillers_to_locs) {
-        FillerAndLocations filler_and_locs;
-        filler_and_locs.filler = filler;
-        filler_and_locs.tile_locations = std::move(locs);
-        rv.emplace_back(std::move(filler_and_locs));
-    }
-    return rv;
-}
-
-ProducableGroupTileLayer make_unfinsihed_tile_group_grid
-    (const std::vector<FillerAndLocations> & fillers_and_locs,
-     const Size2I & layer_size)
-{
-#   if 0
-    ProducableGroupTileLayer unfinished_grid;
-    unfinished_grid.set_size(layer_size);
-#   endif
-    auto unfinished_grid = ProducableGroupTileLayer::with_grid_size(layer_size);
-    for (auto & filler_and_locs : fillers_and_locs) {
-        if (!filler_and_locs.filler) continue;
-        unfinished_grid = (*filler_and_locs.filler)
-            (filler_and_locs.tile_locations, std::move(unfinished_grid));
-    }
-
-    return unfinished_grid;
-}
-
 } // end of <anonymous> namespace
 
 // ----------------------------------------------------------------------------
@@ -385,7 +316,7 @@ MapLoadResult TiledMapStrategyState::update_progress
 
 // ----------------------------------------------------------------------------
 
-using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+using TileSetAndStartGid = TileMapIdToSetMapping_New::TileSetAndStartGid;
 
 // TileMapIdToSetMapping_New
 
@@ -417,30 +348,8 @@ using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
         tilesets_and_start_gids.emplace_back
             (contents_to_producables_with_start_gid
                 (std::move(contents), platform));
-#       if 0
-        auto tileset = make_shared<TileSet>();
-        tileset->load(platform, contents.as_element());
-        tilesets_and_start_gids.emplace_back
-            (std::move(tileset), contents.first_gid());
-#       endif
     }
     return tilesets_and_start_gids;
-}
-
-/* static */ ProducableTileViewGrid
-    ProducableLoadState::make_producable_view_grid
-    (std::vector<Grid<int>> && layers,
-     TileMapIdToSetMapping && gid_to_tid_mapping)
-{
-    UnfinishedProducableTileViewGrid unfinished_grid_view;
-    for (auto & layer : layers) {
-        auto tid_layer = gid_layer_to_tid_layer(layer, gid_to_tid_mapping);
-        auto fillables_layer = tid_layer_to_fillables_and_locations(tid_layer);
-        unfinished_grid_view =
-            make_unfinsihed_tile_group_grid(fillables_layer, layer.size2()).
-            move_self_to(std::move(unfinished_grid_view));
-    }
-    return unfinished_grid_view.finish(gid_to_tid_mapping);
 }
 
 ProducableLoadState::ProducableLoadState
@@ -456,38 +365,38 @@ MapLoadResult ProducableLoadState::update_progress
 {
     class TileSetMapElementVisitorImpl final : public TileSetMapElementVisitor {
     public:
-        void add(StackableProducableTileGrid &&) final {}
-        void add(StackableSubRegionGrid &&) final {}
+        void add(StackableProducableTileGrid && stackable) final {
+            m_stackable_producable_grid = m_stackable_producable_grid.
+                stack_with(std::move(stackable));
+        }
+
+        void add(StackableSubRegionGrid &&) final
+            { throw std::runtime_error{"not implemented"}; }
+
+        ProducableTileViewGrid to_producables()
+            { return m_stackable_producable_grid.to_producables(); }
+
+    private:
+        StackableProducableTileGrid m_stackable_producable_grid;
     };
 
-    TileMapIdToSetMapping_New set_mapping{convert_to_tileset_and_start_gids(std::move(m_finished_contents), platform())};
+    TileMapIdToSetMapping_New set_mapping
+        {convert_to_tileset_and_start_gids(std::move(m_finished_contents), platform())};
     TileSetMapElementVisitorImpl impl;
     for (auto & layer : m_layers) {
         auto layer_mapping = set_mapping.make_mapping_for_layer(layer);
         for (auto & layer_wrapper : layer_mapping) {
-            const auto & tileset = *TileSetMappingLayer::tileset_of
+            auto & tileset = *TileSetMappingLayer::tileset_of
                 (layer_wrapper.as_view());
+            // ends up consuming the tileset :c
             tileset.add_map_elements(impl, layer_wrapper);
         }
     }
     MapLoadingSuccess success;
     success.loaded_region =
-        make_unique<TiledMapRegion>(make_producable_view_grid(), map_scale());
+        make_unique<TiledMapRegion>(impl.to_producables(), map_scale());
     switcher.set_next_state<ExpiredState>();
     return success;
-}
-
-/* private */ TileMapIdToSetMapping ProducableLoadState::make_tidgid_mapping() {
-    return TileMapIdToSetMapping
-        {convert_to_tileset_and_start_gids(std::move(m_finished_contents),
-         platform())};
-}
-
-/* private */ ProducableTileViewGrid
-    ProducableLoadState::make_producable_view_grid()
-{
-    return make_producable_view_grid
-        (std::move(m_layers), make_tidgid_mapping());
 }
 
 /* private */ ScaleComputation ProducableLoadState::map_scale() const {

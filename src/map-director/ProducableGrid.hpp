@@ -28,7 +28,6 @@
 
 class Platform;
 class UnfinishedProducableTileViewGrid;
-class TileMapIdToSetMapping;
 
 class ProducableTileCallbacks {
 public:
@@ -179,20 +178,14 @@ public:
         { return ProducableGroupTileLayer{sz}; }
 
     ProducableGroupTileLayer() {}
-#   if 0
-    // may only be set once
-    [[deprecated]] void set_size(const Size2I &);
-#   endif
+
     template <typename T>
     void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
         { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
-    [[deprecated]] UnfinishedProducableTileViewGrid
-        move_self_to(UnfinishedProducableTileViewGrid &&);
-
     StackableProducableTileGrid
         to_stackable_producable_tile_grid
-        (std::vector<SharedPtr<const ProducableGroupFiller>> && fillers);
+        (const std::vector<SharedPtr<const ProducableGroupFiller>> & fillers);
 
 private:
     explicit ProducableGroupTileLayer(const Size2I & target_size) {

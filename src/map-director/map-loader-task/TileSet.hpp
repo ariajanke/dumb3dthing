@@ -27,35 +27,7 @@
 #include <map>
 
 class TileSetXmlGrid;
-#if 0
-class StackableProducableTileGrid final {
-public:
-    using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroup_>>;
-    using ProducableGroupCollectionPtr = SharedPtr<ProducableGroupCollection>;
 
-    StackableProducableTileGrid() {}
-
-    StackableProducableTileGrid
-        (Grid<ProducableTile *> && producables,
-         std::vector<SharedPtr<const ProducableGroupFiller>> && fillers,
-         const ProducableGroupCollectionPtr & producable_owners):
-        m_producable_grids({ std::move(producables) }),
-        m_fillers(std::move(fillers)),
-        m_producable_owners(producable_owners) {}
-
-    StackableProducableTileGrid stack_with(StackableProducableTileGrid &&);
-
-    ProducableTileViewGrid to_producables() {
-
-    }
-
-private:
-    std::vector<Grid<ProducableTile *>> m_producable_grids;
-    std::vector<SharedPtr<const ProducableGroupFiller>> m_fillers;
-
-    ProducableGroupCollectionPtr m_producable_owners;
-};
-#endif
 class StackableSubRegionGrid final {
 public:
     explicit StackableSubRegionGrid(Grid<MapSubRegion> &&);

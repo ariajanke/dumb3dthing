@@ -23,10 +23,21 @@
 
 #include "../TriangleSegment.hpp"
 
-// TEMP
+namespace {
+
+using ProducableFillerMap = StackableProducableTileGrid::ProducableFillerMap;
+
+} // end of <anonymous> namespace
+
+// TODO move or delete TEMP
 TriangleSegment TriangleSegmentTransformation::operator ()
     (const TriangleSegment & triangle) const
 { return m_scale(triangle).move(translation()); }
+
+// TODO move TEMP
+/* static */ const ProducableFillerMap
+    StackableProducableTileGrid::k_default_producable_filler_map =
+    ProducableFillerMap{2, SharedPtr<const ProducableGroupFiller>{}};
 
 void ProducableTileCallbacks::add_collidable
     (const Vector & triangle_point_a,
@@ -96,37 +107,11 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
 }
 
 // ----------------------------------------------------------------------------
-#if 0
-void ProducableGroupTileLayer::set_size(const Size2I & sz) {
-    using namespace cul::exceptions_abbr;
-    if (sz == Size2I{}) {
-        throw InvArg{"ProducableGroupTileLayer::set_size: given size must be "
-                     "non zero"};
-    } else if (m_target.size2() != Size2I{}) {
-        throw RtError{"ProducableGroupTileLayer::set_size: size may only be "
-                      "set once"};
-    }
-    m_groups.clear();
-    m_target.clear();
-    m_target.set_size(sz, nullptr);
-}
-#endif
-UnfinishedProducableTileViewGrid
-    ProducableGroupTileLayer::move_self_to
-    (UnfinishedProducableTileViewGrid && unfinished_grid_view)
-{
-    unfinished_grid_view.add_layer(std::move(m_target), m_groups);
-    m_target.clear();
-    m_groups.clear();
-    return std::move(unfinished_grid_view);
-}
 
 StackableProducableTileGrid
     ProducableGroupTileLayer::to_stackable_producable_tile_grid
-    (std::vector<SharedPtr<const ProducableGroupFiller>> && fillers)
+    (const std::vector<SharedPtr<const ProducableGroupFiller>> & fillers)
 {
-    return StackableProducableTileGrid
-        {std::move(m_target),
-         std::move(fillers),
-         std::move(m_groups)};
+    return StackableProducableTileGrid::make_with_fillers
+        (fillers, std::move(m_target), std::move(m_groups));
 }

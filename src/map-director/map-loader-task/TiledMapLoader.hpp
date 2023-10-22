@@ -22,7 +22,6 @@
 
 #include "TileMapIdToSetMapping.hpp"
 #include "MapLoadingError.hpp"
-#include "TileSetCollection.hpp"
 #include "StateMachineDriver.hpp"
 
 #include "../ParseHelpers.hpp"
@@ -258,7 +257,7 @@ private:
 
 class ProducableLoadState final : public BaseState {
 public:
-    using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
+    using TileSetAndStartGid = TileMapIdToSetMapping_New::TileSetAndStartGid;
 
     static TileSetAndStartGid
         contents_to_producables_with_start_gid
@@ -270,10 +269,6 @@ public:
         (std::vector<TileSetContent> &&,
          Platform & platform);
 
-    static ProducableTileViewGrid make_producable_view_grid
-        (std::vector<Grid<int>> &&,
-         TileMapIdToSetMapping &&);
-
     ProducableLoadState
         (DocumentOwningNode && document_root,
          std::vector<Grid<int>> && layers,
@@ -282,10 +277,6 @@ public:
     MapLoadResult update_progress(StateSwitcher &) final;
 
 private:
-    TileMapIdToSetMapping make_tidgid_mapping();
-
-    ProducableTileViewGrid make_producable_view_grid();
-
     ScaleComputation map_scale() const;
 
     DocumentOwningNode m_document_root;

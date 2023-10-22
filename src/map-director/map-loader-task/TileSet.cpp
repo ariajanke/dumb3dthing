@@ -108,6 +108,13 @@ std::map<
         SharedPtr<ProducableGroupFiller>,
         std::vector<TileLocation>> rv;
     for (auto & location : tile_layer_wrapper) {
+        // more cleaning out can be done here I think
+        if (!find_filler(location.tile_id())) {
+            continue;
+        }
+#       if MACRO_DEBUG
+        assert(find_filler(location.tile_id()));
+#       endif
         rv[find_filler(location.tile_id())].
             push_back(location.to_tile_location());
     }
@@ -125,11 +132,14 @@ void TileSet::add_map_elements
     auto unfinished = ProducableGroupTileLayer::with_grid_size(mapping_view.grid_size());
     auto fillers_to_locs = make_fillers_and_locations(mapping_view);
     for (auto & [filler, locs] : fillers_to_locs) {
+#       if MACRO_DEBUG
+        assert(filler);
+#       endif
         unfinished = (*filler)(locs, std::move(unfinished));
     }
 
     visitor.add
-        (unfinished.to_stackable_producable_tile_grid(move_out_fillers()));
+        (unfinished.to_stackable_producable_tile_grid(m_unique_fillers));
 }
 
 namespace {
