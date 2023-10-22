@@ -39,3 +39,28 @@ public:
     virtual ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const = 0;
 };
+
+class StackableProducableTileGrid final {
+public:
+    using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroup_>>;
+    using ProducableGroupCollectionPtr = SharedPtr<ProducableGroupCollection>;
+
+    StackableProducableTileGrid() {}
+
+    StackableProducableTileGrid
+        (Grid<ProducableTile *> && producables,
+         std::vector<SharedPtr<const ProducableGroupFiller>> && fillers,
+         ProducableGroupCollection && producable_owners):
+        m_producable_grids({ std::move(producables) }),
+        m_fillers(std::move(fillers)),
+        m_producable_owners(producable_owners) {}
+
+    StackableProducableTileGrid stack_with(StackableProducableTileGrid &&);
+
+    ProducableTileViewGrid to_producables();
+
+private:
+    std::vector<Grid<ProducableTile *>> m_producable_grids;
+    std::vector<SharedPtr<const ProducableGroupFiller>> m_fillers;
+    ProducableGroupCollection m_producable_owners;
+};

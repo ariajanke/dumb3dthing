@@ -27,15 +27,21 @@
 #include <map>
 
 class TileSetXmlGrid;
-
+#if 0
 class StackableProducableTileGrid final {
 public:
     using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroup_>>;
     using ProducableGroupCollectionPtr = SharedPtr<ProducableGroupCollection>;
 
+    StackableProducableTileGrid() {}
+
     StackableProducableTileGrid
         (Grid<ProducableTile *> && producables,
-         const ProducableGroupCollectionPtr & producable_owners);
+         std::vector<SharedPtr<const ProducableGroupFiller>> && fillers,
+         const ProducableGroupCollectionPtr & producable_owners):
+        m_producable_grids({ std::move(producables) }),
+        m_fillers(std::move(fillers)),
+        m_producable_owners(producable_owners) {}
 
     StackableProducableTileGrid stack_with(StackableProducableTileGrid &&);
 
@@ -44,11 +50,12 @@ public:
     }
 
 private:
-    std::vector<ProducableTile *> m_producables;
+    std::vector<Grid<ProducableTile *>> m_producable_grids;
+    std::vector<SharedPtr<const ProducableGroupFiller>> m_fillers;
 
     ProducableGroupCollectionPtr m_producable_owners;
 };
-
+#endif
 class StackableSubRegionGrid final {
 public:
     explicit StackableSubRegionGrid(Grid<MapSubRegion> &&);
@@ -58,11 +65,31 @@ class TileSetIdGrid;
 
 class TileSetMapElementVisitor;
 
+class TileSetMappingTile;
+class TileSetLayerWrapper;
+
 class TileSetBase {
 public:
+    using MappingContainer = std::vector<TileSetMappingTile>;
+    using MappingView = View<MappingContainer::const_iterator>;
+
     virtual ~TileSetBase() {}
 
-    virtual void add_map_elements(TileSetMapElementVisitor &, const TileSetIdGrid & tid_layer) const = 0;
+    // TODO add back const, fillers/resources need the ability to clone
+    // themselves
+    virtual void add_map_elements
+        (TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) = 0;
+
+    Vector2I tile_id_location(int tid) const {
+        auto sz = size2();
+        if (tid < 0 || tid >= sz.height*sz.height) {
+            throw std::invalid_argument{""};
+        }
+        return Vector2I{tid % sz.width, tid / sz.width};
+    }
+
+protected:
+    virtual Size2I size2() const = 0;
 };
 
 class TileSetMapElementVisitor {
@@ -77,7 +104,7 @@ public:
 /// Tilesets map tileset ids to tile group fillers.
 ///
 /// maybe a loader thing
-class TileSet final {
+class TileSet final : public TileSetBase {
 public:
     using FillerFactory = SharedPtr<ProducableGroupFiller>(*)(const TileSetXmlGrid &, Platform &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
@@ -98,25 +125,37 @@ public:
         { return m_filler_grid.size(); }
 
     // should also pass along fillers...
-    void add_map_elements(TileSetMapElementVisitor &, const TileSetIdGrid & tid_layer) const;
+    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) final;
 
 private:
+    Size2I size2() const final { return m_filler_grid.size2(); }
+
     SharedPtr<ProducableGroupFiller> find_filler(Vector2I) const;
+
+    // TODO
+    // kind of ugly in general, reveals the need for refactoring of filler
+    // classes, BUT not doing yet
+    std::map<
+        SharedPtr<ProducableGroupFiller>,
+        std::vector<TileLocation>>
+        make_fillers_and_locations(const TileSetLayerWrapper &) const;
 
     Grid<SharedPtr<ProducableGroupFiller>> m_filler_grid;
     std::vector<SharedPtr<const ProducableGroupFiller>> m_unique_fillers;
 };
 
-class CompositeTileSet final {
+class CompositeTileSet final : public TileSetBase {
 public:
     // loading this: will have to go through steps of promises and so on
     // in order to load, so it needs to be non-blocking
 
     void load(Platform &, const TiXmlElement &);
 
-    StackableSubRegionGrid something(const Grid<int> & tid_layer) const;
+    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) final;
 
 private:
+    Size2I size2() const final { return m_sub_regions_grid.size2(); }
+
     Grid<MapSubRegion> m_sub_regions_grid;
     const SharedPtr<MapRegion> & parent_region();
 };

@@ -90,8 +90,11 @@ ProducableGroupTileLayer make_unfinsihed_tile_group_grid
     (const std::vector<FillerAndLocations> & fillers_and_locs,
      const Size2I & layer_size)
 {
+#   if 0
     ProducableGroupTileLayer unfinished_grid;
     unfinished_grid.set_size(layer_size);
+#   endif
+    auto unfinished_grid = ProducableGroupTileLayer::with_grid_size(layer_size);
     for (auto & filler_and_locs : fillers_and_locs) {
         if (!filler_and_locs.filler) continue;
         unfinished_grid = (*filler_and_locs.filler)
@@ -384,6 +387,8 @@ MapLoadResult TiledMapStrategyState::update_progress
 
 using TileSetAndStartGid = TileMapIdToSetMapping::TileSetAndStartGid;
 
+// TileMapIdToSetMapping_New
+
 /* static */ TileSetAndStartGid
     ProducableLoadState::contents_to_producables_with_start_gid
     (TileSetContent && contents,
@@ -449,6 +454,22 @@ ProducableLoadState::ProducableLoadState
 MapLoadResult ProducableLoadState::update_progress
     (StateSwitcher & switcher)
 {
+    class TileSetMapElementVisitorImpl final : public TileSetMapElementVisitor {
+    public:
+        void add(StackableProducableTileGrid &&) final {}
+        void add(StackableSubRegionGrid &&) final {}
+    };
+
+    TileMapIdToSetMapping_New set_mapping{convert_to_tileset_and_start_gids(std::move(m_finished_contents), platform())};
+    TileSetMapElementVisitorImpl impl;
+    for (auto & layer : m_layers) {
+        auto layer_mapping = set_mapping.make_mapping_for_layer(layer);
+        for (auto & layer_wrapper : layer_mapping) {
+            const auto & tileset = *TileSetMappingLayer::tileset_of
+                (layer_wrapper.as_view());
+            tileset.add_map_elements(impl, layer_wrapper);
+        }
+    }
     MapLoadingSuccess success;
     success.loaded_region =
         make_unique<TiledMapRegion>(make_producable_view_grid(), map_scale());

@@ -96,7 +96,7 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
 }
 
 // ----------------------------------------------------------------------------
-
+#if 0
 void ProducableGroupTileLayer::set_size(const Size2I & sz) {
     using namespace cul::exceptions_abbr;
     if (sz == Size2I{}) {
@@ -110,7 +110,7 @@ void ProducableGroupTileLayer::set_size(const Size2I & sz) {
     m_target.clear();
     m_target.set_size(sz, nullptr);
 }
-
+#endif
 UnfinishedProducableTileViewGrid
     ProducableGroupTileLayer::move_self_to
     (UnfinishedProducableTileViewGrid && unfinished_grid_view)
@@ -119,4 +119,14 @@ UnfinishedProducableTileViewGrid
     m_target.clear();
     m_groups.clear();
     return std::move(unfinished_grid_view);
+}
+
+StackableProducableTileGrid
+    ProducableGroupTileLayer::to_stackable_producable_tile_grid
+    (std::vector<SharedPtr<const ProducableGroupFiller>> && fillers)
+{
+    return StackableProducableTileGrid
+        {std::move(m_target),
+         std::move(fillers),
+         std::move(m_groups)};
 }

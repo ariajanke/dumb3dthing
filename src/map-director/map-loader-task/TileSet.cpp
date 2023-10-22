@@ -24,6 +24,8 @@
 #include "../slopes-group-filler.hpp"
 #include "../twist-loop-filler.hpp"
 
+#include "TileMapIdToSetMapping.hpp"
+
 #include <tinyxml2.h>
 
 namespace {
@@ -95,8 +97,40 @@ SharedPtr<ProducableGroupFiller> TileSet::find_filler(int tid) const
     (Vector2I r) const
     { return m_filler_grid(r); }
 
+/* private */
+std::map<
+    SharedPtr<ProducableGroupFiller>,
+    std::vector<TileLocation>>
+    TileSet::make_fillers_and_locations
+    (const TileSetLayerWrapper & tile_layer_wrapper) const
+{
+    std::map<
+        SharedPtr<ProducableGroupFiller>,
+        std::vector<TileLocation>> rv;
+    for (auto & location : tile_layer_wrapper) {
+        rv[find_filler(location.tile_id())].
+            push_back(location.to_tile_location());
+    }
+    return rv;
+}
+
 Vector2I TileSet::tile_id_to_tileset_location(int tid) const
     { return TileSetXmlGrid::tid_to_tileset_location(m_filler_grid, tid); }
+
+void TileSet::add_map_elements
+    (TileSetMapElementVisitor & visitor,
+     const TileSetLayerWrapper & mapping_view)
+{
+    // v has a grid, and group pointers
+    auto unfinished = ProducableGroupTileLayer::with_grid_size(mapping_view.grid_size());
+    auto fillers_to_locs = make_fillers_and_locations(mapping_view);
+    for (auto & [filler, locs] : fillers_to_locs) {
+        unfinished = (*filler)(locs, std::move(unfinished));
+    }
+
+    visitor.add
+        (unfinished.to_stackable_producable_tile_grid(move_out_fillers()));
+}
 
 namespace {
 

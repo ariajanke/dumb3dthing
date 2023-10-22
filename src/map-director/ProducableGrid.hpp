@@ -171,19 +171,39 @@ private:
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
 
+class StackableProducableTileGrid;
+
 class ProducableGroupTileLayer final {
 public:
-    // may only be set once
-    void set_size(const Size2I &);
+    static ProducableGroupTileLayer with_grid_size(const Size2I & sz)
+        { return ProducableGroupTileLayer{sz}; }
 
+    ProducableGroupTileLayer() {}
+#   if 0
+    // may only be set once
+    [[deprecated]] void set_size(const Size2I &);
+#   endif
     template <typename T>
     void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
         { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
-    UnfinishedProducableTileViewGrid
+    [[deprecated]] UnfinishedProducableTileViewGrid
         move_self_to(UnfinishedProducableTileViewGrid &&);
 
+    StackableProducableTileGrid
+        to_stackable_producable_tile_grid
+        (std::vector<SharedPtr<const ProducableGroupFiller>> && fillers);
+
 private:
+    explicit ProducableGroupTileLayer(const Size2I & target_size) {
+        using namespace cul::exceptions_abbr;
+        if (target_size.width <= 0 || target_size.height <= 0) {
+            throw InvArg{"ProducableGroupTileLayer::set_size: given size must be "
+                         "non zero"};
+        }
+        m_target.set_size(target_size, nullptr);
+    }
+
     Grid<ProducableTile *> m_target;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
