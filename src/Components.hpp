@@ -241,7 +241,7 @@ private:
     bool m_jump_pressed_before = false;
     bool m_jump_this_frame = false;
 };
-
+#if 0
 class EveryFrameTask;
 class OccasionalTask;
 class LoaderTask;
@@ -284,6 +284,40 @@ enum class BackgroundCompletion {
     finished, in_progress
 };
 
+class BackgroundDelayTask;
+
+class BackgroundTaskCompletion final {
+public:
+    enum class Status { finished, in_progress, delay_until };
+
+    static const BackgroundTaskCompletion k_finished;
+
+    static const BackgroundTaskCompletion k_in_progress;
+
+    template <typename Func>
+    static BackgroundTaskCompletion delay_until(Func && f);
+
+    bool operator == (const BackgroundTaskCompletion &) const;
+
+    SharedPtr<BackgroundDelayTask> move_out_delay_task();
+
+    BackgroundTaskCompletion after_completion
+        (SharedPtr<BackgroundTask> && task_);
+
+private:
+    static SharedPtr<BackgroundDelayTask> verify_return_task
+        (SharedPtr<BackgroundDelayTask> &&);
+
+    BackgroundTaskCompletion
+        (Status status_,
+         SharedPtr<BackgroundDelayTask> && delay_task_):
+        m_status(status_),
+        m_delay_task(std::move(delay_task_)) {}
+
+    Status m_status;
+    SharedPtr<BackgroundDelayTask> m_delay_task;
+};
+
 class BackgroundTask {
 public:
     using Callbacks = TaskCallbacks;
@@ -294,6 +328,25 @@ public:
 
     template <typename Func>
     static SharedPtr<BackgroundTask> make(Func && f_);
+};
+
+class BackgroundDelayTask : public BackgroundTask {
+public:
+    BackgroundCompletion operator () (Callbacks & callbacks) final {
+        auto res = on_delay(callbacks);
+        if (res == BackgroundCompletion::finished) {
+            // special handling (return the return task)
+        }
+        return res;
+    }
+
+    void set_return_task
+        (SharedPtr<BackgroundTask> && task_);
+
+    virtual BackgroundCompletion on_delay(Callbacks &) = 0;
+
+private:
+    SharedPtr<BackgroundTask> m_return_task;
 };
 
 // An occasional task, is called only once, before being removed by the
@@ -407,3 +460,4 @@ template <typename Func>
     };
     return make_shared<Impl>(std::move(f_));
 }
+#endif
