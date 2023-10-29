@@ -51,12 +51,13 @@ class TileSetBase {
 public:
     using MappingContainer = std::vector<TileSetMappingTile>;
     using MappingView = View<MappingContainer::const_iterator>;
+    using Readiness = Future<std::string>::Readiness;
 
-    static SharedPtr<TileSetBase> make_and_load_tileset
-        (Platform &, const TiXmlElement &);
+    static SharedPtr<TileSetBase> make(const TiXmlElement &);
 
     virtual ~TileSetBase() {}
 
+    // might not have something to wait on
     virtual void load(Platform &, const TiXmlElement &) = 0;
 
     virtual void add_map_elements

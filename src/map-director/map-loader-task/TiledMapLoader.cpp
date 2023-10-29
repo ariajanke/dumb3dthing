@@ -45,7 +45,7 @@ void BaseState::copy_platform_and_warnings(const BaseState & rhs) {
     m_platform = rhs.m_platform;
     m_unfinished_warnings = rhs.m_unfinished_warnings;
 }
-
+#if 0
 // ----------------------------------------------------------------------------
 
 /* static */ Either<MapLoadingError, DocumentOwningNode>
@@ -65,20 +65,31 @@ void BaseState::copy_platform_and_warnings(const BaseState & rhs) {
     return DocumentOwningNode{owner, *document.RootElement()};
 }
 
+/* static */ OptionalEither<MapLoadingError, DocumentOwningNode>
+    DocumentOwningNode::optionally_load_root(std::string && file_contents)
+{
+    using Rt = OptionalEither<MapLoadingError, DocumentOwningNode>;
+    auto ei = load_root(std::move(file_contents));
+    if (ei.is_left()) {
+        return Rt{ei.left()};
+    }
+    return Rt{ei.right()};
+}
+
 DocumentOwningNode DocumentOwningNode::make_with_same_owner
     (const TiXmlElement & same_document_element) const
 { m_element->ToDocument(); return DocumentOwningNode{m_owner, same_document_element}; }
 
 const TiXmlElement & DocumentOwningNode::element() const
     { return *m_element; }
-
+#endif
 
 // ----------------------------------------------------------------------------
 
 BaseState::MapLoadResult
     FileContentsWaitState::update_progress(StateSwitcher & switcher)
 {
-    return (*m_future_contents)().
+    return m_future_contents->retrieve().
     map_left([] (Future<std::string>::Lost) {
         return MapLoadingError
             {map_loading_messages::k_tile_map_file_contents_not_retrieved};
@@ -99,7 +110,132 @@ BaseState::MapLoadResult
 }
 
 // ----------------------------------------------------------------------------
+#if 0
+// there is definitely multiple classes hiding here
+class FutureTileSet final {
+public:
+    using FutureLost = Future<std::string>::Lost;
+    using Readiness = Future<std::string>::Readiness;
 
+    static FutureTileSet begin_loading
+        (const char * filename, FileContentProvider & content_provider)
+        { return FutureTileSet{content_provider.promise_file_contents(filename)}; }
+
+    static FutureTileSet begin_loading
+        (DocumentOwningNode && tileset_xml)
+    {
+        // NOTE will still exist following move of tileset_xml
+        const auto & el = tileset_xml.element();
+        return FutureTileSet
+            {UnloadedTileSet{TileSetBase::make(el), std::move(tileset_xml)}};
+    }
+
+    // I like it being required better, may have an "update" method?
+    // something which I also hate...
+    OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
+        retrieve_from(FileContentProvider & content_provider)
+    {
+        if (m_loaded_tile_set) {
+            return std::move(m_loaded_tile_set);
+        } else if (m_unloaded.tile_set) {
+            // TODO load will need to return some kind of readiness
+            (void)content_provider;
+#           if 0
+            m_unloaded.tile_set->load(platform, m_unloaded.xml_content.element());
+#           endif
+            m_loaded_tile_set = std::move(m_unloaded.tile_set);
+            m_unloaded = UnloadedTileSet{};
+            return {};
+        } else {
+            auto ei = get_unloaded(m_tile_set_content);
+            if (ei.is_left()) return ei.left();
+            m_unloaded = ei.right();
+            assert(m_unloaded.tile_set);
+            return {};
+        }
+    }
+
+private:
+    struct UnloadedTileSet final {
+        UnloadedTileSet() {};
+
+        UnloadedTileSet
+            (SharedPtr<TileSetBase> && tile_set_,
+             DocumentOwningNode && xml_content_):
+            tile_set(std::move(tile_set_)),
+            xml_content(std::move(xml_content_)) {}
+
+        SharedPtr<TileSetBase> tile_set;
+        DocumentOwningNode xml_content;
+    };
+
+    explicit FutureTileSet(FutureStringPtr && content_):
+        m_tile_set_content(std::move(content_)) {}
+
+    explicit FutureTileSet(UnloadedTileSet && unloaded_ts_):
+        m_unloaded(std::move(unloaded_ts_)) {}
+
+    static Either<MapLoadingError, UnloadedTileSet> get_unloaded
+        (FutureStringPtr & tile_set_content)
+    {
+        return tile_set_content->retrieve().require().
+            map_left([] (FutureLost &&) {
+                return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
+            }).
+            chain(DocumentOwningNode::load_root).
+            chain([]
+                (DocumentOwningNode && node) ->
+                    Either<MapLoadingError, UnloadedTileSet>
+            {
+                auto ts = TileSetBase::make(node.element());
+                if (!ts) return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
+                return UnloadedTileSet{std::move(ts), std::move(node)};
+            });
+    }
+
+    UnloadedTileSet m_unloaded;
+    SharedPtr<TileSetBase> m_loaded_tile_set;
+    FutureStringPtr m_tile_set_content;
+    Optional<Readiness> m_post_load_readiness;
+};
+
+struct FutureTileSetWithStartGid final {
+    FutureTileSetWithStartGid
+        (FutureTileSet && future_tile_set_, int start_gid_):
+        future_tile_set(std::move(future_tile_set_)),
+        start_gid(start_gid_) {}
+
+    FutureTileSet future_tile_set;
+    int start_gid = -1;
+};
+#endif
+/* static */ Optional<FutureTileSetWithStartGid> load_balskjdlaskjdlakjs
+    (const DocumentOwningNode & tileset,
+     FileContentProvider & content_provider,
+     MapLoadingWarningsAdder & warnings)
+{
+    using namespace cul::either;
+    using namespace map_loading_messages;
+    constexpr const int k_no_first_gid = -1;
+
+    auto first_gid = tileset->IntAttribute("firstgid", k_no_first_gid);
+    if (first_gid == k_no_first_gid) {
+        warnings.add(k_invalid_tile_data);
+        return {};
+    }
+
+    if (const auto * source = tileset->Attribute("source")) {
+        return FutureTileSetWithStartGid
+            {FutureTileSet::begin_loading(source, content_provider),
+             first_gid};
+    } else {
+        return FutureTileSetWithStartGid
+            {FutureTileSet::begin_loading(DocumentOwningNode{tileset}),
+             first_gid};
+    }
+}
+
+#if 0
 /* static */ Optional<UnfinishedTileSetContent> UnfinishedTileSetContent::load
     (const DocumentOwningNode & tileset,
      Platform & platform,
@@ -116,6 +252,12 @@ BaseState::MapLoadResult
     }
 
     if (const auto * source = tileset->Attribute("source")) {
+        platform.promise_file_contents(source)->retrieve().
+            map([] (std::string && contents) {
+                DocumentOwningNode::load_root(std::move(contents));
+                return 0;
+            });
+
         return UnfinishedTileSetContent
             {first_gid, platform.promise_file_contents(source)};
     } else {
@@ -129,7 +271,7 @@ Either<UnfinishedTileSetContent::Lost, Optional<TileSetContent>>
     if (m_tileset_element) {
         return cul::either::right<Lost>().with(finish());
     }
-    auto res = (*m_future_string)();
+    auto res = m_future_string->retrieve();
     if (res.is_empty()) { return Optional<TileSetContent>{}; }
     m_future_string = nullptr;
     return res.
@@ -171,7 +313,7 @@ bool UnfinishedTileSetContent::is_finished() const
     (int first_gid, const DocumentOwningNode & tilset_element):
     m_first_gid(first_gid),
     m_tileset_element(tilset_element) {}
-
+#endif
 // ----------------------------------------------------------------------------
 
 /* static */ std::vector<Grid<int>>
@@ -189,7 +331,7 @@ bool UnfinishedTileSetContent::is_finished() const
     }
     return layers;
 }
-
+#if 0
 /* static */ std::vector<UnfinishedTileSetContent>
     InitialDocumentReadState::load_unfinished_tilesets
     (const DocumentOwningNode & document_root,
@@ -206,22 +348,58 @@ bool UnfinishedTileSetContent::is_finished() const
     }
     return unfinished_tilesets;
 }
+#endif
+
+/* static */ std::vector<FutureTileSetWithStartGid>
+    InitialDocumentReadState::load_future_tilesets
+    (const DocumentOwningNode & document_root,
+     MapLoadingWarningsAdder & warnings,
+     FileContentProvider & content_provider)
+{
+    std::vector<FutureTileSetWithStartGid> future_tilesets;
+    for (auto & tileset : XmlRange{*document_root, "tileset"}) {
+        auto res = load_balskjdlaskjdlakjs
+            (document_root.make_with_same_owner(tileset),
+             content_provider, warnings);
+        if (!res) continue;
+        future_tilesets.emplace_back(std::move(*res));
+    }
+    return future_tilesets;
+}
 
 MapLoadResult InitialDocumentReadState::update_progress
     (StateSwitcher & switcher)
 {
     auto layers = load_layers(*m_document_root, warnings_adder());
-    auto unfinished_tilesets = load_unfinished_tilesets
-        (m_document_root, warnings_adder(), platform());
-    switcher.set_next_state<TileSetWaitState>
+    auto future_tilesets = load_future_tilesets
+        (m_document_root, warnings_adder(), content_provider());
+    // WE DON'T WAIT!! (not here anyhow)
+    switcher.set_next_state<TileSetLoadState>
         (std::move(m_document_root),
          std::move(layers),
-         std::move(unfinished_tilesets));
+         std::move(future_tilesets));
     return MapLoadResult{};
 }
 
 // ----------------------------------------------------------------------------
 
+TileSetLoadState::TileSetLoadState
+    (DocumentOwningNode && document_root_,
+     std::vector<Grid<int>> && layers_,
+     std::vector<FutureTileSetWithStartGid> && future_tilesets_):
+    m_document_root(std::move(document_root_)),
+    m_layers(std::move(layers_)),
+    m_future_tilesets(std::move(future_tilesets_)) {}
+
+MapLoadResult TileSetLoadState::update_progress
+    (StateSwitcher & state_switcher)
+{
+    for (auto & pair : m_future_tilesets) {
+        // pair.future_tile_set.
+    }
+}
+
+#if 0
 /* static */ TileSetWaitState::UpdatedContainers
     TileSetWaitState::UpdatedContainers::update
     (std::vector<UnfinishedTileSetContent> && unfinished_container,
@@ -292,7 +470,7 @@ MapLoadResult TileSetWaitState::update_progress(StateSwitcher & switcher) {
     }
     return MapLoadResult{};
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
 TiledMapStrategyState::TiledMapStrategyState
@@ -406,16 +584,17 @@ MapLoadResult ProducableLoadState::update_progress
 // ----------------------------------------------------------------------------
 
 MapLoadStateMachine::MapLoadStateMachine
-    (Platform & platform, const char * filename)
-    { initialize_starting_state(platform, filename); }
+    (FileContentProvider & provider, const char * filename)
+    { initialize_starting_state(provider, filename); }
 
 void MapLoadStateMachine::initialize_starting_state
-    (Platform & platform, const char * filename)
+    (FileContentProvider & provider, const char * filename)
 {
-    auto file_contents_promise = platform.promise_file_contents(filename);
+    auto file_contents_promise = provider.promise_file_contents(filename);
     m_state_driver.
         set_current_state<FileContentsWaitState>
-        (std::move(file_contents_promise), platform);
+        (std::move(file_contents_promise), provider);
+    m_content_provider = &provider;
 }
 
 MapLoadResult MapLoadStateMachine::update_progress() {
@@ -424,7 +603,9 @@ MapLoadResult MapLoadStateMachine::update_progress() {
         on_advanceable<&BaseState::copy_platform_and_warnings>().
         advance()->
         update_progress(switcher);
-    if (result.is_empty() && m_state_driver.is_advanceable())
+    if (result.is_empty() &&
+        (m_state_driver.is_advanceable() ||
+         !m_content_provider->delay_required()))
         { return update_progress(); }
     return result;
 }

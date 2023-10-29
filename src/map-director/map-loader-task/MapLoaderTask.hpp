@@ -32,7 +32,7 @@ public:
         (tiled_map_loading::MapLoadStateMachine && map_loader,
          const SharedPtr<MapRegionTracker> & target_region_instance);
 
-    BackgroundCompletion operator () (Callbacks &) final;
+    BackgroundTaskCompletion operator () (Callbacks &) final;
 
 private:
     static const SharedPtr<MapRegionTracker> &

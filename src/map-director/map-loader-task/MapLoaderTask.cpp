@@ -35,16 +35,22 @@ MapLoaderTask::MapLoaderTask
          ("MapLoaderTask", target_region_instance)),
      m_map_loader(std::move(map_loader)) {}
 
-BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
+BackgroundTaskCompletion MapLoaderTask::operator () (Callbacks &) {
+    using TaskCompletion = BackgroundTaskCompletion;
+#   if 0
+    TaskCompletion::delay_until([] (Callbacks &) {
+        ;
+    });
+#   endif
     return m_map_loader.
         update_progress().
-        fold<BackgroundCompletion>(BackgroundCompletion::in_progress).
+        fold<TaskCompletion>(TaskCompletion{TaskCompletion::k_in_progress}).
         map([this] (MapLoadingSuccess && res) {
             *m_region_tracker = MapRegionTracker{std::move(res.loaded_region)};
-            return BackgroundCompletion::finished;
+            return TaskCompletion::k_finished;
         }).
         map_left([] (MapLoadingError &&) {
-            return BackgroundCompletion::finished;
+            return TaskCompletion::k_finished;
         }).
         value();
 }

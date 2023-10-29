@@ -107,12 +107,7 @@ public:
 
 class BackgroundDelayTask : public BackgroundTask {
 public:
-    BackgroundTaskCompletion operator () (Callbacks & callbacks) final {
-        auto res = on_delay(callbacks);
-        if (res == BackgroundTaskCompletion::k_finished)
-            { callbacks.add(m_return_task); }
-        return res;
-    }
+    BackgroundTaskCompletion operator () (Callbacks &) final;
 
     void set_return_task(SharedPtr<BackgroundTask> && task_);
 
@@ -121,6 +116,7 @@ public:
 private:
     SharedPtr<BackgroundTask> m_return_task;
 };
+
 
 // An occasional task, is called only once, before being removed by the
 // scheduler/driver. It should not be possible that driver/scheduler is the
@@ -138,10 +134,7 @@ public:
     static SharedPtr<OccasionalTask> make(Func && f_);
 
 private:
-    BackgroundTaskCompletion operator () (Callbacks & callbacks) final {
-        on_occasion(callbacks);
-        return BackgroundTaskCompletion::k_finished;
-    }
+    BackgroundTaskCompletion operator () (Callbacks &) final;
 };
 
 class LoaderTask {
@@ -217,6 +210,24 @@ template <typename Func>
         Func m_f;
     };
     return make_shared<Impl>(std::move(f_));
+}
+
+template <typename Func>
+/* static */ BackgroundTaskCompletion BackgroundTaskCompletion::delay_until
+    (Func && f)
+{
+    class Impl final : public BackgroundDelayTask {
+    public:
+        Impl(Func && f_): m_f(std::move(f_)) {}
+
+        BackgroundTaskCompletion on_delay(Callbacks & callbacks) final
+            { return m_f(callbacks); }
+    private:
+        Func m_f;
+    };
+
+    return BackgroundTaskCompletion
+        {Status::delay_until, make_shared<Impl>(std::move(f))};
 }
 
 template <typename Func>

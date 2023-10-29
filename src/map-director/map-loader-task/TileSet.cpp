@@ -53,8 +53,8 @@ MakeFillerGridRt make_filler_grid
 
 } // end of <anonymous> namespace
 
-/* static */ SharedPtr<TileSetBase> TileSetBase::make_and_load_tileset
-    (Platform & platform, const TiXmlElement & tileset_el)
+/* static */ SharedPtr<TileSetBase> TileSetBase::make
+    (const TiXmlElement & tileset_el)
 {
     const char * type = nullptr;
     auto * properties = tileset_el.FirstChildElement("properties");
@@ -66,10 +66,11 @@ MakeFillerGridRt make_filler_grid
 
     SharedPtr<TileSetBase> rv;
     if (!type) {
-        rv = make_shared<TileSet>();
+        return make_shared<TileSet>();
+    } else if (::strcmp(type, "composite-tile-set")) {
+        return make_shared<CompositeTileSet>();
     }
-    rv->load(platform, tileset_el);
-    return rv;
+    return nullptr;
 }
 
 /* static */ const TileSet::FillerFactoryMap & TileSet::builtin_fillers() {

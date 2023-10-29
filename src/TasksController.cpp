@@ -152,8 +152,13 @@ void TasksControllerPart::run_existing_tasks
     }
 
     for (auto & task : m_background_tasks) {
-        if ((*task)(callbacks_) == BackgroundCompletion::finished)
+        auto res = (*task)(callbacks_);
+        if (auto delay_task = res.move_out_delay_task()) {
+            delay_task->set_return_task(std::move(task));
             task = nullptr;
+        } else if (res == BackgroundTaskCompletion::k_finished) {
+            task = nullptr;
+        }
     }
     m_background_tasks.erase
         (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),

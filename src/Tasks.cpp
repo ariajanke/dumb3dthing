@@ -51,3 +51,24 @@ BackgroundTaskCompletion::BackgroundTaskCompletion
      SharedPtr<BackgroundDelayTask> && delay_task_):
     m_status(status_),
     m_delay_task(std::move(delay_task_)) {}
+
+// ----------------------------------------------------------------------------
+
+BackgroundTaskCompletion BackgroundDelayTask::operator ()
+    (Callbacks & callbacks)
+{
+    auto res = on_delay(callbacks);
+    if (res == BackgroundTaskCompletion::k_finished)
+        { callbacks.add(m_return_task); }
+    return res;
+}
+
+void BackgroundDelayTask::set_return_task(SharedPtr<BackgroundTask> && task_)
+    { m_return_task = std::move(task_); }
+
+// ----------------------------------------------------------------------------
+
+BackgroundTaskCompletion OccasionalTask::operator () (Callbacks & callbacks) {
+    on_occasion(callbacks);
+    return BackgroundTaskCompletion::k_finished;
+}

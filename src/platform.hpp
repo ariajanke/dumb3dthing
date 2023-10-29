@@ -41,17 +41,36 @@ enum class KeyControl {
     restart
 };
 
+// Maybe the problem is this... Let's try a different class for deferred
+// loading of strings
 template <typename T>
 class Future {
 public:
     struct Lost final {};
 
+    class Readiness final {
+    public:
+        Readiness() {}
+
+        explicit Readiness(const SharedPtr<Future<T>> & ptr):
+            m_ptr(ptr) {}
+
+        bool is_ready() const { return m_ptr->is_ready(); }
+
+    private:
+        SharedPtr<Future<T>> m_ptr;
+    };
+
     virtual ~Future() {}
 
-    virtual OptionalEither<Lost, T> operator () () = 0;
+    // considered ready even when lost
+    virtual bool is_ready() const = 0;
+
+    virtual OptionalEither<Lost, T> retrieve() = 0;
 };
 
-using FutureStringPtr = UniquePtr<Future<std::string>>;
+// TODO refactor allowing only one unique retriever
+using FutureStringPtr = SharedPtr<Future<std::string>>;
 
 /** Represents the platform on which the application runs. This class is a way
  *  for the driver/loaders/certain systems to obtain platform specific
