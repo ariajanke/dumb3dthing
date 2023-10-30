@@ -62,7 +62,7 @@ const TiXmlElement & DocumentOwningNode::element() const
 // ----------------------------------------------------------------------------
 
 /* static */ FutureTileSet FutureTileSet::begin_loading
-    (const char * filename, FileContentProvider & content_provider)
+    (const char * filename, MapContentLoader & content_provider)
     { return FutureTileSet{content_provider.promise_file_contents(filename)}; }
 
 /* static */ FutureTileSet FutureTileSet::begin_loading
@@ -75,10 +75,10 @@ const TiXmlElement & DocumentOwningNode::element() const
 }
 
 OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
-    FutureTileSet::retrieve_from(FileContentProvider & content_provider)
+    FutureTileSet::retrieve_from(MapContentLoader & content_provider)
 {
     if (m_loaded_tile_set) {
-        return std::move(m_loaded_tile_set);
+        return m_loaded_tile_set;
     } else if (m_unloaded.tile_set) {
         // TODO load will need to return some kind of readiness
         (void)content_provider;

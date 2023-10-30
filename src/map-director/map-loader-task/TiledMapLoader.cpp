@@ -40,11 +40,12 @@ Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement &);
 // ----------------------------------------------------------------------------
 
 namespace tiled_map_loading {
-
+#if 0
 void BaseState::copy_platform_and_warnings(const BaseState & rhs) {
     m_platform = rhs.m_platform;
     m_unfinished_warnings = rhs.m_unfinished_warnings;
 }
+#endif
 #if 0
 // ----------------------------------------------------------------------------
 
@@ -87,7 +88,8 @@ const TiXmlElement & DocumentOwningNode::element() const
 // ----------------------------------------------------------------------------
 
 BaseState::MapLoadResult
-    FileContentsWaitState::update_progress(StateSwitcher & switcher)
+    FileContentsWaitState::update_progress
+    (StateSwitcher & switcher, MapContentLoader &)
 {
     return m_future_contents->retrieve().
     map_left([] (Future<std::string>::Lost) {
@@ -209,10 +211,10 @@ struct FutureTileSetWithStartGid final {
     int start_gid = -1;
 };
 #endif
-/* static */ Optional<FutureTileSetWithStartGid> load_balskjdlaskjdlakjs
+/* static */ Optional<FutureTileSetWithStartGid>
+    load_future_tileset
     (const DocumentOwningNode & tileset,
-     FileContentProvider & content_provider,
-     MapLoadingWarningsAdder & warnings)
+     MapContentLoader & content_loader)
 {
     using namespace cul::either;
     using namespace map_loading_messages;
@@ -220,18 +222,18 @@ struct FutureTileSetWithStartGid final {
 
     auto first_gid = tileset->IntAttribute("firstgid", k_no_first_gid);
     if (first_gid == k_no_first_gid) {
-        warnings.add(k_invalid_tile_data);
+        content_loader.add_warning(k_invalid_tile_data);
         return {};
     }
 
     if (const auto * source = tileset->Attribute("source")) {
         return FutureTileSetWithStartGid
-            {FutureTileSet::begin_loading(source, content_provider),
-             first_gid};
+            {first_gid,
+             FutureTileSet::begin_loading(source, content_loader)};
     } else {
         return FutureTileSetWithStartGid
-            {FutureTileSet::begin_loading(DocumentOwningNode{tileset}),
-             first_gid};
+            {first_gid,
+             FutureTileSet::begin_loading(DocumentOwningNode{tileset})};
     }
 }
 
@@ -318,13 +320,13 @@ bool UnfinishedTileSetContent::is_finished() const
 
 /* static */ std::vector<Grid<int>>
     InitialDocumentReadState::load_layers
-    (const TiXmlElement & document_root, MapLoadingWarningsAdder & warnings)
+    (const TiXmlElement & document_root, MapContentLoader & content_loader)
 {
     std::vector<Grid<int>> layers;
     for (auto & layer_el : XmlRange{document_root, "layer"}) {
         auto ei = load_layer_(layer_el);
         if (ei.is_left()) {
-            warnings.add(ei.left());
+            content_loader.add_warning(ei.left());
         } else if (ei.is_right()) {
             layers.emplace_back(ei.right());
         }
@@ -353,14 +355,12 @@ bool UnfinishedTileSetContent::is_finished() const
 /* static */ std::vector<FutureTileSetWithStartGid>
     InitialDocumentReadState::load_future_tilesets
     (const DocumentOwningNode & document_root,
-     MapLoadingWarningsAdder & warnings,
-     FileContentProvider & content_provider)
+     MapContentLoader & content_loader)
 {
     std::vector<FutureTileSetWithStartGid> future_tilesets;
     for (auto & tileset : XmlRange{*document_root, "tileset"}) {
-        auto res = load_balskjdlaskjdlakjs
-            (document_root.make_with_same_owner(tileset),
-             content_provider, warnings);
+        auto res = load_future_tileset
+            (document_root.make_with_same_owner(tileset), content_loader);
         if (!res) continue;
         future_tilesets.emplace_back(std::move(*res));
     }
@@ -368,11 +368,11 @@ bool UnfinishedTileSetContent::is_finished() const
 }
 
 MapLoadResult InitialDocumentReadState::update_progress
-    (StateSwitcher & switcher)
+    (StateSwitcher & switcher, MapContentLoader & content_loader)
 {
-    auto layers = load_layers(*m_document_root, warnings_adder());
+    auto layers = load_layers(*m_document_root, content_loader);
     auto future_tilesets = load_future_tilesets
-        (m_document_root, warnings_adder(), content_provider());
+        (m_document_root, content_loader);
     // WE DON'T WAIT!! (not here anyhow)
     switcher.set_next_state<TileSetLoadState>
         (std::move(m_document_root),
@@ -383,6 +383,34 @@ MapLoadResult InitialDocumentReadState::update_progress
 
 // ----------------------------------------------------------------------------
 
+static bool is_done(const FutureTileSetWithStartGid & future)
+    { return future.other.is_done(); }
+
+/* static */ std::vector<FutureTileSetWithStartGid>
+    TileSetLoadState::remove_done_futures
+    (std::vector<FutureTileSetWithStartGid> && futures)
+{
+    auto rem_beg = std::remove_if(futures.begin(), futures.end(), is_done);
+    futures.erase(rem_beg, futures.end());
+    return std::move(futures);
+}
+
+/* static */ void TileSetLoadState::check_for_finished
+    (MapContentLoader & content_provider,
+     FutureTileSetWithStartGid & future_tileset,
+     StartGidWithTileSetContainer & tilesets)
+{
+    auto res = future_tileset.other.retrieve_from(content_provider);
+    if (res.is_empty()) return;
+    auto start_gid = future_tileset.start_gid;
+    (void)res.map([&tilesets, start_gid] (SharedPtr<TileSetBase> && tileset) {
+        tilesets.emplace_back(start_gid, std::move(tileset));
+        return 0;
+    }).
+    // TODO handle errors
+    map_left([](MapLoadingError){ return 0; });
+}
+
 TileSetLoadState::TileSetLoadState
     (DocumentOwningNode && document_root_,
      std::vector<Grid<int>> && layers_,
@@ -392,10 +420,21 @@ TileSetLoadState::TileSetLoadState
     m_future_tilesets(std::move(future_tilesets_)) {}
 
 MapLoadResult TileSetLoadState::update_progress
-    (StateSwitcher & state_switcher)
+    (StateSwitcher & state_switcher, MapContentLoader & content_loader)
 {
-    for (auto & pair : m_future_tilesets) {
-        // pair.future_tile_set.
+    check_for_finished(content_loader);
+    m_future_tilesets = remove_done_futures(std::move(m_future_tilesets));
+    if (m_future_tilesets.empty()) {
+
+    }
+    return {};
+}
+
+/* private */ void TileSetLoadState::check_for_finished
+    (MapContentLoader & content_provider)
+{
+    for (auto & future_tileset : m_future_tilesets) {
+        check_for_finished(content_provider, future_tileset, m_tilesets);
     }
 }
 
@@ -472,7 +511,7 @@ MapLoadResult TileSetWaitState::update_progress(StateSwitcher & switcher) {
 }
 #endif
 // ----------------------------------------------------------------------------
-
+#if 0
 TiledMapStrategyState::TiledMapStrategyState
     (DocumentOwningNode && document_root,
      std::vector<Grid<int>> && layers,
@@ -580,33 +619,37 @@ MapLoadResult ProducableLoadState::update_progress
     }
     return ScaleComputation{};
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
-MapLoadStateMachine::MapLoadStateMachine
-    (FileContentProvider & provider, const char * filename)
-    { initialize_starting_state(provider, filename); }
+/* static */ MapLoadStateMachine MapLoadStateMachine::make_with_starting_state
+    (MapContentLoader & content_loader, const char * filename)
+{
+    MapLoadStateMachine sm;
+    sm.initialize_starting_state(content_loader, filename);
+    return sm;
+}
 
 void MapLoadStateMachine::initialize_starting_state
-    (FileContentProvider & provider, const char * filename)
+    (MapContentLoader & provider, const char * filename)
 {
     auto file_contents_promise = provider.promise_file_contents(filename);
     m_state_driver.
         set_current_state<FileContentsWaitState>
         (std::move(file_contents_promise), provider);
-    m_content_provider = &provider;
 }
 
-MapLoadResult MapLoadStateMachine::update_progress() {
+MapLoadResult MapLoadStateMachine::
+    update_progress(MapContentLoader & content_loader)
+{
     auto switcher = m_state_driver.state_switcher();
     auto result = m_state_driver.
-        on_advanceable<&BaseState::copy_platform_and_warnings>().
         advance()->
-        update_progress(switcher);
+        update_progress(switcher, content_loader);
     if (result.is_empty() &&
         (m_state_driver.is_advanceable() ||
-         !m_content_provider->delay_required()))
-        { return update_progress(); }
+         !content_loader.delay_required()))
+        { return update_progress(content_loader); }
     return result;
 }
 

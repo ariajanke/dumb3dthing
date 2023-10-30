@@ -30,7 +30,7 @@
 
 #include <ariajanke/cul/Either.hpp>
 
-struct FileContentProvider;
+struct MapContentLoader;
 
 // ----------------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ public:
     using Readiness = Future<std::string>::Readiness;
 
     static FutureTileSet begin_loading
-        (const char * filename, FileContentProvider & content_provider);
+        (const char * filename, MapContentLoader & content_provider);
 
     static FutureTileSet begin_loading
         (DocumentOwningNode && tileset_xml);
@@ -86,7 +86,9 @@ public:
     // I like it being required better, may have an "update" method?
     // something which I also hate...
     OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
-        retrieve_from(FileContentProvider & content_provider);
+        retrieve_from(MapContentLoader & content_provider);
+
+    bool is_done() const { return static_cast<bool>(m_loaded_tile_set); }
 
 private:
     struct UnloadedTileSet final {
@@ -115,12 +117,15 @@ private:
     Optional<Readiness> m_post_load_readiness;
 };
 
-struct FutureTileSetWithStartGid final {
-    FutureTileSetWithStartGid
-        (FutureTileSet && future_tile_set_, int start_gid_):
-        future_tile_set(std::move(future_tile_set_)),
+template <typename T>
+struct StartGidWith {
+    StartGidWith
+        (int start_gid_, T && other_):
+        other(std::move(other_)),
         start_gid(start_gid_) {}
 
-    FutureTileSet future_tile_set;
+    T other;
     int start_gid = -1;
 };
+
+using FutureTileSetWithStartGid = StartGidWith<FutureTileSet>;

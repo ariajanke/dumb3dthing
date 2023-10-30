@@ -43,13 +43,17 @@ struct MapLoadingSuccess final {
 };
 
 // still have "unfinished" types
-struct FileContentProvider {
-    virtual ~FileContentProvider() {}
+// provide an interface to the outside world for anything loading
+// map related content
+struct MapContentLoader { // am I a visitor?
+    virtual ~MapContentLoader() {}
 
     /// @returns true if any promised file contents is not immediately ready
     virtual bool delay_required() const = 0;
 
     virtual FutureStringPtr promise_file_contents(const char *) = 0;
+
+    virtual void add_warning(MapLoadingWarningEnum) = 0;
 };
 
 namespace tiled_map_loading {
@@ -78,15 +82,16 @@ public:
 
     // how can I make delays happen?
     // If I do this, it makes a lot of stuff around here way easier
-    virtual MapLoadResult update_progress(StateSwitcher &) = 0;
+    virtual MapLoadResult update_progress
+        (StateSwitcher &, MapContentLoader &) = 0;
 
     virtual ~BaseState() {}
-
+#   if 0
     void copy_platform_and_warnings(const BaseState &);
-
+#   endif
 protected:
     BaseState() {}
-
+#   if 0
     explicit BaseState(FileContentProvider & provider_):
         m_content_provider(&provider_) {}
 
@@ -97,16 +102,16 @@ protected:
 private:
     FileContentProvider * m_content_provider = nullptr;
     UnfinishedMapLoadingWarnings m_unfinished_warnings;
+#   endif
 };
 
 class FileContentsWaitState final : public BaseState {
 public:
-    FileContentsWaitState
-        (FutureStringPtr && future_, FileContentProvider & platform):
-        BaseState(platform),
+    explicit FileContentsWaitState
+        (FutureStringPtr && future_):
         m_future_contents(std::move(future_)) {}
 
-    MapLoadResult update_progress(StateSwitcher &) final;
+    MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
 
 private:
     FutureStringPtr m_future_contents;
@@ -198,7 +203,7 @@ private:
 class InitialDocumentReadState final : public BaseState {
 public:
     static std::vector<Grid<int>> load_layers
-        (const TiXmlElement & document_root, MapLoadingWarningsAdder &);
+        (const TiXmlElement & document_root, MapContentLoader &);
 #   if 0
     static std::vector<UnfinishedTileSetContent> load_unfinished_tilesets
         (const DocumentOwningNode & document_root,
@@ -207,9 +212,7 @@ public:
 #   endif
     static std::vector<FutureTileSetWithStartGid>
         load_future_tilesets
-        (const DocumentOwningNode & document_root,
-         MapLoadingWarningsAdder &,
-         FileContentProvider &);
+        (const DocumentOwningNode & document_root, MapContentLoader &);
 
     explicit InitialDocumentReadState
         (DocumentOwningNode && root_node):
@@ -219,7 +222,7 @@ public:
 
     InitialDocumentReadState(InitialDocumentReadState &&) = default;
 
-    MapLoadResult update_progress(StateSwitcher &) final;
+    MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
 
 private:
     DocumentOwningNode m_document_root;
@@ -227,17 +230,31 @@ private:
 
 class TileSetLoadState final : public BaseState {
 public:
+    using StartGidWithTileSet = StartGidWith<SharedPtr<TileSetBase>>;
+    using StartGidWithTileSetContainer = std::vector<StartGidWithTileSet>;
+
+    static std::vector<FutureTileSetWithStartGid>
+        remove_done_futures(std::vector<FutureTileSetWithStartGid> &&);
+
+    static void check_for_finished
+        (MapContentLoader &,
+         FutureTileSetWithStartGid &,
+         StartGidWithTileSetContainer &);
+
     TileSetLoadState
         (DocumentOwningNode && document_root_,
          std::vector<Grid<int>> && layers_,
          std::vector<FutureTileSetWithStartGid> && future_tilesets_);
 
-    MapLoadResult update_progress(StateSwitcher &) final;
+    MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
 
 private:
+    void check_for_finished(MapContentLoader &);
+
     DocumentOwningNode m_document_root;
     std::vector<Grid<int>> m_layers;
     std::vector<FutureTileSetWithStartGid> m_future_tilesets;
+    StartGidWithTileSetContainer m_tilesets;
 };
 
 #if 0
@@ -339,13 +356,14 @@ class MapLoadStateMachine final {
 public:
     using MapLoadResult = BaseState::MapLoadResult;
 
+    static MapLoadStateMachine make_with_starting_state
+        (MapContentLoader &, const char * filename);
+
     MapLoadStateMachine() {}
 
-    MapLoadStateMachine(FileContentProvider &, const char * filename);
+    void initialize_starting_state(MapContentLoader &, const char * filename);
 
-    void initialize_starting_state(FileContentProvider &, const char * filename);
-
-    MapLoadResult update_progress();
+    MapLoadResult update_progress(MapContentLoader &);
 
 private:
     using StateSwitcher = BaseState::StateSwitcher;
@@ -354,7 +372,6 @@ private:
     using StateDriver = StateSwitcher::StatesDriver;
 
     StateDriver m_state_driver;
-    FileContentProvider * m_content_provider = nullptr;
 };
 
 } // end of tiled_map_loading namespace
