@@ -23,16 +23,7 @@
 #include "TiledMapLoader.hpp"
 
 #include <tinyxml2.h>
-#if 0
-namespace {
 
-bool is_ready(const Optional<Future<std::string>::Readiness> & readiness) {
-    if (readiness) return readiness->is_ready();
-    throw std::runtime_error{"???"};
-}
-
-} // end of <anonymous> namespace
-#endif
 /* static */ TileSetLoadingTask TileSetLoadingTask::begin_loading
     (const char * filename, MapContentLoader & content_provider)
 {
@@ -131,67 +122,3 @@ DocumentOwningNode DocumentOwningNode::make_with_same_owner
 
 const TiXmlElement & DocumentOwningNode::element() const
     { return *m_element; }
-#if 0
-// ----------------------------------------------------------------------------
-
-/* static */ FutureTileSet FutureTileSet::begin_loading
-    (const char * filename, MapContentLoader & content_provider)
-    { return FutureTileSet{content_provider.promise_file_contents(filename)}; }
-
-/* static */ FutureTileSet FutureTileSet::begin_loading
-    (DocumentOwningNode && tileset_xml)
-{
-    // NOTE will still exist following move of tileset_xml
-    const auto & el = tileset_xml.element();
-    return FutureTileSet
-        {UnloadedTileSet{TileSetBase::make(el), std::move(tileset_xml)}};
-}
-
-OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
-    FutureTileSet::retrieve_from(MapContentLoader & content_provider)
-{
-    if (m_loaded_tile_set) {
-        return m_loaded_tile_set;
-    } else if (m_unloaded.tile_set) {
-        // TODO load will need to return some kind of readiness
-        (void)content_provider;
-#           if 0
-        m_unloaded.tile_set->load(platform, m_unloaded.xml_content.element());
-#           endif
-        m_loaded_tile_set = std::move(m_unloaded.tile_set);
-        m_unloaded = UnloadedTileSet{};
-        return {};
-    } else {
-        auto ei = get_unloaded(m_tile_set_content);
-        if (ei.is_left()) return ei.left();
-        m_unloaded = ei.right();
-        assert(m_unloaded.tile_set);
-        return {};
-    }
-}
-
-FutureTileSet::UnloadedTileSet::UnloadedTileSet
-    (SharedPtr<TileSetBase> && tile_set_,
-     DocumentOwningNode && xml_content_):
-    tile_set(std::move(tile_set_)),
-    xml_content(std::move(xml_content_)) {}
-
-/* static */ Either<MapLoadingError, FutureTileSet::UnloadedTileSet>
-    FutureTileSet::get_unloaded
-    (FutureStringPtr & tile_set_content)
-{
-    return tile_set_content->retrieve().require().
-        map_left([] (FutureLost &&) {
-            return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
-        }).
-        chain(DocumentOwningNode::load_root).
-        chain([]
-            (DocumentOwningNode && node) ->
-                Either<MapLoadingError, UnloadedTileSet>
-        {
-            auto ts = TileSetBase::make(node.element());
-            if (!ts) return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
-            return UnloadedTileSet{std::move(ts), std::move(node)};
-        });
-}
-#endif

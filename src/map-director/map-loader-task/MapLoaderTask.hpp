@@ -28,11 +28,6 @@
 
 class MapLoaderTask final : public BackgroundTask {
 public:
-#   if 0
-    MapLoaderTask
-        (tiled_map_loading::MapLoadStateMachine && map_loader,
-         const SharedPtr<MapRegionTracker> & target_region_instance);
-#   endif
     MapLoaderTask
         (const char * map_filename,
          const SharedPtr<MapRegionTracker> & target_region_instance,

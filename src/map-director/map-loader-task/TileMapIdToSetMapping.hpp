@@ -167,21 +167,7 @@ private:
 class TileMapIdToSetMapping_New final {
 public:
     using StartGidWithTileSet = StartGidWith<SharedPtr<TileSetBase>>;
-#   if 0
-    struct TileSetAndStartGid final {
-        using TileSetPtr = TileSetMappingTile::TileSetPtr;
 
-        TileSetAndStartGid() {}
-
-        TileSetAndStartGid(TileSetPtr && tileset_, int start_gid_):
-            tileset(std::move(tileset_)),
-            start_gid(start_gid_)
-        {}
-
-        TileSetPtr tileset;
-        int start_gid = 0;
-    };
-#   endif
     static std::vector<TileSetMappingTile> make_locations(const Size2I &);
 
     static std::vector<TileSetMappingTile> clean_null_tiles
