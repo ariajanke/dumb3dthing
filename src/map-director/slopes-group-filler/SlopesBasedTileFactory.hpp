@@ -91,7 +91,7 @@ private:
 class SlopeFillerExtra final {
 public:
     using TileTextureMap = std::map<std::string, TileTexture>;
-    using SpecialTypeFunc = void(SlopeFillerExtra::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
+    using SpecialTypeFunc = void(SlopeFillerExtra::*)(const TilesetXmlGrid & xml_grid, const Vector2I & r);
     using SpecialTypeFuncMap = std::map<std::string, SpecialTypeFunc>;
 
     static const SpecialTypeFuncMap & special_type_funcs();
@@ -100,11 +100,11 @@ public:
     void for_texture(const Key & key, Func && f) const;
 
     void setup_pure_texture
-        (const TileSetXmlGrid & xml_grid, const Vector2I & r);
+        (const TilesetXmlGrid & xml_grid, const Vector2I & r);
 
     template <typename Key>
     void action_by_tile_type
-        (const Key & key, const TileSetXmlGrid & xml_grid, const Vector2I & r,
+        (const Key & key, const TilesetXmlGrid & xml_grid, const Vector2I & r,
          const SpecialTypeFuncMap & special_funcs_ = special_type_funcs());
 
 private:
@@ -113,7 +113,7 @@ private:
 
 template <typename Key>
 void SlopeFillerExtra::action_by_tile_type
-    (const Key & key, const TileSetXmlGrid & xml_grid, const Vector2I & r,
+    (const Key & key, const TilesetXmlGrid & xml_grid, const Vector2I & r,
      const SpecialTypeFuncMap & special_funcs_)
 {
     auto jtr = special_funcs_.find(key);
@@ -137,7 +137,7 @@ public:
         (const SlopeGroupNeighborhood &,
          ProducableTileCallbacks &) const = 0;
 
-    void setup(const TileSetXmlGrid &, Platform &,
+    void setup(const TilesetXmlGrid &, Platform &,
                const SlopeFillerExtra &,
                const Vector2I & location_on_tileset);
 

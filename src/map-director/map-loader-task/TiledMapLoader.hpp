@@ -23,7 +23,7 @@
 #include "TileMapIdToSetMapping.hpp"
 #include "MapLoadingError.hpp"
 #include "StateMachineDriver.hpp"
-#include "FutureTileSet.hpp"
+#include "TilesetLoadingTask.hpp"
 
 #include "../ParseHelpers.hpp"
 #include "../ProducableGrid.hpp"
@@ -65,12 +65,8 @@ namespace tiled_map_loading {
 class BaseState;
 class FileContentsWaitState;
 class InitialDocumentReadState;
-class ProducableLoadState;
-class TileSetWaitState;
-class TiledMapStrategyState;
 class TileSetLoadState;
 class MapElementCollectorState;
-
 class ExpiredState;
 
 class BaseState {
@@ -104,19 +100,19 @@ class TileSetContent;
 class InitialDocumentReadState final : public BaseState {
 public:
     struct TileSetLoadSplit final {
-        std::vector<TileSetProviderWithStartGid> future_tilesets;
-        std::vector<TileSetWithStartGid> ready_tilesets;
+        std::vector<TilesetProviderWithStartGid> future_tilesets;
+        std::vector<TilesetWithStartGid> ready_tilesets;
     };
 
     static std::vector<Grid<int>> load_layers
         (const TiXmlElement & document_root, MapContentLoader &);
 
-    static std::vector<TileSetLoadersWithStartGid>
+    static std::vector<TilesetLoadersWithStartGid>
         load_future_tilesets
         (const DocumentOwningNode & document_root, MapContentLoader &);
 
     static TileSetLoadSplit
-        split_tileset_load(std::vector<TileSetLoadersWithStartGid> &&,
+        split_tileset_load(std::vector<TilesetLoadersWithStartGid> &&,
                            MapContentLoader & content_loader);
 
     explicit InitialDocumentReadState
@@ -135,38 +131,33 @@ private:
 
 class TileSetLoadState final : public BaseState {
 public:
-    using StartGidWithTileSet = StartGidWith<SharedPtr<TileSetBase>>;
+    using StartGidWithTileSet = StartGidWith<SharedPtr<TilesetBase>>;
     using StartGidWithTileSetContainer = std::vector<StartGidWithTileSet>;
 
-    static void check_for_finished
-        (MapContentLoader &,
-         TileSetLoadersWithStartGid &,
-         StartGidWithTileSetContainer &);
-
-    static std::vector<TileSetWithStartGid> finish_tilesets
-        (std::vector<TileSetProviderWithStartGid> && future_tilesets,
-         std::vector<TileSetWithStartGid> && ready_tilesets);
+    static std::vector<TilesetWithStartGid> finish_tilesets
+        (std::vector<TilesetProviderWithStartGid> && future_tilesets,
+         std::vector<TilesetWithStartGid> && ready_tilesets);
 
     TileSetLoadState
         (DocumentOwningNode && document_root_,
          std::vector<Grid<int>> && layers_,
-         std::vector<TileSetProviderWithStartGid> && future_tilesets_,
-         std::vector<TileSetWithStartGid> && ready_tilesets_);
+         std::vector<TilesetProviderWithStartGid> && future_tilesets_,
+         std::vector<TilesetWithStartGid> && ready_tilesets_);
 
     MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
 
 private:
     DocumentOwningNode m_document_root;
     std::vector<Grid<int>> m_layers;
-    std::vector<TileSetProviderWithStartGid> m_future_tilesets;
-    std::vector<TileSetWithStartGid> m_ready_tilesets;
+    std::vector<TilesetProviderWithStartGid> m_future_tilesets;
+    std::vector<TilesetWithStartGid> m_ready_tilesets;
 };
 
 class MapElementCollectorState final : public BaseState {
 public:
     MapElementCollectorState
         (DocumentOwningNode &&,
-         TileMapIdToSetMapping_New &&,
+         TileMapIdToSetMapping &&,
          std::vector<Grid<int>> &&);
 
     MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
@@ -175,7 +166,7 @@ private:
     ScaleComputation map_scale() const;
 
     DocumentOwningNode m_document_root;
-    TileMapIdToSetMapping_New m_id_mapping_set;
+    TileMapIdToSetMapping m_id_mapping_set;
     std::vector<Grid<int>> m_layers;
 };
 

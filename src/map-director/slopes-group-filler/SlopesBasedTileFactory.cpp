@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "SlopesBasedTileFactory.hpp"
-#include "../TileSetPropertiesGrid.hpp"
+#include "../TilesetPropertiesGrid.hpp"
 
 #include <cstring>
 
@@ -115,7 +115,7 @@ Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
 }
 
 void SlopeFillerExtra::setup_pure_texture
-    (const TileSetXmlGrid & xml_grid, const Vector2I & r)
+    (const TilesetXmlGrid & xml_grid, const Vector2I & r)
 {
     using cul::convert_to;
     Size2 scale{xml_grid.tile_size().width  / xml_grid.texture_size().width,
@@ -130,7 +130,7 @@ void SlopeFillerExtra::setup_pure_texture
 // ----------------------------------------------------------------------------
 
 void SlopesBasedTileFactory::setup
-    (const TileSetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid, Platform & platform,
      const SlopeFillerExtra & slope_extras,
      const Vector2I & location_on_tileset)
 {

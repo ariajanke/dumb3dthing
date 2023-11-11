@@ -21,7 +21,7 @@
 #include "WallTileFactoryBase.hpp"
 
 #include "../ProducableGrid.hpp"
-#include "../TileSetPropertiesGrid.hpp"
+#include "../TilesetPropertiesGrid.hpp"
 
 #include <numeric>
 

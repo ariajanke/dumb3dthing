@@ -18,13 +18,24 @@
 
 *****************************************************************************/
 
-#include "slopes-group-filler.hpp"
-#include "slopes-group-filler/SlopeGroupFiller.hpp"
+#pragma once
 
-/* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
-    (const TilesetXmlGrid & xml_grid, Platform & platform)
-{
-    auto rv = make_shared<SlopeGroupFiller>();
-    rv->load(xml_grid, platform);
-    return rv;
-}
+#include "TilesetBase.hpp"
+
+class CompositeTileset final : public TilesetBase {
+public:
+    // loading this: will have to go through steps of promises and so on
+    // in order to load, so it needs to be non-blocking
+
+    BackgroundTaskCompletion load(Platform &, const TiXmlElement &) final {
+        return BackgroundTaskCompletion::k_finished;
+    }
+
+    void add_map_elements(TilesetMapElementVisitor &, const TilesetLayerWrapper &) const final {}
+
+private:
+    Size2I size2() const final { return m_sub_regions_grid.size2(); }
+
+    Grid<MapSubRegion> m_sub_regions_grid;
+    const SharedPtr<MapRegion> & parent_region();
+};

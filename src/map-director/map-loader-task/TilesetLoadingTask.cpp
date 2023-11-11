@@ -18,27 +18,28 @@
 
 *****************************************************************************/
 
-#include "FutureTileSet.hpp"
+#include "TilesetLoadingTask.hpp"
 
 #include "TiledMapLoader.hpp"
+#include "TilesetBase.hpp"
 
 #include <tinyxml2.h>
 
-/* static */ TileSetLoadingTask TileSetLoadingTask::begin_loading
+/* static */ TilesetLoadingTask TilesetLoadingTask::begin_loading
     (const char * filename, MapContentLoader & content_provider)
 {
-    return TileSetLoadingTask{content_provider.promise_file_contents(filename)};
+    return TilesetLoadingTask{content_provider.promise_file_contents(filename)};
 }
 
-/* static */ TileSetLoadingTask TileSetLoadingTask::begin_loading
+/* static */ TilesetLoadingTask TilesetLoadingTask::begin_loading
     (DocumentOwningNode && tileset_xml)
 {
     const auto & el = tileset_xml.element();
-    return TileSetLoadingTask
-        {UnloadedTileSet{TileSetBase::make(el), std::move(tileset_xml)}};
+    return TilesetLoadingTask
+        {UnloadedTileSet{TilesetBase::make(el), std::move(tileset_xml)}};
 }
 
-BackgroundTaskCompletion TileSetLoadingTask::operator () (Callbacks & callbacks) {
+BackgroundTaskCompletion TilesetLoadingTask::operator () (Callbacks & callbacks) {
     using TaskCompl = BackgroundTaskCompletion;
     if (m_loaded_tile_set) {
         return TaskCompl::k_finished;
@@ -57,8 +58,8 @@ BackgroundTaskCompletion TileSetLoadingTask::operator () (Callbacks & callbacks)
     return TaskCompl::k_in_progress;
 }
 
-OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
-    TileSetLoadingTask::retrieve()
+OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>
+    TilesetLoadingTask::retrieve()
 {
     if (m_loading_error) return *m_loading_error;
     if (m_loaded_tile_set) return m_loaded_tile_set;
@@ -66,8 +67,8 @@ OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
 }
 
 /* private static */
-    Either<MapLoadingError, TileSetLoadingTask::UnloadedTileSet>
-    TileSetLoadingTask::get_unloaded
+    Either<MapLoadingError, TilesetLoadingTask::UnloadedTileSet>
+    TilesetLoadingTask::get_unloaded
     (FutureStringPtr & tile_set_content)
 {
     using FutureLost = Future<std::string>::Lost;
@@ -80,7 +81,7 @@ OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
             (DocumentOwningNode && node) ->
                 Either<MapLoadingError, UnloadedTileSet>
         {
-            auto ts = TileSetBase::make(node.element());
+            auto ts = TilesetBase::make(node.element());
             if (!ts) return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
             return UnloadedTileSet{std::move(ts), std::move(node)};
         });

@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "TileSetPropertiesGrid.hpp"
+#include "TilesetPropertiesGrid.hpp"
 
 #include "../Texture.hpp"
 #include "../platform.hpp"
@@ -49,11 +49,11 @@ void TileProperties::load(const TiXmlElement & tile_el) {
     }
 }
 
-/* static */ Vector2I TileSetXmlGrid::tid_to_tileset_location
+/* static */ Vector2I TilesetXmlGrid::tid_to_tileset_location
     (const Size2I & sz, int tid)
     { return Vector2I{tid % sz.width, tid / sz.width}; }
 
-void TileSetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
+void TilesetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
     Grid<TileProperties> tile_grid;
 
     if (int columns = tileset.IntAttribute("columns")) {
@@ -81,7 +81,7 @@ void TileSetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
 }
 
 /* private static */ Tuple<SharedPtr<const Texture>, Size2>
-    TileSetXmlGrid::load_texture
+    TilesetXmlGrid::load_texture
         (Platform & platform, const TiXmlElement & tileset)
 {
     auto el_ptr = tileset.FirstChildElement("image");

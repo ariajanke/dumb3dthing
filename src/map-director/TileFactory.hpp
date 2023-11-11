@@ -32,7 +32,7 @@
 
 class TileProperties;
 class ProducableTileCallbacks;
-class TileSetXmlGrid;
+class TilesetXmlGrid;
 
 /// A tile factory is a thing that produces tiles.
 /// It is local to the tileset
@@ -41,7 +41,7 @@ class TileFactory {
 public:
     virtual ~TileFactory() {}
 
-    void setup(const TileSetXmlGrid &, Platform &,
+    void setup(const TilesetXmlGrid &, Platform &,
                const Vector2I & location_on_tileset);
 
     static Vector grid_position_to_v3(const Vector2I & r)

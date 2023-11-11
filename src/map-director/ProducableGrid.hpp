@@ -103,7 +103,7 @@ public:
 };
 
 using ProducableTileViewSubGrid = ViewGrid<ProducableTile *>::SubGrid;
-class TileSet;
+class ProducablesTileset;
 class ProducableGroupFiller;
 
 /// A ViewGrid of producable tiles

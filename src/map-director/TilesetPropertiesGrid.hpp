@@ -75,7 +75,7 @@ private:
 
 // this can't be loading, it's a tileset/filler thing
 // Grid of xml elements, plus info on tileset
-class TileSetXmlGrid final {
+class TilesetXmlGrid final {
 public:
     static Vector2I tid_to_tileset_location(const Size2I &, int tid);
 

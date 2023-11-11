@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "TiledMapLoader.hpp"
-#include "TileSet.hpp"
+#include "TilesetBase.hpp"
 
 #include <ariajanke/cul/Either.hpp>
 
@@ -40,9 +40,6 @@ Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement &);
 // ----------------------------------------------------------------------------
 
 namespace tiled_map_loading {
-
-
-// ----------------------------------------------------------------------------
 
 BaseState::MapLoadResult
     FileContentsWaitState::update_progress
@@ -70,7 +67,7 @@ BaseState::MapLoadResult
 
 // ----------------------------------------------------------------------------
 
-/* static */ Optional<TileSetLoadersWithStartGid>
+/* static */ Optional<TilesetLoadersWithStartGid>
     load_future_tileset
     (const DocumentOwningNode & tileset,
      MapContentLoader & content_loader)
@@ -86,13 +83,13 @@ BaseState::MapLoadResult
     }
 
     if (const auto * source = tileset->Attribute("source")) {
-        return TileSetLoadersWithStartGid
+        return TilesetLoadersWithStartGid
             {first_gid,
-             TileSetLoadingTask::begin_loading(source, content_loader)};
+             TilesetLoadingTask::begin_loading(source, content_loader)};
     } else {
-        return TileSetLoadersWithStartGid
+        return TilesetLoadersWithStartGid
             {first_gid,
-             TileSetLoadingTask::begin_loading(DocumentOwningNode{tileset})};
+             TilesetLoadingTask::begin_loading(DocumentOwningNode{tileset})};
     }
 }
 
@@ -114,12 +111,12 @@ BaseState::MapLoadResult
     return layers;
 }
 
-/* static */ std::vector<TileSetLoadersWithStartGid>
+/* static */ std::vector<TilesetLoadersWithStartGid>
     InitialDocumentReadState::load_future_tilesets
     (const DocumentOwningNode & document_root,
      MapContentLoader & content_loader)
 {
-    std::vector<TileSetLoadersWithStartGid> future_tilesets;
+    std::vector<TilesetLoadersWithStartGid> future_tilesets;
     for (auto & tileset : XmlRange{*document_root, "tileset"}) {
         auto res = load_future_tileset
             (document_root.make_with_same_owner(tileset), content_loader);
@@ -131,7 +128,7 @@ BaseState::MapLoadResult
 
 /* static */ InitialDocumentReadState::TileSetLoadSplit
     InitialDocumentReadState::split_tileset_load
-    (std::vector<TileSetLoadersWithStartGid> && tileset_load,
+    (std::vector<TilesetLoadersWithStartGid> && tileset_load,
      MapContentLoader & content_loader)
 {
     // some are available right away
@@ -142,13 +139,13 @@ BaseState::MapLoadResult
         auto res = future.other.retrieve();
         auto start_gid = future.start_gid;
         if (res.is_empty()) {
-            auto task_ptr = std::make_shared<TileSetLoadingTask>
+            auto task_ptr = std::make_shared<TilesetLoadingTask>
                 (std::move(future.other));
             content_loader.wait_on(task_ptr);
             split.future_tilesets.emplace_back(start_gid, std::move(task_ptr));
         } else {
             (void)res.require().
-                map([start_gid, &split] (SharedPtr<TileSetBase> && tileset)
+                map([start_gid, &split] (SharedPtr<TilesetBase> && tileset)
             {
                 split.ready_tilesets.emplace_back(start_gid, std::move(tileset));
                 return 0;
@@ -175,24 +172,16 @@ MapLoadResult InitialDocumentReadState::update_progress
 
 // ----------------------------------------------------------------------------
 
-/* static */ void TileSetLoadState::check_for_finished
-    (MapContentLoader & content_provider,
-     TileSetLoadersWithStartGid & future_tileset,
-     StartGidWithTileSetContainer & tilesets)
-{
-
-}
-
-/* static */ std::vector<TileSetWithStartGid>
+/* static */ std::vector<TilesetWithStartGid>
     TileSetLoadState::finish_tilesets
-    (std::vector<TileSetProviderWithStartGid> && future_tilesets,
-     std::vector<TileSetWithStartGid> && ready_tilesets)
+    (std::vector<TilesetProviderWithStartGid> && future_tilesets,
+     std::vector<TilesetWithStartGid> && ready_tilesets)
 {
     ready_tilesets.reserve(ready_tilesets.size() + future_tilesets.size());
     for (auto & future : future_tilesets) {
         auto start_gid = future.start_gid;
         (void)future.other->retrieve().require().map(
-            [&ready_tilesets, start_gid] (SharedPtr<TileSetBase> && tileset)
+            [&ready_tilesets, start_gid] (SharedPtr<TilesetBase> && tileset)
         {
             ready_tilesets.emplace_back(start_gid, std::move(tileset));
             return 0;
@@ -204,8 +193,8 @@ MapLoadResult InitialDocumentReadState::update_progress
 TileSetLoadState::TileSetLoadState
     (DocumentOwningNode && document_root_,
      std::vector<Grid<int>> && layers_,
-     std::vector<TileSetProviderWithStartGid> && future_tilesets_,
-     std::vector<TileSetWithStartGid> && ready_tilesets_):
+     std::vector<TilesetProviderWithStartGid> && future_tilesets_,
+     std::vector<TilesetWithStartGid> && ready_tilesets_):
     m_document_root(std::move(document_root_)),
     m_layers(std::move(layers_)),
     m_future_tilesets(std::move(future_tilesets_)),
@@ -218,7 +207,7 @@ MapLoadResult TileSetLoadState::update_progress
         (std::move(m_future_tilesets), std::move(m_ready_tilesets));
     state_switcher.set_next_state<MapElementCollectorState>
         (std::move(m_document_root),
-         TileMapIdToSetMapping_New{ std::move(finished_tilesets) },
+         TileMapIdToSetMapping{ std::move(finished_tilesets) },
          std::move(m_layers));
     return {};
 }
@@ -227,16 +216,16 @@ MapLoadResult TileSetLoadState::update_progress
 
 MapElementCollectorState::MapElementCollectorState
     (DocumentOwningNode && document_root_,
-     TileMapIdToSetMapping_New && mapping_,
+     TileMapIdToSetMapping && mapping_,
      std::vector<Grid<int>> && layers_):
     m_document_root(std::move(document_root_)),
     m_id_mapping_set(std::move(mapping_)),
     m_layers(std::move(layers_)) {}
 
-class MapRegionBuilder final : public TileSetMapElementVisitor {
+class MapRegionBuilder final : public TilesetMapElementVisitor {
 public:
     static MapRegionBuilder
-        load_from_elements(TileMapIdToSetMapping_New && id_mapping_set,
+        load_from_elements(TileMapIdToSetMapping && id_mapping_set,
                            std::vector<Grid<int>> && layers);
 
     MapRegionBuilder() {}
@@ -259,7 +248,7 @@ private:
 
 /* static */ MapRegionBuilder
     MapRegionBuilder::load_from_elements
-    (TileMapIdToSetMapping_New && id_mapping_set,
+    (TileMapIdToSetMapping && id_mapping_set,
      std::vector<Grid<int>> && layers)
 {
     MapRegionBuilder impl;

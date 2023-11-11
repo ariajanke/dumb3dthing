@@ -21,7 +21,7 @@
 #include "TwistLoopGroupFiller.hpp"
 
 #include "../TileFactory.hpp"
-#include "../TileSetPropertiesGrid.hpp"
+#include "../TilesetPropertiesGrid.hpp"
 #include "../twist-loop-filler.hpp"
 
 #include "../../Components.hpp"
@@ -151,7 +151,7 @@ RectangleI RectanglarGroupOfPred::get_rectangular_group_of
 }
 
 void TwistLoopGroupFiller::load
-    (const TileSetXmlGrid &, Platform &)
+    (const TilesetXmlGrid &, Platform &)
 {
 #   if 0
     Grid<bool> checked;

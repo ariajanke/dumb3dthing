@@ -108,7 +108,7 @@ ProducableGroupTileLayer SlopeGroupFiller::operator ()
 }
 
 void SlopeGroupFiller::load
-    (const TileSetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid, Platform & platform,
      const RampGroupFactoryMap & factory_type_map)
 {
     load_factories(xml_grid, factory_type_map);
@@ -116,7 +116,7 @@ void SlopeGroupFiller::load
 }
 
 /* private */ void SlopeGroupFiller::load_factories
-    (const TileSetXmlGrid & xml_grid,
+    (const TilesetXmlGrid & xml_grid,
      const RampGroupFactoryMap & factory_type_map)
 {
     // I know how large the grid should be
@@ -138,7 +138,7 @@ void SlopeGroupFiller::load
 }
 
 /* private */ void SlopeGroupFiller::setup_factories
-    (const TileSetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid, Platform & platform,
      TileFactoryGrid & tile_factories) const
 {
     for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {

@@ -107,15 +107,10 @@ public:
             Impl(const char * filename):
                 m_contents(file_to_string(filename)) {}
 
-            bool is_ready() const { return m_is_ready; }
-
-            OptionalEither<Lost, std::string> retrieve() final {
-                m_is_ready = false;
-                return std::move(m_contents);
-            }
+            OptionalEither<Lost, std::string> retrieve() final
+                { return std::move(m_contents); }
 
         private:
-            bool m_is_ready = true;
             std::string m_contents;
         };
         return make_shared<Impl>(filename);
@@ -144,11 +139,8 @@ private:
         FutureStringImpl(const char * filename):
             m_filename(filename) {}
 
-        bool is_ready() const { return m_is_ready; }
-
         OptionalEither<Lost, std::string> retrieve() final {
             if (!m_filename.empty()) return {};
-            m_is_ready = false;
             return std::move(m_contents);
         }
 
@@ -159,7 +151,6 @@ private:
 
     private:
         std::string m_filename;
-        bool m_is_ready = true;
         std::string m_contents;
     };
 

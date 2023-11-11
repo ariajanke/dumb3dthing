@@ -260,7 +260,7 @@ public:
 
     ~WebFutureString() {}
 
-    OptionalEither<Lost, std::string> operator () () final {
+    OptionalEither<Lost, std::string> retrieve() final {
         if (m_fulfilled) {
             m_lost = true;
             m_fulfilled = false;

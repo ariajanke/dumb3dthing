@@ -41,30 +41,12 @@ enum class KeyControl {
     restart
 };
 
-// Maybe the problem is this... Let's try a different class for deferred
-// loading of strings
 template <typename T>
 class Future {
 public:
     struct Lost final {};
 
-    class Readiness final {
-    public:
-        Readiness() {}
-
-        explicit Readiness(const SharedPtr<Future<T>> & ptr):
-            m_ptr(ptr) {}
-
-        bool is_ready() const { return m_ptr->is_ready(); }
-
-    private:
-        SharedPtr<Future<T>> m_ptr;
-    };
-
     virtual ~Future() {}
-
-    // considered ready even when lost
-    virtual bool is_ready() const = 0;
 
     virtual OptionalEither<Lost, T> retrieve() = 0;
 };

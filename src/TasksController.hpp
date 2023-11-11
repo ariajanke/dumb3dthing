@@ -170,38 +170,6 @@ private:
 
 // ----------------------------------------------------------------------------
 
-// I don't like this, add there appear to be problems with it
-// should newly created tasks be run?
-// v this class is going to hell
-class TasksControllerPart final {
-public:
-    void run_existing_tasks(LoaderTask::Callbacks &, Real elapsed_time);
-
-    void replace_tasks_with(TasksReceiver &);
-
-    void take_tasks_from(TasksControllerPart &);
-
-private:
-    template <typename T>
-    using TaskIterator = TasksReceiver::TaskIterator<T>;
-    template <typename T>
-    using TaskView = TasksReceiver::TaskView<T>;
-
-    template <typename T>
-    static void insert_moved_shared_ptrs
-        (std::vector<SharedPtr<T>> & dest, TaskView<T> source);
-
-    template <typename T>
-    static TaskView<T> view_of(std::vector<SharedPtr<T>> & vec)
-        { return View{vec.begin(), vec.end()}; }
-
-    std::vector<SharedPtr<EveryFrameTask>> m_every_frame_tasks;
-    std::vector<SharedPtr<LoaderTask>> m_loader_tasks;
-    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
-};
-
-// ----------------------------------------------------------------------------
-
 class TasksController final : public LoaderTask::Callbacks {
 public:
     void add_entities_to(Scene & scene);
@@ -229,8 +197,4 @@ public:
 private:
     MultiReceiver m_multireceiver;
     RunableTasks m_runable_tasks;
-#   if 0
-    TasksControllerPart m_old_part;
-    TasksControllerPart m_new_part;
-#   endif
 };

@@ -23,49 +23,31 @@
 #include "../../Definitions.hpp"
 #include "../ProducableGrid.hpp"
 
-#include "FutureTileSet.hpp"
+#include "TilesetLoadingTask.hpp"
 
-class TileSetBase;
-class ProducableGroupFiller;
-
-class TileSetMapElementVisitor;
-
-class TileMapIdToSetMappingElement final {
-public:
-    void add_map_elements(TileSetMapElementVisitor & visitor) const;
-};
-
+class TilesetBase;
 struct TileLocation;
 
-class TileSetMappingTile final {
+class TilesetMappingTile final {
 public:
-    using ConstTileSetPtr = SharedPtr<const TileSetBase>;
-    using TileSetPtr      = SharedPtr<TileSetBase>;
-    using MappingContainer = std::vector<TileSetMappingTile>;
+    using ConstTileSetPtr = SharedPtr<const TilesetBase>;
+    using TilesetPtr      = SharedPtr<TilesetBase>;
+    using MappingContainer = std::vector<TilesetMappingTile>;
     using MappingContainerIterator = MappingContainer::const_iterator;
     using MappingView = View<MappingContainerIterator>;
 
     static bool less_than
-        (const TileSetMappingTile & lhs, const TileSetMappingTile & rhs)
-        { return lhs.m_tileset_ptr < rhs.m_tileset_ptr; }
+        (const TilesetMappingTile &, const TilesetMappingTile &);
 
-    static TileSetMappingTile from_map_location(int x_on_map, int y_on_map) {
-        return TileSetMappingTile
-            {Vector2I{x_on_map, y_on_map}, Vector2I{}, 0, TileSetPtr{}};
-    }
+    static TilesetMappingTile from_map_location(int x_on_map, int y_on_map);
 
+    TilesetMappingTile() {}
 
-    TileSetMappingTile() {}
-
-    TileSetMappingTile
+    TilesetMappingTile
         (const Vector2I & on_map,
          const Vector2I & on_tile_set,
          int tile_id_,
-         const TileSetPtr & ptr):
-        m_on_map(on_map),
-        m_on_tile_set(on_tile_set),
-        m_tile_id(tile_id_),
-        m_tileset_ptr(ptr) {}
+         const TilesetPtr & ptr);
 
     Vector2I on_map() const { return m_on_map; }
 
@@ -73,63 +55,47 @@ public:
 
     int tile_id() const { return m_tile_id; }
 
-    TileSetMappingTile with_tileset
-        (int tile_id_, const TileSetPtr & ptr) const;
+    TilesetMappingTile with_tileset
+        (int tile_id_, const TilesetPtr & ptr) const;
 
-    bool same_tileset(const TileSetMappingTile & rhs) const
-        { return m_tileset_ptr == rhs.m_tileset_ptr; }
+    bool same_tileset(const TilesetMappingTile &) const;
 
     TileLocation to_tile_location() const;
 
     bool has_tileset() const { return static_cast<bool>(m_tileset_ptr); }
 
-    TileSetBase & tileset_of(const MappingView & view) const {
-#       if MACRO_DEBUG
-        assert(std::all_of(view.begin(), view.end(),
-               [this](const TileSetMappingTile & mapping_tile)
-               { return same_tileset(mapping_tile); }));
-#       endif
-        return *m_tileset_ptr;
-    }
+    TilesetBase & tileset_of(const MappingView &) const;
 
 private:
     Vector2I m_on_map;
     Vector2I m_on_tile_set;
     int m_tile_id;
-    TileSetPtr m_tileset_ptr;
+    TilesetPtr m_tileset_ptr;
 };
 
-class TileSetLayerWrapper;
+// ----------------------------------------------------------------------------
+
+class TilesetLayerWrapper;
 
 class TileSetMappingLayer final {
 public:
-    using MappingContainer = TileSetMappingTile::MappingContainer;
-    using MappingContainerIterator = TileSetMappingTile::MappingContainerIterator;
-    using MappingView = TileSetMappingTile::MappingView;
+    using MappingContainer = TilesetMappingTile::MappingContainer;
+    using MappingContainerIterator = TilesetMappingTile::MappingContainerIterator;
+    using MappingView = TilesetMappingTile::MappingView;
     using MappingViewIterator = std::vector<MappingView>::const_iterator;
 
     static std::vector<TileLocation> convert_to_tile_locations
         (const MappingView & tile_mappings);
 
-    static MappingContainer sort_container(MappingContainer && container) {
-        std::sort(container.begin(), container.end(),
-                  TileSetMappingTile::less_than);
-        return std::move(container);
-    }
+    static MappingContainer sort_container(MappingContainer &&);
 
-    static std::vector<TileSetLayerWrapper> make_views_from_sorted
+    static std::vector<TilesetLayerWrapper> make_views_from_sorted
         (const MappingContainer & container, const Size2I & grid_size);
 
-    static TileSetBase * tileset_of(const MappingView & view) {
-        if (view.begin() == view.end()) return nullptr;
-        return &view.begin()->tileset_of(view);
-    }
+    static TilesetBase * tileset_of(const MappingView &);
 
     TileSetMappingLayer
-        (MappingContainer && locations, const Size2I & grid_size):
-        m_locations(sort_container(std::move(locations))),
-        m_mapping_views(make_views_from_sorted(m_locations, grid_size))
-    {}
+        (MappingContainer && locations, const Size2I & grid_size);
 
     auto begin() const { return m_mapping_views.begin(); }
 
@@ -137,15 +103,17 @@ public:
 
 private:
     MappingContainer m_locations;
-    std::vector<TileSetLayerWrapper> m_mapping_views;
+    std::vector<TilesetLayerWrapper> m_mapping_views;
 };
 
-class TileSetLayerWrapper final {
+// ----------------------------------------------------------------------------
+
+class TilesetLayerWrapper final {
 public:
     using MappingContainerIterator = TileSetMappingLayer::MappingContainerIterator;
     using MappingView = TileSetMappingLayer::MappingView;
 
-    TileSetLayerWrapper
+    TilesetLayerWrapper
         (const MappingContainerIterator & begin,
          const MappingContainerIterator & end,
          const Size2I & grid_size):
@@ -164,24 +132,26 @@ private:
     Size2I m_grid_size;
 };
 
-class TileMapIdToSetMapping_New final {
+// ----------------------------------------------------------------------------
+
+class TileMapIdToSetMapping final {
 public:
-    using StartGidWithTileSet = StartGidWith<SharedPtr<TileSetBase>>;
+    using StartGidWithTileSet = StartGidWith<SharedPtr<TilesetBase>>;
 
-    static std::vector<TileSetMappingTile> make_locations(const Size2I &);
+    static std::vector<TilesetMappingTile> make_locations(const Size2I &);
 
-    static std::vector<TileSetMappingTile> clean_null_tiles
-        (std::vector<TileSetMappingTile> &&);
+    static std::vector<TilesetMappingTile> clean_null_tiles
+        (std::vector<TilesetMappingTile> &&);
 
-    TileMapIdToSetMapping_New() {}
+    TileMapIdToSetMapping() {}
 
-    explicit TileMapIdToSetMapping_New(std::vector<StartGidWithTileSet> &&);
+    explicit TileMapIdToSetMapping(std::vector<StartGidWithTileSet> &&);
 
     TileSetMappingLayer make_mapping_for_layer(const Grid<int> &);
 
 private:
-    using ConstTileSetPtr = TileSetMappingTile::ConstTileSetPtr;
-    using TileSetPtr      = TileSetMappingTile::TileSetPtr;
+    using ConstTileSetPtr = TilesetMappingTile::ConstTileSetPtr;
+    using TileSetPtr      = TilesetMappingTile::TilesetPtr;
 
     static bool order_by_gids(const StartGidWithTileSet &, const StartGidWithTileSet &);
 

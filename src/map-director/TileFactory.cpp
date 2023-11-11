@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "TileFactory.hpp"
-#include "TileSetPropertiesGrid.hpp"
+#include "TilesetPropertiesGrid.hpp"
 #include "ProducableGrid.hpp"
 
 #include "../RenderModel.hpp"
@@ -52,7 +52,7 @@ void TileFactory::set_shared_texture_information
 }
 
 void TileFactory::setup
-    (const TileSetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid, Platform & platform,
      const Vector2I & location_on_tileset)
 {
     m_texture_ptr = xml_grid.texture();

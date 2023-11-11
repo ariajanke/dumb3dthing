@@ -31,7 +31,7 @@
 // how does tile generation work here?
 // only load in geometry relevant to a tile? (yes)
 
-class TileSetXmlGrid;
+class TilesetXmlGrid;
 class TwistTileGroup {
 public:
     using Rectangle = cul::Rectangle<Real>;
@@ -111,7 +111,7 @@ public:
     static Grid<bool> map_positions_to_grid
         (const std::vector<TileLocation> &);
 
-    void load(const TileSetXmlGrid & xml_grid, Platform & platform);
+    void load(const TilesetXmlGrid & xml_grid, Platform & platform);
 
     ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const final;
