@@ -129,6 +129,80 @@ Platform & MultiReceiver::platform() {
     return *m_platform;
 }
 
+RunableTasks MultiReceiver::retrieve_runable_tasks() {
+    return RunableTasks
+        {move_out_every_frame_tasks(),
+         move_out_loader_tasks(),
+         move_out_background_tasks()};
+}
+
+// ----------------------------------------------------------------------------
+
+RunableTasks::RunableTasks
+    (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
+     std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
+     std::vector<SharedPtr<BackgroundTask>> && background_tasks_):
+    m_every_frame_tasks(std::move(every_frame_tasks_)),
+    m_loader_tasks(std::move(loader_tasks_)),
+    m_background_tasks(std::move(background_tasks_)) {}
+
+void RunableTasks::run_existing_tasks
+    (LoaderTask::Callbacks & callbacks_, Real seconds)
+{
+    {
+    auto enditr = m_every_frame_tasks.begin();
+    m_every_frame_tasks.erase
+        (std::remove_if
+            (m_every_frame_tasks.begin(), enditr,
+             is_sole_owner<EveryFrameTask>),
+         enditr);
+    }
+
+    for (auto & task : m_every_frame_tasks) {
+        task->on_every_frame(callbacks_, seconds);
+    }
+
+    for (auto & task : m_loader_tasks) {
+        (*task)(callbacks_);
+    }
+
+    for (auto & task : m_background_tasks) {
+        auto res = (*task)(callbacks_);
+        if (auto delay_task = res.move_out_delay_task()) {
+            delay_task->set_return_task(std::move(task));
+            callbacks_.add(delay_task);
+            task = nullptr;
+        } else if (res == BackgroundTaskCompletion::k_finished) {
+            task = nullptr;
+        }
+    }
+    m_background_tasks.erase
+        (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),
+         m_background_tasks.end());
+    m_loader_tasks.clear();
+}
+
+RunableTasks RunableTasks::combine_tasks_with(RunableTasks && rhs) {
+    insert_moved_shared_ptrs(m_every_frame_tasks, view_of(rhs.m_every_frame_tasks));
+    insert_moved_shared_ptrs(m_background_tasks , view_of(rhs.m_background_tasks ));
+    insert_moved_shared_ptrs(m_loader_tasks     , view_of(rhs.m_loader_tasks     ));
+
+    return RunableTasks
+        {std::move(m_every_frame_tasks),
+         std::move(m_loader_tasks),
+         std::move(m_background_tasks)};
+}
+
+template <typename T>
+/* private static */ void RunableTasks::insert_moved_shared_ptrs
+    (std::vector<SharedPtr<T>> & dest, TaskView<T> source)
+{
+    using std::make_move_iterator;
+
+    dest.insert(dest.end(), make_move_iterator(source.begin()),
+                make_move_iterator(source.end()));
+}
+
 // ----------------------------------------------------------------------------
 
 void TasksControllerPart::run_existing_tasks
@@ -200,12 +274,18 @@ template <typename T>
 
 // ----------------------------------------------------------------------------
 
-void TasksController::run_tasks(Real elapsed_time) {
+void TasksController::run_tasks(Real elapsed_seconds) {
+    m_runable_tasks.run_existing_tasks(m_multireceiver, elapsed_seconds);
+    m_runable_tasks = m_multireceiver.
+        retrieve_runable_tasks().
+        combine_tasks_with(std::move(m_runable_tasks));
+#   if 0
     m_old_part.run_existing_tasks(m_multireceiver, elapsed_time);
 
     m_new_part.replace_tasks_with(m_multireceiver);
     m_new_part.run_existing_tasks(m_multireceiver, elapsed_time);
     m_old_part.take_tasks_from(m_new_part);
+#   endif
 }
 
 void TasksController::add_entities_to(Scene & scene)

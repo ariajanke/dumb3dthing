@@ -99,8 +99,80 @@ private:
     GameDriver & m_driver;
 };
 
+class BlockingFileContentPromising final {
+public:
+    FutureStringPtr promise_file_contents(const char * filename) {
+        class Impl final : public Future<std::string> {
+        public:
+            Impl(const char * filename):
+                m_contents(file_to_string(filename)) {}
+
+            bool is_ready() const { return m_is_ready; }
+
+            OptionalEither<Lost, std::string> retrieve() final {
+                m_is_ready = false;
+                return std::move(m_contents);
+            }
+
+        private:
+            bool m_is_ready = true;
+            std::string m_contents;
+        };
+        return make_shared<Impl>(filename);
+    }
+
+    void progress_file_promises() {}
+};
+
+class SingleFrameFileContentPromising final {
+public:
+    FutureStringPtr promise_file_contents(const char * filename) {
+        m_unprocessed.emplace_back(make_shared<FutureStringImpl>(filename));
+        return m_unprocessed.back();
+    }
+
+    void progress_file_promises() {
+        for (auto & unprocessed : m_unprocessed) {
+            unprocessed->progress();
+        }
+        m_unprocessed.clear();
+    }
+
+private:
+    class FutureStringImpl final : public Future<std::string> {
+    public:
+        FutureStringImpl(const char * filename):
+            m_filename(filename) {}
+
+        bool is_ready() const { return m_is_ready; }
+
+        OptionalEither<Lost, std::string> retrieve() final {
+            if (!m_filename.empty()) return {};
+            m_is_ready = false;
+            return std::move(m_contents);
+        }
+
+        void progress() {
+            m_contents = file_to_string(m_filename.c_str());
+            m_filename = "";
+        }
+
+    private:
+        std::string m_filename;
+        bool m_is_ready = true;
+        std::string m_contents;
+    };
+
+    std::vector<SharedPtr<FutureStringImpl>> m_unprocessed;
+};
+
 class NativePlatformCallbacks final : public Platform {
 public:
+    using FilePromiser = std::conditional_t
+        <k_promised_files_take_at_least_one_frame,
+         SingleFrameFileContentPromising,
+         BlockingFileContentPromising>;
+
     explicit NativePlatformCallbacks(ShaderProgram & shader):
         m_shader(shader) {}
 
@@ -118,9 +190,12 @@ public:
 
     FutureStringPtr promise_file_contents(const char * filename);
 
+    void progress_file_promises() { m_file_promiser.progress_file_promises(); }
+
 private:
     ShaderProgram & m_shader;
     EntityRef m_camera_ent;
+    FilePromiser m_file_promiser;
 };
 
 } // end of <anonymous> namespace
@@ -336,25 +411,7 @@ glm::mat4 NativePlatformCallbacks::get_view() const {
 
 FutureStringPtr NativePlatformCallbacks::promise_file_contents
     (const char * filename)
-{
-    class Impl final : public Future<std::string> {
-    public:
-        Impl(const char * filename):
-            m_contents(file_to_string(filename)) {}
-
-        bool is_ready() const { return m_is_ready; }
-
-        OptionalEither<Lost, std::string> retrieve() final {
-            m_is_ready = false;
-            return std::move(m_contents);
-        }
-
-    private:
-        bool m_is_ready = true;
-        std::string m_contents;
-    };
-    return make_shared<Impl>(filename);
-}
+{ return m_file_promiser.promise_file_contents(filename); }
 
 // ----------------------------------------------------------------------------
 

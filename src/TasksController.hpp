@@ -54,6 +54,16 @@ public:
 
     TaskView<BackgroundTask> background_tasks();
 
+protected:
+    std::vector<SharedPtr<EveryFrameTask>> move_out_every_frame_tasks()
+        { return std::move(m_every_frame_tasks); }
+
+    std::vector<SharedPtr<LoaderTask>> move_out_loader_tasks()
+        { return std::move(m_loader_tasks); }
+
+    std::vector<SharedPtr<BackgroundTask>> move_out_background_tasks()
+        { return std::move(m_background_tasks); }
+
 private:
     template <typename T>
     static void add_to
@@ -98,6 +108,8 @@ private:
 
 // ----------------------------------------------------------------------------
 
+class RunableTasks;
+
 class MultiReceiver final :
     public EntitiesReceiver,
     public TriangleLinksReceiver,
@@ -116,13 +128,51 @@ public:
     void assign_platform(Platform & platform_)
         { m_platform = &platform_; }
 
+    RunableTasks retrieve_runable_tasks();
+
 private:
     Platform * m_platform;
 };
 
 // ----------------------------------------------------------------------------
 
+class RunableTasks final {
+public:
+    RunableTasks() {}
+
+    RunableTasks
+        (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
+         std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
+         std::vector<SharedPtr<BackgroundTask>> && background_tasks_);
+
+    void run_existing_tasks(LoaderTask::Callbacks &, Real elapsed_time);
+
+    RunableTasks combine_tasks_with(RunableTasks &&);
+
+private:
+    template <typename T>
+    using TaskIterator = TasksReceiver::TaskIterator<T>;
+    template <typename T>
+    using TaskView = TasksReceiver::TaskView<T>;
+
+    template <typename T>
+    static void insert_moved_shared_ptrs
+        (std::vector<SharedPtr<T>> & dest, TaskView<T> source);
+
+    template <typename T>
+    static TaskView<T> view_of(std::vector<SharedPtr<T>> & vec)
+        { return View{vec.begin(), vec.end()}; }
+
+    std::vector<SharedPtr<EveryFrameTask>> m_every_frame_tasks;
+    std::vector<SharedPtr<LoaderTask>> m_loader_tasks;
+    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
+};
+
+// ----------------------------------------------------------------------------
+
+// I don't like this, add there appear to be problems with it
 // should newly created tasks be run?
+// v this class is going to hell
 class TasksControllerPart final {
 public:
     void run_existing_tasks(LoaderTask::Callbacks &, Real elapsed_time);
@@ -174,10 +224,13 @@ public:
 
     void remove(const SharedPtr<const TriangleLink> &) final;
 
-    void run_tasks(Real elapsed_time);
+    void run_tasks(Real elapsed_seconds);
 
 private:
     MultiReceiver m_multireceiver;
+    RunableTasks m_runable_tasks;
+#   if 0
     TasksControllerPart m_old_part;
     TasksControllerPart m_new_part;
+#   endif
 };

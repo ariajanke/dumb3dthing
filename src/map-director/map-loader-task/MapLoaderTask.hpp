@@ -92,7 +92,7 @@ public:
                     (m_waited_on_tasks.begin(),
                      m_waited_on_tasks.end(),
                      [] (const SharedPtr<BackgroundTask> & ptr)
-                     { return static_cast<bool>(ptr); });
+                     { return !static_cast<bool>(ptr); });
                 m_waited_on_tasks.erase(rem_end, m_waited_on_tasks.end());
                 if (m_waited_on_tasks.empty())
                     return BackgroundTaskCompletion::k_finished;
