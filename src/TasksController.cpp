@@ -155,6 +155,7 @@ void TasksControllerPart::run_existing_tasks
         auto res = (*task)(callbacks_);
         if (auto delay_task = res.move_out_delay_task()) {
             delay_task->set_return_task(std::move(task));
+            callbacks_.add(delay_task);
             task = nullptr;
         } else if (res == BackgroundTaskCompletion::k_finished) {
             task = nullptr;

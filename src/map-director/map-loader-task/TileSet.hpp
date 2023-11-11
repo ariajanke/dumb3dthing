@@ -46,6 +46,7 @@ public:
 
 class TileSetMappingTile;
 class TileSetLayerWrapper;
+struct MapContentLoader;
 
 class TileSetBase {
 public:
@@ -58,7 +59,7 @@ public:
     virtual ~TileSetBase() {}
 
     // might not have something to wait on
-    virtual void load(Platform &, const TiXmlElement &) = 0;
+    [[nodiscard]] virtual BackgroundTaskCompletion load(Platform &, const TiXmlElement &) = 0;
 
     virtual void add_map_elements
         (TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) const = 0;
@@ -91,11 +92,11 @@ public:
 
     static const FillerFactoryMap & builtin_fillers();
 
-    void load(Platform &, const TiXmlElement &,
-              const FillerFactoryMap &);
+    BackgroundTaskCompletion load(Platform &, const TiXmlElement &,
+                                  const FillerFactoryMap &);
 
-    void load(Platform & platform, const TiXmlElement & element) final
-        { load(platform, element, builtin_fillers()); }
+    BackgroundTaskCompletion load(Platform & platform, const TiXmlElement & element) final
+        { return load(platform, element, builtin_fillers()); }
 
     void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) const final;
 
@@ -119,9 +120,11 @@ public:
     // loading this: will have to go through steps of promises and so on
     // in order to load, so it needs to be non-blocking
 
-    void load(Platform &, const TiXmlElement &) final;
+    BackgroundTaskCompletion load(Platform &, const TiXmlElement &) final {
+        return BackgroundTaskCompletion::k_finished;
+    }
 
-    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper & mapping_view) const final;
+    void add_map_elements(TileSetMapElementVisitor &, const TileSetLayerWrapper &) const final {}
 
 private:
     Size2I size2() const final { return m_sub_regions_grid.size2(); }

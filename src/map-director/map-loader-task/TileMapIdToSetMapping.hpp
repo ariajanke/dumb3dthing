@@ -23,6 +23,8 @@
 #include "../../Definitions.hpp"
 #include "../ProducableGrid.hpp"
 
+#include "FutureTileSet.hpp"
+
 class TileSetBase;
 class ProducableGroupFiller;
 
@@ -30,7 +32,6 @@ class TileSetMapElementVisitor;
 
 class TileMapIdToSetMappingElement final {
 public:
-
     void add_map_elements(TileSetMapElementVisitor & visitor) const;
 };
 
@@ -165,6 +166,8 @@ private:
 
 class TileMapIdToSetMapping_New final {
 public:
+    using StartGidWithTileSet = StartGidWith<SharedPtr<TileSetBase>>;
+#   if 0
     struct TileSetAndStartGid final {
         using TileSetPtr = TileSetMappingTile::TileSetPtr;
 
@@ -178,7 +181,7 @@ public:
         TileSetPtr tileset;
         int start_gid = 0;
     };
-
+#   endif
     static std::vector<TileSetMappingTile> make_locations(const Size2I &);
 
     static std::vector<TileSetMappingTile> clean_null_tiles
@@ -186,7 +189,7 @@ public:
 
     TileMapIdToSetMapping_New() {}
 
-    explicit TileMapIdToSetMapping_New(std::vector<TileSetAndStartGid> &&);
+    explicit TileMapIdToSetMapping_New(std::vector<StartGidWithTileSet> &&);
 
     TileSetMappingLayer make_mapping_for_layer(const Grid<int> &);
 
@@ -194,10 +197,10 @@ private:
     using ConstTileSetPtr = TileSetMappingTile::ConstTileSetPtr;
     using TileSetPtr      = TileSetMappingTile::TileSetPtr;
 
-    static bool order_by_gids(const TileSetAndStartGid &, const TileSetAndStartGid &);
+    static bool order_by_gids(const StartGidWithTileSet &, const StartGidWithTileSet &);
 
     Tuple<int, TileSetPtr> map_id_to_set(int map_wide_id) const;
 
-    std::vector<TileSetAndStartGid> m_gid_map;
+    std::vector<StartGidWithTileSet> m_gid_map;
     int m_gid_end = 0;
 };

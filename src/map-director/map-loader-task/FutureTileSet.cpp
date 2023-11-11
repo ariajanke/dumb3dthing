@@ -23,6 +23,79 @@
 #include "TiledMapLoader.hpp"
 
 #include <tinyxml2.h>
+#if 0
+namespace {
+
+bool is_ready(const Optional<Future<std::string>::Readiness> & readiness) {
+    if (readiness) return readiness->is_ready();
+    throw std::runtime_error{"???"};
+}
+
+} // end of <anonymous> namespace
+#endif
+/* static */ TileSetLoadingTask TileSetLoadingTask::begin_loading
+    (const char * filename, MapContentLoader & content_provider)
+{
+    return TileSetLoadingTask{content_provider.promise_file_contents(filename)};
+}
+
+/* static */ TileSetLoadingTask TileSetLoadingTask::begin_loading
+    (DocumentOwningNode && tileset_xml)
+{
+    const auto & el = tileset_xml.element();
+    return TileSetLoadingTask
+        {UnloadedTileSet{TileSetBase::make(el), std::move(tileset_xml)}};
+}
+
+BackgroundTaskCompletion TileSetLoadingTask::operator () (Callbacks & callbacks) {
+    using TaskCompl = BackgroundTaskCompletion;
+    if (m_loaded_tile_set) {
+        return TaskCompl::k_finished;
+    } else if (m_unloaded.tile_set) {
+        auto res = m_unloaded.tile_set->load(callbacks.platform(), m_unloaded.xml_content.element());
+        m_loaded_tile_set = std::move(m_unloaded.tile_set);
+        m_unloaded = UnloadedTileSet{};
+        return res;
+    } else {
+        auto ei = get_unloaded(m_tile_set_content).
+            map_left([](MapLoadingError && error)
+                     { return Optional<MapLoadingError>{std::move(error)}; });
+        m_loading_error = ei.left_or(Optional<MapLoadingError>{});
+        m_unloaded = ei.right_or(UnloadedTileSet{});
+    }
+    return TaskCompl::k_in_progress;
+}
+
+OptionalEither<MapLoadingError, SharedPtr<TileSetBase>>
+    TileSetLoadingTask::retrieve()
+{
+    if (m_loading_error) return *m_loading_error;
+    if (m_loaded_tile_set) return m_loaded_tile_set;
+    return {};
+}
+
+/* private static */
+    Either<MapLoadingError, TileSetLoadingTask::UnloadedTileSet>
+    TileSetLoadingTask::get_unloaded
+    (FutureStringPtr & tile_set_content)
+{
+    using FutureLost = Future<std::string>::Lost;
+    return tile_set_content->retrieve().require().
+        map_left([] (FutureLost &&) {
+            return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
+        }).
+        chain(DocumentOwningNode::load_root).
+        chain([]
+            (DocumentOwningNode && node) ->
+                Either<MapLoadingError, UnloadedTileSet>
+        {
+            auto ts = TileSetBase::make(node.element());
+            if (!ts) return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
+            return UnloadedTileSet{std::move(ts), std::move(node)};
+        });
+}
+
+// ----------------------------------------------------------------------------
 
 /* static */ Either<MapLoadingError, DocumentOwningNode>
     DocumentOwningNode::load_root(std::string && file_contents)
@@ -54,11 +127,11 @@
 
 DocumentOwningNode DocumentOwningNode::make_with_same_owner
     (const TiXmlElement & same_document_element) const
-{ m_element->ToDocument(); return DocumentOwningNode{m_owner, same_document_element}; }
+{ return DocumentOwningNode{m_owner, same_document_element}; }
 
 const TiXmlElement & DocumentOwningNode::element() const
     { return *m_element; }
-
+#if 0
 // ----------------------------------------------------------------------------
 
 /* static */ FutureTileSet FutureTileSet::begin_loading
@@ -121,3 +194,4 @@ FutureTileSet::UnloadedTileSet::UnloadedTileSet
             return UnloadedTileSet{std::move(ts), std::move(node)};
         });
 }
+#endif

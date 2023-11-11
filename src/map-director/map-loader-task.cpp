@@ -29,6 +29,5 @@ SharedPtr<BackgroundTask> MapLoaderTask_::make
 {
     using tiled_map_loading::MapLoadStateMachine;
     return make_shared<MapLoaderTask>
-        (MapLoadStateMachine{platform, initial_map},
-         target_region_instance                     );
+        (initial_map, target_region_instance, platform);
 }

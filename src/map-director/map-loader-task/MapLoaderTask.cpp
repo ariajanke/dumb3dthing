@@ -27,23 +27,57 @@ using namespace cul::exceptions_abbr;
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
 } // end of <anonymous> namespace
-
+#if 0
 MapLoaderTask::MapLoaderTask
     (tiled_map_loading::MapLoadStateMachine && map_loader,
      const SharedPtr<MapRegionTracker> & target_region_instance):
      m_region_tracker(verify_region_tracker_presence
          ("MapLoaderTask", target_region_instance)),
      m_map_loader(std::move(map_loader)) {}
+#endif
 
-BackgroundTaskCompletion MapLoaderTask::operator () (Callbacks &) {
+MapLoaderTask::MapLoaderTask
+    (const char * map_filename,
+     const SharedPtr<MapRegionTracker> & target_region_instance,
+     Platform & platform):
+    m_region_tracker(verify_region_tracker_presence
+        ("MapLoaderTask", target_region_instance))
+{
+    using namespace tiled_map_loading;
+    MapContentLoaderComplete content_loader{platform};
+    m_map_loader = MapLoadStateMachine::make_with_starting_state
+        (content_loader, map_filename);
+}
+
+BackgroundTaskCompletion MapLoaderTask::operator () (Callbacks & callbacks) {
     using TaskCompletion = BackgroundTaskCompletion;
 #   if 0
     TaskCompletion::delay_until([] (Callbacks &) {
         ;
     });
 #   endif
+    MapContentLoaderComplete content_loader{callbacks};
+    auto res = m_map_loader.update_progress(content_loader);
+    if (res.is_empty()) {
+        return content_loader.delay_response();
+    } else {
+        (void)res.require().fold<int>().
+            map([this] (MapLoadingSuccess && res) {
+                *m_region_tracker = MapRegionTracker{std::move(res.loaded_region)};
+                return 0;
+            }).
+            map_left([] (MapLoadingError &&) {
+                return 0;
+            }).
+            value();
+        return TaskCompletion::k_finished;
+    }
+#   if 0
     return m_map_loader.
-        update_progress().
+        update_progress(content_loader).
+        map([this] (MapLoadingSuccess && res) {
+            return std::move(res);
+        }).
         fold<TaskCompletion>(TaskCompletion{TaskCompletion::k_in_progress}).
         map([this] (MapLoadingSuccess && res) {
             *m_region_tracker = MapRegionTracker{std::move(res.loaded_region)};
@@ -53,6 +87,7 @@ BackgroundTaskCompletion MapLoaderTask::operator () (Callbacks &) {
             return TaskCompletion::k_finished;
         }).
         value();
+#   endif
 }
 
 /* private static */ const SharedPtr<MapRegionTracker> &

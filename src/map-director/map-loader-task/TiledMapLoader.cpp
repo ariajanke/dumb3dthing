@@ -211,7 +211,7 @@ struct FutureTileSetWithStartGid final {
     int start_gid = -1;
 };
 #endif
-/* static */ Optional<FutureTileSetWithStartGid>
+/* static */ Optional<TileSetLoadersWithStartGid>
     load_future_tileset
     (const DocumentOwningNode & tileset,
      MapContentLoader & content_loader)
@@ -227,13 +227,13 @@ struct FutureTileSetWithStartGid final {
     }
 
     if (const auto * source = tileset->Attribute("source")) {
-        return FutureTileSetWithStartGid
+        return TileSetLoadersWithStartGid
             {first_gid,
-             FutureTileSet::begin_loading(source, content_loader)};
+             TileSetLoadingTask::begin_loading(source, content_loader)};
     } else {
-        return FutureTileSetWithStartGid
+        return TileSetLoadersWithStartGid
             {first_gid,
-             FutureTileSet::begin_loading(DocumentOwningNode{tileset})};
+             TileSetLoadingTask::begin_loading(DocumentOwningNode{tileset})};
     }
 }
 
@@ -352,12 +352,12 @@ bool UnfinishedTileSetContent::is_finished() const
 }
 #endif
 
-/* static */ std::vector<FutureTileSetWithStartGid>
+/* static */ std::vector<TileSetLoadersWithStartGid>
     InitialDocumentReadState::load_future_tilesets
     (const DocumentOwningNode & document_root,
      MapContentLoader & content_loader)
 {
-    std::vector<FutureTileSetWithStartGid> future_tilesets;
+    std::vector<TileSetLoadersWithStartGid> future_tilesets;
     for (auto & tileset : XmlRange{*document_root, "tileset"}) {
         auto res = load_future_tileset
             (document_root.make_with_same_owner(tileset), content_loader);
@@ -367,25 +367,59 @@ bool UnfinishedTileSetContent::is_finished() const
     return future_tilesets;
 }
 
+/* static */ InitialDocumentReadState::TileSetLoadSplit
+    InitialDocumentReadState::split_tileset_load
+    (std::vector<TileSetLoadersWithStartGid> && tileset_load,
+     MapContentLoader & content_loader)
+{
+    // some are available right away
+    // others are not
+    // ... so I end up having a type split... yuck
+    TileSetLoadSplit split;
+    for (auto & future : tileset_load) {
+        auto res = future.other.retrieve();
+        auto start_gid = future.start_gid;
+        if (res.is_empty()) {
+            auto task_ptr = std::make_shared<TileSetLoadingTask>
+                (std::move(future.other));
+            content_loader.wait_on(task_ptr);
+            split.future_tilesets.emplace_back(start_gid, std::move(task_ptr));
+        } else {
+            (void)res.require().
+                map([start_gid, &split] (SharedPtr<TileSetBase> && tileset)
+            {
+                split.ready_tilesets.emplace_back(start_gid, std::move(tileset));
+                return 0;
+            });
+        }
+#       if 0
+        content_loader.wait_on(std::move(future.other.loader_task));
+#       endif
+    }
+    return split;
+}
+
 MapLoadResult InitialDocumentReadState::update_progress
     (StateSwitcher & switcher, MapContentLoader & content_loader)
 {
     auto layers = load_layers(*m_document_root, content_loader);
+#   if 0
     auto future_tilesets = load_future_tilesets
         (m_document_root, content_loader);
-    // WE DON'T WAIT!! (not here anyhow)
+#   endif
+    auto load_split = split_tileset_load
+        (load_future_tilesets(m_document_root, content_loader),
+         content_loader                                       );
     switcher.set_next_state<TileSetLoadState>
         (std::move(m_document_root),
          std::move(layers),
-         std::move(future_tilesets));
+         std::move(load_split.future_tilesets),
+         std::move(load_split.ready_tilesets));
     return MapLoadResult{};
 }
 
 // ----------------------------------------------------------------------------
-
-static bool is_done(const FutureTileSetWithStartGid & future)
-    { return future.other.is_done(); }
-
+#if 0
 /* static */ std::vector<FutureTileSetWithStartGid>
     TileSetLoadState::remove_done_futures
     (std::vector<FutureTileSetWithStartGid> && futures)
@@ -394,14 +428,14 @@ static bool is_done(const FutureTileSetWithStartGid & future)
     futures.erase(rem_beg, futures.end());
     return std::move(futures);
 }
-
+#endif
 /* static */ void TileSetLoadState::check_for_finished
     (MapContentLoader & content_provider,
-     FutureTileSetWithStartGid & future_tileset,
+     TileSetLoadersWithStartGid & future_tileset,
      StartGidWithTileSetContainer & tilesets)
 {
-    auto res = future_tileset.other.retrieve_from(content_provider);
-    if (res.is_empty()) return;
+#   if 0
+    auto res = future_tileset.other.future_tileset.retrieve();
     auto start_gid = future_tileset.start_gid;
     (void)res.map([&tilesets, start_gid] (SharedPtr<TileSetBase> && tileset) {
         tilesets.emplace_back(start_gid, std::move(tileset));
@@ -409,27 +443,72 @@ static bool is_done(const FutureTileSetWithStartGid & future)
     }).
     // TODO handle errors
     map_left([](MapLoadingError){ return 0; });
+#   endif
+}
+
+/* static */ std::vector<TileSetWithStartGid>
+    TileSetLoadState::finish_tilesets
+    (std::vector<TileSetProviderWithStartGid> && future_tilesets,
+     std::vector<TileSetWithStartGid> && ready_tilesets)
+{
+    ready_tilesets.reserve(ready_tilesets.size() + future_tilesets.size());
+    for (auto & future : future_tilesets) {
+        auto start_gid = future.start_gid;
+        (void)future.other->retrieve().require().map(
+            [&ready_tilesets, start_gid] (SharedPtr<TileSetBase> && tileset)
+        {
+            ready_tilesets.emplace_back(start_gid, std::move(tileset));
+            return 0;
+        });
+    }
+    return std::move(ready_tilesets);
 }
 
 TileSetLoadState::TileSetLoadState
     (DocumentOwningNode && document_root_,
      std::vector<Grid<int>> && layers_,
-     std::vector<FutureTileSetWithStartGid> && future_tilesets_):
+     std::vector<TileSetProviderWithStartGid> && future_tilesets_,
+     std::vector<TileSetWithStartGid> && ready_tilesets_):
     m_document_root(std::move(document_root_)),
     m_layers(std::move(layers_)),
-    m_future_tilesets(std::move(future_tilesets_)) {}
+    m_future_tilesets(std::move(future_tilesets_)),
+    m_ready_tilesets(std::move(ready_tilesets_)) {}
 
 MapLoadResult TileSetLoadState::update_progress
-    (StateSwitcher & state_switcher, MapContentLoader & content_loader)
+    (StateSwitcher & state_switcher, MapContentLoader &)
 {
+#   if 0
     check_for_finished(content_loader);
+#   endif
+#   if 0
     m_future_tilesets = remove_done_futures(std::move(m_future_tilesets));
     if (m_future_tilesets.empty()) {
 
     }
+#   endif
+    auto finished_tilesets = finish_tilesets
+        (std::move(m_future_tilesets), std::move(m_ready_tilesets));
+#   if 0
+    for (auto & future_tileset : m_future_tilesets) {
+
+#       if 0
+        check_for_finished(content_provider, future_tileset, m_tilesets);
+#       endif
+    }
+#   endif
+#   if 0
+    state_switcher.set_next_state<MapElementCollectorState>
+        (std::move(m_document_root),
+         TileMapIdToSetMapping_New{ std::move(m_tilesets) },
+         std::move(m_layers));
+#   endif
+    state_switcher.set_next_state<MapElementCollectorState>
+        (std::move(m_document_root),
+         TileMapIdToSetMapping_New{ std::move(finished_tilesets) },
+         std::move(m_layers));
     return {};
 }
-
+#if 0
 /* private */ void TileSetLoadState::check_for_finished
     (MapContentLoader & content_provider)
 {
@@ -437,7 +516,7 @@ MapLoadResult TileSetLoadState::update_progress
         check_for_finished(content_provider, future_tileset, m_tilesets);
     }
 }
-
+#endif
 #if 0
 /* static */ TileSetWaitState::UpdatedContainers
     TileSetWaitState::UpdatedContainers::update
@@ -620,6 +699,79 @@ MapLoadResult ProducableLoadState::update_progress
     return ScaleComputation{};
 }
 #endif
+
+MapElementCollectorState::MapElementCollectorState
+    (DocumentOwningNode && document_root_,
+     TileMapIdToSetMapping_New && mapping_,
+     std::vector<Grid<int>> && layers_):
+    m_document_root(std::move(document_root_)),
+    m_id_mapping_set(std::move(mapping_)),
+    m_layers(std::move(layers_)) {}
+
+class MapRegionBuilder final : public TileSetMapElementVisitor {
+public:
+    static MapRegionBuilder
+        load_from_elements(TileMapIdToSetMapping_New && id_mapping_set,
+                           std::vector<Grid<int>> && layers);
+
+    MapRegionBuilder() {}
+
+    void add(StackableProducableTileGrid && layer) final {
+        m_stackable_producables = m_stackable_producables.
+            stack_with(std::move(layer));
+    }
+
+    void add(StackableSubRegionGrid &&) final {}
+
+    UniquePtr<TiledMapRegion> make_map_region(ScaleComputation && scale) {
+        return std::make_unique<TiledMapRegion>
+            (m_stackable_producables.to_producables(), std::move(scale));
+    }
+
+private:
+    StackableProducableTileGrid m_stackable_producables;
+};
+
+/* static */ MapRegionBuilder
+    MapRegionBuilder::load_from_elements
+    (TileMapIdToSetMapping_New && id_mapping_set,
+     std::vector<Grid<int>> && layers)
+{
+    MapRegionBuilder impl;
+    for (const auto & layer : layers) {
+        auto mapping_layer = id_mapping_set.make_mapping_for_layer(layer);
+        for (auto & tslayer : mapping_layer) {
+            auto * tileset = TileSetMappingLayer::tileset_of(tslayer.as_view());
+            tileset->add_map_elements(impl, tslayer);
+        }
+    }
+    return impl;
+}
+
+MapLoadResult MapElementCollectorState::update_progress
+    (StateSwitcher & state_switcher, MapContentLoader &)
+{
+    MapLoadingSuccess res;
+    res.loaded_region = MapRegionBuilder::
+        load_from_elements(std::move(m_id_mapping_set), std::move(m_layers)).
+        make_map_region(map_scale());
+    state_switcher.set_next_state<ExpiredState>();
+    return res;
+}
+
+/* private */ ScaleComputation MapElementCollectorState::map_scale() const {
+    // there maybe more properties in the future, but for now there's only one
+    auto props = m_document_root->FirstChildElement("properties");
+    for (auto & el : XmlRange{props, "property"}) {
+        if (::strcmp(el.Attribute("name"), "scale") == 0) {
+            auto scale = ScaleComputation::parse(el.Attribute("value"));
+            if (scale)
+                { return *scale; }
+        }
+    }
+    return ScaleComputation{};
+}
+
 // ----------------------------------------------------------------------------
 
 /* static */ MapLoadStateMachine MapLoadStateMachine::make_with_starting_state
@@ -636,7 +788,7 @@ void MapLoadStateMachine::initialize_starting_state
     auto file_contents_promise = provider.promise_file_contents(filename);
     m_state_driver.
         set_current_state<FileContentsWaitState>
-        (std::move(file_contents_promise), provider);
+        (std::move(file_contents_promise));
 }
 
 MapLoadResult MapLoadStateMachine::
@@ -646,9 +798,9 @@ MapLoadResult MapLoadStateMachine::
     auto result = m_state_driver.
         advance()->
         update_progress(switcher, content_loader);
-    if (result.is_empty() &&
-        (m_state_driver.is_advanceable() ||
-         !content_loader.delay_required()))
+    auto delay_required = content_loader.delay_required();
+    auto advancable = m_state_driver.is_advanceable();
+    if (result.is_empty() && !delay_required && advancable)
         { return update_progress(content_loader); }
     return result;
 }

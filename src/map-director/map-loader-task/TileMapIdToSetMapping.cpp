@@ -111,13 +111,13 @@ TileLocation TileSetMappingTile::to_tile_location() const {
 }
 
 TileMapIdToSetMapping_New::TileMapIdToSetMapping_New
-    (std::vector<TileSetAndStartGid> && tilesets_and_starts):
+    (std::vector<StartGidWithTileSet> && tilesets_and_starts):
     m_gid_map(std::move(tilesets_and_starts))
 {
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
     if (!m_gid_map.empty()) {
         const auto & last_entry = m_gid_map.back();
-        m_gid_end = last_entry.start_gid + last_entry.tileset->total_tile_count();
+        m_gid_end = last_entry.start_gid + last_entry.other->total_tile_count();
     }
 }
 
@@ -145,16 +145,16 @@ TileSetMappingLayer TileMapIdToSetMapping_New::
              "the empty tile or not contained in this map; translatable ids: "
              "[1 " + std::to_string(m_gid_end) + ")."};
     }
-    TileSetAndStartGid samp;
+    StartGidWithTileSet samp;
     samp.start_gid = map_wide_id;
     auto itr = std::upper_bound
         (m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
     assert(itr != m_gid_map.begin());
     --itr;
     assert(map_wide_id >= itr->start_gid);
-    return std::make_pair(map_wide_id - itr->start_gid, itr->tileset);
+    return std::make_pair(map_wide_id - itr->start_gid, itr->other);
 }
 
 /* private static */ bool TileMapIdToSetMapping_New::order_by_gids
-    (const TileSetAndStartGid & lhs, const TileSetAndStartGid & rhs)
+    (const StartGidWithTileSet & lhs, const StartGidWithTileSet & rhs)
 { return lhs.start_gid < rhs.start_gid; }

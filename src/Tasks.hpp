@@ -77,6 +77,10 @@ public:
     template <typename Func>
     static BackgroundTaskCompletion delay_until(Func && f);
 
+    explicit BackgroundTaskCompletion
+        (SharedPtr<BackgroundDelayTask> && delay_task_):
+        BackgroundTaskCompletion(Status::delay_until, std::move(delay_task_)) {}
+
     bool operator == (const BackgroundTaskCompletion &) const;
 
     SharedPtr<BackgroundDelayTask> move_out_delay_task();

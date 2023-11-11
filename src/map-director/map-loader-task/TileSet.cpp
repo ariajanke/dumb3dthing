@@ -89,7 +89,7 @@ MakeFillerGridRt make_filler_grid
     return s_map;
 }
 
-void TileSet::load
+BackgroundTaskCompletion TileSet::load
     (Platform & platform, const TiXmlElement & tileset,
      const FillerFactoryMap & filler_factories)
 {
@@ -101,6 +101,8 @@ void TileSet::load
     auto filler_things = make_filler_grid(factory_and_locations, xml_grid, platform);
     m_filler_grid = std::move(filler_things.grid);
     m_unique_fillers = std::move(filler_things.unique_fillers);
+
+    return BackgroundTaskCompletion::k_finished;
 }
 
 /* private */
