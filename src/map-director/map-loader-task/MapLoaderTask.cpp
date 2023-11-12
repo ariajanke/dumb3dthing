@@ -19,7 +19,9 @@
 *****************************************************************************/
 
 #include "MapLoaderTask.hpp"
+
 #include "../../Definitions.hpp"
+#include "../../TasksController.hpp"
 
 namespace {
 
@@ -35,7 +37,7 @@ public:
     BackgroundTaskCompletion on_delay(Callbacks &);
 
 private:
-    std::vector<SharedPtr<BackgroundTask>> m_waited_on_tasks;
+    RunableBackgroundTasks m_waited_on_tasks;
 };
 
 } // end of <anonymous> namespace
@@ -106,20 +108,9 @@ BackgroundTaskCompletion MapContentLoaderComplete::delay_response() {
 namespace {
 
 BackgroundTaskCompletion WaitOnTilesetsTask::on_delay(Callbacks & callbacks) {
-    for (auto & task : m_waited_on_tasks) {
-        auto res = (*task)(callbacks);
-        if (res == BackgroundTaskCompletion::k_finished) {
-            task = SharedPtr<BackgroundTask>{};
-        }
-    }
-    auto rem_end = std::remove_if
-        (m_waited_on_tasks.begin(),
-         m_waited_on_tasks.end(),
-         [] (const SharedPtr<BackgroundTask> & ptr)
-         { return !static_cast<bool>(ptr); });
-    m_waited_on_tasks.erase(rem_end, m_waited_on_tasks.end());
-    if (m_waited_on_tasks.empty())
-        return BackgroundTaskCompletion::k_finished;
+    m_waited_on_tasks.run_existing_tasks(callbacks);
+    if (m_waited_on_tasks.is_empty())
+        { return BackgroundTaskCompletion::k_finished; }
     return BackgroundTaskCompletion::k_in_progress;
 }
 

@@ -43,7 +43,7 @@ public:
         { return load(platform, element, builtin_fillers()); }
 
     void add_map_elements
-        (TilesetMapElementVisitor &, const TilesetLayerWrapper & mapping_view) const final;
+        (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const final;
 
 private:
     Size2I size2() const final { return m_filler_grid.size2(); }

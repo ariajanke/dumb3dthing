@@ -136,20 +136,10 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class RunableTasks final {
-public:
-    RunableTasks() {}
+class RunableTasksBase {
+protected:
+    RunableTasksBase() {}
 
-    RunableTasks
-        (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
-         std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
-         std::vector<SharedPtr<BackgroundTask>> && background_tasks_);
-
-    void run_existing_tasks(LoaderTask::Callbacks &, Real elapsed_time);
-
-    RunableTasks combine_tasks_with(RunableTasks &&);
-
-private:
     template <typename T>
     using TaskIterator = TasksReceiver::TaskIterator<T>;
     template <typename T>
@@ -162,10 +152,54 @@ private:
     template <typename T>
     static TaskView<T> view_of(std::vector<SharedPtr<T>> & vec)
         { return View{vec.begin(), vec.end()}; }
+};
 
+// ----------------------------------------------------------------------------
+
+class RunableBackgroundTasks final : public RunableTasksBase {
+public:
+    static SharedPtr<BackgroundTask> run_task
+        (SharedPtr<BackgroundTask> &&, TaskCallbacks &);
+
+    RunableBackgroundTasks() {}
+
+    explicit RunableBackgroundTasks
+        (std::vector<SharedPtr<BackgroundTask>> && background_tasks_);
+
+    void run_existing_tasks(TaskCallbacks &);
+
+    RunableBackgroundTasks combine_tasks_with(RunableBackgroundTasks &&);
+
+    bool is_empty() const { return m_background_tasks.empty(); }
+
+private:
+    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
+};
+
+// ----------------------------------------------------------------------------
+
+class RunableTasks final : public RunableTasksBase {
+public:
+    RunableTasks() {}
+
+    RunableTasks
+        (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
+         std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
+         std::vector<SharedPtr<BackgroundTask>> && background_tasks_);
+
+    RunableTasks
+        (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
+         std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
+         RunableBackgroundTasks && background_tasks_);
+
+    void run_existing_tasks(LoaderTask::Callbacks &, Real elapsed_seconds);
+
+    RunableTasks combine_tasks_with(RunableTasks &&);
+
+private:
     std::vector<SharedPtr<EveryFrameTask>> m_every_frame_tasks;
     std::vector<SharedPtr<LoaderTask>> m_loader_tasks;
-    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
+    RunableBackgroundTasks m_background_tasks;
 };
 
 // ----------------------------------------------------------------------------
@@ -198,3 +232,15 @@ private:
     MultiReceiver m_multireceiver;
     RunableTasks m_runable_tasks;
 };
+
+// ----------------------------------------------------------------------------
+
+template <typename T>
+/* protected static */ void RunableTasksBase::insert_moved_shared_ptrs
+    (std::vector<SharedPtr<T>> & dest, TaskView<T> source)
+{
+    using std::make_move_iterator;
+
+    dest.insert(dest.end(), make_move_iterator(source.begin()),
+                make_move_iterator(source.end()));
+}

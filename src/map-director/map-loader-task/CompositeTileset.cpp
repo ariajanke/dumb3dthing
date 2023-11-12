@@ -19,16 +19,38 @@
 *****************************************************************************/
 
 #include "CompositeTileset.hpp"
+#include "MapLoaderTask.hpp"
+
+#include <tinyxml2.h>
 
 BackgroundTaskCompletion CompositeTileset::load
-    (Platform &, const TiXmlElement &)
+    (Platform & platform, const TiXmlElement & tileset_element)
 {
-
-    return BackgroundTaskCompletion::k_finished;
+    SharedPtr<MapLoaderTask> map_loader_task;
+    auto properties = tileset_element.FirstChildElement("properties");
+    for (auto & property : XmlRange{properties, "property"}) {
+        auto name = property.Attribute("name");
+        auto value = property.Attribute("value");
+        if (!name || !value) continue;
+        if (::strcmp(name, "filename") == 0) {
+            map_loader_task = make_shared<MapLoaderTask>(value, platform);
+        }
+    }
+    map_loader_task->
+        set_return_task(BackgroundTask::make
+        ([this, map_loader_task] (TaskCallbacks &)
+        {
+            m_source_map = map_loader_task->retrieve();
+            return BackgroundTaskCompletion::k_finished;
+        }));
+    return BackgroundTaskCompletion{map_loader_task};
 }
 
 void CompositeTileset::add_map_elements
-    (TilesetMapElementVisitor &, const TilesetLayerWrapper &) const
+    (TilesetMapElementCollector &,
+     const TilesetLayerWrapper & layer_wrapper) const
 {
-
+    for (auto & location : layer_wrapper) {
+        ;
+    }
 }

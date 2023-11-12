@@ -47,7 +47,7 @@
 Vector2I TilesetBase::tile_id_location(int tid) const {
     auto sz = size2();
     if (tid < 0 || tid >= sz.height*sz.height) {
-        throw std::invalid_argument{""};
+        throw InvalidArgument{"tile id is not valid"};
     }
     return Vector2I{tid % sz.width, tid / sz.width};
 }

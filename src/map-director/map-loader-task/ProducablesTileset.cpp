@@ -28,7 +28,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using FillerFactory = ProducablesTileset::FillerFactory;
 using FillerFactoryMap = ProducablesTileset::FillerFactoryMap;
 
@@ -106,7 +105,7 @@ std::map<
 }
 
 void ProducablesTileset::add_map_elements
-    (TilesetMapElementVisitor & visitor,
+    (TilesetMapElementCollector & visitor,
      const TilesetLayerWrapper & mapping_view) const
 {
     auto unfinished = ProducableGroupTileLayer::with_grid_size(mapping_view.grid_size());
@@ -140,7 +139,8 @@ std::vector<Tuple<Vector2I, FillerFactory>>
             continue;
         }
         if (!itr->second) {
-            throw InvArg{"TileSet::load: no filler factory maybe nullptr"};
+            throw InvalidArgument
+                {"TileSet::load: no filler factory maybe nullptr"};
         }
         factory_grid_positions.emplace_back(r, itr->second);
     }

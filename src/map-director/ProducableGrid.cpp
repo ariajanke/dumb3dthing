@@ -23,21 +23,10 @@
 
 #include "../TriangleSegment.hpp"
 
-namespace {
-
-using ProducableFillerMap = StackableProducableTileGrid::ProducableFillerMap;
-
-} // end of <anonymous> namespace
-
 // TODO move or delete TEMP
 TriangleSegment TriangleSegmentTransformation::operator ()
     (const TriangleSegment & triangle) const
 { return m_scale(triangle).move(translation()); }
-
-// TODO move TEMP
-/* static */ const ProducableFillerMap
-    StackableProducableTileGrid::k_default_producable_filler_map =
-    ProducableFillerMap{2, SharedPtr<const ProducableGroupFiller>{}};
 
 void ProducableTileCallbacks::add_collidable
     (const Vector & triangle_point_a,

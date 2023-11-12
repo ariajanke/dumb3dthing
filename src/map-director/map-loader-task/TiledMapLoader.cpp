@@ -222,7 +222,7 @@ MapElementCollectorState::MapElementCollectorState
     m_id_mapping_set(std::move(mapping_)),
     m_layers(std::move(layers_)) {}
 
-class MapRegionBuilder final : public TilesetMapElementVisitor {
+class MapRegionBuilder final : public TilesetMapElementCollector {
 public:
     static MapRegionBuilder
         load_from_elements(TileMapIdToSetMapping && id_mapping_set,

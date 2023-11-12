@@ -138,10 +138,59 @@ RunableTasks MultiReceiver::retrieve_runable_tasks() {
 
 // ----------------------------------------------------------------------------
 
+/* static */ SharedPtr<BackgroundTask>
+    RunableBackgroundTasks::run_task
+    (SharedPtr<BackgroundTask> && task, TaskCallbacks & callbacks_)
+{
+    auto res = (*task)(callbacks_);
+    if (auto delay_task = res.move_out_delay_task()) {
+        delay_task->set_return_task(std::move(task));
+        callbacks_.add(delay_task);
+        return nullptr;
+    } else if (res == BackgroundTaskCompletion::k_finished) {
+        return nullptr;
+    }
+    return std::move(task);
+}
+
+RunableBackgroundTasks::RunableBackgroundTasks
+    (std::vector<SharedPtr<BackgroundTask>> && background_tasks_):
+    m_background_tasks(std::move(background_tasks_)) {}
+
+void RunableBackgroundTasks::run_existing_tasks
+    (TaskCallbacks & callbacks_)
+{
+    for (auto & task : m_background_tasks)
+        { task = run_task(std::move(task), callbacks_); }
+
+    m_background_tasks.erase
+        (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),
+         m_background_tasks.end());
+}
+
+RunableBackgroundTasks RunableBackgroundTasks::combine_tasks_with
+    (RunableBackgroundTasks && tasks_)
+{
+    insert_moved_shared_ptrs
+        (m_background_tasks, view_of(tasks_.m_background_tasks));
+    return RunableBackgroundTasks{std::move(m_background_tasks)};
+}
+
+// ----------------------------------------------------------------------------
+
 RunableTasks::RunableTasks
     (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
      std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
      std::vector<SharedPtr<BackgroundTask>> && background_tasks_):
+    RunableTasks
+        (std::move(every_frame_tasks_),
+         std::move(loader_tasks_     ),
+         RunableBackgroundTasks{std::move(background_tasks_)}) {}
+
+RunableTasks::RunableTasks
+    (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
+     std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
+     RunableBackgroundTasks && background_tasks_):
     m_every_frame_tasks(std::move(every_frame_tasks_)),
     m_loader_tasks(std::move(loader_tasks_)),
     m_background_tasks(std::move(background_tasks_)) {}
@@ -166,41 +215,18 @@ void RunableTasks::run_existing_tasks
         (*task)(callbacks_);
     }
 
-    for (auto & task : m_background_tasks) {
-        auto res = (*task)(callbacks_);
-        if (auto delay_task = res.move_out_delay_task()) {
-            delay_task->set_return_task(std::move(task));
-            callbacks_.add(delay_task);
-            task = nullptr;
-        } else if (res == BackgroundTaskCompletion::k_finished) {
-            task = nullptr;
-        }
-    }
-    m_background_tasks.erase
-        (std::remove(m_background_tasks.begin(), m_background_tasks.end(), nullptr),
-         m_background_tasks.end());
+    m_background_tasks.run_existing_tasks(callbacks_);
     m_loader_tasks.clear();
 }
 
 RunableTasks RunableTasks::combine_tasks_with(RunableTasks && rhs) {
     insert_moved_shared_ptrs(m_every_frame_tasks, view_of(rhs.m_every_frame_tasks));
-    insert_moved_shared_ptrs(m_background_tasks , view_of(rhs.m_background_tasks ));
     insert_moved_shared_ptrs(m_loader_tasks     , view_of(rhs.m_loader_tasks     ));
 
     return RunableTasks
         {std::move(m_every_frame_tasks),
          std::move(m_loader_tasks),
-         std::move(m_background_tasks)};
-}
-
-template <typename T>
-/* private static */ void RunableTasks::insert_moved_shared_ptrs
-    (std::vector<SharedPtr<T>> & dest, TaskView<T> source)
-{
-    using std::make_move_iterator;
-
-    dest.insert(dest.end(), make_move_iterator(source.begin()),
-                make_move_iterator(source.end()));
+         m_background_tasks.combine_tasks_with(std::move(rhs.m_background_tasks))};
 }
 
 // ----------------------------------------------------------------------------

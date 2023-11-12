@@ -33,6 +33,7 @@
 #include <memory>
 #include <iosfwd>
 #include <optional>
+#include <stdexcept>
 
 // ----------------------------- Type Definitions -----------------------------
 
@@ -61,6 +62,9 @@ template <typename T>
 using WeakPtr = std::weak_ptr<T>;
 template <typename T, typename Del = std::default_delete<T>>
 using UniquePtr = std::unique_ptr<T, Del>;
+
+using RuntimeError = std::runtime_error;
+using InvalidArgument = std::invalid_argument;
 
 template <typename ... Types>
 using Variant = std::variant<Types...>;

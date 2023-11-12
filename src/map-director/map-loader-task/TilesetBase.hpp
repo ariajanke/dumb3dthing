@@ -30,9 +30,9 @@ class TilesetMappingTile;
 class TilesetLayerWrapper;
 struct MapContentLoader;
 
-class TilesetMapElementVisitor {
+class TilesetMapElementCollector {
 public:
-    virtual ~TilesetMapElementVisitor() {}
+    virtual ~TilesetMapElementCollector() {}
 
     virtual void add(StackableProducableTileGrid &&) = 0;
 
@@ -51,7 +51,7 @@ public:
     [[nodiscard]] virtual BackgroundTaskCompletion load(Platform &, const TiXmlElement &) = 0;
 
     virtual void add_map_elements
-        (TilesetMapElementVisitor &, const TilesetLayerWrapper & mapping_view) const = 0;
+        (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const = 0;
 
     Vector2I tile_id_location(int tile_id) const;
 

@@ -29,11 +29,12 @@ public:
 
     BackgroundTaskCompletion load(Platform &, const TiXmlElement &) final;
 
-    void add_map_elements(TilesetMapElementVisitor &, const TilesetLayerWrapper &) const final;
+    void add_map_elements(TilesetMapElementCollector &, const TilesetLayerWrapper &) const final;
 
 private:
     Size2I size2() const final { return m_sub_regions_grid.size2(); }
 
     Grid<MapSubRegion> m_sub_regions_grid;
+    UniquePtr<MapRegion> m_source_map;
     const SharedPtr<MapRegion> & parent_region();
 };
