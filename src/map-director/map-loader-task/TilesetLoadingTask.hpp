@@ -87,9 +87,6 @@ class TilesetLoadingTask final :
     public BackgroundTask, public TilesetProvider
 {
 public:
-#   if 0
-    using Readiness = Future<std::string>::Readiness;
-#   endif
     static TilesetLoadingTask begin_loading
         (const char * filename, MapContentLoader & content_provider);
 

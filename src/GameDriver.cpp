@@ -36,6 +36,7 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
+static constexpr const auto k_testmap_filename = "demo-map2.tmx";
 
 class TimeControl final {
 public:
@@ -199,9 +200,9 @@ Entity make_sample_loop
 static constexpr const Vector k_player_start{2, 12.1, -2};
 
 // model entity, physical entity
-Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
+Tuple<Entity, Entity>
     make_sample_player
-    (Platform & platform, point_and_plane::Driver & ppdriver)
+    (Platform & platform)
 {
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
@@ -264,16 +265,7 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
-    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
-
-    auto player_update_task = make_shared<PlayerUpdateTask>
-        (MapDirector_::make(&ppdriver), EntityRef{physics_ent});
-    auto map_loader_task = player_update_task->load_initial_map
-        (k_testmap_filename, platform);
-    SharedPtr<EveryFrameTask> & ptrref = physics_ent.add<SharedPtr<EveryFrameTask>>();
-    ptrref = SharedPtr<EveryFrameTask>{player_update_task};
-
-    return make_tuple(model_ent, physics_ent, map_loader_task);
+    return make_tuple(model_ent, physics_ent);
 }
 
 // ----------------------------------------------------------------------------
@@ -306,10 +298,12 @@ void GameDriverComplete::update(Real seconds, Platform & platform) {
 }
 
 void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
-    auto [renderable, physical, loader_task] =
-        make_sample_player(callbacks.platform(), *m_ppdriver);
+    auto [renderable, physical] =
+        make_sample_player(callbacks.platform());
+    callbacks.add
+        (MapDirector_::begin_initial_map_loading
+            (physical, k_testmap_filename, callbacks.platform(), *m_ppdriver));
     callbacks.platform().set_camera_entity(EntityRef{physical});
-    callbacks.add(loader_task);
     callbacks.add(physical);
     callbacks.add(renderable);
 

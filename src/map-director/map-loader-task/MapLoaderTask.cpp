@@ -26,22 +26,28 @@ namespace {
 using namespace cul::exceptions_abbr;
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
+class WaitOnTilesetsTask final : public BackgroundDelayTask {
+public:
+    explicit WaitOnTilesetsTask
+        (std::vector<SharedPtr<BackgroundTask>> && waited_on_tasks):
+        m_waited_on_tasks(std::move(waited_on_tasks)) {}
+
+    BackgroundTaskCompletion on_delay(Callbacks &);
+
+private:
+    std::vector<SharedPtr<BackgroundTask>> m_waited_on_tasks;
+};
+
 } // end of <anonymous> namespace
 
-MapLoaderTask::MapLoaderTask
-    (const char * map_filename,
-     const SharedPtr<MapRegionTracker> & target_region_instance,
-     Platform & platform):
-    m_region_tracker(verify_region_tracker_presence
-        ("MapLoaderTask", target_region_instance))
-{
+MapLoaderTask::MapLoaderTask(const char * map_filename, Platform & platform) {
     using namespace tiled_map_loading;
     MapContentLoaderComplete content_loader{platform};
     m_map_loader = MapLoadStateMachine::make_with_starting_state
         (content_loader, map_filename);
 }
 
-BackgroundTaskCompletion MapLoaderTask::operator () (Callbacks & callbacks) {
+BackgroundTaskCompletion MapLoaderTask::on_delay(Callbacks & callbacks) {
     using TaskCompletion = BackgroundTaskCompletion;
 
     MapContentLoaderComplete content_loader{callbacks};
@@ -51,7 +57,7 @@ BackgroundTaskCompletion MapLoaderTask::operator () (Callbacks & callbacks) {
     } else {
         (void)res.require().fold<int>().
             map([this] (MapLoadingSuccess && res) {
-                *m_region_tracker = MapRegionTracker{std::move(res.loaded_region)};
+                m_loaded_region = std::move(res.loaded_region);
                 return 0;
             }).
             map_left([] (MapLoadingError &&) {
@@ -62,12 +68,59 @@ BackgroundTaskCompletion MapLoaderTask::operator () (Callbacks & callbacks) {
     }
 }
 
-/* private static */ const SharedPtr<MapRegionTracker> &
-    MapLoaderTask::verify_region_tracker_presence
-    (const char * caller, const SharedPtr<MapRegionTracker> & ptr)
-{
-    if (ptr) return ptr;
-    throw InvArg{"MapLoaderTask::" + std::string{caller} + ": given map "
-                 "region pointer must point to an existing instance, even "
-                 "(and favorably) one that has no root region"             };
+UniquePtr<MapRegion> MapLoaderTask::retrieve() {
+    if (!m_loaded_region) {
+        throw std::runtime_error{"No loaded region to retrieve"};
+    }
+    return std::move(m_loaded_region);
 }
+
+// ----------------------------------------------------------------------------
+
+MapContentLoaderComplete::MapContentLoaderComplete(TaskCallbacks & callbacks):
+    m_platform(callbacks.platform()) {}
+
+MapContentLoaderComplete::MapContentLoaderComplete(Platform & platform):
+    m_platform(platform) {}
+
+FutureStringPtr MapContentLoaderComplete::promise_file_contents
+    (const char * filename)
+    { return m_platform.promise_file_contents(filename); }
+
+SharedPtr<Texture> MapContentLoaderComplete::make_texture() const
+    { return m_platform.make_texture(); }
+
+void MapContentLoaderComplete::wait_on
+    (const SharedPtr<BackgroundTask> & task)
+    { m_waited_on_tasks.push_back(task); }
+
+BackgroundTaskCompletion MapContentLoaderComplete::delay_response() {
+    auto tasks = std::move(m_waited_on_tasks);
+    m_waited_on_tasks.clear();
+
+    if (tasks.empty()) return BackgroundTaskCompletion::k_in_progress;
+    return BackgroundTaskCompletion
+        {std::make_shared<WaitOnTilesetsTask>(std::move(tasks))};
+}
+
+namespace {
+
+BackgroundTaskCompletion WaitOnTilesetsTask::on_delay(Callbacks & callbacks) {
+    for (auto & task : m_waited_on_tasks) {
+        auto res = (*task)(callbacks);
+        if (res == BackgroundTaskCompletion::k_finished) {
+            task = SharedPtr<BackgroundTask>{};
+        }
+    }
+    auto rem_end = std::remove_if
+        (m_waited_on_tasks.begin(),
+         m_waited_on_tasks.end(),
+         [] (const SharedPtr<BackgroundTask> & ptr)
+         { return !static_cast<bool>(ptr); });
+    m_waited_on_tasks.erase(rem_end, m_waited_on_tasks.end());
+    if (m_waited_on_tasks.empty())
+        return BackgroundTaskCompletion::k_finished;
+    return BackgroundTaskCompletion::k_in_progress;
+}
+
+} // end of <anonymous> namespace

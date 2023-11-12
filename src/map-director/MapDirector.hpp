@@ -33,11 +33,15 @@ class MapDirector final : public MapDirector_ {
 public:
     using PpDriver = point_and_plane::Driver;
 
-    explicit MapDirector(PpDriver * ppdriver):
-        m_ppdriver(ppdriver) {}
+    static SharedPtr<BackgroundTask> begin_initial_map_loading
+        (Entity player_physics,
+         const char * initial_map,
+         Platform & platform,
+         PpDriver & ppdriver);
 
-    SharedPtr<BackgroundTask> begin_initial_map_loading
-        (const char * initial_map, Platform & platform) final;
+    MapDirector(PpDriver & ppdriver, UniquePtr<MapRegion> && root_region):
+        m_ppdriver(&ppdriver),
+        m_region_tracker(std::move(root_region)) {}
 
     void on_every_frame
         (TaskCallbacks & callbacks, const Entity & physics_ent) final;
@@ -51,5 +55,5 @@ private:
 
     // there's only one per game and it never changes
     PpDriver * m_ppdriver = nullptr;
-    SharedPtr<MapRegionTracker> m_region_tracker;
+    MapRegionTracker m_region_tracker;
 };

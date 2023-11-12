@@ -25,7 +25,6 @@
 #include "../MapRegion.hpp"
 
 class TilesetXmlGrid;
-class TileSetIdGrid;
 class StackableSubRegionGrid;
 class TilesetMappingTile;
 class TilesetLayerWrapper;
@@ -44,9 +43,6 @@ class TilesetBase {
 public:
     using MappingContainer = std::vector<TilesetMappingTile>;
     using MappingView = View<MappingContainer::const_iterator>;
-#   if 0
-    using Readiness = Future<std::string>::Readiness;
-#   endif
     static SharedPtr<TilesetBase> make(const TiXmlElement &);
 
     virtual ~TilesetBase() {}

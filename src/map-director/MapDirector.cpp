@@ -22,6 +22,7 @@
 #include "map-loader-task.hpp"
 #include "RegionLoadRequest.hpp"
 
+#include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
 
 namespace {
@@ -30,11 +31,25 @@ using namespace cul::exceptions_abbr;
 
 } // end of <anonymous> namespace
 
-SharedPtr<BackgroundTask> MapDirector::begin_initial_map_loading
-    (const char * initial_map, Platform & platform)
+/* static */ SharedPtr<BackgroundTask>
+    MapDirector::begin_initial_map_loading
+    (Entity player_physics,
+     const char * initial_map,
+     Platform & platform,
+     PpDriver & ppdriver)
 {
-    m_region_tracker = make_shared<MapRegionTracker>();
-    return MapLoaderTask_::make(initial_map, platform, m_region_tracker);
+    auto * ppdriver_ptr = &ppdriver;
+    auto map_loader = MapLoaderTask_::make(initial_map, platform);
+    map_loader->set_return_task(BackgroundTask::make([=] (TaskCallbacks & callbacks) {
+        auto map_director = make_shared<MapDirector>(*ppdriver_ptr, map_loader->retrieve());
+        auto player_update_task = make_shared<PlayerUpdateTask>(std::move(map_director), player_physics.as_reference());
+        Entity{player_physics}.
+            add<Velocity, SharedPtr<EveryFrameTask>>() = make_tuple
+                (Velocity{}, player_update_task);
+        callbacks.add(player_update_task);
+        return BackgroundTaskCompletion::k_finished;
+    }));
+    return map_loader;
 }
 
 void MapDirector::on_every_frame
@@ -52,12 +67,6 @@ void MapDirector::on_every_frame
 /* private */ void MapDirector::check_for_other_map_segments
     (TaskCallbacks & callbacks, const Entity & physics_ent)
 {
-    // should either be strongly not taken, or strongly taken
-    if (!m_region_tracker->has_root_region()) return;
-    Entity{physics_ent}.ensure<Velocity>();
-    // this may turn into its own class
-    // there's just so much behavior potential here
-
     auto facing = [&physics_ent] () -> Optional<Vector> {
         auto & camera = physics_ent.get<Camera>();
         if (!are_very_close(camera.target, camera.position))
@@ -68,5 +77,5 @@ void MapDirector::on_every_frame
     auto player_velocity = physics_ent.get<Velocity>().value;
     auto request = RegionLoadRequest::find
         (player_position, facing, player_velocity);
-    m_region_tracker->process_load_requests(request, callbacks);
+    m_region_tracker.process_load_requests(request, callbacks);
 }

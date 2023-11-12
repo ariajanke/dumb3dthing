@@ -24,9 +24,15 @@
 
 #include "../Components.hpp"
 
-class MapLoaderTask_ {
+class MapLoaderTask_ : public BackgroundDelayTask {
 public:
+    static SharedPtr<MapLoaderTask_> make
+        (const char * initial_map, Platform & platform);
+#   if 0
     static SharedPtr<BackgroundTask> make
         (const char * initial_map, Platform & platform,
          const SharedPtr<MapRegionTracker> & target_region_instance);
+#   endif
+    /// @throws if the task has not finished
+    virtual UniquePtr<MapRegion> retrieve() = 0;
 };

@@ -22,84 +22,43 @@
 
 #include "TiledMapLoader.hpp"
 
+#include "../map-loader-task.hpp"
 #include "../MapRegionTracker.hpp"
 
 #include "../../Components.hpp"
 
-class MapLoaderTask final : public BackgroundTask {
+class MapLoaderTask final : public MapLoaderTask_ {
 public:
-    MapLoaderTask
-        (const char * map_filename,
-         const SharedPtr<MapRegionTracker> & target_region_instance,
-         Platform & platform);
+    MapLoaderTask(const char * map_filename, Platform & platform);
 
-    BackgroundTaskCompletion operator () (Callbacks &) final;
+    BackgroundTaskCompletion on_delay(Callbacks &) final;
+
+    UniquePtr<MapRegion> retrieve() final;
 
 private:
-    static const SharedPtr<MapRegionTracker> &
-        verify_region_tracker_presence
-        (const char * caller, const SharedPtr<MapRegionTracker> &);
-
-    SharedPtr<MapRegionTracker> m_region_tracker;
+    UniquePtr<MapRegion> m_loaded_region;
     tiled_map_loading::MapLoadStateMachine m_map_loader;
 };
 
+// ----------------------------------------------------------------------------
+
 class MapContentLoaderComplete final : public MapContentLoader {
 public:
-    explicit MapContentLoaderComplete(TaskCallbacks & callbacks):
-        m_platform(callbacks.platform()) {}
+    explicit MapContentLoaderComplete(TaskCallbacks &);
 
-    explicit MapContentLoaderComplete(Platform & platform):
-        m_platform(platform) {}
+    explicit MapContentLoaderComplete(Platform &);
 
     bool delay_required() const final { return !m_waited_on_tasks.empty(); }
 
-    FutureStringPtr promise_file_contents(const char * filename) final
-        { return m_platform.promise_file_contents(filename); }
+    FutureStringPtr promise_file_contents(const char * filename) final;
 
     void add_warning(MapLoadingWarningEnum) final {}
 
-    SharedPtr<Texture> make_texture() const final
-        { return m_platform.make_texture(); }
+    SharedPtr<Texture> make_texture() const final;
 
-    void wait_on(const SharedPtr<BackgroundTask> & task) final {
-        m_waited_on_tasks.push_back(task);
-    }
+    void wait_on(const SharedPtr<BackgroundTask> &) final;
 
-    BackgroundTaskCompletion delay_response() {
-        auto tasks = std::move(m_waited_on_tasks);
-        m_waited_on_tasks.clear();
-
-        class Impl final : public BackgroundDelayTask {
-        public:
-            explicit Impl
-                (std::vector<SharedPtr<BackgroundTask>> && waited_on_tasks):
-                m_waited_on_tasks(std::move(waited_on_tasks)) {}
-
-            BackgroundTaskCompletion on_delay(Callbacks & callbacks) {
-                for (auto & task : m_waited_on_tasks) {
-                    auto res = (*task)(callbacks);
-                    if (res == BackgroundTaskCompletion::k_finished) {
-                        task = SharedPtr<BackgroundTask>{};
-                    }
-                }
-                auto rem_end = std::remove_if
-                    (m_waited_on_tasks.begin(),
-                     m_waited_on_tasks.end(),
-                     [] (const SharedPtr<BackgroundTask> & ptr)
-                     { return !static_cast<bool>(ptr); });
-                m_waited_on_tasks.erase(rem_end, m_waited_on_tasks.end());
-                if (m_waited_on_tasks.empty())
-                    return BackgroundTaskCompletion::k_finished;
-                return BackgroundTaskCompletion::k_in_progress;
-            }
-
-        private:
-            std::vector<SharedPtr<BackgroundTask>> m_waited_on_tasks;
-        };
-        if (tasks.empty()) return BackgroundTaskCompletion::k_in_progress;
-        return BackgroundTaskCompletion{ std::make_shared<Impl>(std::move(tasks)) };
-    }
+    BackgroundTaskCompletion delay_response();
 
 private:
     Platform & m_platform;

@@ -32,8 +32,6 @@ public:
         m_map_director(std::move(map_director)),
         m_physics_ent(physics_ent) {}
 
-    SharedPtr<BackgroundTask> load_initial_map(const char * initial_map, Platform & platform);
-
     void on_every_frame(Callbacks & callbacks, Real) final;
 
 private:
