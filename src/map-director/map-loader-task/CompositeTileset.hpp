@@ -22,19 +22,26 @@
 
 #include "TilesetBase.hpp"
 
+#include "../CompositeMapRegion.hpp"
+
 class CompositeTileset final : public TilesetBase {
 public:
     // loading this: will have to go through steps of promises and so on
     // in order to load, so it needs to be non-blocking
+
+    static Grid<const MapSubRegion *> to_layer
+        (const Grid<MapSubRegion> & sub_regions_grid,
+         const TilesetLayerWrapper &);
+
+    static Optional<Size2I> size_of_tileset(const TiXmlElement &);
 
     BackgroundTaskCompletion load(Platform &, const TiXmlElement &) final;
 
     void add_map_elements(TilesetMapElementCollector &, const TilesetLayerWrapper &) const final;
 
 private:
-    Size2I size2() const final { return m_sub_regions_grid.size2(); }
+    Size2I size2() const final { return m_sub_regions_grid->size2(); }
 
-    Grid<MapSubRegion> m_sub_regions_grid;
-    UniquePtr<MapRegion> m_source_map;
-    const SharedPtr<MapRegion> & parent_region();
+    SharedPtr<Grid<MapSubRegion>> m_sub_regions_grid;
+    SharedPtr<MapRegion> m_source_map;
 };

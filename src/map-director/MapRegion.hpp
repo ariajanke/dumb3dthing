@@ -49,6 +49,8 @@ public:
          const RegionPositionFraming &,
          RegionLoadCollectorBase &,
          const Optional<RectangleI> & grid_scope = {}) = 0;
+
+    virtual Size2I size2() const = 0;
 };
 
 class TiledMapRegion final : public MapRegion {
@@ -60,6 +62,8 @@ public:
          const RegionPositionFraming &,
          RegionLoadCollectorBase &,
          const Optional<RectangleI> & = {}) final;
+
+    Size2I size2() const final { return m_producables_view_grid.size2(); }
 
 private:
     void process_load_request_
@@ -73,51 +77,5 @@ private:
     // there's something that lives in here, but what?
     // something that breaks down into loadable "sub regions"
     ProducableTileViewGrid m_producables_view_grid;
-    ScaleComputation m_scale;
-};
-
-class MapSubRegion final {
-public:
-    MapSubRegion() {}
-
-    MapSubRegion
-        (const RectangleI & sub_region_bounds,
-         const SharedPtr<MapRegion> & parent_region);
-
-    void process_load_request
-        (const RegionLoadRequestBase & request,
-         const RegionPositionFraming & framing,
-         RegionLoadCollectorBase & collector) const;
-
-private:
-    RectangleI m_sub_region_bounds;
-    SharedPtr<MapRegion> m_parent_region;
-};
-
-class CompositeMapRegion final : public MapRegion {
-public:
-    CompositeMapRegion() {}
-
-    CompositeMapRegion
-        (Grid<MapSubRegion> && sub_regions_grid,
-         const ScaleComputation & scale);
-
-    void process_load_request
-        (const RegionLoadRequestBase & request,
-         const RegionPositionFraming & framing,
-         RegionLoadCollectorBase & collector,
-         const Optional<RectangleI> & grid_scope = {}) final;
-
-private:
-    using MapSubRegionGrid = Grid<MapSubRegion>;
-    using MapSubRegionSubGrid = cul::ConstSubGrid<MapSubRegionGrid::Element>;
-
-    void collect_load_tasks
-        (const RegionLoadRequestBase & request,
-         const RegionPositionFraming & framing,
-         const MapSubRegionSubGrid & subgrid,
-         RegionLoadCollectorBase & collector);
-
-    Grid<MapSubRegion> m_sub_regions;
     ScaleComputation m_scale;
 };

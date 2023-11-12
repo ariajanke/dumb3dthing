@@ -23,10 +23,68 @@
 
 #include <tinyxml2.h>
 
+namespace {
+
+class CompositeTilesetFinisherTask final : public BackgroundTask {
+public:
+    static RectangleI get_sub_rectangle_of
+        (const Vector2I & position,
+         const Grid<MapSubRegion> & sub_region_grid,
+         const MapRegion & map_region);
+
+    CompositeTilesetFinisherTask
+        (const SharedPtr<MapLoaderTask> & map_loader_task_,
+         SharedPtr<Grid<MapSubRegion>> & sub_regions_grid_,
+         SharedPtr<MapRegion> & source_map_);
+
+    BackgroundTaskCompletion operator () (Callbacks &) final;
+
+private:
+    static SharedPtr<Grid<MapSubRegion>> &
+        verify_sub_regions_grid(SharedPtr<Grid<MapSubRegion>> &);
+
+    static const SharedPtr<MapLoaderTask> &
+        verify_map_loader_task(const SharedPtr<MapLoaderTask> &);
+
+    static SharedPtr<MapRegion> & verify_source_map(SharedPtr<MapRegion> &);
+
+    SharedPtr<MapLoaderTask> m_map_loader_task;
+    SharedPtr<Grid<MapSubRegion>> & m_sub_regions_grid;
+    SharedPtr<MapRegion> & m_source_map;
+};
+
+} // end of <anonymous> namespace
+
+/* static */ Grid<const MapSubRegion *> CompositeTileset::to_layer
+    (const Grid<MapSubRegion> & sub_regions_grid,
+     const TilesetLayerWrapper & layer_wrapper)
+{
+    Grid<const MapSubRegion *> sub_region_layer;
+    sub_region_layer.set_size(layer_wrapper.grid_size(), nullptr);
+    for (auto & location : layer_wrapper) {
+        sub_region_layer(location.on_map()) =
+            &sub_regions_grid(location.on_tile_set());
+    }
+    return sub_region_layer;
+}
+
+/* static */ Optional<Size2I> CompositeTileset::size_of_tileset
+    (const TiXmlElement & tileset_element)
+{
+    static constexpr const int k_no_number = -1;
+    auto count = tileset_element.IntAttribute("tilecount", k_no_number);
+    auto columns = tileset_element.IntAttribute("columns", k_no_number);
+    if (count == k_no_number || columns == k_no_number ||
+        count <= 0           || count % columns != 0     )
+        { return {}; }
+    return Size2I{columns, count / columns};
+}
+
 BackgroundTaskCompletion CompositeTileset::load
     (Platform & platform, const TiXmlElement & tileset_element)
 {
     SharedPtr<MapLoaderTask> map_loader_task;
+
     auto properties = tileset_element.FirstChildElement("properties");
     for (auto & property : XmlRange{properties, "property"}) {
         auto name = property.Attribute("name");
@@ -36,21 +94,89 @@ BackgroundTaskCompletion CompositeTileset::load
             map_loader_task = make_shared<MapLoaderTask>(value, platform);
         }
     }
-    map_loader_task->
-        set_return_task(BackgroundTask::make
-        ([this, map_loader_task] (TaskCallbacks &)
-        {
-            m_source_map = map_loader_task->retrieve();
-            return BackgroundTaskCompletion::k_finished;
-        }));
+    m_sub_regions_grid = make_shared<Grid<MapSubRegion>>();
+    m_sub_regions_grid->set_size
+        (*size_of_tileset(tileset_element), MapSubRegion{});
+    // feels kinda dirty, but I gotta write it somewhere
+    map_loader_task->set_return_task(make_shared<CompositeTilesetFinisherTask>
+        (map_loader_task, m_sub_regions_grid, m_source_map));
     return BackgroundTaskCompletion{map_loader_task};
 }
 
 void CompositeTileset::add_map_elements
-    (TilesetMapElementCollector &,
+    (TilesetMapElementCollector & collector,
      const TilesetLayerWrapper & layer_wrapper) const
 {
-    for (auto & location : layer_wrapper) {
-        ;
-    }
+    collector.add(StackableSubRegionGrid
+        {to_layer(*m_sub_regions_grid, layer_wrapper),
+         m_sub_regions_grid});
 }
+
+namespace {
+
+/* static */ RectangleI CompositeTilesetFinisherTask::get_sub_rectangle_of
+    (const Vector2I & position,
+     const Grid<MapSubRegion> & sub_region_grid,
+     const MapRegion & map_region)
+{
+    auto map_region_size = map_region.size2();
+    auto width  = map_region_size.width  / sub_region_grid.width ();
+    auto height = map_region_size.height / sub_region_grid.height();
+    return RectangleI{position.x*width, position.y*height, width, height};
+}
+
+CompositeTilesetFinisherTask::CompositeTilesetFinisherTask
+    (const SharedPtr<MapLoaderTask> & map_loader_task_,
+     SharedPtr<Grid<MapSubRegion>> & sub_regions_grid_,
+     SharedPtr<MapRegion> & source_map_):
+    m_map_loader_task(verify_map_loader_task(map_loader_task_)),
+    m_sub_regions_grid(verify_sub_regions_grid(sub_regions_grid_)),
+    m_source_map(verify_source_map(source_map_)) {}
+
+BackgroundTaskCompletion CompositeTilesetFinisherTask::
+    operator () (Callbacks &)
+{
+    m_source_map = m_map_loader_task->retrieve();
+    for (Vector2I r;
+         r != m_sub_regions_grid->end_position();
+         r = m_sub_regions_grid->next(r))
+    {
+        auto subrect = get_sub_rectangle_of
+            (r, *m_sub_regions_grid, *m_source_map);
+        (*m_sub_regions_grid)(r) = MapSubRegion{subrect, m_source_map};
+    }
+    return BackgroundTaskCompletion::k_finished;
+}
+
+/* private static */ SharedPtr<Grid<MapSubRegion>> &
+    CompositeTilesetFinisherTask::verify_sub_regions_grid
+    (SharedPtr<Grid<MapSubRegion>> & sub_regions_grid)
+{
+    if (!sub_regions_grid) {
+        throw InvalidArgument
+            {"Forgot to instantiate a owner grid"};
+    }
+    if (sub_regions_grid->size2() == Size2I{}) {
+        throw InvalidArgument
+            {"Forgot to set a size for owner grid"};
+    }
+    return sub_regions_grid;
+}
+
+/* private static */ const SharedPtr<MapLoaderTask> &
+    CompositeTilesetFinisherTask::verify_map_loader_task
+    (const SharedPtr<MapLoaderTask> & map_loader_task)
+{
+    if (map_loader_task) return map_loader_task;
+    throw InvalidArgument{"Forgot to instantiate map loader task"};
+}
+
+/* private static */ SharedPtr<MapRegion> &
+    CompositeTilesetFinisherTask::verify_source_map
+    (SharedPtr<MapRegion> & source_map)
+{
+    if (source_map) return source_map;
+    throw InvalidArgument{"Forgot to instantiate source map"};
+}
+
+} // end of <anonymous> namespace
