@@ -20,6 +20,7 @@
 
 #include "ProducableGrid.hpp"
 #include "ProducableGroupFiller.hpp"
+#include "MapRegion.hpp"
 
 #include "../TriangleSegment.hpp"
 

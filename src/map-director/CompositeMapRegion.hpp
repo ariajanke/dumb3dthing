@@ -35,6 +35,9 @@ public:
          const RegionPositionFraming & framing,
          RegionLoadCollectorBase & collector) const;
 
+    bool belongs_to_parent() const
+        { return static_cast<bool>(m_parent_region); }
+
 private:
     RectangleI m_sub_region_bounds;
     SharedPtr<MapRegion> m_parent_region;
@@ -50,8 +53,8 @@ public:
     CompositeMapRegion() {}
 
     CompositeMapRegion
-        (Grid<MapSubRegion> && sub_regions_grid,
-         const ScaleComputation & scale);
+        (Tuple<MapSubRegionViewGrid, MapSubRegionOwners> &&,
+         ScaleComputation &&);
 
     void process_load_request
         (const RegionLoadRequestBase & request,
@@ -63,7 +66,7 @@ public:
 
 private:
     using MapSubRegionGrid = Grid<MapSubRegion>;
-    using MapSubRegionSubGrid = cul::ConstSubGrid<MapSubRegionGrid::Element>;
+    using MapSubRegionSubGrid = MapSubRegionViewGrid::SubGrid;
 
     void collect_load_tasks
         (const RegionLoadRequestBase & request,
@@ -71,7 +74,8 @@ private:
          const MapSubRegionSubGrid & subgrid,
          RegionLoadCollectorBase & collector);
 
-    Grid<MapSubRegion> m_sub_regions;
+    MapSubRegionViewGrid m_sub_regions;
+    MapSubRegionOwners m_sub_region_owners;
     ScaleComputation m_scale;
 };
 
@@ -82,7 +86,7 @@ public:
     using MapSubRegionViewGrid = CompositeMapRegion::MapSubRegionViewGrid;
     using MapSubRegionOwners = CompositeMapRegion::MapSubRegionOwners;
 
-    StackableSubRegionGrid();
+    StackableSubRegionGrid() {}
 
     StackableSubRegionGrid
         (Grid<const MapSubRegion *> && subregions,
@@ -90,9 +94,19 @@ public:
 
     StackableSubRegionGrid stack_with(StackableSubRegionGrid &&);
 
-    CompositeMapRegion to_composite_map_region();
+    Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
+        to_sub_region_view_grid();
+
+    bool is_empty() const
+        { return m_subregions.empty() && m_subregion.is_empty(); }
 
 private:
+    StackableSubRegionGrid
+        (std::vector<Grid<const MapSubRegion *>> && subregions,
+         std::vector<SharedPtr<Grid<MapSubRegion>>> && owner);
+
+    Grid<const MapSubRegion *> m_subregion;
+    SharedPtr<Grid<MapSubRegion>> m_owner;
     std::vector<Grid<const MapSubRegion *>> m_subregions;
     std::vector<SharedPtr<Grid<MapSubRegion>>> m_owners;
 };

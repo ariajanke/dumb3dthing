@@ -36,7 +36,7 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
-static constexpr const auto k_testmap_filename = "demo-map2.tmx";
+static constexpr const auto k_testmap_filename = "comp-map-demo.tmx";
 
 class TimeControl final {
 public:

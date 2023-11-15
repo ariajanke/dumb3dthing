@@ -38,7 +38,7 @@
 #include <ariajanke/cul/TypeList.hpp>
 
 struct MapLoadingSuccess final {
-    UniquePtr<TiledMapRegion> loaded_region;
+    UniquePtr<MapRegion> loaded_region;
     MapLoadingWarnings warnings;
 };
 

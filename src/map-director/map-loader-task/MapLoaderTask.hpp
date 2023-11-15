@@ -26,6 +26,69 @@
 #include "../MapRegionTracker.hpp"
 
 #include "../../Components.hpp"
+#include "../../TasksController.hpp"
+
+class BackgroundTaskTrap final : public TaskCallbacks {
+public:
+    void assign_callbacks(TaskCallbacks & callbacks_)
+        { m_callbacks = &callbacks_; }
+
+    void add(const SharedPtr<EveryFrameTask> & task) final
+        { m_callbacks->add(task); }
+
+    void add(const SharedPtr<LoaderTask> & task) final
+        { m_callbacks->add(task); }
+
+    void add(const SharedPtr<BackgroundTask> & task) final
+        { m_background_tasks.push_back(task); }
+
+    void add(const Entity & entity) final
+        { m_callbacks->add(entity); }
+
+    Platform & platform() final
+        { return m_callbacks->platform(); }
+
+    bool has_tasks() const
+        { return !m_background_tasks.empty(); }
+
+    RunableBackgroundTasks move_out_tasks()
+        { return RunableBackgroundTasks{std::move(m_background_tasks)}; }
+
+private:
+    TaskCallbacks * m_callbacks = nullptr;
+    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
+};
+
+// ----------------------------------------------------------------------------
+
+class MapContentLoaderComplete final : public MapContentLoader {
+public:
+    MapContentLoaderComplete() {}
+
+    explicit MapContentLoaderComplete(Platform &);
+
+    bool delay_required() const final
+        { return m_background_task_trap.has_tasks(); }
+
+    FutureStringPtr promise_file_contents(const char * filename) final;
+
+    void add_warning(MapLoadingWarningEnum) final {}
+
+    SharedPtr<Texture> make_texture() const final;
+
+    void wait_on(const SharedPtr<BackgroundTask> &) final;
+
+    BackgroundTaskCompletion delay_response();
+
+    void assign_platform(Platform & platform)
+        { m_platform = &platform; }
+
+private:
+    Platform * m_platform = nullptr;
+    BackgroundTaskTrap m_background_task_trap;
+};
+
+// ----------------------------------------------------------------------------
 
 class MapLoaderTask final : public MapLoaderTask_ {
 public:
@@ -38,29 +101,5 @@ public:
 private:
     UniquePtr<MapRegion> m_loaded_region;
     tiled_map_loading::MapLoadStateMachine m_map_loader;
-};
-
-// ----------------------------------------------------------------------------
-
-class MapContentLoaderComplete final : public MapContentLoader {
-public:
-    explicit MapContentLoaderComplete(TaskCallbacks &);
-
-    explicit MapContentLoaderComplete(Platform &);
-
-    bool delay_required() const final { return !m_waited_on_tasks.empty(); }
-
-    FutureStringPtr promise_file_contents(const char * filename) final;
-
-    void add_warning(MapLoadingWarningEnum) final {}
-
-    SharedPtr<Texture> make_texture() const final;
-
-    void wait_on(const SharedPtr<BackgroundTask> &) final;
-
-    BackgroundTaskCompletion delay_response();
-
-private:
-    Platform & m_platform;
-    std::vector<SharedPtr<BackgroundTask>> m_waited_on_tasks;
+    MapContentLoaderComplete m_content_loader;
 };

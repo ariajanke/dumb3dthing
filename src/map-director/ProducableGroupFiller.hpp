@@ -24,8 +24,6 @@
 
 #include "../Definitions.hpp"
 
-#include <rigtorp/HashMap.h>
-
 struct TileLocation final {
     Vector2I on_map;
     Vector2I on_tileset;
@@ -40,55 +38,4 @@ public:
 
     virtual ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const = 0;
-};
-
-class StackableProducableTileGrid final {
-public:
-    using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroup_>>;
-    using ProducableGroupCollectionPtr = SharedPtr<ProducableGroupCollection>;
-    using ProducableFillerMapHasher = std::hash<SharedPtr<const ProducableGroupFiller>>;
-    using ProducableFillerMap =
-        rigtorp::HashMap<SharedPtr<const ProducableGroupFiller>,
-                         std::monostate,
-                         ProducableFillerMapHasher>;
-
-    static Optional<ViewGrid<ProducableTile *>>
-        producable_grids_to_view_grid
-        (std::vector<Grid<ProducableTile *>> && producables);
-
-    static StackableProducableTileGrid make_with_fillers
-        (const std::vector<SharedPtr<const ProducableGroupFiller>> &,
-         Grid<ProducableTile *> && producables,
-         ProducableGroupCollection && producable_owners);
-
-    static std::vector<SharedPtr<const ProducableGroupFiller>>
-        filler_map_to_vector(ProducableFillerMap &&);
-
-    StackableProducableTileGrid();
-
-    StackableProducableTileGrid
-        (Grid<ProducableTile *> && producables,
-         ProducableFillerMap && fillers,
-         ProducableGroupCollection && producable_owners);
-
-    StackableProducableTileGrid stack_with(StackableProducableTileGrid &&);
-
-    StackableProducableTileGrid stack_with
-        (std::vector<Grid<ProducableTile *>> && producable_grids,
-         ProducableFillerMap && fillers,
-         ProducableGroupCollection && producable_owners);
-
-    ProducableTileViewGrid to_producables();
-
-private:
-    static const ProducableFillerMap k_default_producable_filler_map;
-
-    StackableProducableTileGrid
-        (std::vector<Grid<ProducableTile *>> && producable_grids,
-         ProducableFillerMap && fillers,
-         ProducableGroupCollection && producable_owners);
-
-    std::vector<Grid<ProducableTile *>> m_producable_grids;
-    ProducableFillerMap m_fillers;
-    ProducableGroupCollection m_producable_owners;
 };

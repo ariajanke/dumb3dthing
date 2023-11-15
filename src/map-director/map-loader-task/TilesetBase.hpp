@@ -43,6 +43,7 @@ class TilesetBase {
 public:
     using MappingContainer = std::vector<TilesetMappingTile>;
     using MappingView = View<MappingContainer::const_iterator>;
+
     static SharedPtr<TilesetBase> make(const TiXmlElement &);
 
     virtual ~TilesetBase() {}

@@ -25,7 +25,7 @@
 
 namespace {
 
-class CompositeTilesetFinisherTask final : public BackgroundTask {
+class CompositeTilesetFinisherTask final : public BackgroundDelayTask {
 public:
     static RectangleI get_sub_rectangle_of
         (const Vector2I & position,
@@ -37,7 +37,7 @@ public:
          SharedPtr<Grid<MapSubRegion>> & sub_regions_grid_,
          SharedPtr<MapRegion> & source_map_);
 
-    BackgroundTaskCompletion operator () (Callbacks &) final;
+    BackgroundTaskCompletion on_delay(Callbacks &) final;
 
 private:
     static SharedPtr<Grid<MapSubRegion>> &
@@ -48,7 +48,8 @@ private:
 
     static SharedPtr<MapRegion> & verify_source_map(SharedPtr<MapRegion> &);
 
-    SharedPtr<MapLoaderTask> m_map_loader_task;
+    SharedPtr<BackgroundDelayTask> m_map_loader_task;
+    SharedPtr<MapLoaderTask> m_map_retriever;
     SharedPtr<Grid<MapSubRegion>> & m_sub_regions_grid;
     SharedPtr<MapRegion> & m_source_map;
 };
@@ -84,7 +85,6 @@ BackgroundTaskCompletion CompositeTileset::load
     (Platform & platform, const TiXmlElement & tileset_element)
 {
     SharedPtr<MapLoaderTask> map_loader_task;
-
     auto properties = tileset_element.FirstChildElement("properties");
     for (auto & property : XmlRange{properties, "property"}) {
         auto name = property.Attribute("name");
@@ -97,10 +97,8 @@ BackgroundTaskCompletion CompositeTileset::load
     m_sub_regions_grid = make_shared<Grid<MapSubRegion>>();
     m_sub_regions_grid->set_size
         (*size_of_tileset(tileset_element), MapSubRegion{});
-    // feels kinda dirty, but I gotta write it somewhere
-    map_loader_task->set_return_task(make_shared<CompositeTilesetFinisherTask>
-        (map_loader_task, m_sub_regions_grid, m_source_map));
-    return BackgroundTaskCompletion{map_loader_task};
+    return BackgroundTaskCompletion{make_shared<CompositeTilesetFinisherTask>
+        (std::move(map_loader_task), m_sub_regions_grid, m_source_map)};
 }
 
 void CompositeTileset::add_map_elements
@@ -130,13 +128,16 @@ CompositeTilesetFinisherTask::CompositeTilesetFinisherTask
      SharedPtr<Grid<MapSubRegion>> & sub_regions_grid_,
      SharedPtr<MapRegion> & source_map_):
     m_map_loader_task(verify_map_loader_task(map_loader_task_)),
+    m_map_retriever(map_loader_task_),
     m_sub_regions_grid(verify_sub_regions_grid(sub_regions_grid_)),
     m_source_map(verify_source_map(source_map_)) {}
 
 BackgroundTaskCompletion CompositeTilesetFinisherTask::
-    operator () (Callbacks &)
+    on_delay(Callbacks &)
 {
-    m_source_map = m_map_loader_task->retrieve();
+    if (m_map_loader_task)
+        { return BackgroundTaskCompletion{std::move(m_map_loader_task)}; }
+    m_source_map = m_map_retriever->retrieve();
     for (Vector2I r;
          r != m_sub_regions_grid->end_position();
          r = m_sub_regions_grid->next(r))
@@ -175,8 +176,8 @@ BackgroundTaskCompletion CompositeTilesetFinisherTask::
     CompositeTilesetFinisherTask::verify_source_map
     (SharedPtr<MapRegion> & source_map)
 {
-    if (source_map) return source_map;
-    throw InvalidArgument{"Forgot to instantiate source map"};
+    if (!source_map) return source_map;
+    throw InvalidArgument{"Forgot to not instantiate source map"};
 }
 
 } // end of <anonymous> namespace

@@ -28,34 +28,35 @@ namespace {
 using namespace cul::exceptions_abbr;
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
-class WaitOnTilesetsTask final : public BackgroundDelayTask {
+class WaitOnBackgroundTasksTask final : public BackgroundDelayTask {
 public:
-    explicit WaitOnTilesetsTask
-        (std::vector<SharedPtr<BackgroundTask>> && waited_on_tasks):
-        m_waited_on_tasks(std::move(waited_on_tasks)) {}
+    explicit WaitOnBackgroundTasksTask(RunableBackgroundTasks && tasks):
+        m_runable_tasks(std::move(tasks)) {}
 
-    BackgroundTaskCompletion on_delay(Callbacks &);
+    BackgroundTaskCompletion on_delay(Callbacks &) final;
 
 private:
-    RunableBackgroundTasks m_waited_on_tasks;
+    RunableBackgroundTasks m_runable_tasks;
+    BackgroundTaskTrap m_background_task_trap;
 };
 
 } // end of <anonymous> namespace
 
 MapLoaderTask::MapLoaderTask(const char * map_filename, Platform & platform) {
     using namespace tiled_map_loading;
-    MapContentLoaderComplete content_loader{platform};
+
+    m_content_loader.assign_platform(platform);
     m_map_loader = MapLoadStateMachine::make_with_starting_state
-        (content_loader, map_filename);
+        (m_content_loader, map_filename);
 }
 
 BackgroundTaskCompletion MapLoaderTask::on_delay(Callbacks & callbacks) {
     using TaskCompletion = BackgroundTaskCompletion;
 
-    MapContentLoaderComplete content_loader{callbacks};
-    auto res = m_map_loader.update_progress(content_loader);
+    m_content_loader.assign_platform(callbacks.platform());
+    auto res = m_map_loader.update_progress(m_content_loader);
     if (res.is_empty()) {
-        return content_loader.delay_response();
+        return m_content_loader.delay_response();
     } else {
         (void)res.require().fold<int>().
             map([this] (MapLoadingSuccess && res) {
@@ -79,39 +80,42 @@ UniquePtr<MapRegion> MapLoaderTask::retrieve() {
 
 // ----------------------------------------------------------------------------
 
-MapContentLoaderComplete::MapContentLoaderComplete(TaskCallbacks & callbacks):
-    m_platform(callbacks.platform()) {}
-
 MapContentLoaderComplete::MapContentLoaderComplete(Platform & platform):
-    m_platform(platform) {}
+    m_platform(&platform) {}
 
 FutureStringPtr MapContentLoaderComplete::promise_file_contents
     (const char * filename)
-    { return m_platform.promise_file_contents(filename); }
+    { return m_platform->promise_file_contents(filename); }
 
 SharedPtr<Texture> MapContentLoaderComplete::make_texture() const
-    { return m_platform.make_texture(); }
+    { return m_platform->make_texture(); }
 
 void MapContentLoaderComplete::wait_on
     (const SharedPtr<BackgroundTask> & task)
-    { m_waited_on_tasks.push_back(task); }
+    { m_background_task_trap.add(task); }
 
 BackgroundTaskCompletion MapContentLoaderComplete::delay_response() {
-    auto tasks = std::move(m_waited_on_tasks);
-    m_waited_on_tasks.clear();
-
-    if (tasks.empty()) return BackgroundTaskCompletion::k_in_progress;
-    return BackgroundTaskCompletion
-        {std::make_shared<WaitOnTilesetsTask>(std::move(tasks))};
+    if (m_background_task_trap.has_tasks()) {
+        return BackgroundTaskCompletion
+            {std::make_shared<WaitOnBackgroundTasksTask>
+                (m_background_task_trap.move_out_tasks())};
+    }
+    return BackgroundTaskCompletion::k_in_progress;
 }
 
 namespace {
 
-BackgroundTaskCompletion WaitOnTilesetsTask::on_delay(Callbacks & callbacks) {
-    m_waited_on_tasks.run_existing_tasks(callbacks);
-    if (m_waited_on_tasks.is_empty())
+BackgroundTaskCompletion WaitOnBackgroundTasksTask::on_delay
+    (Callbacks & callbacks)
+{
+    m_background_task_trap.assign_callbacks(callbacks);
+    m_runable_tasks.run_existing_tasks(m_background_task_trap);
+    m_runable_tasks = m_runable_tasks.
+        combine_tasks_with(m_background_task_trap.move_out_tasks());
+    if (m_runable_tasks.is_empty())
         { return BackgroundTaskCompletion::k_finished; }
     return BackgroundTaskCompletion::k_in_progress;
+
 }
 
 } // end of <anonymous> namespace

@@ -113,6 +113,8 @@ class BackgroundDelayTask : public BackgroundTask {
 public:
     BackgroundTaskCompletion operator () (Callbacks &) final;
 
+    // This being used outside of the task controller is a foot gun
+    // ouch!
     void set_return_task(SharedPtr<BackgroundTask> && task_);
 
     virtual BackgroundTaskCompletion on_delay(Callbacks &) = 0;

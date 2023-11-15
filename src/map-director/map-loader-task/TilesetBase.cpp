@@ -31,14 +31,17 @@
     auto * properties = tileset_el.FirstChildElement("properties");
     if (properties) {
         for (auto & property : XmlRange{properties, "property"}) {
-            type = property.Attribute("type");
+            auto name = property.Attribute("name");
+            auto value = property.Attribute("value");
+            if (::strcmp(name, "type") == 0 && value)
+                type = value;
         }
     }
 
     SharedPtr<TilesetBase> rv;
     if (!type) {
         return make_shared<ProducablesTileset>();
-    } else if (::strcmp(type, "composite-tile-set")) {
+    } else if (::strcmp(type, "composite-map-tileset") == 0) {
         return make_shared<CompositeTileset>();
     }
     return nullptr;

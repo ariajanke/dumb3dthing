@@ -20,6 +20,7 @@
 
 #include "TiledMapLoader.hpp"
 #include "TilesetBase.hpp"
+#include "CompositeTileset.hpp"
 
 #include <ariajanke/cul/Either.hpp>
 
@@ -235,15 +236,24 @@ public:
             stack_with(std::move(layer));
     }
 
-    void add(StackableSubRegionGrid &&) final {}
+    void add(StackableSubRegionGrid && subregion_layer) final {
+        m_stackable_sub_regions = subregion_layer.stack_with
+            (std::move(m_stackable_sub_regions));
+    }
 
-    UniquePtr<TiledMapRegion> make_map_region(ScaleComputation && scale) {
-        return std::make_unique<TiledMapRegion>
-            (m_stackable_producables.to_producables(), std::move(scale));
+    UniquePtr<MapRegion> make_map_region(ScaleComputation && scale) {
+        if (m_stackable_sub_regions.is_empty()) {
+            return std::make_unique<TiledMapRegion>
+                (m_stackable_producables.to_producables(), std::move(scale));
+        }
+        return std::make_unique<CompositeMapRegion>
+            (m_stackable_sub_regions.to_sub_region_view_grid(),
+             std::move(scale));
     }
 
 private:
     StackableProducableTileGrid m_stackable_producables;
+    StackableSubRegionGrid m_stackable_sub_regions;
 };
 
 /* static */ MapRegionBuilder
