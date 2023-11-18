@@ -108,7 +108,8 @@ void ProducablesTileset::add_map_elements
     (TilesetMapElementCollector & visitor,
      const TilesetLayerWrapper & mapping_view) const
 {
-    auto unfinished = ProducableGroupTileLayer::with_grid_size(mapping_view.grid_size());
+    auto unfinished = ProducableGroupTileLayer::
+        with_grid_size(mapping_view.grid_size());
     auto fillers_to_locs = make_fillers_and_locations(mapping_view);
     for (auto & [filler, locs] : fillers_to_locs) {
 #       if MACRO_DEBUG
@@ -117,8 +118,7 @@ void ProducablesTileset::add_map_elements
         unfinished = (*filler)(locs, std::move(unfinished));
     }
 
-    visitor.add
-        (unfinished.to_stackable_producable_tile_grid(m_unique_fillers));
+    visitor.add(unfinished.to_stackable_producable_tile_grid());
 }
 
 namespace {

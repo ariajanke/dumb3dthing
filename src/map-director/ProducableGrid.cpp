@@ -53,12 +53,9 @@ ModelScale TriangleSegmentTransformation::model_scale() const
 
 ProducableTileViewGrid::ProducableTileViewGrid
     (ViewGrid<ProducableTile *> && factory_view_grid,
-     std::vector<SharedPtr<ProducableGroup_>> && groups,
-     std::vector<SharedPtr<const ProducableGroupFiller>> && fillers):
+     std::vector<SharedPtr<ProducableGroup_>> && groups):
     m_factories(std::move(factory_view_grid)),
-    m_groups(std::move(groups)),
-    m_fillers(std::move(fillers))
-{}
+    m_groups(std::move(groups)) {}
 
 // ----------------------------------------------------------------------------
 
@@ -75,8 +72,7 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
 {
     auto [producables, groups] = move_out_producables_and_groups();
     auto map_fillers = extraction.move_out_fillers();
-    return ProducableTileViewGrid
-        {std::move(producables), std::move(groups), std::move(map_fillers)};
+    return ProducableTileViewGrid{std::move(producables), std::move(groups)};
 }
 
 /* private */ Tuple
@@ -99,9 +95,8 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
 // ----------------------------------------------------------------------------
 
 StackableProducableTileGrid
-    ProducableGroupTileLayer::to_stackable_producable_tile_grid
-    (const std::vector<SharedPtr<const ProducableGroupFiller>> & fillers)
+    ProducableGroupTileLayer::to_stackable_producable_tile_grid()
 {
-    return StackableProducableTileGrid::make_with_fillers
-        (fillers, std::move(m_target), std::move(m_groups));
+    return StackableProducableTileGrid
+        {std::move(m_target), std::move(m_groups)};
 }

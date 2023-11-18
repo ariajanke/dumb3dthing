@@ -117,8 +117,7 @@ public:
 
     ProducableTileViewGrid
         (ViewGrid<ProducableTile *> && factory_view_grid,
-         std::vector<SharedPtr<ProducableGroup_>> && groups,
-         std::vector<SharedPtr<const ProducableGroupFiller>> && fillers);
+         std::vector<SharedPtr<ProducableGroup_>> && groups);
 
     auto height() const { return m_factories.height(); }
 
@@ -135,9 +134,6 @@ public:
 private:
     ViewGrid<ProducableTile *> m_factories;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
-    // What was this meant to be used for?
-    // So far, this object owns fillers and does nothing else with them.
-    std::vector<SharedPtr<const ProducableGroupFiller>> m_fillers;
 };
 
 class UnfinishedProducableTileViewGrid final {
@@ -184,9 +180,7 @@ public:
     void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
         { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
-    StackableProducableTileGrid
-        to_stackable_producable_tile_grid
-        (const std::vector<SharedPtr<const ProducableGroupFiller>> & fillers);
+    StackableProducableTileGrid to_stackable_producable_tile_grid();
 
 private:
     explicit ProducableGroupTileLayer(const Size2I & target_size) {

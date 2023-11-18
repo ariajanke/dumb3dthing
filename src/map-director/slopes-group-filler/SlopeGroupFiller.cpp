@@ -97,10 +97,12 @@ ProducableGroupTileLayer SlopeGroupFiller::operator ()
     (const std::vector<TileLocation> & tile_locations,
      ProducableGroupTileLayer && group_grid) const
 {
-    auto mapwide_factory_grid = make_factory_grid_for_map(tile_locations, m_tile_factories);
+    auto mapwide_factory_grid = make_factory_grid_for_map
+        (tile_locations, m_tile_factories);
     UnfinishedProducableGroup<ProducableSlopeTile> group;
     for (auto & location : tile_locations) {
-        group.at_location(location.on_map).
+        group.
+            at_location(location.on_map).
             make_producable(location.on_map, mapwide_factory_grid);
     }
     group_grid.add_group(std::move(group));

@@ -232,8 +232,8 @@ public:
     MapRegionBuilder() {}
 
     void add(StackableProducableTileGrid && layer) final {
-        m_stackable_producables = m_stackable_producables.
-            stack_with(std::move(layer));
+        m_producables_stacker = layer.
+            stack_with(std::move(m_producables_stacker));
     }
 
     void add(StackableSubRegionGrid && subregion_layer) final {
@@ -244,7 +244,7 @@ public:
     UniquePtr<MapRegion> make_map_region(ScaleComputation && scale) {
         if (m_subregion_stacker.is_empty()) {
             return std::make_unique<TiledMapRegion>
-                (m_stackable_producables.to_producables(), std::move(scale));
+                (m_producables_stacker.to_producables(), std::move(scale));
         }
         return std::make_unique<CompositeMapRegion>
             (m_subregion_stacker.to_sub_region_view_grid(),
@@ -252,7 +252,7 @@ public:
     }
 
 private:
-    StackableProducableTileGrid m_stackable_producables;
+    ProducableTileGridStacker m_producables_stacker;
     SubRegionGridStacker m_subregion_stacker;
 };
 

@@ -21,12 +21,6 @@
 #include "MapRegion.hpp"
 #include "MapRegionTracker.hpp"
 
-namespace {
-
-using ProducableFillerMap = StackableProducableTileGrid::ProducableFillerMap;
-
-} // end of <anonymous> namespace
-
 TiledMapRegion::TiledMapRegion
     (ProducableTileViewGrid && producables_view_grid,
      ScaleComputation && scale_computation):
@@ -70,21 +64,35 @@ void TiledMapRegion::process_load_request
 
 // ----------------------------------------------------------------------------
 
-/* static */ const ProducableFillerMap
-    StackableProducableTileGrid::k_default_producable_filler_map =
-    ProducableFillerMap{2, SharedPtr<const ProducableGroupFiller>{}};
+StackableProducableTileGrid::StackableProducableTileGrid() {}
 
-/* static */
-    Optional<ViewGrid<ProducableTile *>>
-    StackableProducableTileGrid::producable_grids_to_view_grid
-    (std::vector<Grid<ProducableTile *>> && producables)
+StackableProducableTileGrid::StackableProducableTileGrid
+    (Grid<ProducableTile *> && producables,
+     ProducableGroupCollection && producable_owners):
+    m_producable_grid(std::move(producables)),
+    m_producable_owners(producable_owners) {}
+
+ProducableTileGridStacker StackableProducableTileGrid::stack_with
+    (ProducableTileGridStacker && stacker)
 {
-    if (producables.empty())
-        { return {}; }
+    stacker.stack_with
+        (std::move(m_producable_grid), std::move(m_producable_owners));
+    return std::move(stacker);
+}
 
-    ViewGridInserter<ProducableTile *> inserter{producables.begin()->size2()};
+// ----------------------------------------------------------------------------
+
+/* static */ ViewGrid<ProducableTile *>
+    ProducableTileGridStacker::producable_grids_to_view_grid
+    (std::vector<Grid<ProducableTile *>> && producables_grid)
+{
+    if (producables_grid.empty())
+        { return ViewGrid<ProducableTile *>{}; }
+
+    auto & first = producables_grid.front();
+    ViewGridInserter<ProducableTile *> inserter{first.size2()};
     for (; !inserter.filled(); inserter.advance()) {
-        for (const auto & grid : producables) {
+        for (const auto & grid : producables_grid) {
             if (auto * producable = grid(inserter.position()))
                 inserter.push(producable);
         }
@@ -92,93 +100,20 @@ void TiledMapRegion::process_load_request
     return inserter.finish();
 }
 
-/* static */ StackableProducableTileGrid
-    StackableProducableTileGrid::make_with_fillers
-    (const std::vector<SharedPtr<const ProducableGroupFiller>> & fillers,
-     Grid<ProducableTile *> && producables,
-     ProducableGroupCollection && producable_owners)
+void ProducableTileGridStacker::stack_with
+    (Grid<ProducableTile *> && producable_grid,
+     std::vector<SharedPtr<ProducableGroup_>> && producable_owners)
 {
-    auto filler_map = k_default_producable_filler_map;
-    for (auto & filler : fillers) {
-        (void)filler_map.emplace(filler, std::monostate{});
-    }
-    return StackableProducableTileGrid
-        {std::vector<Grid<ProducableTile *>>{std::move(producables)},
-         std::move(filler_map),
-         std::move(producable_owners)};
-}
-
-/* static */ std::vector<SharedPtr<const ProducableGroupFiller>>
-    StackableProducableTileGrid::filler_map_to_vector
-    (ProducableFillerMap && filler_map)
-{
-    std::vector<SharedPtr<const ProducableGroupFiller>>
-        filler_vector;
-    filler_vector.reserve(filler_map.size());
-    for (auto & [filler, _] : filler_map) {
-        filler_vector.push_back(filler);
-    }
-    return filler_vector;
-}
-
-StackableProducableTileGrid::StackableProducableTileGrid():
-    m_fillers(k_default_producable_filler_map) {}
-
-StackableProducableTileGrid::StackableProducableTileGrid
-    (Grid<ProducableTile *> && producables,
-     ProducableFillerMap && fillers,
-     ProducableGroupCollection && producable_owners):
-    m_producable_grids({ std::move(producables) }),
-    m_fillers(std::move(fillers)),
-    m_producable_owners(producable_owners) {}
-
-StackableProducableTileGrid StackableProducableTileGrid::stack_with
-    (StackableProducableTileGrid && stackable_grid)
-{
-    return stackable_grid.stack_with
-        (std::move(m_producable_grids),
-         std::move(m_fillers),
-         std::move(m_producable_owners));
-}
-
-StackableProducableTileGrid StackableProducableTileGrid::stack_with
-    (std::vector<Grid<ProducableTile *>> && producable_grids,
-     ProducableFillerMap && fillers,
-     ProducableGroupCollection && producable_owners)
-{
-    m_producable_grids.insert
-        (m_producable_grids.end(),
-         std::move_iterator{producable_grids.begin()},
-         std::move_iterator{producable_grids.end()});
-    m_fillers.reserve(fillers.size() + m_fillers.size());
-    for (auto & [filler, _] : fillers)
-        { m_fillers.emplace(filler, std::monostate{}); }
+    using std::move_iterator;
+    m_producable_grids.emplace_back(std::move(producable_grid));
     m_producable_owners.insert
         (m_producable_owners.end(),
-         std::move_iterator{producable_owners.begin()},
-         std::move_iterator{producable_owners.end()});
-    return StackableProducableTileGrid
-        {std::move(m_producable_grids), std::move(m_fillers),
-         std::move(m_producable_owners)};
+         move_iterator{producable_owners.begin()},
+         move_iterator{producable_owners.end  ()});
 }
 
-ProducableTileViewGrid StackableProducableTileGrid::to_producables() {
-    auto producables = producable_grids_to_view_grid
-        (std::move(m_producable_grids));
-
-    if (!producables)
-        return ProducableTileViewGrid{};
-
+ProducableTileViewGrid ProducableTileGridStacker::to_producables() {
     return ProducableTileViewGrid
-        {std::move(*producables),
-         std::move(m_producable_owners),
-         filler_map_to_vector(std::move(m_fillers))};
+        {producable_grids_to_view_grid (std::move(m_producable_grids)),
+         std::move(m_producable_owners)                               };
 }
-
-/* private */ StackableProducableTileGrid::StackableProducableTileGrid
-    (std::vector<Grid<ProducableTile *>> && producable_grids,
-     ProducableFillerMap && fillers,
-     ProducableGroupCollection && producable_owners):
-    m_producable_grids(std::move(producable_grids)),
-    m_fillers(std::move(fillers)),
-    m_producable_owners(producable_owners) {}
