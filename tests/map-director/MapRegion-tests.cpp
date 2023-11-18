@@ -97,7 +97,8 @@ using RectI = RectangleI;
 // make sure that sub regions are hit as expected
 // scale must propagate correctly
 // - as you go down
-
+// moved
+#if 0
 describe<CompositeMapRegion>("CompositeMapRegion")([] {
     // example (b)
     ReceivedLoadRequest ne, nw, se, sw;
@@ -127,7 +128,7 @@ describe<CompositeMapRegion>("CompositeMapRegion")([] {
                                                Vector2I{6, 6} + Vector2I{1, 3}});
     });
 });
-
+#endif
 return [] {};
 
 } ();

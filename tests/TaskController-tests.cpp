@@ -121,14 +121,16 @@ describe<EntitiesReceiver>("MultiReceiver for entities #add").
     mark_it("add auto adds bac  kground task from an entity", [&] {
         auto task
             = e.add<SharedPtr<BackgroundTask>>()
-            = BackgroundTask::make([] (TaskCallbacks &) { return BackgroundCompletion::finished; });
+            = BackgroundTask::make([] (TaskCallbacks &)
+                                   { return BackgroundTaskCompletion::k_finished; });
         mrecv.add(e);
         return test_that(   mrecv.has_any_tasks()
                          && *mrecv.background_tasks().begin() == task);
     });
     mark_it("add removes background task from entity", [&] {
         e.add<SharedPtr<BackgroundTask>>()
-            = BackgroundTask::make([] (TaskCallbacks &) { return BackgroundCompletion::finished; });
+            = BackgroundTask::make([] (TaskCallbacks &)
+                                   { return BackgroundTaskCompletion::k_finished; });
         mrecv.add(e);
         return test_that(!e.get<SharedPtr<BackgroundTask>>());
     });

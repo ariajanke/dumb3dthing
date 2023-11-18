@@ -22,7 +22,11 @@
 
 #include "../TriangleLink.hpp"
 
+#include <iostream>
+
 namespace {
+
+constexpr const bool k_report_maximum_sort_and_sweep = true;
 
 using namespace cul::exceptions_abbr;
 
@@ -120,13 +124,25 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
     RegionAxisLinksAdder::sort_and_sweep
     (std::vector<RegionAxisLinkEntry> && entries)
 {
+    static int s_sort_sweep_max = 0;
+    int sort_sweep_count = 0;
     std::sort(entries.begin(), entries.end(),
               RegionAxisLinkEntry::bounds_less_than);
     for (auto itr = entries.begin(); itr != entries.end(); ++itr) {
         for (auto jtr = itr + 1; jtr != entries.end(); ++jtr) {
             if (itr->high_bounds() < jtr->low_bounds())
                 break;
+            if constexpr (k_report_maximum_sort_and_sweep)
+                ++sort_sweep_count;
             RegionAxisLinkEntry::attach_matching_points(*itr, *jtr);
+        }
+    }
+    if constexpr (k_report_maximum_sort_and_sweep) {
+        if (sort_sweep_count > s_sort_sweep_max) {
+            auto entries_copy = entries;
+            entries_copy.resize( std::min( std::size_t(100), entries.size() ) );
+            s_sort_sweep_max = sort_sweep_count;
+            std::cout << "New sort sweep maximum: " << sort_sweep_count << std::endl;
         }
     }
     return std::move(entries);

@@ -22,6 +22,8 @@
 
 #include "MapRegion.hpp"
 
+class SubRegionGridStacker;
+
 class MapSubRegion final {
 public:
     MapSubRegion() {}
@@ -92,13 +94,7 @@ public:
         (Grid<const MapSubRegion *> && subregions,
          const SharedPtr<Grid<MapSubRegion>> & owner);
 
-    StackableSubRegionGrid stack_with(StackableSubRegionGrid &&);
-
-    Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
-        to_sub_region_view_grid();
-
-    bool is_empty() const
-        { return m_subregions.empty() && m_subregion.is_empty(); }
+    SubRegionGridStacker stack_with(SubRegionGridStacker &&);
 
 private:
     StackableSubRegionGrid
@@ -107,6 +103,36 @@ private:
 
     Grid<const MapSubRegion *> m_subregion;
     SharedPtr<Grid<MapSubRegion>> m_owner;
+};
+
+// ----------------------------------------------------------------------------
+
+class SubRegionGridStacker final {
+public:
+    using MapSubRegionViewGrid = CompositeMapRegion::MapSubRegionViewGrid;
+    using MapSubRegionOwners = CompositeMapRegion::MapSubRegionOwners;
+    using MapSubRegionOwnerPtr = SharedPtr<Grid<MapSubRegion>>;
+    using MapSubRegionOwnersMap =
+        rigtorp::HashMap<MapSubRegionOwnerPtr, std::monostate>;
+
+    static MapSubRegionViewGrid make_view_grid
+        (std::vector<Grid<const MapSubRegion *>> &&);
+
+    static MapSubRegionOwners make_owners_container
+        (MapSubRegionOwnersMap &&);
+
+    void stack_with
+        (Grid<const MapSubRegion *> && subregion,
+         SharedPtr<Grid<MapSubRegion>> && owner);
+
+    Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
+        to_sub_region_view_grid();
+
+    bool is_empty() const { return m_subregions.empty(); }
+
+private:
+    static const MapSubRegionOwnersMap k_default_owners_map;
+
     std::vector<Grid<const MapSubRegion *>> m_subregions;
-    std::vector<SharedPtr<Grid<MapSubRegion>>> m_owners;
+    MapSubRegionOwnersMap m_owners = k_default_owners_map;
 };

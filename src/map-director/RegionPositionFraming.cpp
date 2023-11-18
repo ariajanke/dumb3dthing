@@ -120,6 +120,8 @@ RegionPositionFraming RegionPositionFraming::with_scaling
             overlaps_with(on_field_rect);
         if (!overlaps_this_subregion) continue;
 
+        // bug here: need to limit rectangle to the subregion grid size
+        // (catch in a test before fixing)
         f(move(r), RectangleI{r, subgrid_size});
     }}
 }

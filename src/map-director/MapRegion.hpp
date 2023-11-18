@@ -31,6 +31,8 @@ class RegionLoadRequestBase;
 class MapRegionContainer;
 class ScaleComputation;
 class RegionEdgeConnectionsAdder;
+class ProducableGroupFiller;
+class ProducableTileGridStacker;
 
 class RegionLoadCollectorBase {
 public:
@@ -88,8 +90,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class ProducableGroupFiller;
-
+// yeesh, same with this one
 class StackableProducableTileGrid final {
 public:
     using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroup_>>;
@@ -126,6 +127,8 @@ public:
          ProducableFillerMap && fillers,
          ProducableGroupCollection && producable_owners);
 
+    ProducableTileGridStacker stack_with(ProducableTileGridStacker &&);
+
     ProducableTileViewGrid to_producables();
 
 private:
@@ -141,3 +144,8 @@ private:
     ProducableGroupCollection m_producable_owners;
 };
 
+// ----------------------------------------------------------------------------
+
+class ProducableTileGridStacker final {
+public:
+};

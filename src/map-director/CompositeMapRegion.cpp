@@ -24,6 +24,7 @@ namespace {
 
 using MapSubRegionViewGrid = StackableSubRegionGrid::MapSubRegionViewGrid;
 using MapSubRegionOwners = StackableSubRegionGrid::MapSubRegionOwners;
+using MapSubRegionOwnersMap = SubRegionGridStacker::MapSubRegionOwnersMap;
 
 } // end of <anonymous> namespace
 
@@ -99,38 +100,25 @@ StackableSubRegionGrid::StackableSubRegionGrid
     m_subregion(std::move(subregions)),
     m_owner(owner) {}
 
-StackableSubRegionGrid StackableSubRegionGrid::stack_with
-    (StackableSubRegionGrid && stackable_sub_region_grid)
+SubRegionGridStacker StackableSubRegionGrid::stack_with
+    (SubRegionGridStacker && stacker)
 {
-    // guh... well if this isn't evidence of a problem...
-    using std::move_iterator;
-    auto osubregions = std::move(stackable_sub_region_grid.m_subregions);
-    auto oowners = std::move(stackable_sub_region_grid.m_owners);
-    m_subregions.reserve(m_subregions.size() + osubregions.size() + 2);
-    m_owners.reserve(m_owners.size() + oowners.size() + 2);
-    m_subregions.insert
-        (m_subregions.end(),
-         move_iterator{osubregions.begin()},
-         move_iterator{osubregions.end()});
-    m_owners.insert
-        (m_owners.end(),
-         move_iterator{oowners.begin()},
-         move_iterator{oowners.end()});
-    m_subregions.emplace_back(std::move(m_subregion));
-    m_subregions.emplace_back(std::move(stackable_sub_region_grid.m_subregion));
-    m_owners.emplace_back(std::move(m_owner));
-    m_owners.emplace_back(std::move(stackable_sub_region_grid.m_owner));
-    return StackableSubRegionGrid
-        {std::move(m_subregions), std::move(m_owners)};
+    stacker.stack_with(std::move(m_subregion), std::move(m_owner));
+    return std::move(stacker);
 }
 
-Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
-    StackableSubRegionGrid::to_sub_region_view_grid()
+// ----------------------------------------------------------------------------
+
+/* static */ MapSubRegionViewGrid SubRegionGridStacker::make_view_grid
+    (std::vector<Grid<const MapSubRegion *>> && subregions)
 {
-    auto & first = m_subregions.front();
+    if (subregions.empty())
+        { return MapSubRegionViewGrid{}; }
+
+    auto & first = subregions.front();
     ViewGridInserter<const MapSubRegion *> grid_inserter{first.size2()};
     while (!grid_inserter.filled()) {
-        for (auto & subregion_grid : m_subregions) {
+        for (auto & subregion_grid : subregions) {
             // bug: plopping empty grids into your stack
             if (!subregion_grid.has_position(grid_inserter.position()))
                 continue;
@@ -141,24 +129,35 @@ Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
         }
         grid_inserter.advance();
     }
-#   if 0
-    for (Vector2I r; r != first.end_position(); r = first.next(r)) {
-        for (auto & subregion_grid : m_subregions) {
-            for (const MapSubRegion * subregion : subregion_grid) {
-                if (!subregion) continue;
-                if (!subregion->belongs_to_parent()) continue;
-                grid_inserter.push(subregion);
-            }
-        }
-        grid_inserter.advance();
-    }
-#   endif
-    m_subregions.clear();
-    return make_tuple(grid_inserter.finish(), std::move(m_owners));
+    return grid_inserter.finish();
 }
 
-/* private */ StackableSubRegionGrid::StackableSubRegionGrid
-    (std::vector<Grid<const MapSubRegion *>> && subregions,
-     std::vector<SharedPtr<Grid<MapSubRegion>>> && owners):
-    m_subregions(std::move(subregions)),
-    m_owners(std::move(owners)) {}
+/* static */ MapSubRegionOwners SubRegionGridStacker::make_owners_container
+    (MapSubRegionOwnersMap && owners_map)
+{
+    MapSubRegionOwners owners_container;
+    owners_container.reserve(owners_map.size());
+    for (auto & [owner, _] : owners_map) {
+        owners_container.push_back(owner);
+    }
+    return owners_container;
+}
+
+void SubRegionGridStacker::stack_with
+    (Grid<const MapSubRegion *> && subregion,
+     SharedPtr<Grid<MapSubRegion>> && owner)
+{
+    m_subregions.emplace_back(std::move(subregion));
+    m_owners.emplace(std::move(owner), std::monostate{});
+}
+
+Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
+    SubRegionGridStacker::to_sub_region_view_grid()
+{
+    return make_tuple(make_view_grid       (std::move(m_subregions)),
+                      make_owners_container(std::move(m_owners    )));
+}
+
+/* private static */ const MapSubRegionOwnersMap
+    SubRegionGridStacker::k_default_owners_map =
+    MapSubRegionOwnersMap{2, nullptr};

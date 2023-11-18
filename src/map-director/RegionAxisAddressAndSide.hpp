@@ -103,10 +103,11 @@ inline std::size_t RegionAxisAddress::hash() const
     using Axis = RegionAxis;
     auto bottom = on_field.y + grid_size.height;
     auto right  = on_field.x + grid_size.width ;
+    // x_ways <-> z_ways was swapped here
     return {
-        RegionAxisAddressAndSide{Axis::x_ways, on_field.x, Side::left  },
-        RegionAxisAddressAndSide{Axis::x_ways, right     , Side::right },
-        RegionAxisAddressAndSide{Axis::z_ways, on_field.y, Side::top   },
-        RegionAxisAddressAndSide{Axis::z_ways, bottom    , Side::bottom}
+        RegionAxisAddressAndSide{Axis::z_ways, on_field.x, Side::left  },
+        RegionAxisAddressAndSide{Axis::z_ways, right     , Side::right },
+        RegionAxisAddressAndSide{Axis::x_ways, on_field.y, Side::top   },
+        RegionAxisAddressAndSide{Axis::x_ways, bottom    , Side::bottom}
     };
 }
