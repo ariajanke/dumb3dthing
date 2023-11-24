@@ -22,6 +22,8 @@
 
 #include "Tasks.hpp"
 
+#include <ariajanke/cul/HashMap.hpp>
+
 namespace point_and_plane {
 
 class Driver;
@@ -156,10 +158,214 @@ protected:
 
 // ----------------------------------------------------------------------------
 
+class RunableBackgroundTasks final {
+public:
+    struct Entry final {
+        // unique per what?
+        int return_to_counter = 0;
+        SharedPtr<BackgroundTask> return_to_task;
+    };
+    struct NewTaskEntry final {
+        //int return_to_counter = 0;
+        SharedPtr<BackgroundTask> return_to_task;
+        SharedPtr<BackgroundTask> task;
+    };
+    template <typename T>
+    class ElementCollector final {
+    public:
+        /* implicit */ ElementCollector(std::vector<T> & collection):
+            m_collection(collection) {}
+
+        void push_back(const T & obj) { m_collection.push_back(obj); }
+
+    private:
+        std::vector<T> & m_collection;
+    };
+    using Continuation = BackgroundTask::Continuation;
+    class TaskContinuation final : public Continuation {
+    public:
+        using BackgroundTaskCollection = std::vector<SharedPtr<BackgroundTask>>;
+
+        TaskContinuation() {}
+
+        // YANGI?
+        explicit TaskContinuation(BackgroundTaskCollection && reused_collection):
+            m_waited_on_tasks(std::move(reused_collection))
+            { m_waited_on_tasks.clear(); }
+
+        Continuation & wait_on(const SharedPtr<BackgroundTask> & task) final {
+            assert(task);
+            m_waited_on_tasks.emplace_back(task);
+            return *this;
+        }
+
+        // YANGI?
+        BackgroundTaskCollection move_out_tasks()
+            { return std::move(m_waited_on_tasks); }
+
+        std::vector<NewTaskEntry> add_new_entries_to
+            (const SharedPtr<BackgroundTask> & return_task,
+             std::vector<NewTaskEntry> && new_tasks)
+        {
+            if (m_waited_on_tasks.empty()) {
+                throw RuntimeError
+                    {"Cannot add new entries, as there are none (accidently "
+                     "called wrong method)"};
+            }
+            NewTaskEntry entry;
+#           if 0
+            entry.return_to_counter = int(m_waited_on_tasks.size());
+#           endif
+            entry.return_to_task = return_task;
+            for (auto & task : m_waited_on_tasks) {
+                entry.task = std::move(task);
+                new_tasks.push_back(entry);
+            }
+            m_waited_on_tasks.clear();
+            return std::move(new_tasks);
+        }
+
+        bool has_waited_on_tasks() const noexcept
+            { return !m_waited_on_tasks.empty(); }
+
+        std::size_t number_of_tasks_to_wait_on() const noexcept
+            { return m_waited_on_tasks.size(); }
+
+    private:
+        std::vector<SharedPtr<BackgroundTask>> m_waited_on_tasks;
+    };
+    class TaskStrategy final : public BackgroundTask::ContinuationStrategy {
+    public:
+        explicit TaskStrategy(TaskContinuation & continuation):
+            m_continuation(continuation) {}
+
+        Continuation & continue_() final { return m_continuation; }
+
+    private:
+        TaskContinuation & m_continuation;
+    };
+    using NewTaskEntryCollector = ElementCollector<NewTaskEntry>;
+    // task -> its return task
+    using BackgroundTaskMap =
+        cul::HashMap<SharedPtr<BackgroundTask>, SharedPtr<BackgroundTask>>;
+    using Iterator = BackgroundTaskMap::Iterator;
+    class ReturnToTasksCollection final {
+    public:
+        struct Entry final {
+            int counter = 0;
+            SharedPtr<BackgroundTask> return_to_task;
+        };
+        using TaskExtraction = BackgroundTaskMap::Extraction;
+        using Iterator = BackgroundTaskMap::Iterator;
+
+        ReturnToTasksCollection(): m_backgroud_tasks(nullptr) {}
+
+        // replace with proper struct/object
+        // task -> its return task
+        std::pair<SharedPtr<BackgroundTask>, SharedPtr<BackgroundTask>>
+            removed_return_to_task_for
+            (const SharedPtr<BackgroundTask> & return_task)
+        {
+            auto itr = m_backgroud_tasks.find(return_task);
+            if (itr == m_backgroud_tasks.end()) {
+                throw InvalidArgument
+                    {"Given return to task is not tracked by this collection"};
+            }
+            --itr->second.counter;
+            if (itr->second.counter == 0) {
+                auto ex = m_backgroud_tasks.extract(itr);
+                return std::make_pair
+                    (std::move(ex.key), std::move(ex.element.return_to_task));
+            }
+            return std::make_pair(nullptr, nullptr);
+        }
+#       if 0
+        NewTaskEntry return_task_as_new_task(const SharedPtr<BackgroundTask> & return_task);
+         {
+            auto itr = m_backgroud_tasks.find(return_task);
+            if (itr == m_backgroud_tasks.end()) {
+                throw InvalidArgument{"Given return to task is not tracked by this collection"};
+            }
+            auto ex = m_backgroud_tasks.extract(itr);
+            NewTaskEntry entry;
+            entry.return_to_counter = ex.element.return_to_counter;
+            entry.return_to_task = std::move(ex.element.return_to_task);
+            entry.task = std::move(ex.key);
+            return entry;
+        }
+
+        Iterator take_task_from(Extraction && ex) {
+            m_backgroud_tasks.emplace(std::move(ex.key), std::move(ex.element));
+            return ex.next;
+        }
+#       endif
+        void take_from_running_tasks
+            (const SharedPtr<BackgroundTask> & task_to_return_to,
+             const SharedPtr<BackgroundTask> & its_return_to_task,
+             int number_of_tasks_to_wait_on)
+        {
+            if (number_of_tasks_to_wait_on <= 0) {
+                throw RuntimeError
+                    {"Must wait on at least one task (like the one being passed)"};
+            }
+            Entry entry;
+            entry.counter = number_of_tasks_to_wait_on;
+            entry.return_to_task = its_return_to_task;
+            m_backgroud_tasks.emplace(task_to_return_to, std::move(entry));
+        }
+    private:
+        cul::HashMap<SharedPtr<BackgroundTask>, Entry> m_backgroud_tasks;
+    };
+
+    static Iterator process_task(Iterator &&, NewTaskEntryCollector);
+#   if 0
+    static Entry to_entry(NewTaskEntry && entry) {
+        Entry reg_entry;
+        reg_entry.return_to_task = std::move(entry.return_to_task);
+        reg_entry.return_to_counter = std::move(entry.return_to_counter);
+        return reg_entry;
+    }
+#   endif
+    RunableBackgroundTasks() {}
+
+    explicit RunableBackgroundTasks
+        (std::vector<SharedPtr<BackgroundTask>> && background_tasks_);
+
+    RunableBackgroundTasks
+        (BackgroundTaskMap &&, std::vector<NewTaskEntry> &&);
+
+    void run_existing_tasks(TaskCallbacks & callbacks);
+
+    RunableBackgroundTasks combine_tasks_with(RunableBackgroundTasks &&);
+#   if 0
+    bool is_empty() const;
+#   endif
+private:
+    static const BackgroundTaskMap k_default_background_task_map;
+
+    BackgroundTaskMap m_running_tasks = k_default_background_task_map;
+    std::vector<NewTaskEntry> m_new_tasks;
+    TaskContinuation m_task_continuation;
+    ReturnToTasksCollection m_return_task_collection;
+};
+#if 0
 class RunableBackgroundTasks final : public RunableTasksBase {
 public:
-    static SharedPtr<BackgroundTask> run_task
-        (SharedPtr<BackgroundTask> &&, TaskCallbacks &);
+    struct BackgroundTaskEntry final {
+        BackgroundTaskEntry() {}
+
+        BackgroundTaskEntry
+            (SharedPtr<BackgroundTask> && task_,
+             SharedPtr<BackgroundTask> && task_to_return_to_):
+            task(std::move(task_)),
+            task_to_return_to(std::move(task_to_return_to_)) {}
+
+        SharedPtr<BackgroundTask> task;
+        SharedPtr<BackgroundTask> task_to_return_to;
+    };
+
+    static BackgroundTaskEntry run_task
+        (BackgroundTaskEntry &&, TaskCallbacks &);
 
     RunableBackgroundTasks() {}
 
@@ -173,20 +379,20 @@ public:
     bool is_empty() const { return m_background_tasks.empty(); }
 
 private:
-    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
+    std::vector<BackgroundTaskEntry> m_background_tasks;
 };
-
+#endif
 // ----------------------------------------------------------------------------
 
 class RunableTasks final : public RunableTasksBase {
 public:
     RunableTasks() {}
-
+#   if 1
     RunableTasks
         (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
          std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
          std::vector<SharedPtr<BackgroundTask>> && background_tasks_);
-
+#   endif
     RunableTasks
         (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
          std::vector<SharedPtr<LoaderTask>> && loader_tasks_,

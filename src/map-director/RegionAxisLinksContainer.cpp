@@ -20,13 +20,15 @@
 
 #include "RegionAxisLinksContainer.hpp"
 
+#include "../Configuration.hpp"
 #include "../TriangleLink.hpp"
 
 #include <iostream>
 
 namespace {
 
-constexpr const bool k_report_maximum_sort_and_sweep = true;
+constexpr const bool k_report_maximum_sort_and_sweep =
+    k_region_axis_container_report_maximum_sort_and_sweep;
 
 using namespace cul::exceptions_abbr;
 

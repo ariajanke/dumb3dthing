@@ -27,6 +27,9 @@
 [[maybe_unused]] static auto s_add_describes = [] {
 
 using namespace cul::tree_ts;
+using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
+using Continuation = BackgroundTask::Continuation;
+
 describe<TasksReceiver>("MultiReceiver for EveryFrameTasks")([] {
     auto task = EveryFrameTask::make([] (TaskCallbacks &, Real) {});
     MultiReceiver mrecv;
@@ -44,6 +47,7 @@ describe<TasksReceiver>("MultiReceiver for EveryFrameTasks")([] {
         return test_that(!mrecv.has_any_tasks());
     });
 });
+
 describe<TriangleLinksReceiver>("MultiReceiver for triangles")([] {
     using EventHandler = point_and_plane::EventHandler;
     class DriverWithDefaults : public point_and_plane::Driver {
@@ -100,12 +104,15 @@ describe<TriangleLinksReceiver>("MultiReceiver for triangles")([] {
         return test_that(driver.has_removed_triangles());
     });
 });
+
 describe<EntitiesReceiver>("MultiReceiver for entities #add").
     depends_on<TasksReceiver>()([]
 {
     MultiReceiver mrecv;
     Entity e = Entity::make_sceneless_entity();
-    mark_it("add auto adds everyframe task from an entity", [&] {
+    mark_it("adding an entity automatically adds an everyframe task from "
+            "that entity", [&]
+    {
         auto & task
             = e.add<SharedPtr<EveryFrameTask>>()
             = EveryFrameTask::make([] (TaskCallbacks &, Real) {});
@@ -118,25 +125,52 @@ describe<EntitiesReceiver>("MultiReceiver for entities #add").
         mrecv.add(e);
         return test_that(e.has<SharedPtr<EveryFrameTask>>());
     });
-    mark_it("add auto adds bac  kground task from an entity", [&] {
+    mark_it("adding an entity automatically adds the background task from an "
+            "entity", [&]
+    {
         auto task
             = e.add<SharedPtr<BackgroundTask>>()
-            = BackgroundTask::make([] (TaskCallbacks &)
-                                   { return BackgroundTaskCompletion::k_finished; });
+            = BackgroundTask::make
+                ([] (TaskCallbacks &, ContinuationStrategy & s) -> Continuation &
+                 { return s.finish_task(); });
         mrecv.add(e);
         return test_that(   mrecv.has_any_tasks()
                          && *mrecv.background_tasks().begin() == task);
     });
-    mark_it("add removes background task from entity", [&] {
+    mark_it("adding an entity automatically removes background task from that "
+            "entity", [&]
+    {
         e.add<SharedPtr<BackgroundTask>>()
-            = BackgroundTask::make([] (TaskCallbacks &)
-                                   { return BackgroundTaskCompletion::k_finished; });
+            = BackgroundTask::make
+                ([] (TaskCallbacks &, ContinuationStrategy & s) -> Continuation &
+                 { return s.finish_task(); });
         mrecv.add(e);
         return test_that(!e.get<SharedPtr<BackgroundTask>>());
     });
 
 });
-// can't really test add_entities_to...
+
+// redisgn return to task first!
+
+struct RunableBackgroundTasksClassMethods {};
+
+describe<RunableBackgroundTasksClassMethods>("RunableBackgroundTasks::run_task")([] {
+
+});
+
+describe<RunableBackgroundTasks>("RunableBackgroundTasks#run_existing_tasks").
+    depends_on<RunableBackgroundTasksClassMethods>()([]
+{
+
+});
+
+describe<RunableBackgroundTasks>("RunableBackgroundTasks#combine_tasks_with").
+    depends_on<RunableBackgroundTasksClassMethods>()([]
+{
+
+});
+
+
 return 1;
 
 } ();

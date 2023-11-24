@@ -59,7 +59,7 @@ public:
     template <typename Func>
     static SharedPtr<EveryFrameTask> make(Func && f_);
 };
-
+#if 0
 enum class BackgroundCompletion {
     finished, in_progress
 };
@@ -96,19 +96,43 @@ private:
     Status m_status;
     SharedPtr<BackgroundDelayTask> m_delay_task;
 };
-
+#endif
 class BackgroundTask {
 public:
+    class Continuation {
+    public:
+        [[nodiscard]] static Continuation & task_completion();
+
+        virtual Continuation & wait_on(const SharedPtr<BackgroundTask> &) = 0;
+
+        virtual ~Continuation() {}
+    };
+
+    class ContinuationStrategy {
+    public:
+        virtual ~ContinuationStrategy() {}
+
+        virtual Continuation & continue_() = 0;
+
+        [[nodiscard]] Continuation & finish_task()
+            { return Continuation::task_completion(); }
+    };
+
     using Callbacks = TaskCallbacks;
 
     virtual ~BackgroundTask() {}
 
+#   if 0
     virtual BackgroundTaskCompletion operator () (Callbacks &) = 0;
+#   endif
+
+    [[nodiscard]] virtual Continuation & in_background
+        (Callbacks &, ContinuationStrategy &) = 0;
 
     template <typename Func>
     static SharedPtr<BackgroundTask> make(Func && f_);
 };
-
+#if 0
 class BackgroundDelayTask : public BackgroundTask {
 public:
     BackgroundTaskCompletion operator () (Callbacks &) final;
@@ -122,8 +146,8 @@ public:
 private:
     SharedPtr<BackgroundTask> m_return_task;
 };
-
-
+#endif
+#if 0
 // An occasional task, is called only once, before being removed by the
 // scheduler/driver. It should not be possible that driver/scheduler is the
 // sole owner, as the owning entity should survive until the end of the frame,
@@ -142,7 +166,7 @@ public:
 private:
     BackgroundTaskCompletion operator () (Callbacks &) final;
 };
-
+#endif
 class LoaderTask {
 public:
     struct PlayerEntities final {
@@ -187,7 +211,7 @@ template <typename Func>
     };
     return make_shared<Impl>(std::move(f_));
 }
-
+#if 0
 template <typename Func>
 /* static */ SharedPtr<OccasionalTask> OccasionalTask::make(Func && f_) {
     class Impl final : public OccasionalTask {
@@ -202,22 +226,26 @@ template <typename Func>
     };
     return make_shared<Impl>(std::move(f_));
 }
-
+#endif
 template <typename Func>
 /* static */ SharedPtr<BackgroundTask> BackgroundTask::make(Func && f_) {
     class Impl final : public BackgroundTask {
     public:
         Impl(Func && f_): m_f(std::move(f_)) {}
 
+        Continuation & in_background
+            (Callbacks & callbacks, ContinuationStrategy & strategy) final
+        { return m_f(callbacks, strategy); }
+#       if 0
         BackgroundTaskCompletion operator () (Callbacks & callbacks) final
             { return m_f(callbacks); }
-
+#       endif
     private:
         Func m_f;
     };
     return make_shared<Impl>(std::move(f_));
 }
-
+#if 0
 template <typename Func>
 /* static */ BackgroundTaskCompletion BackgroundTaskCompletion::delay_until
     (Func && f)
@@ -235,7 +263,7 @@ template <typename Func>
     return BackgroundTaskCompletion
         {Status::delay_until, make_shared<Impl>(std::move(f))};
 }
-
+#endif
 template <typename Func>
 /* static */ SharedPtr<LoaderTask> LoaderTask::make(Func && f_) {
     class Impl final : public LoaderTask {

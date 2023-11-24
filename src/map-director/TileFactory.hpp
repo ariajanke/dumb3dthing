@@ -61,9 +61,9 @@ protected:
 
     std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) const;
 
-    template <typename ... Types>
+    template <typename Head, typename ... Types>
     Entity add_visual_entity_with(
-        ProducableTileCallbacks & callbacks, Types &&... arguments) const;
+        ProducableTileCallbacks & callbacks, Head && head, Types &&... arguments) const;
 
     SharedPtr<const RenderModel> make_render_model_with_common_texture_positions
         (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const;
@@ -87,16 +87,16 @@ private:
     Size2 m_tile_size;
 };
 
-template <typename ... Types>
+template <typename Head, typename ... Types>
 Entity TileFactory::add_visual_entity_with(
-    ProducableTileCallbacks & callbacks, Types &&... arguments) const
+    ProducableTileCallbacks & callbacks, Head && head, Types &&... arguments) const
 {
     static_assert
-        (TypeList<Types...>::
+        (TypeList<Head, Types...>::
          template RemoveIf<std::is_reference>::
-         template kt_equal_to_list<Types...>,
+         template kt_equal_to_list<Head, Types...>,
         "No reference types allowed");
     return callbacks.add_entity
-        <SharedPtr<const Texture>, ModelVisibility, Types...>
-        (common_texture(), ModelVisibility{true}, std::forward<Types>(arguments)...);
+        <SharedPtr<const Texture>, ModelVisibility, Head, Types...>
+        (common_texture(), ModelVisibility{true}, std::move(head), std::forward<Types>(arguments)...);
 }

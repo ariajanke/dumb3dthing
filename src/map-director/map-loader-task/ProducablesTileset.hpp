@@ -34,13 +34,23 @@ public:
     using TilesetBase::load;
 
     static const FillerFactoryMap & builtin_fillers();
-
+#   if 0
     BackgroundTaskCompletion load
         (Platform &, const TiXmlElement &, const FillerFactoryMap &);
 
     BackgroundTaskCompletion load
         (Platform & platform, const TiXmlElement & element) final
         { return load(platform, element, builtin_fillers()); }
+#   endif
+    Continuation & load
+        (Platform &, const TiXmlElement &, ContinuationStrategy &) final;
+
+    // four params, ouch!
+    Continuation & load
+        (Platform &,
+         const TiXmlElement &,
+         ContinuationStrategy &,
+         const FillerFactoryMap &);
 
     void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const final;

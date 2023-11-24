@@ -49,7 +49,7 @@ const char * axis_to_string(RegionAxis axis) {
 /* protected static */
     const RegionEdgeConnectionsContainerBase::EntryContainer
     RegionEdgeConnectionsContainerBase::s_default_entry_container =
-    RegionEdgeConnectionsContainerBase::EntryContainer{2, RegionAxisAddress{}};
+    RegionEdgeConnectionsContainerBase::EntryContainer{RegionAxisAddress{}};
 
 // ----------------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ void RegionEdgeConnectionsAdder::add
 }
 
 RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
-    for (auto & entry : m_entries) {
+    for (auto entry : m_entries) {
         entry.second = std::get_if<RegionAxisLinksAdder>(&entry.second)->
             finish();
     }
@@ -88,7 +88,7 @@ RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
     RegionEdgeConnectionsAdder::verify_all_adders
     (const char *, EntryContainer && entries)
 {
-    for (auto & entry : entries)
+    for (auto entry : entries)
         { (void)std::get<RegionAxisLinksAdder>(entry.second); }
     return std::move(entries);
 }
@@ -99,8 +99,7 @@ RegionEdgeConnectionsContainer RegionEdgeConnectionsAdder::finish() {
 {
     RegionAxisLinksAdder new_adder
         {std::vector<RegionAxisLinkEntry>{}, addr.axis()}; // LoD
-    auto itr = m_entries.
-        insert(std::make_pair(addr, std::move(new_adder))).first;
+    auto itr = m_entries.emplace(addr, std::move(new_adder)).position;
     return *std::get_if<RegionAxisLinksAdder>(&itr->second);
 }
 
@@ -134,7 +133,7 @@ void RegionEdgeConnectionsRemover::remove_region
 }
 
 RegionEdgeConnectionsContainer RegionEdgeConnectionsRemover::finish() {
-    for (auto & entry : m_entries) {
+    for (auto entry : m_entries) {
         entry.second = std::get_if<RegionAxisLinksRemover>(&entry.second)->
             finish();
     }
@@ -145,7 +144,7 @@ RegionEdgeConnectionsContainer RegionEdgeConnectionsRemover::finish() {
     RegionEdgeConnectionsRemover::verify_all_removers
     (EntryContainer && entries)
 {
-    for (auto & entry : entries)
+    for (auto entry : entries)
         { (void)std::get<RegionAxisLinksRemover>(entry.second); }
     return std::move(entries);
 }
@@ -168,7 +167,7 @@ RegionEdgeConnectionsContainer::RegionEdgeConnectionsContainer
 RegionEdgeConnectionsAdder
     RegionEdgeConnectionsContainer::make_adder()
 {
-    for (auto & entry : m_entries) {
+    for (auto entry : m_entries) {
         entry.second = std::get_if<RegionAxisLinksContainer>(&entry.second)->
             make_adder();
     }
@@ -178,7 +177,7 @@ RegionEdgeConnectionsAdder
 RegionEdgeConnectionsRemover
     RegionEdgeConnectionsContainer::make_remover()
 {
-    for (auto & entry : m_entries) {
+    for (auto entry : m_entries) {
         entry.second = std::get_if<RegionAxisLinksContainer>(&entry.second)->
             make_remover();
     }
@@ -189,7 +188,7 @@ RegionEdgeConnectionsRemover
     RegionEdgeConnectionsContainer::verify_containers
     (EntryContainer && entries)
 {
-    for (auto & entry : entries)
+    for (auto entry : entries)
         { (void)std::get<RegionAxisLinksContainer>(entry.second); }
     return std::move(entries);
 }

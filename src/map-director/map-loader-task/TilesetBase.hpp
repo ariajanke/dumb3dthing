@@ -43,13 +43,18 @@ class TilesetBase {
 public:
     using MappingContainer = std::vector<TilesetMappingTile>;
     using MappingView = View<MappingContainer::const_iterator>;
+    using Continuation = BackgroundTask::Continuation;
+    using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
 
     static SharedPtr<TilesetBase> make(const TiXmlElement &);
 
     virtual ~TilesetBase() {}
-
+#   if 0
     // might not have something to wait on
     [[nodiscard]] virtual BackgroundTaskCompletion load(Platform &, const TiXmlElement &) = 0;
+#   endif
+    // ContinuationStrategy &
+    [[nodiscard]] virtual Continuation & load(Platform &, const TiXmlElement &, ContinuationStrategy &) = 0;
 
     virtual void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const = 0;

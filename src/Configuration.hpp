@@ -20,15 +20,9 @@
 
 #pragma once
 
-#include "MapRegionTracker.hpp"
+#include "Definitions.hpp"
 
-#include "../Components.hpp"
-
-class MapLoaderTask_ : public BackgroundTask {
-public:
-    static SharedPtr<MapLoaderTask_> make
-        (const char * initial_map, Platform & platform);
-
-    /// @throws if the task has not finished
-    virtual UniquePtr<MapRegion> retrieve() = 0;
-};
+static constexpr const auto k_testmap_filename = "demo-map2.tmx";
+static constexpr const Vector k_player_start{2, 12.1, -2};
+static constexpr const bool
+    k_region_axis_container_report_maximum_sort_and_sweep = true;

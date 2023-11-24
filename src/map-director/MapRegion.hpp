@@ -90,12 +90,9 @@ private:
 
 // ----------------------------------------------------------------------------
 
-// yeesh, same with this one
 class StackableProducableTileGrid final {
 public:
     using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroup_>>;
-    using ProducableGroupCollectionPtr = SharedPtr<ProducableGroupCollection>;
-    using ProducableFillerMapHasher = std::hash<SharedPtr<const ProducableGroupFiller>>;
 
     StackableProducableTileGrid();
 

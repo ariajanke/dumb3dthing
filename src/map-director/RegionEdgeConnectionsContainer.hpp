@@ -22,8 +22,10 @@
 
 #include "RegionAxisLinksContainer.hpp"
 #include "ScaleComputation.hpp"
-
+#if 0
 #include <rigtorp/HashMap.h>
+#endif
+#include <ariajanke/cul/HashMap.hpp>
 
 class RegionEdgeConnectionsContainer;
 
@@ -34,7 +36,7 @@ struct RegionAxisAddressHasher final {
 
 class RegionEdgeConnectionsContainerBase {
 public:
-    using EntryContainer = rigtorp::HashMap
+    using EntryContainer = cul::HashMap
         <RegionAxisAddress,
          Variant<RegionAxisLinksContainer,
                  RegionAxisLinksAdder,

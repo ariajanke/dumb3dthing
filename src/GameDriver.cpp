@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include "TasksController.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
+#include "Configuration.hpp"
 
 #include "map-director.hpp"
 #include "PlayerUpdateTask.hpp"
@@ -36,7 +37,6 @@
 namespace {
 
 using namespace cul::exceptions_abbr;
-static constexpr const auto k_testmap_filename = "comp-map-demo.tmx";
 
 class TimeControl final {
 public:
@@ -196,8 +196,6 @@ Entity make_sample_loop
     rv.add<ModelTranslation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
     return rv;
 }
-
-static constexpr const Vector k_player_start{2, 12.1, -2};
 
 // model entity, physical entity
 Tuple<Entity, Entity>

@@ -30,6 +30,7 @@ namespace {
 
 using FillerFactory = ProducablesTileset::FillerFactory;
 using FillerFactoryMap = ProducablesTileset::FillerFactoryMap;
+using Continuation = BackgroundTask::Continuation;
 
 struct MakeFillerGridRt final {
     Grid<SharedPtr<ProducableGroupFiller>> grid;
@@ -65,7 +66,7 @@ MakeFillerGridRt make_filler_grid
     } ();
     return s_map;
 }
-
+#if 0
 BackgroundTaskCompletion ProducablesTileset::load
     (Platform & platform, const TiXmlElement & tileset,
      const FillerFactoryMap & filler_factories)
@@ -80,6 +81,31 @@ BackgroundTaskCompletion ProducablesTileset::load
     m_unique_fillers = std::move(filler_things.unique_fillers);
 
     return BackgroundTaskCompletion::k_finished;
+}
+#endif
+Continuation & ProducablesTileset::load
+    (Platform & platform,
+     const TiXmlElement & tileset_el,
+     ContinuationStrategy & strategy)
+{ return load(platform, tileset_el, strategy, builtin_fillers()); }
+
+// four params, ouch!
+Continuation & ProducablesTileset::load
+    (Platform & platform,
+     const TiXmlElement & tileset_el,
+     ContinuationStrategy & strategy,
+     const FillerFactoryMap & filler_factories)
+{
+    TilesetXmlGrid xml_grid;
+    xml_grid.load(platform, tileset_el);
+    auto factory_and_locations = find_unique_factories_and_positions
+        (make_factory_grid_positions(xml_grid, filler_factories));
+
+    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, platform);
+    m_filler_grid = std::move(filler_things.grid);
+    m_unique_fillers = std::move(filler_things.unique_fillers);
+
+    return strategy.finish_task();
 }
 
 /* private */

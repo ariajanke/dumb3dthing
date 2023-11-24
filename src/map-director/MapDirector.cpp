@@ -27,7 +27,8 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
+using Continuation = BackgroundTask::Continuation;
+using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
 
 } // end of <anonymous> namespace
 
@@ -40,16 +41,22 @@ using namespace cul::exceptions_abbr;
 {
     auto * ppdriver_ptr = &ppdriver;
     auto map_loader = MapLoaderTask_::make(initial_map, platform);
-    map_loader->set_return_task(BackgroundTask::make([=] (TaskCallbacks & callbacks) {
+    return BackgroundTask::make
+        ([map_loader, ppdriver_ptr, player_physics]
+         (TaskCallbacks & callbacks, ContinuationStrategy & strat) mutable -> Continuation &
+    {
+        if (map_loader) {
+            auto ml = std::move(map_loader);
+            return strat.continue_().wait_on(ml);
+        }
         auto map_director = make_shared<MapDirector>(*ppdriver_ptr, map_loader->retrieve());
         auto player_update_task = make_shared<PlayerUpdateTask>(std::move(map_director), player_physics.as_reference());
-        Entity{player_physics}.
+        player_physics.
             add<Velocity, SharedPtr<EveryFrameTask>>() = make_tuple
                 (Velocity{}, player_update_task);
         callbacks.add(player_update_task);
-        return BackgroundTaskCompletion::k_finished;
-    }));
-    return map_loader;
+        return strat.finish_task();
+    });
 }
 
 void MapDirector::on_every_frame

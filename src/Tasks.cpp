@@ -20,6 +20,26 @@
 
 #include "Tasks.hpp"
 
+namespace {
+
+using Continuation = BackgroundTask::Continuation;
+
+class ContinuationCompletion final : public Continuation {
+public:
+    Continuation & wait_on(const SharedPtr<BackgroundTask> &) final {
+        throw RuntimeError
+            {"Cannot call wait on task completion"};
+    }
+};
+
+} // end of <anonymous> namespace
+
+/* static */ Continuation & BackgroundTask::Continuation::task_completion() {
+    static ContinuationCompletion inst;
+    return inst;
+}
+
+#if 0
 /* static */ const BackgroundTaskCompletion
     BackgroundTaskCompletion::k_finished =
     BackgroundTaskCompletion{Status::finished, nullptr};
@@ -72,3 +92,4 @@ BackgroundTaskCompletion OccasionalTask::operator () (Callbacks & callbacks) {
     on_occasion(callbacks);
     return BackgroundTaskCompletion::k_finished;
 }
+#endif

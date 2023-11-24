@@ -25,6 +25,12 @@
 
 #include <tinyxml2.h>
 
+namespace {
+
+using Continuation = BackgroundTask::Continuation;
+
+} // end of <anonymous> namespace
+
 /* static */ TilesetLoadingTask TilesetLoadingTask::begin_loading
     (const char * filename, MapContentLoader & content_provider)
 {
@@ -38,7 +44,7 @@
     return TilesetLoadingTask
         {UnloadedTileSet{TilesetBase::make(el), std::move(tileset_xml)}};
 }
-
+#if 0
 BackgroundTaskCompletion TilesetLoadingTask::operator () (Callbacks & callbacks) {
     using TaskCompl = BackgroundTaskCompletion;
     if (m_loaded_tile_set) {
@@ -56,6 +62,30 @@ BackgroundTaskCompletion TilesetLoadingTask::operator () (Callbacks & callbacks)
         m_unloaded = ei.right_or(UnloadedTileSet{});
     }
     return TaskCompl::k_in_progress;
+}
+#endif
+
+Continuation & TilesetLoadingTask::in_background
+    (Callbacks & callbacks, ContinuationStrategy & strategy)
+{
+    if (m_loaded_tile_set) {
+        return strategy.finish_task();
+    } else if (m_unloaded.tile_set) {
+        auto & res = m_unloaded.tile_set->load
+            (callbacks.platform(),
+             m_unloaded.xml_content.element(),
+             strategy);
+        m_loaded_tile_set = std::move(m_unloaded.tile_set);
+        m_unloaded = UnloadedTileSet{};
+        return res;
+    } else {
+        auto ei = get_unloaded(m_tile_set_content).
+            map_left([](MapLoadingError && error)
+                     { return Optional<MapLoadingError>{std::move(error)}; });
+        m_loading_error = ei.left_or(Optional<MapLoadingError>{});
+        m_unloaded = ei.right_or(UnloadedTileSet{});
+    }
+    return strategy.continue_();
 }
 
 OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>

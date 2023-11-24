@@ -27,7 +27,9 @@ namespace {
 
 using namespace cul::exceptions_abbr;
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
+using Continuation = BackgroundTask::Continuation;
 
+#if 0
 class WaitOnBackgroundTasksTask final : public BackgroundDelayTask {
 public:
     explicit WaitOnBackgroundTasksTask(RunableBackgroundTasks && tasks):
@@ -39,7 +41,7 @@ private:
     RunableBackgroundTasks m_runable_tasks;
     BackgroundTaskTrap m_background_task_trap;
 };
-
+#endif
 } // end of <anonymous> namespace
 
 MapLoaderTask::MapLoaderTask(const char * map_filename, Platform & platform) {
@@ -49,7 +51,7 @@ MapLoaderTask::MapLoaderTask(const char * map_filename, Platform & platform) {
     m_map_loader = MapLoadStateMachine::make_with_starting_state
         (m_content_loader, map_filename);
 }
-
+#if 0
 BackgroundTaskCompletion MapLoaderTask::on_delay(Callbacks & callbacks) {
     using TaskCompletion = BackgroundTaskCompletion;
 
@@ -69,6 +71,33 @@ BackgroundTaskCompletion MapLoaderTask::on_delay(Callbacks & callbacks) {
             value();
         return TaskCompletion::k_finished;
     }
+}
+#endif
+Continuation & MapLoaderTask::in_background
+    (Callbacks & callbacks, ContinuationStrategy & strat)
+{
+    m_content_loader.assign_platform(callbacks.platform());
+    m_content_loader.assign_continuation_strategy(strat);
+    auto res = m_map_loader.update_progress(m_content_loader);
+#   if 0
+    if (res.is_empty()) {
+        return strat.continue_();
+    } else {
+#   endif
+        (void)res.fold<int>(0).
+            map([this] (MapLoadingSuccess && res) {
+                m_loaded_region = std::move(res.loaded_region);
+                return 0;
+            }).
+            map_left([] (MapLoadingError &&) {
+                return 0;
+            }).
+            value();
+#   if 0
+        return strat.finish_task();
+    }
+#   endif
+    return m_content_loader.continuation();
 }
 
 UniquePtr<MapRegion> MapLoaderTask::retrieve() {
@@ -93,7 +122,7 @@ SharedPtr<Texture> MapContentLoaderComplete::make_texture() const
 void MapContentLoaderComplete::wait_on
     (const SharedPtr<BackgroundTask> & task)
     { m_background_task_trap.add(task); }
-
+#if 0
 BackgroundTaskCompletion MapContentLoaderComplete::delay_response() {
     if (m_background_task_trap.has_tasks()) {
         return BackgroundTaskCompletion
@@ -102,9 +131,9 @@ BackgroundTaskCompletion MapContentLoaderComplete::delay_response() {
     }
     return BackgroundTaskCompletion::k_in_progress;
 }
-
+#endif
 namespace {
-
+#if 0
 BackgroundTaskCompletion WaitOnBackgroundTasksTask::on_delay
     (Callbacks & callbacks)
 {
@@ -117,5 +146,5 @@ BackgroundTaskCompletion WaitOnBackgroundTasksTask::on_delay
     return BackgroundTaskCompletion::k_in_progress;
 
 }
-
+#endif
 } // end of <anonymous> namespace
