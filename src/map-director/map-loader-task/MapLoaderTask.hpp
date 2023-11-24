@@ -48,8 +48,7 @@ public:
         { m_callbacks->add(task); }
 
     void add(const SharedPtr<BackgroundTask> & task) final {
-        m_continuation = &m_strategy->continue_();
-        m_continuation->wait_on(task);
+        m_continuation = &m_strategy->continue_().wait_on(task);
     }
 
     void add(const Entity & entity) final
@@ -57,13 +56,7 @@ public:
 
     Platform & platform() final
         { return m_callbacks->platform(); }
-#   if 0
-    bool has_tasks() const
-        { return !m_background_tasks.empty(); }
 
-    RunableBackgroundTasks move_out_tasks()
-        { return RunableBackgroundTasks{std::move(m_background_tasks)}; }
-#   endif
     TaskContinuation & continuation() const {
         if (m_continuation) return *m_continuation;
         throw RuntimeError{"Strategy was not set"};
@@ -77,9 +70,6 @@ private:
     ContinuationStrategy * m_strategy = nullptr;
     TaskContinuation * m_continuation = nullptr;
     TaskCallbacks * m_callbacks = nullptr;
-#   if 0
-    std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
-#   endif
 };
 
 // ----------------------------------------------------------------------------
@@ -103,9 +93,7 @@ public:
     SharedPtr<Texture> make_texture() const final;
 
     void wait_on(const SharedPtr<BackgroundTask> &) final;
-#   if 0
-    BackgroundTaskCompletion delay_response();
-#   endif
+
     void assign_platform(Platform & platform)
         { m_platform = &platform; }
 
@@ -125,9 +113,7 @@ private:
 class MapLoaderTask final : public MapLoaderTask_ {
 public:
     MapLoaderTask(const char * map_filename, Platform & platform);
-#   if 0
-    BackgroundTaskCompletion on_delay(Callbacks &) final;
-#   endif
+
     Continuation & in_background
         (Callbacks &, ContinuationStrategy &) final;
 

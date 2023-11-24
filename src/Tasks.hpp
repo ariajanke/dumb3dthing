@@ -59,44 +59,7 @@ public:
     template <typename Func>
     static SharedPtr<EveryFrameTask> make(Func && f_);
 };
-#if 0
-enum class BackgroundCompletion {
-    finished, in_progress
-};
 
-class BackgroundDelayTask;
-
-class BackgroundTaskCompletion final {
-public:
-    enum class Status { finished, in_progress, delay_until, invalid };
-
-    static const BackgroundTaskCompletion k_finished;
-
-    static const BackgroundTaskCompletion k_in_progress;
-
-    template <typename Func>
-    static BackgroundTaskCompletion delay_until(Func && f);
-
-    explicit BackgroundTaskCompletion
-        (SharedPtr<BackgroundDelayTask> && delay_task_):
-        BackgroundTaskCompletion(Status::delay_until, std::move(delay_task_)) {}
-
-    bool operator == (const BackgroundTaskCompletion &) const;
-
-    SharedPtr<BackgroundDelayTask> move_out_delay_task();
-
-private:
-    static SharedPtr<BackgroundDelayTask> verify_return_task
-        (SharedPtr<BackgroundDelayTask> &&);
-
-    BackgroundTaskCompletion
-        (Status status_,
-         SharedPtr<BackgroundDelayTask> && delay_task_);
-
-    Status m_status;
-    SharedPtr<BackgroundDelayTask> m_delay_task;
-};
-#endif
 class BackgroundTask {
 public:
     class Continuation {
@@ -122,51 +85,13 @@ public:
 
     virtual ~BackgroundTask() {}
 
-#   if 0
-    virtual BackgroundTaskCompletion operator () (Callbacks &) = 0;
-#   endif
-
     [[nodiscard]] virtual Continuation & in_background
         (Callbacks &, ContinuationStrategy &) = 0;
 
     template <typename Func>
     static SharedPtr<BackgroundTask> make(Func && f_);
 };
-#if 0
-class BackgroundDelayTask : public BackgroundTask {
-public:
-    BackgroundTaskCompletion operator () (Callbacks &) final;
 
-    // This being used outside of the task controller is a foot gun
-    // ouch!
-    void set_return_task(SharedPtr<BackgroundTask> && task_);
-
-    virtual BackgroundTaskCompletion on_delay(Callbacks &) = 0;
-
-private:
-    SharedPtr<BackgroundTask> m_return_task;
-};
-#endif
-#if 0
-// An occasional task, is called only once, before being removed by the
-// scheduler/driver. It should not be possible that driver/scheduler is the
-// sole owner, as the owning entity should survive until the end of the frame,
-// when usual frame clean up occurs.
-class OccasionalTask : public BackgroundTask {
-public:
-    using Callbacks = TaskCallbacks;
-
-    virtual ~OccasionalTask() {}
-
-    virtual void on_occasion(Callbacks &) = 0;
-
-    template <typename Func>
-    static SharedPtr<OccasionalTask> make(Func && f_);
-
-private:
-    BackgroundTaskCompletion operator () (Callbacks &) final;
-};
-#endif
 class LoaderTask {
 public:
     struct PlayerEntities final {
@@ -211,22 +136,7 @@ template <typename Func>
     };
     return make_shared<Impl>(std::move(f_));
 }
-#if 0
-template <typename Func>
-/* static */ SharedPtr<OccasionalTask> OccasionalTask::make(Func && f_) {
-    class Impl final : public OccasionalTask {
-    public:
-        Impl(Func && f_): m_f(std::move(f_)) {}
 
-        void on_occasion(Callbacks & callbacks) final
-            { m_f(callbacks); }
-
-    private:
-        Func m_f;
-    };
-    return make_shared<Impl>(std::move(f_));
-}
-#endif
 template <typename Func>
 /* static */ SharedPtr<BackgroundTask> BackgroundTask::make(Func && f_) {
     class Impl final : public BackgroundTask {
@@ -236,34 +146,13 @@ template <typename Func>
         Continuation & in_background
             (Callbacks & callbacks, ContinuationStrategy & strategy) final
         { return m_f(callbacks, strategy); }
-#       if 0
-        BackgroundTaskCompletion operator () (Callbacks & callbacks) final
-            { return m_f(callbacks); }
-#       endif
+
     private:
         Func m_f;
     };
     return make_shared<Impl>(std::move(f_));
 }
-#if 0
-template <typename Func>
-/* static */ BackgroundTaskCompletion BackgroundTaskCompletion::delay_until
-    (Func && f)
-{
-    class Impl final : public BackgroundDelayTask {
-    public:
-        Impl(Func && f_): m_f(std::move(f_)) {}
 
-        BackgroundTaskCompletion on_delay(Callbacks & callbacks) final
-            { return m_f(callbacks); }
-    private:
-        Func m_f;
-    };
-
-    return BackgroundTaskCompletion
-        {Status::delay_until, make_shared<Impl>(std::move(f))};
-}
-#endif
 template <typename Func>
 /* static */ SharedPtr<LoaderTask> LoaderTask::make(Func && f_) {
     class Impl final : public LoaderTask {

@@ -79,27 +79,6 @@ private:
         (MapLoaderTask_::make(initial_map, platform),
          std::move(player_physics),
          ppdriver);
-#   if 0
-    auto * ppdriver_ptr = &ppdriver;
-    auto map_loader = MapLoaderTask_::make(initial_map, platform);
-    bool loaded_map = false;
-    return BackgroundTask::make
-        ([map_loader, ppdriver_ptr, player_physics, loaded_map]
-         (TaskCallbacks & callbacks, ContinuationStrategy & strat) mutable -> Continuation &
-    {
-        if (!loaded_map) {
-            loaded_map = true;
-            return strat.continue_().wait_on(map_loader);
-        }
-        auto map_director = make_shared<MapDirector>(*ppdriver_ptr, map_loader->retrieve());
-        auto player_update_task = make_shared<PlayerUpdateTask>(std::move(map_director), player_physics.as_reference());
-        player_physics.
-            add<Velocity, SharedPtr<EveryFrameTask>>() = make_tuple
-                (Velocity{}, player_update_task);
-        callbacks.add(player_update_task);
-        return strat.finish_task();
-    });
-#   endif
 }
 
 void MapDirector::on_every_frame

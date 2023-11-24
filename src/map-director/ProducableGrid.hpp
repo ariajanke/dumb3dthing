@@ -180,6 +180,9 @@ public:
     void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
         { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
+    void add_group(SharedPtr<ProducableGroup_> && group)
+        { m_groups.emplace_back(std::move(group)); }
+
     StackableProducableTileGrid to_stackable_producable_tile_grid();
 
 private:

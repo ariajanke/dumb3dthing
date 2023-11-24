@@ -22,9 +22,7 @@
 
 #include "RegionAxisLinksContainer.hpp"
 #include "ScaleComputation.hpp"
-#if 0
-#include <rigtorp/HashMap.h>
-#endif
+
 #include <ariajanke/cul/HashMap.hpp>
 
 class RegionEdgeConnectionsContainer;

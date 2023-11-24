@@ -25,7 +25,6 @@
 void MapRegionTracker::process_load_requests
     (const RegionLoadRequest & request, TaskCallbacks & callbacks)
 {
-    if (!m_root_region) return;
     callbacks.add
         (process_decays_into_task
             (process_into_decay_collector

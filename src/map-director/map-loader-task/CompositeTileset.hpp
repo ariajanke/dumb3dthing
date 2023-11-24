@@ -34,9 +34,7 @@ public:
          const TilesetLayerWrapper &);
 
     static Optional<Size2I> size_of_tileset(const TiXmlElement &);
-#   if 0
-    BackgroundTaskCompletion load(Platform &, const TiXmlElement &) final;
-#   endif
+
     Continuation & load
         (Platform &, const TiXmlElement &, ContinuationStrategy &) final;
 

@@ -92,9 +92,7 @@ public:
 
     static TilesetLoadingTask begin_loading
         (DocumentOwningNode && tileset_xml);
-#   if 0
-    BackgroundTaskCompletion operator () (Callbacks &) final;
-#   endif
+
     Continuation & in_background
         (Callbacks &, ContinuationStrategy &) final;
 

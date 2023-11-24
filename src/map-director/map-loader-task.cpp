@@ -29,13 +29,3 @@
     using tiled_map_loading::MapLoadStateMachine;
     return make_shared<MapLoaderTask>(initial_map, platform);
 }
-#if 0
-/* static */ SharedPtr<BackgroundTask> MapLoaderTask_::make
-    (const char * initial_map, Platform & platform,
-     const SharedPtr<MapRegionTracker> & target_region_instance)
-{
-    using tiled_map_loading::MapLoadStateMachine;
-    return make_shared<MapLoaderTask>
-        (initial_map, target_region_instance, platform);
-}
-#endif

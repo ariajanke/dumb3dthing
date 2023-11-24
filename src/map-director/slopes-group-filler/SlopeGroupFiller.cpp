@@ -97,8 +97,17 @@ ProducableGroupTileLayer SlopeGroupFiller::operator ()
     (const std::vector<TileLocation> & tile_locations,
      ProducableGroupTileLayer && group_grid) const
 {
+    class SpecialLittleOwner final : public ProducableGroup_ {
+    public:
+        SpecialLittleOwner(const TileFactoryGrid & grid):
+            factory_grid(std::move(grid)) {}
+
+        TileFactoryGrid factory_grid;
+    };
+
+    auto factory_owner = make_shared<SpecialLittleOwner>(m_tile_factories);
     auto mapwide_factory_grid = make_factory_grid_for_map
-        (tile_locations, m_tile_factories);
+        (tile_locations, factory_owner->factory_grid /* m_tile_factories */);
     UnfinishedProducableGroup<ProducableSlopeTile> group;
     for (auto & location : tile_locations) {
         group.
@@ -106,6 +115,7 @@ ProducableGroupTileLayer SlopeGroupFiller::operator ()
             make_producable(location.on_map, mapwide_factory_grid);
     }
     group_grid.add_group(std::move(group));
+    group_grid.add_group(std::move(factory_owner));
     return std::move(group_grid);
 }
 

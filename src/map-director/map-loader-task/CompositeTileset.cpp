@@ -38,9 +38,6 @@ public:
         (const SharedPtr<MapLoaderTask> & map_loader_task_,
          SharedPtr<Grid<MapSubRegion>> & sub_regions_grid_,
          SharedPtr<MapRegion> & source_map_);
-#   if 0
-    BackgroundTaskCompletion on_delay(Callbacks &) final;
-#   endif
 
     Continuation & in_background
         (Callbacks &, ContinuationStrategy &) final;
@@ -86,27 +83,7 @@ private:
         { return {}; }
     return Size2I{columns, count / columns};
 }
-#if 0
-BackgroundTaskCompletion CompositeTileset::load
-    (Platform & platform, const TiXmlElement & tileset_element)
-{
-    SharedPtr<MapLoaderTask> map_loader_task;
-    auto properties = tileset_element.FirstChildElement("properties");
-    for (auto & property : XmlRange{properties, "property"}) {
-        auto name = property.Attribute("name");
-        auto value = property.Attribute("value");
-        if (!name || !value) continue;
-        if (::strcmp(name, "filename") == 0) {
-            map_loader_task = make_shared<MapLoaderTask>(value, platform);
-        }
-    }
-    m_sub_regions_grid = make_shared<Grid<MapSubRegion>>();
-    m_sub_regions_grid->set_size
-        (*size_of_tileset(tileset_element), MapSubRegion{});
-    return BackgroundTaskCompletion{make_shared<CompositeTilesetFinisherTask>
-        (std::move(map_loader_task), m_sub_regions_grid, m_source_map)};
-}
-#endif
+
 Continuation & CompositeTileset::load
     (Platform & platform,
      const TiXmlElement & tileset_element,
@@ -127,13 +104,7 @@ Continuation & CompositeTileset::load
         (*size_of_tileset(tileset_element), MapSubRegion{});
     auto task_to_wait_on = make_shared<CompositeTilesetFinisherTask>
         (std::move(map_loader_task), m_sub_regions_grid, m_source_map);
-    return strategy.
-        continue_().
-        wait_on(task_to_wait_on);
-#   if 0
-    return BackgroundTaskCompletion{make_shared<CompositeTilesetFinisherTask>
-        (std::move(map_loader_task), m_sub_regions_grid, m_source_map)};
-#   endif
+    return strategy.continue_().wait_on(task_to_wait_on);
 }
 
 void CompositeTileset::add_map_elements
@@ -166,24 +137,6 @@ CompositeTilesetFinisherTask::CompositeTilesetFinisherTask
     m_map_retriever(map_loader_task_),
     m_sub_regions_grid(verify_sub_regions_grid(sub_regions_grid_)),
     m_source_map(verify_source_map(source_map_)) {}
-#if 0
-BackgroundTaskCompletion CompositeTilesetFinisherTask::
-    on_delay(Callbacks &)
-{
-    if (m_map_loader_task)
-        { return BackgroundTaskCompletion{std::move(m_map_loader_task)}; }
-    m_source_map = m_map_retriever->retrieve();
-    for (Vector2I r;
-         r != m_sub_regions_grid->end_position();
-         r = m_sub_regions_grid->next(r))
-    {
-        auto subrect = get_sub_rectangle_of
-            (r, *m_sub_regions_grid, *m_source_map);
-        (*m_sub_regions_grid)(r) = MapSubRegion{subrect, m_source_map};
-    }
-    return BackgroundTaskCompletion::k_finished;
-}
-#endif
 
 Continuation & CompositeTilesetFinisherTask::in_background
     (Callbacks &, ContinuationStrategy & strategy)

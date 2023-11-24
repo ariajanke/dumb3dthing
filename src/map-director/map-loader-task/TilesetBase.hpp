@@ -49,11 +49,7 @@ public:
     static SharedPtr<TilesetBase> make(const TiXmlElement &);
 
     virtual ~TilesetBase() {}
-#   if 0
-    // might not have something to wait on
-    [[nodiscard]] virtual BackgroundTaskCompletion load(Platform &, const TiXmlElement &) = 0;
-#   endif
-    // ContinuationStrategy &
+
     [[nodiscard]] virtual Continuation & load(Platform &, const TiXmlElement &, ContinuationStrategy &) = 0;
 
     virtual void add_map_elements
