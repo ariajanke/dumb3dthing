@@ -29,6 +29,42 @@ namespace {
 
 using Continuation = BackgroundTask::Continuation;
 using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
+using PpDriver = point_and_plane::Driver;
+
+class PlayerMapPreperationTask final : public BackgroundTask {
+public:
+    PlayerMapPreperationTask
+        (SharedPtr<MapLoaderTask_> && map_loader,
+         Entity && player_physics,
+         PpDriver & ppdriver):
+        m_map_loader(std::move(map_loader)),
+        m_player_physics(std::move(player_physics)),
+        m_ppdriver(ppdriver) {}
+
+    Continuation & in_background
+        (Callbacks & callbacks, ContinuationStrategy & strategy) final
+    {
+        if (!m_finished_loading_map) {
+            m_finished_loading_map = true;
+            return strategy.continue_().wait_on(m_map_loader);
+        }
+        auto map_director = make_shared<MapDirector>
+            (m_ppdriver, m_map_loader->retrieve());
+        auto player_update_task = make_shared<PlayerUpdateTask>
+            (std::move(map_director), m_player_physics.as_reference());
+        m_player_physics.
+            add<Velocity, SharedPtr<EveryFrameTask>>() = make_tuple
+                (Velocity{}, player_update_task);
+        callbacks.add(player_update_task);
+        return strategy.finish_task();
+    }
+
+private:
+    bool m_finished_loading_map = false;
+    SharedPtr<MapLoaderTask_> m_map_loader;
+    Entity m_player_physics;
+    PpDriver & m_ppdriver;
+};
 
 } // end of <anonymous> namespace
 
@@ -39,15 +75,21 @@ using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
      Platform & platform,
      PpDriver & ppdriver)
 {
+    return std::make_shared<PlayerMapPreperationTask>
+        (MapLoaderTask_::make(initial_map, platform),
+         std::move(player_physics),
+         ppdriver);
+#   if 0
     auto * ppdriver_ptr = &ppdriver;
     auto map_loader = MapLoaderTask_::make(initial_map, platform);
+    bool loaded_map = false;
     return BackgroundTask::make
-        ([map_loader, ppdriver_ptr, player_physics]
+        ([map_loader, ppdriver_ptr, player_physics, loaded_map]
          (TaskCallbacks & callbacks, ContinuationStrategy & strat) mutable -> Continuation &
     {
-        if (map_loader) {
-            auto ml = std::move(map_loader);
-            return strat.continue_().wait_on(ml);
+        if (!loaded_map) {
+            loaded_map = true;
+            return strat.continue_().wait_on(map_loader);
         }
         auto map_director = make_shared<MapDirector>(*ppdriver_ptr, map_loader->retrieve());
         auto player_update_task = make_shared<PlayerUpdateTask>(std::move(map_director), player_physics.as_reference());
@@ -57,6 +99,7 @@ using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
         callbacks.add(player_update_task);
         return strat.finish_task();
     });
+#   endif
 }
 
 void MapDirector::on_every_frame

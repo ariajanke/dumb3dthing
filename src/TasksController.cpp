@@ -131,11 +131,11 @@ Platform & MultiReceiver::platform() {
     return *m_platform;
 }
 
-RunableTasks MultiReceiver::retrieve_runable_tasks() {
-    return RunableTasks
-        {move_out_every_frame_tasks(),
-         move_out_loader_tasks(),
-         move_out_background_tasks()};
+RunableTasks MultiReceiver::retrieve_runable_tasks(RunableTasks && runable_tasks) {
+    return std::move(runable_tasks).
+        combine_with(move_out_every_frame_tasks(),
+                     move_out_loader_tasks(),
+                     move_out_background_tasks());
 }
 
 // ----------------------------------------------------------------------------
@@ -181,6 +181,28 @@ RunableBackgroundTasks RunableBackgroundTasks::combine_tasks_with
     return RunableBackgroundTasks{std::move(m_background_tasks)};
 }
 #endif
+
+// ----------------------------------------------------------------------------
+
+void RunableBackgroundTasks::TaskContinuation::add_new_entries_to
+    (const SharedPtr<BackgroundTask> & current_task,
+     const SharedPtr<BackgroundTask> & tasks_return_task,
+     ElementCollector<NewTaskEntry> new_tasks_collector,
+     ReturnToTasksCollection & tracked_return_tasks)
+{
+    if (m_waited_on_tasks.empty())
+        { return; }
+    NewTaskEntry entry;
+    entry.return_to_task = current_task;
+    tracked_return_tasks.track_return_task
+        (current_task, tasks_return_task, m_waited_on_tasks.size());
+    for (auto & task : m_waited_on_tasks) {
+        entry.task = task;
+        new_tasks_collector.push_back(entry);
+    }
+    m_waited_on_tasks.clear();
+}
+
 // ----------------------------------------------------------------------------
 
 /* static */ const RunableBackgroundTasks::BackgroundTaskMap
@@ -208,6 +230,16 @@ RunableBackgroundTasks::RunableBackgroundTasks
     m_running_tasks(std::move(task_map)),
     m_new_tasks(std::move(new_tasks)) {}
 
+RunableBackgroundTasks::RunableBackgroundTasks
+    (BackgroundTaskMap && runable_tasks,
+     std::vector<NewTaskEntry> && new_tasks,
+     TaskContinuation && task_continuation,
+     ReturnToTasksCollection && returning_collection):
+    m_running_tasks(std::move(runable_tasks)),
+    m_new_tasks(std::move(new_tasks)),
+    m_task_continuation(std::move(task_continuation)),
+    m_return_task_collection(std::move(returning_collection)) {}
+
 void RunableBackgroundTasks::run_existing_tasks(TaskCallbacks & callbacks) {
 
     TaskStrategy strategy{m_task_continuation};
@@ -218,20 +250,32 @@ void RunableBackgroundTasks::run_existing_tasks(TaskCallbacks & callbacks) {
         auto & task = *(itr->first);
         auto & continuation = task.in_background(callbacks, strategy);
         if (&continuation == &Continuation::task_completion()) {
-            const auto & completed_task = itr->first;
+#           if 0
             auto task_and_its_return_to_task = m_return_task_collection.
                 removed_return_to_task_for(completed_task);
+#           endif
+            auto task_and_its_return_to_task = m_return_task_collection.
+                removed_return_to_task_for(itr->second);
+
+#           if 1
             if (task_and_its_return_to_task.first) {
                 NewTaskEntry entry;
                 entry.task = std::move(task_and_its_return_to_task.first);
                 entry.return_to_task = std::move(task_and_its_return_to_task.second);
                 m_new_tasks.emplace_back(std::move(entry));
             }
+#           endif
             itr = m_running_tasks.erase(itr);
         } else if (&continuation == &m_task_continuation) {
             if (m_task_continuation.has_waited_on_tasks()) {
                 // yeah, need to refactor these comments away... :/
                 // add new tasks to wait on
+                m_task_continuation.add_new_entries_to
+                    (itr->first,
+                     itr->second,
+                     m_new_tasks,
+                     m_return_task_collection);
+#               if 0
                 const auto & task_to_return_to = itr->first;
                 auto tasks_waited_on = m_task_continuation.number_of_tasks_to_wait_on();
                 m_new_tasks = m_task_continuation.
@@ -239,9 +283,11 @@ void RunableBackgroundTasks::run_existing_tasks(TaskCallbacks & callbacks) {
                 // remove current task from running tasks
                 auto ex = m_running_tasks.extract(itr);
                 // track it as a return to task
-                m_return_task_collection.take_from_running_tasks
+                m_return_task_collection.track_return_task
                     (ex.key, ex.element, tasks_waited_on);
                 itr = ex.next;
+#               endif
+                itr = m_running_tasks.erase(itr);
             } else {
                 ++itr;
             }
@@ -256,7 +302,21 @@ void RunableBackgroundTasks::run_existing_tasks(TaskCallbacks & callbacks) {
     }
     m_new_tasks.clear();
 }
-
+RunableBackgroundTasks RunableBackgroundTasks::combine_with
+    (std::vector<SharedPtr<BackgroundTask>> && background_tasks) &&
+{
+    m_running_tasks.reserve(m_running_tasks.size() + background_tasks.size());
+    for (auto & task : background_tasks) {
+        m_running_tasks.emplace(std::move(task), nullptr);
+        task = nullptr;
+    }
+    return RunableBackgroundTasks
+        {std::move(m_running_tasks),
+         std::move(m_new_tasks),
+         std::move(m_task_continuation),
+         std::move(m_return_task_collection)};
+}
+#if 0
 RunableBackgroundTasks RunableBackgroundTasks::combine_tasks_with
     (RunableBackgroundTasks && rhs)
 {
@@ -278,6 +338,7 @@ RunableBackgroundTasks RunableBackgroundTasks::combine_tasks_with
     return RunableBackgroundTasks
         {std::move(m_running_tasks), std::move(m_new_tasks)};
 }
+#endif
 #if 0
 bool RunableBackgroundTasks_New::is_empty() const
     { return m_background_task_map.is_empty(); }
@@ -325,6 +386,19 @@ void RunableTasks::run_existing_tasks
     m_loader_tasks.clear();
 }
 
+RunableTasks RunableTasks::combine_with
+    (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks,
+     std::vector<SharedPtr<LoaderTask>> && loader_tasks,
+     std::vector<SharedPtr<BackgroundTask>> && background_tasks) &&
+{
+    insert_moved_shared_ptrs(m_every_frame_tasks, view_of(every_frame_tasks));
+    insert_moved_shared_ptrs(m_loader_tasks     , view_of(loader_tasks     ));
+    return RunableTasks
+        {std::move(m_every_frame_tasks),
+         std::move(m_loader_tasks),
+         std::move(m_background_tasks).combine_with(std::move(background_tasks))};
+}
+#if 0
 RunableTasks RunableTasks::combine_tasks_with(RunableTasks && rhs) {
     insert_moved_shared_ptrs(m_every_frame_tasks, view_of(rhs.m_every_frame_tasks));
     insert_moved_shared_ptrs(m_loader_tasks     , view_of(rhs.m_loader_tasks     ));
@@ -334,14 +408,13 @@ RunableTasks RunableTasks::combine_tasks_with(RunableTasks && rhs) {
          std::move(m_loader_tasks),
          m_background_tasks.combine_tasks_with(std::move(rhs.m_background_tasks))};
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
 void TasksController::run_tasks(Real elapsed_seconds) {
     m_runable_tasks.run_existing_tasks(m_multireceiver, elapsed_seconds);
     m_runable_tasks = m_multireceiver.
-        retrieve_runable_tasks().
-        combine_tasks_with(std::move(m_runable_tasks));
+        retrieve_runable_tasks(std::move(m_runable_tasks));
 }
 
 void TasksController::add_entities_to(Scene & scene)
