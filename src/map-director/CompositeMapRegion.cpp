@@ -89,7 +89,10 @@ void CompositeMapRegion::process_load_request
     };
     framing.
         with_scaling(m_scale).
-        for_each_overlap(m_sub_regions.size2(), request, std::move(on_overlap));
+        // this:
+        // for_each_overlap(m_sub_regions.size2(), request, std::move(on_overlap));
+        // should read: (test this!)
+        for_each_overlap(subgrid.size2(), request, std::move(on_overlap));
 }
 
 // ----------------------------------------------------------------------------

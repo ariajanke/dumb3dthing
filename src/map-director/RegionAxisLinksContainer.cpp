@@ -130,6 +130,12 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
     int sort_sweep_count = 0;
     std::sort(entries.begin(), entries.end(),
               RegionAxisLinkEntry::bounds_less_than);
+#   if 0//def MACRO_DEBUG
+    assert(std::all_of(entries.begin(), entries.end(),
+        [] (const RegionAxisLinkEntry & entry) {
+            return !are_very_close(entry.low_bounds(), entry.high_bounds());
+        }));
+#   endif
     for (auto itr = entries.begin(); itr != entries.end(); ++itr) {
         for (auto jtr = itr + 1; jtr != entries.end(); ++jtr) {
             if (itr->high_bounds() < jtr->low_bounds())
@@ -154,8 +160,7 @@ RegionAxisLinksAdder::RegionAxisLinksAdder
     (std::vector<RegionAxisLinkEntry> && entries_,
      RegionAxis axis_):
     m_axis(axis_),
-    m_entries(verify_entries(std::move(entries_)))
-{}
+    m_entries(verify_entries(std::move(entries_))) {}
 
 void RegionAxisLinksAdder::add(const SharedPtr<TriangleLink> & link_ptr) {
     if (m_axis == RegionAxis::uninitialized) {

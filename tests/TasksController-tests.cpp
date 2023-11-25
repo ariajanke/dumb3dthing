@@ -243,27 +243,6 @@ describe<TaskContinuationComplete>
                          vec.front().task == return_to_task);
     });
 });
-#if 0
-// redisgn return to task first!
-
-struct RunableBackgroundTasksClassMethods {};
-
-describe<RunableBackgroundTasksClassMethods>("RunableBackgroundTasks::run_task")([] {
-
-});
-
-describe<RunableBackgroundTasks>("RunableBackgroundTasks#run_existing_tasks").
-    depends_on<RunableBackgroundTasksClassMethods>()([]
-{
-
-});
-
-describe<RunableBackgroundTasks>("RunableBackgroundTasks#combine_tasks_with").
-    depends_on<RunableBackgroundTasksClassMethods>()([]
-{
-
-});
-#endif
 
 return 1;
 
