@@ -43,8 +43,6 @@ public:
     void advance_grid_position()
         { m_tile_framing = m_tile_framing.advance_with(m_triangle_inserter); }
 
-    void add_loader(const SharedPtr<LoaderTask> &) final {}
-
     std::vector<Entity> finish_adding_entites();
 
     SharedPtr<ViewGridTriangle> finish_adding_triangles();

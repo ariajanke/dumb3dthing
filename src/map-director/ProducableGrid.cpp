@@ -24,11 +24,6 @@
 
 #include "../TriangleSegment.hpp"
 
-// TODO move or delete TEMP
-TriangleSegment TriangleSegmentTransformation::operator ()
-    (const TriangleSegment & triangle) const
-{ return m_scale(triangle).move(translation()); }
-
 void ProducableTileCallbacks::add_collidable
     (const Vector & triangle_point_a,
      const Vector & triangle_point_b,
@@ -36,17 +31,6 @@ void ProducableTileCallbacks::add_collidable
 {
     add_collidable_
         (TriangleSegment{triangle_point_a, triangle_point_b, triangle_point_c});
-}
-
-ModelTranslation TriangleSegmentTransformation::model_translation() const
-    { return ModelTranslation{translation()}; }
-
-ModelScale TriangleSegmentTransformation::model_scale() const
-    { return m_scale.to_model_scale(); }
-
-/* private */ Vector TriangleSegmentTransformation::translation() const {
-    return Vector
-        {Real(m_on_field_position.x), 0, Real(-m_on_field_position.y)};
 }
 
 // ----------------------------------------------------------------------------

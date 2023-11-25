@@ -53,9 +53,6 @@ public:
 
     virtual SharedPtr<RenderModel> make_render_model() = 0;
 
-    // for later
-    virtual void add_loader(const SharedPtr<LoaderTask> &) = 0;
-
 protected:
     virtual void add_collidable_(const TriangleSegment &) = 0;
 
@@ -64,30 +61,6 @@ protected:
     virtual ModelScale model_scale() const = 0;
 
     virtual ModelTranslation model_translation() const = 0;
-};
-
-// TODO deprecated/remove this class
-class TriangleSegmentTransformation final {
-public:
-    TriangleSegmentTransformation() {}
-
-    TriangleSegmentTransformation
-        (const ScaleComputation & scale,
-         const Vector2I & on_field_position):
-        m_scale(scale),
-        m_on_field_position(on_field_position) {}
-
-    TriangleSegment operator () (const TriangleSegment & triangle) const;
-
-    ModelTranslation model_translation() const;
-
-    ModelScale model_scale() const;
-
-private:
-    Vector translation() const;
-
-    ScaleComputation m_scale;
-    Vector2I m_on_field_position;
 };
 
 /// Represents how to make a single instance of a tile.

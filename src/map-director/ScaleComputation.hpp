@@ -36,25 +36,20 @@ public:
                      Real updown_factor,
                      Real northsouth_factor);
 
-    TriangleSegment operator () (const TriangleSegment &) const;
+    TriangleSegment of(const TriangleSegment &) const;
 
-    Vector operator () (const Vector & r) const
+    Vector of(const Vector & r) const
         { return scale(r); }
 
-    Vector2I operator () (const Vector2I & r) const
+    Vector2I of(const Vector2I & r) const
         { return Vector2I{scale_x(r.x), scale_z(r.y)}; }
 
-    Size2I operator () (const Size2I & size) const
+    Size2I of(const Size2I & size) const
         { return Size2I{scale_x(size.width), scale_z(size.height)}; }
 
-    RectangleI operator () (const RectangleI & rect) const {
-        return RectangleI
-            {scale_x(rect.left ), scale_z(rect.top   ),
-             scale_x(rect.width), scale_z(rect.height)};
-    }
+    RectangleI of(const RectangleI &) const;
 
-    bool operator == (const ScaleComputation & rhs) const
-        { return m_factor == rhs.m_factor; }
+    bool operator == (const ScaleComputation &) const;
 
     ModelScale to_model_scale() const;
 

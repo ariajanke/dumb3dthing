@@ -32,17 +32,6 @@ template <typename T>
 bool is_sole_owner(const SharedPtr<T> & ptr)
     { return ptr.use_count() == 1; }
 
-class TaskStrategy final : public BackgroundTask::ContinuationStrategy {
-public:
-    explicit TaskStrategy(Continuation & continuation):
-        m_continuation(continuation) {}
-
-    Continuation & continue_() final { return m_continuation; }
-
-private:
-    Continuation & m_continuation;
-};
-
 } // end of <anonymous> namespace
 
 void TasksReceiver::add(const SharedPtr<EveryFrameTask> & ptr)

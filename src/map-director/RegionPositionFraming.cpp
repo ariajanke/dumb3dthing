@@ -49,18 +49,22 @@ TilePositionFraming::TilePositionFraming
     m_on_field_region_position(on_field_position),
     m_on_field_tile_position(on_field_position + inserter_position) {}
 
-TriangleSegment TilePositionFraming::transform(const TriangleSegment & triangle) const
-    { return triangle_transformation()(triangle); }
+TriangleSegment TilePositionFraming::transform
+    (const TriangleSegment & triangle) const
+{ return m_scale.of(triangle).move(translation()); }
 
 ModelScale TilePositionFraming::model_scale() const
-    { return triangle_transformation().model_scale(); }
+    { return m_scale.to_model_scale(); }
 
 ModelTranslation TilePositionFraming::model_translation() const
-    { return triangle_transformation().model_translation(); }
+    { return ModelTranslation{translation()}; }
 
-/* private */ TriangleSegmentTransformation
-    TilePositionFraming::triangle_transformation() const
-    { return TriangleSegmentTransformation{m_scale, m_on_field_tile_position}; }
+/* private */ Vector TilePositionFraming::translation() const {
+    return Vector
+        {Real(m_on_field_tile_position.x),
+         0,
+         Real(-m_on_field_tile_position.y)};
+}
 
 // ----------------------------------------------------------------------------
 
@@ -74,6 +78,13 @@ void SubRegionPositionFraming::set_containers_with
     container.set_region
         (m_on_field_position, scaled_view_grid, std::move(entities));
     edge_container_adder.add(m_on_field_position, scaled_view_grid);
+}
+
+bool SubRegionPositionFraming::operator ==
+    (const SubRegionPositionFraming & rhs) const
+{
+    return m_scale == rhs.m_scale &&
+           m_on_field_position == rhs.m_on_field_position;
 }
 
 // ----------------------------------------------------------------------------
@@ -98,7 +109,7 @@ RegionPositionFraming RegionPositionFraming::move
     (const Vector2I & map_tile_position) const
 {
     return RegionPositionFraming
-        {m_tile_scale, m_on_field_position + m_tile_scale(map_tile_position)};
+        {m_tile_scale, m_on_field_position + m_tile_scale.of(map_tile_position)};
 }
 
 RegionPositionFraming RegionPositionFraming::with_scaling
@@ -114,8 +125,8 @@ RegionPositionFraming RegionPositionFraming::with_scaling
     const auto subgrid_size = cul::convert_to<Size2I>(step);
     for (Vector2I r; r.x < region_size.width ; r.x += step.x) {
     for (r.y = 0   ; r.y < region_size.height; r.y += step.y) {
-        auto on_field_position = m_on_field_position + m_tile_scale(r);
-        RectangleI on_field_rect{on_field_position, m_tile_scale(subgrid_size)};
+        auto on_field_position = m_on_field_position + m_tile_scale.of(r);
+        RectangleI on_field_rect{on_field_position, m_tile_scale.of(subgrid_size)};
         bool overlaps_this_subregion = request.
             overlaps_with(on_field_rect);
         if (!overlaps_this_subregion) continue;

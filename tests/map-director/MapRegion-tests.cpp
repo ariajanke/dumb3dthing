@@ -24,6 +24,8 @@
 
 #include "../test-helpers.hpp"
 
+#include <set>
+
 namespace {
 
 class RequestAllRegions final : public RegionLoadRequestBase {
@@ -87,6 +89,11 @@ public:
         (const SubRegionPositionFraming &, const ProducableSubGrid &) final {}
 };
 
+class TestProducableTile final : public ProducableTile {
+public:
+    void operator () (ProducableTileCallbacks &) const final {}
+};
+
 } // end of <anonymous> namespace
 
 [[maybe_unused]] static auto s_add_describes = [] {
@@ -129,6 +136,30 @@ describe<CompositeMapRegion>("CompositeMapRegion")([] {
     });
 });
 #endif
+
+describe("ProducableTileGridStacker")([] {
+    mark_it("makes a producable tile view grid", [&] {
+        TestProducableTile a, b;
+        Grid<ProducableTile *> grid_a { { &a } };
+        Grid<ProducableTile *> grid_b { { &b } };
+        auto stacker = StackableProducableTileGrid{std::move(grid_a), {}}.
+            stack_with(ProducableTileGridStacker{});
+        stacker = StackableProducableTileGrid{std::move(grid_b), {}}.
+            stack_with(std::move(stacker));
+        auto producables = stacker.to_producables();
+        auto view = producables.make_subgrid()(Vector2I{0, 0});
+        std::set<ProducableTile *> tiles = { &a, &b };
+        for (auto & tile : view) {
+            auto itr = tiles.find(tile);
+            if (itr == tiles.end()) {
+                return test_that(false);
+            }
+            tiles.erase(itr);
+        }
+        return test_that(tiles.empty());
+    });
+});
+
 return [] {};
 
 } ();

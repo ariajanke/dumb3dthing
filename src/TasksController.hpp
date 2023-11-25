@@ -243,6 +243,19 @@ public:
         SharedPtr<BackgroundTask> return_task;
     };
 
+    class TaskStrategy final : public BackgroundTask::ContinuationStrategy {
+    public:
+        using Continuation = BackgroundTask::Continuation;
+
+        explicit TaskStrategy(Continuation & continuation):
+            m_continuation(continuation) {}
+
+        Continuation & continue_() final { return m_continuation; }
+
+    private:
+        Continuation & m_continuation;
+    };
+
     using BackgroundTaskMap =
         cul::HashMap<SharedPtr<BackgroundTask>, ReturnTaskEntry>;
 

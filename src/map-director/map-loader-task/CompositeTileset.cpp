@@ -99,6 +99,9 @@ Continuation & CompositeTileset::load
             map_loader_task = make_shared<MapLoaderTask>(value, platform);
         }
     }
+    if (!map_loader_task) {
+        throw RuntimeError{"Unhandled: composite tileset without a name"};
+    }
     m_sub_regions_grid = make_shared<Grid<MapSubRegion>>();
     m_sub_regions_grid->set_size
         (*size_of_tileset(tileset_element), MapSubRegion{});

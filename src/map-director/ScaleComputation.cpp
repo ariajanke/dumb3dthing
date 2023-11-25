@@ -38,7 +38,8 @@ constexpr const auto k_whitespace_trimmer =
 /* static */ Optional<ScaleComputation>
     ScaleComputation::parse(const char * string)
 {
-    if (string == nullptr) return {};
+    if (string == nullptr)
+        { return {}; }
     std::array<Real, 3> args;
     auto read_pos = args.begin();
     auto data_substrings = split_range
@@ -46,10 +47,12 @@ constexpr const auto k_whitespace_trimmer =
          k_whitespace_trimmer);
     for (auto data_substring : data_substrings) {
         // too many arguments
-        if (read_pos == args.end()) return {};
+        if (read_pos == args.end())
+            { return {}; }
         auto read_number = cul::string_to_number
             (data_substring.begin(), data_substring.end(), *read_pos++);
-        if (!read_number) return {};
+        if (!read_number)
+            { return {}; }
     }
     switch (read_pos - args.begin()) {
     case 1: return ScaleComputation{args[0], args[0], args[0]};
@@ -65,15 +68,22 @@ ScaleComputation::ScaleComputation
      Real northsouth_factor):
     m_factor(eastwest_factor, updown_factor, northsouth_factor) {}
 
-TriangleSegment ScaleComputation::
-    operator () (const TriangleSegment & triangle) const
-{
+TriangleSegment ScaleComputation::of(const TriangleSegment & triangle) const {
     // this is also LoD, but I don't wanna load up triangle segment too much
     return TriangleSegment
         {scale(triangle.point_a()),
          scale(triangle.point_b()),
          scale(triangle.point_c())};
 }
+
+RectangleI ScaleComputation::of(const RectangleI & rect) const {
+    return RectangleI
+        {scale_x(rect.left ), scale_z(rect.top   ),
+         scale_x(rect.width), scale_z(rect.height)};
+}
+
+bool ScaleComputation::operator == (const ScaleComputation & rhs) const
+    { return are_very_close(m_factor, rhs.m_factor); }
 
 ModelScale ScaleComputation::to_model_scale() const
     { return ModelScale{m_factor}; }
@@ -88,5 +98,5 @@ std::array<RegionAxisAddressAndSide, 4>
     (const Vector2I & on_field_position) const
 {
     return RegionAxisAddressAndSide::for_
-        (on_field_position, m_scale(m_triangle_grid->size2()));
+        (on_field_position, m_scale.of(m_triangle_grid->size2()));
 }
