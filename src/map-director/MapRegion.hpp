@@ -111,7 +111,6 @@ private:
 
 class ProducableTileGridStacker final {
 public:
-    // can also be turned into a template method?
     static ViewGrid<ProducableTile *> producable_grids_to_view_grid
         (std::vector<Grid<ProducableTile *>> &&);
 

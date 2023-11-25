@@ -194,6 +194,9 @@ void ReturnToTasksCollection::add_return_task_to
         throw InvalidArgument
             {"Given return to task is not tracked by this collection"};
     }
+#   ifdef MACRO_DEBUG
+    assert(itr->second.counter > 0);
+#   endif
     --itr->second.counter;
     if (itr->second.counter == 0) {
         auto ex = m_tracked_tasks.extract(itr);
@@ -258,9 +261,12 @@ void RunableBackgroundTasks::run_existing_tasks(TaskCallbacks & callbacks) {
         }
         itr = m_running_tasks.erase(itr);
     }
+    bool has_new_tasks = !m_new_tasks.empty();
     for (auto & entry : m_new_tasks)
         { add_new_task_to(std::move(entry), m_running_tasks); }
     m_new_tasks.clear();
+    if (has_new_tasks)
+        { return run_existing_tasks(callbacks); }
 }
 
 RunableBackgroundTasks RunableBackgroundTasks::combine_with

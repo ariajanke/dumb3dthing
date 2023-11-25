@@ -24,11 +24,26 @@
 
 #include "test-helpers.hpp"
 
-[[maybe_unused]] static auto s_add_describes = [] {
+namespace {
 
 using namespace cul::tree_ts;
+
 using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
 using Continuation = BackgroundTask::Continuation;
+using NewTaskEntry = ReturnToTasksCollection::NewTaskEntry;
+
+struct ReturnToTasksCollectionTrackReturnTask final {};
+struct ReturnToTasksCollectionAddReturnTaskTo final {};
+
+SharedPtr<BackgroundTask> make_finishing_task() {
+    return BackgroundTask::make([]
+        (TaskCallbacks &, ContinuationStrategy & strat) -> Continuation &
+        { return strat.finish_task(); });
+}
+
+} // end of <anonymous> namespace
+
+[[maybe_unused]] static auto s_add_describes = [] {
 
 describe<TasksReceiver>("MultiReceiver for EveryFrameTasks")([] {
     auto task = EveryFrameTask::make([] (TaskCallbacks &, Real) {});
@@ -150,6 +165,85 @@ describe<EntitiesReceiver>("MultiReceiver for entities #add").
 
 });
 
+describe<ReturnToTasksCollectionTrackReturnTask>
+    ("ReturnToTasksCollection#add_return_task_to")([]
+{
+    ReturnToTasksCollection col;
+    std::vector<NewTaskEntry> vec;
+    auto task = make_finishing_task();
+    auto return_task = make_finishing_task();
+    mark_it("does nothing with nullptr", [&] {
+        col.add_return_task_to(ElementCollector{vec}, nullptr);
+        return test_that(vec.empty());
+    }).
+    mark_it("throws on untracked task", [&] {
+        return expect_exception<InvalidArgument>([&]
+            { col.add_return_task_to(ElementCollector{vec}, task); });
+    }).
+    next([&] {
+        col.track_return_task(task, return_task, 2);
+        col.add_return_task_to(ElementCollector{vec}, task);
+    }).
+    mark_it("does not add if counter remains above 0", [&] {
+        return test_that(vec.empty());
+    }).
+    mark_it("adds when counter hits 0", [&] {
+        col.add_return_task_to(ElementCollector{vec}, task);
+        return test_that(vec.size() == 1 &&
+                         vec.front().task == task &&
+                         vec.front().return_to_task == return_task);
+    });
+});
+
+describe<ReturnToTasksCollectionAddReturnTaskTo>
+    ("ReturnToTasksCollection#track_return_task").
+    depends_on<ReturnToTasksCollectionTrackReturnTask>()([]
+{
+    ReturnToTasksCollection col;
+    mark_it("throws InvalidArugument on tracking nullptr", [&] {
+        return expect_exception<InvalidArgument>([&]
+            { col.track_return_task(nullptr, nullptr, 1); });
+    }).
+    mark_it("throws InvalidArugument on 0 or fewer watied on tasks", [&] {
+        auto task = make_finishing_task();
+        return expect_exception<InvalidArgument>([&]
+            { col.track_return_task(task, nullptr, 0); });
+    });
+});
+
+describe<TaskContinuationComplete>
+    ("TaskContinuationComplete#add_new_entries_to").
+    depends_on<ReturnToTasksCollectionAddReturnTaskTo>()([]
+{
+    TaskContinuationComplete continuation;
+    ReturnToTasksCollection col;
+    std::vector<NewTaskEntry> vec;
+    ElementCollector collector{vec};
+    auto task = make_finishing_task();
+    auto return_to_task = make_finishing_task();
+    mark_it("no waited on tasks, is not added to return to collection", [&] {
+        continuation.add_new_entries_to(task, nullptr, collector, col);
+        return expect_exception<InvalidArgument>([&] {
+            col.add_return_task_to(collector, task);
+        });
+    }).
+    next([&] {
+        continuation.wait_on(task);
+        continuation.add_new_entries_to(return_to_task, nullptr, collector, col);
+    }).
+    mark_it("waited on tasks are added to new tasks", [&] {
+        return test_that(vec.size() == 1);
+    }).
+    mark_it("can return to a task from a collection, if there are waited on "
+            "tasks", [&]
+    {
+        vec.clear();
+        col.add_return_task_to(collector, return_to_task);
+        return test_that(vec.size() == 1 &&
+                         vec.front().task == return_to_task);
+    });
+});
+#if 0
 // redisgn return to task first!
 
 struct RunableBackgroundTasksClassMethods {};
@@ -169,7 +263,7 @@ describe<RunableBackgroundTasks>("RunableBackgroundTasks#combine_tasks_with").
 {
 
 });
-
+#endif
 
 return 1;
 
