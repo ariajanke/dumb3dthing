@@ -151,7 +151,7 @@ Continuation & TaskContinuationComplete::wait_on
     return *this;
 }
 
-void TaskContinuationComplete::add_new_entries_to
+void TaskContinuationComplete::add_waited_on_tasks_to
     (const SharedPtr<BackgroundTask> & current_task,
      const SharedPtr<BackgroundTask> & tasks_return_task,
      ElementCollector<NewTaskEntry> new_tasks_collector,
@@ -240,7 +240,7 @@ void RunableBackgroundTasks::run_existing_tasks(TaskCallbacks & callbacks) {
                 ++itr;
                 continue;
             }
-            m_task_continuation.add_new_entries_to
+            m_task_continuation.add_waited_on_tasks_to
                 (itr->first,
                  itr->second.return_task,
                  ElementCollector{m_new_tasks},
@@ -254,8 +254,10 @@ void RunableBackgroundTasks::run_existing_tasks(TaskCallbacks & callbacks) {
     for (auto & entry : m_new_tasks)
         { add_new_task_to(std::move(entry), m_running_tasks); }
     m_new_tasks.clear();
+#   if 0
     if (has_new_tasks)
         { return run_existing_tasks(callbacks); }
+#   endif
 }
 
 RunableBackgroundTasks RunableBackgroundTasks::combine_with

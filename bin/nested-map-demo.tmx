@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="10" height="10" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
+ <properties>
+  <property name="scale" value="10"/>
+ </properties>
+ <tileset firstgid="1" name="nested-comp-demo-parts" tilewidth="32" tileheight="32" tilecount="4" columns="2">
+  <properties>
+   <property name="filename" value="nested-comp-parts.tmx"/>
+   <property name="type" value="composite-map-tileset"/>
+  </properties>
+  <image source="../../../../../../../../home/aria/dev/mapproject/bin/nest-comp-demo.png" width="64" height="64"/>
+ </tileset>
+ <layer id="1" name="Tile Layer 1" width="10" height="10">
+  <data encoding="csv">
+3,3,3,3,3,4,1,3,3,3,
+4,2,3,4,1,3,3,4,3,1,
+3,3,1,4,3,4,3,3,3,3,
+4,1,4,3,4,4,1,3,4,1,
+1,3,3,3,3,3,4,3,3,3,
+3,3,4,1,3,3,4,3,3,1,
+3,1,3,3,3,2,3,3,4,3,
+3,4,3,3,1,3,3,3,1,3,
+3,3,3,3,3,3,1,3,3,3,
+1,3,1,3,3,3,3,3,1,3
+</data>
+ </layer>
+</map>

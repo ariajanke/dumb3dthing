@@ -28,7 +28,7 @@
 #include "../../Components.hpp"
 #include "../../TasksController.hpp"
 
-class BackgroundTaskTrap final : public TaskCallbacks {
+class BackgroundTaskTrap final {
 public:
     using TaskContinuation = BackgroundTask::Continuation;
     using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
@@ -41,21 +41,9 @@ public:
         m_continuation = &strategy.finish_task();
     }
 
-    void add(const SharedPtr<EveryFrameTask> & task) final
-        { m_callbacks->add(task); }
-
-    void add(const SharedPtr<LoaderTask> & task) final
-        { m_callbacks->add(task); }
-
-    void add(const SharedPtr<BackgroundTask> & task) final {
+    void add_background_task(const SharedPtr<BackgroundTask> & task) {
         m_continuation = &m_strategy->continue_().wait_on(task);
     }
-
-    void add(const Entity & entity) final
-        { m_callbacks->add(entity); }
-
-    Platform & platform() final
-        { return m_callbacks->platform(); }
 
     TaskContinuation & continuation() const {
         if (m_continuation) return *m_continuation;

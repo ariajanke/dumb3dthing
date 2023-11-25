@@ -21,6 +21,7 @@
 #include "../../Definitions.hpp"
 #include "../../GameDriver.hpp"
 #include "../../Systems.hpp"
+#include "../../Configuration.hpp"
 
 #include "RenderModelImpl.hpp"
 #include "TextureImpl.hpp"

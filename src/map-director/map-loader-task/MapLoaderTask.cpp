@@ -76,4 +76,4 @@ SharedPtr<Texture> MapContentLoaderComplete::make_texture() const
 
 void MapContentLoaderComplete::wait_on
     (const SharedPtr<BackgroundTask> & task)
-    { m_background_task_trap.add(task); }
+    { m_background_task_trap.add_background_task(task); }

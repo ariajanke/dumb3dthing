@@ -25,11 +25,15 @@
 
 #include <tinyxml2.h>
 
+// obscenely complicated setup :c
 namespace {
 
 using namespace cul::tree_ts;
 
 using TaskStrategy = RunableBackgroundTasks::TaskStrategy;
+using NewTaskEntry = ReturnToTasksCollection::NewTaskEntry;
+using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
+using Continuation = BackgroundTask::Continuation;
 
 constexpr const auto k_test_tileset_contents =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -88,6 +92,31 @@ public:
         throw "";
     }
 };
+
+SharedPtr<BackgroundTask> make_finishing_task() {
+    return BackgroundTask::make([]
+        (TaskCallbacks &, ContinuationStrategy & strat) -> Continuation &
+        { return strat.finish_task(); });
+}
+
+class TestCallbacks final : public TaskCallbacks {
+public:
+    static TestCallbacks & instance() {
+        static TestCallbacks inst;
+        return inst;
+    }
+
+    void add(const SharedPtr<EveryFrameTask> &) {}
+
+    void add(const SharedPtr<LoaderTask> &) {}
+
+    void add(const SharedPtr<BackgroundTask> &) { throw ""; }
+
+    void add(const Entity &) {}
+
+    Platform & platform() { return TestPlatform::platform(); }
+};
+
 } // end of <anonymous> namespace
 
 [[maybe_unused]] static auto s_add_describes = [] {
@@ -98,11 +127,33 @@ describe("CompositeTileset")([] {
     doc.Parse(k_test_tileset_contents);
     TaskContinuationComplete continuation;
     TaskStrategy strategy{continuation};
-    auto & cont_ = tileset.load
+    (void)tileset.load
         (TestPlatform::platform(), *doc.RootElement(), strategy);
+    std::vector<NewTaskEntry> new_tasks;
+    ReturnToTasksCollection col;
+    auto add_new_wait_ons = [&] {
+        continuation.add_waited_on_tasks_to
+            (make_finishing_task(),
+             nullptr,
+             ElementCollector{new_tasks},
+             col);
+    };
     mark_it("waits on a map loading task", [&] {
         return test_that(continuation.has_waited_on_tasks());
     });
+#   if 0 // guh not sure how possible this is...
+    mark_it("", [&] {
+        add_new_wait_ons();
+        for (auto & task : new_tasks) {
+            (void)task.task->in_background(TestCallbacks::instance(), strategy);
+        }
+        add_new_wait_ons();
+        for (auto & task : new_tasks) {
+            (void)task.task->in_background(TestCallbacks::instance(), strategy);
+        }
+        return test_that(false);
+    });
+#   endif
 });
 
 return [] {};

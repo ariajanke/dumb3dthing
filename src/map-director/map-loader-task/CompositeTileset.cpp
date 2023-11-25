@@ -144,8 +144,10 @@ CompositeTilesetFinisherTask::CompositeTilesetFinisherTask
 Continuation & CompositeTilesetFinisherTask::in_background
     (Callbacks &, ContinuationStrategy & strategy)
 {
-    if (m_map_loader_task)
-        { return strategy.continue_().wait_on(m_map_loader_task); }
+    if (m_map_loader_task) {
+        auto ml = std::move(m_map_loader_task);
+        return strategy.continue_().wait_on(ml);
+    }
     m_source_map = m_map_retriever->retrieve();
     for (Vector2I r;
          r != m_sub_regions_grid->end_position();

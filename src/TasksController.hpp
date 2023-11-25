@@ -191,7 +191,7 @@ public:
 
     Continuation & wait_on(const SharedPtr<BackgroundTask> &) final;
 
-    void add_new_entries_to
+    void add_waited_on_tasks_to
         (const SharedPtr<BackgroundTask> & current_task,
          const SharedPtr<BackgroundTask> & tasks_return_task,
          ElementCollector<NewTaskEntry>,

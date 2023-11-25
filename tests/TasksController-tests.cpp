@@ -222,14 +222,14 @@ describe<TaskContinuationComplete>
     auto task = make_finishing_task();
     auto return_to_task = make_finishing_task();
     mark_it("no waited on tasks, is not added to return to collection", [&] {
-        continuation.add_new_entries_to(task, nullptr, collector, col);
+        continuation.add_waited_on_tasks_to(task, nullptr, collector, col);
         return expect_exception<InvalidArgument>([&] {
             col.add_return_task_to(collector, task);
         });
     }).
     next([&] {
         continuation.wait_on(task);
-        continuation.add_new_entries_to(return_to_task, nullptr, collector, col);
+        continuation.add_waited_on_tasks_to(return_to_task, nullptr, collector, col);
     }).
     mark_it("waited on tasks are added to new tasks", [&] {
         return test_that(vec.size() == 1);

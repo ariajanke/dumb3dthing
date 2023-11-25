@@ -82,8 +82,7 @@ public:
     using GridViewContainer = Grid<ElementView>;
     using Iterator          = typename GridViewContainer::Iterator;
     using ConstIterator     = typename GridViewContainer::ConstIterator;
-    using SubGrid           = cul::ConstSubGrid
-        <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
+    using SubGrid           = cul::ConstSubGrid<ElementView>;
     using Inserter          = ViewGridInserter<T>;
 
     static ViewGrid from_grid(Grid<T> &&);
