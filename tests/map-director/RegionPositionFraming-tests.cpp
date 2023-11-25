@@ -19,8 +19,12 @@
 *****************************************************************************/
 
 #include "../../src/map-director/RegionPositionFraming.hpp"
+#include "../../src/map-director/RegionLoadRequest.hpp"
 
 #include "../test-helpers.hpp"
+
+#include <set>
+#include <unordered_set>
 
 // tiled map
 //   has a scale
@@ -98,7 +102,38 @@
 
 namespace {
 
+class TestRegionLoadRequest final : public RegionLoadRequestBase {
+public:
+    static TestRegionLoadRequest & instance() {
+        static TestRegionLoadRequest inst;
+        return inst;
+    }
 
+    static void set_always_overlaps() { s_overlaps = true; }
+
+    static void set_never_overlaps() { s_overlaps = false; }
+
+    static void set_max_region_size(Size2I sz) { s_max_size = sz; }
+
+    bool overlaps_with(const RectangleI &) const final { return s_overlaps; }
+
+    Size2I max_region_size() const final { return s_max_size; }
+
+private:
+    static Size2I s_max_size;
+    static bool s_overlaps;
+};
+
+struct RectHash final {
+    std::size_t operator () (const RectangleI & rect) const {
+        using IntHash = std::hash<int>;
+        return IntHash{}(rect.height) ^ IntHash{}(rect.left ) ^
+               IntHash{}(rect.top   ) ^ IntHash{}(rect.width);
+    }
+};
+
+/* private static */ Size2I TestRegionLoadRequest::s_max_size{2, 1};
+/* private static */ bool TestRegionLoadRequest::s_overlaps = true;
 } // end of <anonymous> namespace
 
 [[maybe_unused]] static auto s_add_describes = [] {
@@ -131,6 +166,53 @@ describe<TilePositionFraming>("TilePositionFraming")([] {
         return test_that(are_very_close(
             framing.model_translation().value,
             Vector{1, 0, -2} + Vector{2, 0, 0}));
+    });
+});
+
+describe<RegionPositionFraming>("RegionPositionFraming#for_each_overlap_")([] {
+    RegionPositionFraming framing
+        {ScaleComputation{2, 0, 2},
+         Vector2I{1, 2}};
+    TestRegionLoadRequest request;
+    SharedPtr<Size2I> region_size = make_shared<Size2I>();
+    std::unordered_set<RectangleI, RectHash> expected_rects;
+    auto remove_expected_rects = [&] {
+        framing.for_each_overlap
+            (*region_size,
+             TestRegionLoadRequest::instance(),
+             [&](const RegionPositionFraming &, const RectangleI & rect)
+        {
+            auto itr = expected_rects.find(rect);
+            if (itr == expected_rects.end()) {
+                throw RuntimeError{"found unexpected rectangle"};
+            }
+            expected_rects.erase(itr);
+        });
+    };
+    mark_it("covers with sub regions that fit region load request", [&] {
+        TestRegionLoadRequest::set_max_region_size(Size2I{2, 1});
+        *region_size = Size2I{2, 2};
+        expected_rects = { RectangleI{0, 0, 2, 1}, RectangleI{0, 1, 2, 1} };
+        remove_expected_rects();
+        return test_that(expected_rects.empty());
+    }).
+    mark_it("covers with sub regions that fit unevenly the region load request", [&] {
+        TestRegionLoadRequest::set_max_region_size(Size2I{2, 2});
+        *region_size = Size2I{5, 2};
+        expected_rects = {
+            RectangleI{0, 0, 2, 2},
+            RectangleI{2, 0, 2, 2},
+            RectangleI{4, 0, 1, 2},
+        };
+        remove_expected_rects();
+        return test_that(expected_rects.empty());
+    }).
+    mark_it("covers nothing in load request never overlaps", [&] {
+        TestRegionLoadRequest::set_max_region_size(Size2I{2, 1});
+        *region_size = Size2I{2, 2};
+        TestRegionLoadRequest::set_never_overlaps();
+        remove_expected_rects();
+        return test_that(expected_rects.empty());
     });
 });
 

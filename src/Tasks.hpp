@@ -43,6 +43,8 @@ public:
     virtual Platform & platform() = 0;
 };
 
+// ----------------------------------------------------------------------------
+
 /** @brief An every frame task is retained and ran every frame.
  *
  * When the scheduler/driver becomes the sole owner, it removes the task
@@ -59,6 +61,8 @@ public:
     template <typename Func>
     static SharedPtr<EveryFrameTask> make(Func && f_);
 };
+
+// ----------------------------------------------------------------------------
 
 class BackgroundTask {
 public:
@@ -92,6 +96,8 @@ public:
     static SharedPtr<BackgroundTask> make(Func && f_);
 };
 
+// ----------------------------------------------------------------------------
+
 class LoaderTask {
 public:
     struct PlayerEntities final {
@@ -113,14 +119,13 @@ public:
 
     virtual ~LoaderTask() {}
 
-    /**
-     *
-     */
     virtual void operator () (Callbacks &) const = 0;
 
     template <typename Func>
     static SharedPtr<LoaderTask> make(Func && f_);
 };
+
+// ----------------------------------------------------------------------------
 
 template <typename Func>
 /* static */ SharedPtr<EveryFrameTask> EveryFrameTask::make(Func && f_) {
@@ -137,6 +142,8 @@ template <typename Func>
     return make_shared<Impl>(std::move(f_));
 }
 
+// ----------------------------------------------------------------------------
+
 template <typename Func>
 /* static */ SharedPtr<BackgroundTask> BackgroundTask::make(Func && f_) {
     class Impl final : public BackgroundTask {
@@ -152,6 +159,8 @@ template <typename Func>
     };
     return make_shared<Impl>(std::move(f_));
 }
+
+// ----------------------------------------------------------------------------
 
 template <typename Func>
 /* static */ SharedPtr<LoaderTask> LoaderTask::make(Func && f_) {

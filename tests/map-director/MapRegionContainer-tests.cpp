@@ -83,23 +83,21 @@ describe<MapRegionContainer>("MapRegionContainer")([]
                     addresses.push_back(addr_and_side.address());
                 }
                 std::sort(addresses.begin(), addresses.end());
-                // decayed_region = RectangleI{r, grid};
             }
 
-            // RectangleI decayed_region;
             std::vector<RegionAxisAddress> addresses;
         };
         Impl impl;
         container.decay_regions(impl);
         container.decay_regions(impl);
         std::vector<RegionAxisAddress> expected_addresses;
-        expected_addresses.emplace_back(RegionAxis::x_ways, 0);
-        expected_addresses.emplace_back(RegionAxis::x_ways, 1);
-        expected_addresses.emplace_back(RegionAxis::z_ways, 0);
+        expected_addresses.emplace_back(RegionAxis::z_ways, 2);
         expected_addresses.emplace_back(RegionAxis::z_ways, 1);
+        expected_addresses.emplace_back(RegionAxis::x_ways, 2);
+        expected_addresses.emplace_back(RegionAxis::x_ways, 1);
         std::sort(expected_addresses.begin(), expected_addresses.end());
         return test_that(std::equal(impl.addresses.begin(), impl.addresses.end(),
-                                    expected_addresses.begin(), expected_addresses.end())); //impl.decayed_region == RectangleI{1, 1, 1, 1});
+                                    expected_addresses.begin(), expected_addresses.end()));
     });
 });
 

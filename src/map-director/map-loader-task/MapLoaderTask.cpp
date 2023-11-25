@@ -25,7 +25,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 using Continuation = BackgroundTask::Continuation;
 
@@ -58,7 +57,7 @@ Continuation & MapLoaderTask::in_background
 
 UniquePtr<MapRegion> MapLoaderTask::retrieve() {
     if (!m_loaded_region) {
-        throw std::runtime_error{"No loaded region to retrieve"};
+        throw RuntimeError{"No loaded region to retrieve"};
     }
     return std::move(m_loaded_region);
 }

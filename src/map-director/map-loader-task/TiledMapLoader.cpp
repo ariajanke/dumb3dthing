@@ -265,7 +265,7 @@ private:
     for (const auto & layer : layers) {
         auto mapping_layer = id_mapping_set.make_mapping_for_layer(layer);
         for (auto & tslayer : mapping_layer) {
-            auto * tileset = TileSetMappingLayer::tileset_of(tslayer.as_view());
+            auto * tileset = TilesetMappingLayer::tileset_of(tslayer.as_view());
             tileset->add_map_elements(impl, tslayer);
         }
     }

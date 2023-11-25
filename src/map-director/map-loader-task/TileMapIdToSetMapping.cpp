@@ -23,7 +23,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using ConstTileSetPtr = TilesetMappingTile::ConstTileSetPtr;
 using TileSetPtr      = TilesetMappingTile::TilesetPtr;
 
@@ -79,7 +78,7 @@ TilesetBase & TilesetMappingTile::tileset_of(const MappingView & view) const {
 // ----------------------------------------------------------------------------
 
 /* static */ std::vector<TileLocation>
-    TileSetMappingLayer::convert_to_tile_locations
+    TilesetMappingLayer::convert_to_tile_locations
     (const MappingView & tile_mappings)
 {
     std::vector<TileLocation> rv;
@@ -89,8 +88,8 @@ TilesetBase & TilesetMappingTile::tileset_of(const MappingView & view) const {
     return rv;
 }
 
-/* static */ TileSetMappingLayer::MappingContainer
-    TileSetMappingLayer::sort_container(MappingContainer && container)
+/* static */ TilesetMappingLayer::MappingContainer
+    TilesetMappingLayer::sort_container(MappingContainer && container)
 {
     std::sort(container.begin(), container.end(),
               TilesetMappingTile::less_than);
@@ -98,7 +97,7 @@ TilesetBase & TilesetMappingTile::tileset_of(const MappingView & view) const {
 }
 
 /* static */ std::vector<TilesetLayerWrapper>
-    TileSetMappingLayer::make_views_from_sorted
+    TilesetMappingLayer::make_views_from_sorted
     (const MappingContainer & container, const Size2I & grid_size)
 {
     if (container.size() == 0) {
@@ -118,14 +117,14 @@ TilesetBase & TilesetMappingTile::tileset_of(const MappingView & view) const {
     return views;
 }
 
-/* static */ TilesetBase * TileSetMappingLayer::tileset_of
+/* static */ TilesetBase * TilesetMappingLayer::tileset_of
     (const MappingView & view)
 {
     if (view.begin() == view.end()) return nullptr;
     return &view.begin()->tileset_of(view);
 }
 
-TileSetMappingLayer::TileSetMappingLayer
+TilesetMappingLayer::TilesetMappingLayer
     (MappingContainer && locations, const Size2I & grid_size):
     m_locations(sort_container(std::move(locations))),
     m_mapping_views(make_views_from_sorted(m_locations, grid_size)) {}
@@ -137,7 +136,7 @@ TileSetMappingLayer::TileSetMappingLayer
     (const Size2I & size2)
 {
     if (size2.width < 0 || size2.height < 0) {
-        throw std::invalid_argument{""};
+        throw InvalidArgument{"Size fields must be non-negative integers"};
     }
     std::vector<TilesetMappingTile> tile_locations;
     tile_locations.reserve(size2.width*size2.height);
@@ -162,7 +161,7 @@ TileSetMappingLayer::TileSetMappingLayer
 }
 
 TileMapIdToSetMapping::TileMapIdToSetMapping
-    (std::vector<StartGidWithTileSet> && tilesets_and_starts):
+    (std::vector<StartGidWithTileset> && tilesets_and_starts):
     m_gid_map(std::move(tilesets_and_starts))
 {
     std::sort(m_gid_map.begin(), m_gid_map.end(), order_by_gids);
@@ -172,7 +171,7 @@ TileMapIdToSetMapping::TileMapIdToSetMapping
     }
 }
 
-TileSetMappingLayer TileMapIdToSetMapping::
+TilesetMappingLayer TileMapIdToSetMapping::
     make_mapping_for_layer(const Grid<int> & gid_layer)
 {
     auto locations = make_locations(gid_layer.size2());
@@ -180,7 +179,7 @@ TileSetMappingLayer TileMapIdToSetMapping::
         auto [tid, tileset] = map_id_to_set(gid_layer(location.on_map()));
         location = location.with_tileset(tid, tileset);
     }
-    return TileSetMappingLayer
+    return TilesetMappingLayer
         {clean_null_tiles(std::move(locations)), gid_layer.size2()};
 }
 
@@ -191,12 +190,12 @@ TileSetMappingLayer TileMapIdToSetMapping::
         return std::make_pair(0, nullptr);
     }
     if (map_wide_id < 1 || map_wide_id >= m_gid_end) {
-        throw InvArg
+        throw InvalidArgument
             {"TileMapIdToSetMapping::map_id_to_set: Given map_id is either "
              "the empty tile or not contained in this map; translatable ids: "
              "[1 " + std::to_string(m_gid_end) + ")."};
     }
-    StartGidWithTileSet samp;
+    StartGidWithTileset samp;
     samp.start_gid = map_wide_id;
     auto itr = std::upper_bound
         (m_gid_map.begin(), m_gid_map.end(), samp, order_by_gids);
@@ -207,5 +206,5 @@ TileSetMappingLayer TileMapIdToSetMapping::
 }
 
 /* private static */ bool TileMapIdToSetMapping::order_by_gids
-    (const StartGidWithTileSet & lhs, const StartGidWithTileSet & rhs)
+    (const StartGidWithTileset & lhs, const StartGidWithTileset & rhs)
 { return lhs.start_gid < rhs.start_gid; }

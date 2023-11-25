@@ -26,7 +26,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using Triangle = TriangleLink::Triangle;
 
 constexpr std::array k_triangle_sides =
@@ -110,8 +109,8 @@ int TriangleLink::sides_attached_count() const {
     auto itr = std::find
         (k_triangle_sides.begin(), k_triangle_sides.end(), side);
     if (itr != k_triangle_sides.end()) return side;
-    throw InvArg{  std::string{caller}
-                 + ": side must be valid value and not k_inside."};
+    throw InvalidArgument
+        {std::string{caller} + ": side must be valid value and not k_inside."};
 }
 
 namespace {

@@ -34,7 +34,6 @@ constexpr const auto k_twisty_origin = TwistyStripRadii::k_twisty_origin;
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using cul::size_of, cul::top_left_of;
 
 } // end of <anonymous> namespace

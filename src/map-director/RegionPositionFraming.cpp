@@ -39,6 +39,21 @@ Vector2I region_load_step
          step_of_(region_size.height, request.max_region_size().height)};
 }
 
+RectangleI fit_rectangle_within
+    (RectangleI && to_fit,
+     const Size2I & within)
+{
+    auto fit = [] (int to, int within)
+        { return to > within ? within : to; };
+    auto right  = to_fit.left + to_fit.width ;
+    auto bottom = to_fit.top  + to_fit.height;
+    return RectangleI
+        {to_fit.left,
+         to_fit.top ,
+         fit(right , within.width ) - to_fit.left,
+         fit(bottom, within.height) - to_fit.top };
+}
+
 } // end of <anonymous> namespace
 
 TilePositionFraming::TilePositionFraming
@@ -131,8 +146,7 @@ RegionPositionFraming RegionPositionFraming::with_scaling
             overlaps_with(on_field_rect);
         if (!overlaps_this_subregion) continue;
 
-        // bug here: need to limit rectangle to the subregion grid size
-        // (catch in a test before fixing)
-        f(move(r), RectangleI{r, subgrid_size});
+        f(move(r),
+          fit_rectangle_within(RectangleI{r, subgrid_size}, region_size));
     }}
 }

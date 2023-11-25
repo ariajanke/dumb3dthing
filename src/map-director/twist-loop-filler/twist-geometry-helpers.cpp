@@ -24,7 +24,6 @@ constexpr const auto k_twisty_origin = TwistyStripRadii::k_twisty_origin;
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using cul::size_of, cul::top_left_of;
 
 } // end of <anonymous> namespace
@@ -137,14 +136,14 @@ std::vector<Real> verify_ordered
     (const char * caller, std::vector<Real> && reals)
 {
     if (std::is_sorted(reals.begin(), reals.end())) return std::move(reals);
-    throw InvArg{std::string{caller} + ": requires ordered tbreaks"};
+    throw InvalidArgument{std::string{caller} + ": requires ordered tbreaks"};
 }
 
 std::vector<Real> verify_at_least_two
     (const char * caller, std::vector<Real> && reals)
 {
     if (reals.size() >= 2) return std::move(reals);
-    throw InvArg{std::string{caller} + ": requires at least two tbreaks"};
+    throw InvalidArgument{std::string{caller} + ": requires at least two tbreaks"};
 }
 
 std::vector<Real> verify_all_within_zero_to_one
@@ -153,7 +152,7 @@ std::vector<Real> verify_all_within_zero_to_one
     if (std::all_of
         (reals.begin(), reals.end(), [](Real x) { return x >= 0 && x <= 1; }))
     { return std::move(reals); }
-    throw InvArg{std::string{caller} + ": all tbreaks must be in [0 1]"};
+    throw InvalidArgument{std::string{caller} + ": all tbreaks must be in [0 1]"};
 }
 
 std::vector<Real> pad_t_breaks_until_target

@@ -36,8 +36,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
-
 class TimeControl final {
 public:
     void press(KeyControl ky) {
@@ -165,7 +163,7 @@ public:
         m_points(pts_) {}
 
     Vector operator () (Real) const
-        { throw RtError{"unimplemented"}; }
+        { throw RuntimeError{"unimplemented"}; }
 
 private:
     const Tuple<Vector, Vector, Vector> & m_points;

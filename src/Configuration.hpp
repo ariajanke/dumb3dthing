@@ -26,3 +26,4 @@ static constexpr const auto k_testmap_filename = "demo-map2.tmx";
 static constexpr const Vector k_player_start{2, 12.1, -2};
 static constexpr const bool
     k_region_axis_container_report_maximum_sort_and_sweep = true;
+constexpr const bool k_promised_files_take_at_least_one_frame = false;

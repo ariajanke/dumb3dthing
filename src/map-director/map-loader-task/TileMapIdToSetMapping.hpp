@@ -77,7 +77,7 @@ private:
 
 class TilesetLayerWrapper;
 
-class TileSetMappingLayer final {
+class TilesetMappingLayer final {
 public:
     using MappingContainer = TilesetMappingTile::MappingContainer;
     using MappingContainerIterator = TilesetMappingTile::MappingContainerIterator;
@@ -94,7 +94,7 @@ public:
 
     static TilesetBase * tileset_of(const MappingView &);
 
-    TileSetMappingLayer
+    TilesetMappingLayer
         (MappingContainer && locations, const Size2I & grid_size);
 
     auto begin() const { return m_mapping_views.begin(); }
@@ -110,8 +110,8 @@ private:
 
 class TilesetLayerWrapper final {
 public:
-    using MappingContainerIterator = TileSetMappingLayer::MappingContainerIterator;
-    using MappingView = TileSetMappingLayer::MappingView;
+    using MappingContainerIterator = TilesetMappingLayer::MappingContainerIterator;
+    using MappingView = TilesetMappingLayer::MappingView;
 
     TilesetLayerWrapper
         (const MappingContainerIterator & begin,
@@ -136,7 +136,7 @@ private:
 
 class TileMapIdToSetMapping final {
 public:
-    using StartGidWithTileSet = StartGidWith<SharedPtr<TilesetBase>>;
+    using StartGidWithTileset = StartGidWith<SharedPtr<TilesetBase>>;
 
     static std::vector<TilesetMappingTile> make_locations(const Size2I &);
 
@@ -145,18 +145,18 @@ public:
 
     TileMapIdToSetMapping() {}
 
-    explicit TileMapIdToSetMapping(std::vector<StartGidWithTileSet> &&);
+    explicit TileMapIdToSetMapping(std::vector<StartGidWithTileset> &&);
 
-    TileSetMappingLayer make_mapping_for_layer(const Grid<int> &);
+    TilesetMappingLayer make_mapping_for_layer(const Grid<int> &);
 
 private:
     using ConstTileSetPtr = TilesetMappingTile::ConstTileSetPtr;
     using TileSetPtr      = TilesetMappingTile::TilesetPtr;
 
-    static bool order_by_gids(const StartGidWithTileSet &, const StartGidWithTileSet &);
+    static bool order_by_gids(const StartGidWithTileset &, const StartGidWithTileset &);
 
     Tuple<int, TileSetPtr> map_id_to_set(int map_wide_id) const;
 
-    std::vector<StartGidWithTileSet> m_gid_map;
+    std::vector<StartGidWithTileset> m_gid_map;
     int m_gid_end = 0;
 };

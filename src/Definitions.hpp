@@ -134,4 +134,3 @@ constexpr const Vector k_east {1, 0, 0};
 constexpr const Vector k_up   {0, 1, 0};
 constexpr const Vector k_north{0, 0, 1};
 
-constexpr const bool k_promised_files_take_at_least_one_frame = false;
