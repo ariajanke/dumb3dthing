@@ -24,10 +24,11 @@
 #include "../Components.hpp"
 
 #include "ProducableGrid.hpp"
-#include "MapRegionTracker.hpp"
 #include "MapRegion.hpp"
 
 class RegionDecayCollector;
+class RegionEdgeConnectionsRemover;
+class RegionEdgeConnectionsContainer;
 
 class RegionLoadJob final {
 public:
@@ -68,9 +69,28 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class RegionLoadCollector final : public RegionLoadCollectorBase {
+class RegionCollectorBase {
+protected:
+    static std::vector<RegionDecayJob>
+        verify_empty_decay_jobs(std::vector<RegionDecayJob> &&);
+
+    static std::vector<RegionLoadJob>
+        verify_empty_load_jobs(std::vector<RegionLoadJob> &&);
+};
+
+// ----------------------------------------------------------------------------
+
+class RegionLoadCollector final :
+    public RegionLoadCollectorBase,
+    public RegionCollectorBase
+{
 public:
     explicit RegionLoadCollector(MapRegionContainer &);
+
+    RegionLoadCollector
+        (std::vector<RegionLoadJob> &&,
+         std::vector<RegionDecayJob> &&,
+         MapRegionContainer &);
 
     void collect_load_job
         (const SubRegionPositionFraming &, const ProducableSubGrid &) final;
@@ -79,27 +99,30 @@ public:
 
 private:
     std::vector<RegionLoadJob> m_entries;
-    MapRegionContainer & m_container;
+    MapRegionContainer * m_container = nullptr;
+
+    std::vector<RegionDecayJob> m_passed_around_decay_jobs;
 };
 
 // ----------------------------------------------------------------------------
 
-class RegionDecayCollector final : public MapRegionContainer::RegionDecayAdder {
+class RegionDecayCollector final :
+    public MapRegionContainer::RegionDecayAdder,
+    public RegionCollectorBase
+{
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
-    explicit RegionDecayCollector(std::vector<RegionLoadJob> &&);
+    RegionDecayCollector
+        (std::vector<RegionLoadJob> &&,
+         std::vector<RegionDecayJob> &&,
+         MapRegionContainer &);
 
     void add(const Vector2I & on_field_position,
              ScaledTriangleViewGrid && scaled_grid,
              std::vector<Entity> && entities) final;
-#   if 0
-    SharedPtr<EveryFrameTask> finish_into_task_with
-        (RegionEdgeConnectionsContainer &,
-         MapRegionContainer &);
-#   endif
 
-    void run_changes
+    RegionLoadCollector run_changes
         (TaskCallbacks &,
          RegionEdgeConnectionsContainer &,
          MapRegionContainer &);
@@ -107,26 +130,6 @@ public:
 private:
     std::vector<RegionLoadJob> m_load_entries;
     std::vector<RegionDecayJob> m_decay_entries;
-};
 
-// ----------------------------------------------------------------------------
-
-class MapRegionChangesTask final /*: public EveryFrameTask */ {
-public:
-    MapRegionChangesTask
-        (std::vector<RegionLoadJob> &&,
-         std::vector<RegionDecayJob> &&,
-         RegionEdgeConnectionsContainer &,
-         MapRegionContainer &);
-#   if 0
-    void on_every_frame(TaskCallbacks &, Real) final;
-#   endif
-
-    void run_changes(TaskCallbacks &);
-
-private:
-    std::vector<RegionLoadJob> m_load_entries;
-    std::vector<RegionDecayJob> m_decay_entries;
-    RegionEdgeConnectionsContainer & m_edge_container;
-    MapRegionContainer & m_container;
+    MapRegionContainer * m_passed_around_container = nullptr;
 };

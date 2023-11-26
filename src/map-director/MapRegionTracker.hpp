@@ -22,15 +22,13 @@
 
 #include "RegionLoadRequest.hpp"
 #include "RegionEdgeConnectionsContainer.hpp"
-#include "MapRegion.hpp"
+#include "MapRegionChangesTask.hpp"
 
 class TaskCallbacks;
 class RegionLoadRequest;
 class RegionLoadCollector;
 class RegionDecayCollector;
-#if 0
-class LoaderTask;
-#endif
+
 /// keeps track of already loaded map regions
 ///
 /// regions are treated as one flat collection by this class through a root
@@ -39,28 +37,18 @@ class MapRegionTracker final {
 public:
     using TaskContinuation = BackgroundTask::Continuation;
 
-    MapRegionTracker() {}
+    MapRegionTracker();
 
-    explicit MapRegionTracker
-        (UniquePtr<MapRegion> && root_region):
-        m_root_region(std::move(root_region)) {}
-#   if 0
-    [[deprecated]] void process_load_requests(const RegionLoadRequest &, TaskCallbacks &);
-#   endif
+    explicit MapRegionTracker(UniquePtr<MapRegion> && root_region);
+
     void process_load_requests(const RegionLoadRequest &, TaskCallbacks &);
 
     bool has_root_region() const noexcept
         { return !!m_root_region; }
 
 private:
-    RegionDecayCollector process_into_decay_collector
-        (const RegionLoadRequest & request, RegionLoadCollector &&);
-#   if 0
-    SharedPtr<EveryFrameTask> process_decays_into_task(RegionDecayCollector &&);
-#   endif
+    RegionLoadCollector m_load_collector;
     RegionEdgeConnectionsContainer m_edge_container;
     MapRegionContainer m_container;
     UniquePtr<MapRegion> m_root_region;
-
-    SharedPtr<BackgroundTask> m_map_changes_tasks;
 };

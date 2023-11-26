@@ -28,18 +28,13 @@
 class PlayerUpdateTask final : public EveryFrameTask {
 public:
     explicit PlayerUpdateTask
-        (//SharedPtr<MapDirector_> && map_director,
-         const EntityRef & physics_ent):
-        //m_map_director(std::move(map_director)),
+        (const EntityRef & physics_ent):
         m_physics_ent(physics_ent) {}
 
     void on_every_frame(Callbacks & callbacks, Real) final;
 
 private:
     static void check_fall_below(Entity & ent);
-#   if 0
-    SharedPtr<MapDirector_> m_map_director;
-#   endif
     // | extremely important that the task is *not* owning
     // v the reason entity refs exists
     EntityRef m_physics_ent;

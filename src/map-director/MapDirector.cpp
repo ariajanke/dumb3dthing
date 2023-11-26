@@ -21,7 +21,6 @@
 #include "MapDirector.hpp"
 #include "map-loader-task.hpp"
 #include "RegionLoadRequest.hpp"
-#include "MapDirectorTask.hpp"
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
@@ -32,51 +31,32 @@ using Continuation = BackgroundTask::Continuation;
 using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
 using PpDriver = point_and_plane::Driver;
 
+class MapDirectorTask final : public BackgroundTask {
+public:
+    MapDirectorTask
+        (Entity player_physics,
+         PpDriver &,
+         UniquePtr<MapRegion> && root_region);
+
+    Continuation & in_background
+        (Callbacks &, ContinuationStrategy &) final;
+
+private:
+    EntityRef m_physics_physics_ref;
+    MapDirector m_map_director;
+};
+
+// ----------------------------------------------------------------------------
+
 class PlayerMapPreperationTask final : public BackgroundTask {
 public:
     PlayerMapPreperationTask
         (SharedPtr<MapLoaderTask_> && map_loader,
          Entity && player_physics,
-         PpDriver & ppdriver):
-        m_map_loader(std::move(map_loader)),
-        m_player_physics(std::move(player_physics)),
-        m_ppdriver(ppdriver) {}
+         PpDriver & ppdriver);
 
     Continuation & in_background
-        (Callbacks & callbacks, ContinuationStrategy & strategy) final
-    {
-        if (!m_finished_loading_map) {
-            m_finished_loading_map = true;
-            return strategy.continue_().wait_on(m_map_loader);
-        }
-#       if 0
-        auto map_director = make_shared<MapDirector>
-            (m_ppdriver, m_map_loader->retrieve());
-#       endif
-        // have the map director live elsewhere (in its own task)
-        // getting weird race condition where:
-        // player update task: load region at (0, 0)
-        // map changes task: (gets spun up)
-        // player update task: does not know map changes is about to do stuff,
-        //                     requests load region at (0, 0) again
-        // map changes task: loads region at (0, 0)
-        // another changes task: gets spun up...
-        //
-        // why not just have another task that just does all loading?
-        auto player_update_task = make_shared<PlayerUpdateTask>
-            (m_player_physics.as_reference());
-        auto map_director_task = make_shared<MapDirectorTask>
-            (m_player_physics, m_ppdriver, m_map_loader->retrieve());
-        m_player_physics.
-            add<
-                Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>
-                >() = make_tuple
-                (Velocity{}, player_update_task, map_director_task);
-
-        callbacks.add(player_update_task);
-        callbacks.add(map_director_task);
-        return strategy.finish_task();
-    }
+        (Callbacks & callbacks, ContinuationStrategy & strategy) final;
 
 private:
     bool m_finished_loading_map = false;
@@ -127,3 +107,55 @@ void MapDirector::on_every_frame
         (player_position, facing, player_velocity);
     m_region_tracker.process_load_requests(request, callbacks);
 }
+
+namespace {
+
+MapDirectorTask::MapDirectorTask
+    (Entity player_physics,
+     PpDriver & ppdriver,
+     UniquePtr<MapRegion> && root_region):
+    m_physics_physics_ref(player_physics.as_reference()),
+    m_map_director(ppdriver, std::move(root_region)) {}
+
+Continuation & MapDirectorTask::in_background
+    (Callbacks & taskcallbacks, ContinuationStrategy & strat)
+{
+    m_map_director.on_every_frame
+        (taskcallbacks, Entity{m_physics_physics_ref});
+    return strat.continue_();
+}
+
+// ----------------------------------------------------------------------------
+
+PlayerMapPreperationTask::PlayerMapPreperationTask
+    (SharedPtr<MapLoaderTask_> && map_loader,
+     Entity && player_physics,
+     PpDriver & ppdriver):
+    m_map_loader(std::move(map_loader)),
+    m_player_physics(std::move(player_physics)),
+    m_ppdriver(ppdriver) {}
+
+Continuation & PlayerMapPreperationTask::in_background
+    (Callbacks & callbacks, ContinuationStrategy & strategy)
+{
+    if (!m_finished_loading_map) {
+        m_finished_loading_map = true;
+        return strategy.continue_().wait_on(m_map_loader);
+    }
+
+    auto player_update_task = make_shared<PlayerUpdateTask>
+        (m_player_physics.as_reference());
+    auto map_director_task = make_shared<MapDirectorTask>
+        (m_player_physics, m_ppdriver, m_map_loader->retrieve());
+    m_player_physics.
+        add<
+            Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>
+            >() = make_tuple
+            (Velocity{}, player_update_task, map_director_task);
+
+    callbacks.add(player_update_task);
+    callbacks.add(map_director_task);
+    return strategy.finish_task();
+}
+
+} // end of <anonymous> namespace

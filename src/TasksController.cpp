@@ -36,38 +36,25 @@ bool is_sole_owner(const SharedPtr<T> & ptr)
 
 void TasksReceiver::add(const SharedPtr<EveryFrameTask> & ptr)
     { add_to(m_every_frame_tasks, ptr); }
-#if 0
-void TasksReceiver::add(const SharedPtr<LoaderTask> & ptr)
-    { add_to(m_loader_tasks, ptr); }
-#endif
+
 void TasksReceiver::add(const SharedPtr<BackgroundTask> & ptr)
     { add_to(m_background_tasks, ptr); }
 
 void TasksReceiver::clear_all() {
     m_every_frame_tasks.clear();
-#   if 0
-    m_loader_tasks.clear();
-#   endif
     m_background_tasks.clear();
 }
 
 bool TasksReceiver::has_any_tasks() const {
     return    !m_every_frame_tasks.empty()
-#           if 0
-           || !m_loader_tasks.empty()
-#           endif
            || !m_background_tasks.empty();
 }
 
 TaskView<EveryFrameTask> TasksReceiver::every_frame_tasks()
     { return View{m_every_frame_tasks.begin(), m_every_frame_tasks.end()}; }
-#if 0
-TaskView<LoaderTask> TasksReceiver::loader_tasks()
-    { return View{m_loader_tasks.begin(), m_loader_tasks.end()}; }
-#endif
+
 TaskView<BackgroundTask> TasksReceiver::background_tasks()
     { return View{m_background_tasks.begin(), m_background_tasks.end()}; }
-
 
 template <typename T>
 /* private static */ void TasksReceiver::add_to
@@ -137,9 +124,6 @@ Platform & MultiReceiver::platform() {
 RunableTasks MultiReceiver::retrieve_runable_tasks(RunableTasks && runable_tasks) {
     return std::move(runable_tasks).
         combine_with(move_out_every_frame_tasks(),
-#                   if 0
-                     move_out_loader_tasks(),
-#                   endif
                      move_out_background_tasks());
 }
 
@@ -288,14 +272,8 @@ RunableBackgroundTasks RunableBackgroundTasks::combine_with
 
 RunableTasks::RunableTasks
     (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
-#   if 0
-     std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
-#   endif
      RunableBackgroundTasks && background_tasks_):
     m_every_frame_tasks(std::move(every_frame_tasks_)),
-#   if 0
-    m_loader_tasks(std::move(loader_tasks_)),
-#   endif
     m_background_tasks(std::move(background_tasks_)) {}
 
 void RunableTasks::run_existing_tasks
@@ -313,33 +291,17 @@ void RunableTasks::run_existing_tasks
     for (auto & task : m_every_frame_tasks) {
         task->on_every_frame(callbacks_, seconds);
     }
-#   if 0
-    for (auto & task : m_loader_tasks) {
-        (*task)(callbacks_);
-    }
-#   endif
+
     m_background_tasks.run_existing_tasks(callbacks_);
-#   if 0
-    m_loader_tasks.clear();
-#   endif
 }
 
 RunableTasks RunableTasks::combine_with
     (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks,
-#   if 0
-     std::vector<SharedPtr<LoaderTask>> && loader_tasks,
-#   endif
      std::vector<SharedPtr<BackgroundTask>> && background_tasks) &&
 {
     insert_moved_shared_ptrs(m_every_frame_tasks, view_of(every_frame_tasks));
-#   if 0
-    insert_moved_shared_ptrs(m_loader_tasks     , view_of(loader_tasks     ));
-#   endif
     return RunableTasks
         {std::move(m_every_frame_tasks),
-#       if 0
-         std::move(m_loader_tasks),
-#       endif
          std::move(m_background_tasks).combine_with(std::move(background_tasks))};
 }
 
@@ -356,10 +318,7 @@ void TasksController::add_entities_to(Scene & scene)
 
 void TasksController::add(const SharedPtr<EveryFrameTask> & ptr)
     { m_multireceiver.add(ptr); }
-#if 0
-void TasksController::add(const SharedPtr<LoaderTask> & ptr)
-    { m_multireceiver.add(ptr); }
-#endif
+
 void TasksController::add(const SharedPtr<BackgroundTask> & ptr)
     { m_multireceiver.add(ptr); }
 

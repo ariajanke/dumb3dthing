@@ -20,6 +20,7 @@
 
 #include "MapRegionChangesTask.hpp"
 #include "TileFactory.hpp"
+#include "RegionEdgeConnectionsContainer.hpp"
 
 namespace {
 
@@ -118,15 +119,44 @@ void RegionDecayJob::operator ()
 
 // ----------------------------------------------------------------------------
 
+/* protected static */ std::vector<RegionDecayJob>
+    RegionCollectorBase::verify_empty_decay_jobs
+    (std::vector<RegionDecayJob> && decay_jobs_)
+{
+    if (decay_jobs_.empty()) return std::move(decay_jobs_);
+    throw InvalidArgument{"cannot pass around non-empty decay jobs"};
+}
+
+/* protected static */ std::vector<RegionLoadJob>
+    RegionCollectorBase::verify_empty_load_jobs
+    (std::vector<RegionLoadJob> && load_jobs_)
+{
+    if (load_jobs_.empty()) return std::move(load_jobs_);
+    throw InvalidArgument{"cannot pass around non-empty load jobs"};
+}
+
+// ----------------------------------------------------------------------------
+
 RegionLoadCollector::RegionLoadCollector
     (MapRegionContainer & container_):
-    m_container(container_) {}
+    m_container(&container_) {}
+
+RegionLoadCollector::RegionLoadCollector
+    (std::vector<RegionLoadJob> && load_jobs_,
+     std::vector<RegionDecayJob> && decay_jobs_,
+     MapRegionContainer & container_):
+    m_entries(verify_empty_load_jobs(std::move(load_jobs_))),
+    m_container(&container_),
+    m_passed_around_decay_jobs(verify_empty_decay_jobs(std::move(decay_jobs_))) {}
 
 void RegionLoadCollector::collect_load_job
     (const SubRegionPositionFraming & sub_region_framing,
      const ProducableSubGrid & subgrid)
 {
-    if (auto refresh = sub_region_framing.region_refresh_for(m_container)) {
+#   ifdef MACRO_DEBUG
+    assert(m_container);
+#   endif
+    if (auto refresh = sub_region_framing.region_refresh_for(*m_container)) {
         refresh->keep_this_frame();
         return;
     }
@@ -134,14 +164,22 @@ void RegionLoadCollector::collect_load_job
     m_entries.emplace_back(sub_region_framing, subgrid);
 }
 
-RegionDecayCollector RegionLoadCollector::finish()
-    { return RegionDecayCollector{std::move(m_entries)}; }
+RegionDecayCollector RegionLoadCollector::finish() {
+    return RegionDecayCollector
+        {std::move(m_entries),
+         std::move(m_passed_around_decay_jobs),
+         *m_container};
+}
 
 // ----------------------------------------------------------------------------
 
 RegionDecayCollector::RegionDecayCollector
-    (std::vector<RegionLoadJob> && load_entries):
-    m_load_entries(std::move(load_entries)) {}
+    (std::vector<RegionLoadJob> && load_jobs_,
+     std::vector<RegionDecayJob> && decay_jobs_,
+     MapRegionContainer & container_):
+    m_load_entries(std::move(load_jobs_)),
+    m_decay_entries(verify_empty_decay_jobs(std::move(decay_jobs_))),
+    m_passed_around_container(&container_) {}
 
 void RegionDecayCollector::add
     (const Vector2I & on_field_position,
@@ -151,68 +189,29 @@ void RegionDecayCollector::add
     m_decay_entries.emplace_back
         (on_field_position, std::move(scaled_grid), std::move(entities));
 }
-#if 0
-SharedPtr<EveryFrameTask> RegionDecayCollector::finish_into_task_with
-    (RegionEdgeConnectionsContainer & edge_container,
-     MapRegionContainer & container)
-{
-    if (m_load_entries.empty() && m_decay_entries.empty())
-        { return nullptr; }
-    return make_shared<MapRegionChangesTask>
-        (std::move(m_load_entries), std::move(m_decay_entries),
-         edge_container, container);
-}
-#endif
-void RegionDecayCollector::run_changes
+
+RegionLoadCollector RegionDecayCollector::run_changes
     (TaskCallbacks & task_callbacks,
      RegionEdgeConnectionsContainer & edge_container,
      MapRegionContainer & container)
 {
-    if (m_load_entries.empty() && m_decay_entries.empty())
-        { return; }
+    if (!m_load_entries.empty() || !m_decay_entries.empty()) {
+        auto adder = edge_container.make_adder();
+        for (auto & load_entry : m_load_entries)
+            { load_entry(container, adder, task_callbacks); }
 
-    MapRegionChangesTask
+        auto remover = adder.finish().make_remover();
+        for (auto & decay_entry : m_decay_entries)
+            { decay_entry(remover, task_callbacks); }
+        edge_container = remover.finish();
+    }
+
+    m_decay_entries.clear();
+    m_load_entries.clear();
+    return RegionLoadCollector
         {std::move(m_load_entries),
          std::move(m_decay_entries),
-         edge_container,
-         container}.
-        run_changes(task_callbacks);
-}
-
-// ----------------------------------------------------------------------------
-
-MapRegionChangesTask::MapRegionChangesTask
-    (std::vector<RegionLoadJob> && load_entries,
-     std::vector<RegionDecayJob> && decay_entries,
-     RegionEdgeConnectionsContainer & edge_container,
-     MapRegionContainer & container):
-    m_load_entries(std::move(load_entries)),
-    m_decay_entries(std::move(decay_entries)),
-    m_edge_container(edge_container),
-    m_container(container) {}
-#if 0
-void MapRegionChangesTask::on_every_frame
-    (TaskCallbacks & callbacks, Real)
-{
-    auto adder = m_edge_container.make_adder();
-    for (auto & load_entry : m_load_entries)
-        { load_entry(m_container, adder, callbacks); }
-
-    auto remover = adder.finish().make_remover();
-    for (auto & decay_entry : m_decay_entries)
-        { decay_entry(remover, callbacks); }
-    m_edge_container = remover.finish();
-}
-#endif
-void MapRegionChangesTask::run_changes(TaskCallbacks & callbacks) {
-    auto adder = m_edge_container.make_adder();
-    for (auto & load_entry : m_load_entries)
-        { load_entry(m_container, adder, callbacks); }
-
-    auto remover = adder.finish().make_remover();
-    for (auto & decay_entry : m_decay_entries)
-        { decay_entry(remover, callbacks); }
-    m_edge_container = remover.finish();
+         *m_passed_around_container};
 }
 
 namespace {
