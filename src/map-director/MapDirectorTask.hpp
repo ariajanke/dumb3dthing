@@ -20,27 +20,30 @@
 
 #pragma once
 
-#include "map-director/MapDirector.hpp"
+#include "MapDirector.hpp"
 
-/// all things the player needs to do everyframe
-///
-/// stuffing it in here, until there's a proper living place for this class
-class PlayerUpdateTask final : public EveryFrameTask {
+#include "../Tasks.hpp"
+
+class MapDirectorTask final : public BackgroundTask {
 public:
-    explicit PlayerUpdateTask
-        (//SharedPtr<MapDirector_> && map_director,
-         const EntityRef & physics_ent):
-        //m_map_director(std::move(map_director)),
-        m_physics_ent(physics_ent) {}
+    using PpDriver = point_and_plane::Driver;
 
-    void on_every_frame(Callbacks & callbacks, Real) final;
+    MapDirectorTask
+        (Entity player_physics,
+         PpDriver & ppdriver,
+         UniquePtr<MapRegion> && root_region):
+        m_physics_physics_ref(player_physics.as_reference()),
+        m_map_director(ppdriver, std::move(root_region)) {}
+
+    Continuation & in_background
+        (Callbacks & taskcallbacks, ContinuationStrategy & strat) final
+    {
+        m_map_director.on_every_frame
+            (taskcallbacks, Entity{m_physics_physics_ref});
+        return strat.continue_();
+    }
 
 private:
-    static void check_fall_below(Entity & ent);
-#   if 0
-    SharedPtr<MapDirector_> m_map_director;
-#   endif
-    // | extremely important that the task is *not* owning
-    // v the reason entity refs exists
-    EntityRef m_physics_ent;
+    EntityRef m_physics_physics_ref;
+    MapDirector m_map_director;
 };

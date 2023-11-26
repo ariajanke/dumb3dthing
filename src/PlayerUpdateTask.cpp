@@ -27,11 +27,13 @@ using namespace cul::exceptions_abbr;
 
 } // end of <anonymous> namespace
 
-void PlayerUpdateTask::on_every_frame(Callbacks & callbacks, Real) {
+void PlayerUpdateTask::on_every_frame(Callbacks &, Real) {
     if (!m_physics_ent)
         { throw RtError{"Player entity deleted before its update task"}; }
     Entity physics_ent{m_physics_ent};
+#   if 0
     m_map_director->on_every_frame(callbacks, physics_ent);
+#   endif
     check_fall_below(physics_ent);
 }
 

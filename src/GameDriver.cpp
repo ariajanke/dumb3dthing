@@ -68,10 +68,15 @@ public:
     void update(Real seconds, Platform &) final;
 
 private:
-    using PlayerEntities = LoaderTask::PlayerEntities;
-    using LoaderCallbacks   = LoaderTask::Callbacks;
+    struct PlayerEntities final {
+        PlayerEntities() {}
+        PlayerEntities(Entity physical_, Entity renderable_):
+            physical(physical_), renderable(renderable_) {}
 
-    void initial_load(LoaderCallbacks &);
+        Entity physical, renderable;
+    };
+
+    void initial_load(TaskCallbacks &);
 
     void update_(Real seconds);
 
@@ -293,7 +298,7 @@ void GameDriverComplete::update(Real seconds, Platform & platform) {
     platform.render_scene(m_scene);
 }
 
-void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
+void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
     auto [renderable, physical] =
         make_sample_player(callbacks.platform());
     callbacks.add

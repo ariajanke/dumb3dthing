@@ -22,6 +22,7 @@
 #include "RegionAxisAddressAndSide.hpp"
 
 #include "../TriangleLink.hpp"
+#include "../Configuration.hpp"
 
 #include <iostream>
 
@@ -31,7 +32,8 @@ using namespace cul::exceptions_abbr;
 using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 using EntryContainer = RegionEdgeConnectionsContainerBase::EntryContainer;
 
-constexpr bool k_enable_console_logging = false;
+constexpr bool k_enable_console_logging =
+    k_report_tile_region_loads_and_unloads;
 
 } // end of <anonymous> namespace
 

@@ -30,8 +30,6 @@ namespace {
 constexpr const bool k_report_maximum_sort_and_sweep =
     k_region_axis_container_report_maximum_sort_and_sweep;
 
-using namespace cul::exceptions_abbr;
-
 Real get_x(const Vector & r) { return r.x; }
 
 Real get_z(const Vector & r) { return r.z; }
@@ -70,7 +68,7 @@ ItemType * generalize_seek
     case Axis::z_ways: return computed_bounds_<get_z>(link_ptr);
     default          : break;
     }
-    throw RtError{":c"};
+    throw RuntimeError{":c"};
 }
 
 RegionAxisLinkEntry::RegionAxisLinkEntry
@@ -164,7 +162,7 @@ RegionAxisLinksAdder::RegionAxisLinksAdder
 
 void RegionAxisLinksAdder::add(const SharedPtr<TriangleLink> & link_ptr) {
     if (m_axis == RegionAxis::uninitialized) {
-        throw RtError{":c"};
+        throw RuntimeError{":c"};
     }
     m_entries.push_back(RegionAxisLinkEntry::computed_bounds(link_ptr, m_axis));
 }
@@ -180,7 +178,7 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
 {
 #   if MACRO_DEBUG
     if (std::any_of(entries.begin(), entries.end(), RegionAxisLinkEntry::linkless)) {
-        throw InvArg{":c"};
+        throw InvalidArgument{":c"};
     }
 #   endif
     return std::move(entries);
@@ -253,7 +251,7 @@ RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
     std::sort(entries.begin(), entries.end(), Entry::pointer_less_than);
     auto itr = std::unique(entries.begin(), entries.end(), Entry::pointer_equal);
     if (itr != entries.end()) {
-        throw InvArg{":c"};
+        throw InvalidArgument{":c"};
     }
 #   endif
     return std::move(entries);

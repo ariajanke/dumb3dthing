@@ -106,15 +106,19 @@ public:
         return inst;
     }
 
-    void add(const SharedPtr<EveryFrameTask> &) {}
-
+    void add(const SharedPtr<EveryFrameTask> &) final {}
+#   if 0
     void add(const SharedPtr<LoaderTask> &) {}
+#   endif
+    void add(const SharedPtr<BackgroundTask> &) final { throw ""; }
 
-    void add(const SharedPtr<BackgroundTask> &) { throw ""; }
+    void add(const Entity &) final {}
 
-    void add(const Entity &) {}
+    void add(const SharedPtr<TriangleLink> &) final {}
 
-    Platform & platform() { return TestPlatform::platform(); }
+    void remove(const SharedPtr<const TriangleLink> &) final {}
+
+    Platform & platform() final { return TestPlatform::platform(); }
 };
 
 } // end of <anonymous> namespace

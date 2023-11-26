@@ -34,18 +34,18 @@ class TasksController;
 class RunableTasks;
 class ReturnToTasksCollection;
 
-class TasksReceiver : virtual public LoaderTask::Callbacks {
+class TasksReceiver : virtual public TaskCallbacks {
 public:
-    using LoaderTask::Callbacks::add;
+    using TaskCallbacks::add;
     template <typename T>
     using TaskIterator = typename std::vector<SharedPtr<T>>::iterator;
     template <typename T>
     using TaskView = View<TaskIterator<T>>;
 
     void add(const SharedPtr<EveryFrameTask> & ptr) final;
-
+#   if 0
     void add(const SharedPtr<LoaderTask> & ptr) final;
-
+#   endif
     void add(const SharedPtr<BackgroundTask> & ptr) final;
 
     void clear_all();
@@ -53,18 +53,18 @@ public:
     bool has_any_tasks() const;
 
     TaskView<EveryFrameTask> every_frame_tasks();
-
+#   if 0
     TaskView<LoaderTask> loader_tasks();
-
+#   endif
     TaskView<BackgroundTask> background_tasks();
 
 protected:
     std::vector<SharedPtr<EveryFrameTask>> move_out_every_frame_tasks()
         { return std::move(m_every_frame_tasks); }
-
+#   if 0
     std::vector<SharedPtr<LoaderTask>> move_out_loader_tasks()
         { return std::move(m_loader_tasks); }
-
+#   endif
     std::vector<SharedPtr<BackgroundTask>> move_out_background_tasks()
         { return std::move(m_background_tasks); }
 
@@ -74,15 +74,17 @@ private:
         (std::vector<SharedPtr<T>> & vec, const SharedPtr<T> & ptr);
 
     std::vector<SharedPtr<EveryFrameTask>> m_every_frame_tasks;
+#   if 0
     std::vector<SharedPtr<LoaderTask>> m_loader_tasks;
+#   endif
     std::vector<SharedPtr<BackgroundTask>> m_background_tasks;
 };
 
 // ----------------------------------------------------------------------------
 
-class TriangleLinksReceiver : public virtual LoaderTask::Callbacks {
+class TriangleLinksReceiver : public virtual TaskCallbacks {
 public:
-    using LoaderTask::Callbacks::add;
+    using TaskCallbacks::add;
 
     void add(const SharedPtr<TriangleLink> & ptr) final;
 
@@ -98,9 +100,9 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class EntitiesReceiver : public virtual LoaderTask::Callbacks {
+class EntitiesReceiver : public virtual TaskCallbacks {
 public:
-    using LoaderTask::Callbacks::add;
+    using TaskCallbacks::add;
 
     void add(const Entity & ent) final;
 
@@ -118,7 +120,7 @@ class MultiReceiver final :
     public TasksReceiver
 {
 public:
-    using LoaderTask::Callbacks::add;
+    using TaskCallbacks::add;
 
     MultiReceiver() {}
 
@@ -291,32 +293,38 @@ public:
 
     RunableTasks
         (std::vector<SharedPtr<EveryFrameTask>> && every_frame_tasks_,
+#       if 0
          std::vector<SharedPtr<LoaderTask>> && loader_tasks_,
+#       endif
          RunableBackgroundTasks && background_tasks_);
 
-    void run_existing_tasks(LoaderTask::Callbacks &, Real elapsed_seconds);
+    void run_existing_tasks(TaskCallbacks &, Real elapsed_seconds);
 
     RunableTasks combine_with
         (std::vector<SharedPtr<EveryFrameTask>> &&,
+#       if 0
          std::vector<SharedPtr<LoaderTask>> &&,
+#       endif
          std::vector<SharedPtr<BackgroundTask>> &&) &&;
 
 private:
     std::vector<SharedPtr<EveryFrameTask>> m_every_frame_tasks;
+#   if 0
     std::vector<SharedPtr<LoaderTask>> m_loader_tasks;
+#   endif
     RunableBackgroundTasks m_background_tasks;
 };
 
 // ----------------------------------------------------------------------------
 
-class TasksController final : public LoaderTask::Callbacks {
+class TasksController final : public TaskCallbacks {
 public:
     void add_entities_to(Scene & scene);
 
     void add(const SharedPtr<EveryFrameTask> & ptr) final;
-
+#   if 0
     void add(const SharedPtr<LoaderTask> & ptr) final;
-
+#   endif
     void add(const SharedPtr<BackgroundTask> & ptr) final;
 
     void add(const Entity & ent) final;

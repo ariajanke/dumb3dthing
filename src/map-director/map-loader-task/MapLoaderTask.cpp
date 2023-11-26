@@ -27,6 +27,7 @@ namespace {
 
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 using Continuation = BackgroundTask::Continuation;
+using TaskContinuation = MapContentLoaderComplete::TaskContinuation;
 
 } // end of <anonymous> namespace
 
@@ -76,4 +77,16 @@ SharedPtr<Texture> MapContentLoaderComplete::make_texture() const
 
 void MapContentLoaderComplete::wait_on
     (const SharedPtr<BackgroundTask> & task)
-    { m_background_task_trap.add_background_task(task); }
+    { m_continuation = &m_strategy->continue_().wait_on(task); }
+
+void MapContentLoaderComplete::assign_continuation_strategy
+    (ContinuationStrategy & strategy)
+{
+    m_strategy = &strategy;
+    m_continuation = &strategy.finish_task();
+}
+
+TaskContinuation & MapContentLoaderComplete::continuation() const {
+    if (m_continuation) return *m_continuation;
+    throw RuntimeError{"Strategy was not set"};
+}

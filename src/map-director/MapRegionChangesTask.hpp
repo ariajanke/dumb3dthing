@@ -39,12 +39,14 @@ public:
 
     void operator () (MapRegionContainer &,
                       RegionEdgeConnectionsAdder &,
-                      LoaderTask::Callbacks &) const;
+                      TaskCallbacks &) const;
 
 private:
     SubRegionPositionFraming m_sub_region_framing;
     ProducableSubGrid m_subgrid;
 };
+
+// ----------------------------------------------------------------------------
 
 class RegionDecayJob final {
 public:
@@ -56,13 +58,15 @@ public:
          std::vector<Entity> &&);
 
     void operator () (RegionEdgeConnectionsRemover &,
-                      LoaderTask::Callbacks &) const;
+                      TaskCallbacks &) const;
 
 private:
     Vector2I m_on_field_position;
     ScaledTriangleViewGrid m_triangle_grid;
     std::vector<Entity> m_entities;
 };
+
+// ----------------------------------------------------------------------------
 
 class RegionLoadCollector final : public RegionLoadCollectorBase {
 public:
@@ -78,6 +82,8 @@ private:
     MapRegionContainer & m_container;
 };
 
+// ----------------------------------------------------------------------------
+
 class RegionDecayCollector final : public MapRegionContainer::RegionDecayAdder {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
@@ -87,9 +93,15 @@ public:
     void add(const Vector2I & on_field_position,
              ScaledTriangleViewGrid && scaled_grid,
              std::vector<Entity> && entities) final;
-
-    SharedPtr<LoaderTask> finish_into_task_with
+#   if 0
+    SharedPtr<EveryFrameTask> finish_into_task_with
         (RegionEdgeConnectionsContainer &,
+         MapRegionContainer &);
+#   endif
+
+    void run_changes
+        (TaskCallbacks &,
+         RegionEdgeConnectionsContainer &,
          MapRegionContainer &);
 
 private:
@@ -97,15 +109,20 @@ private:
     std::vector<RegionDecayJob> m_decay_entries;
 };
 
-class MapRegionChangesTask final : public LoaderTask {
+// ----------------------------------------------------------------------------
+
+class MapRegionChangesTask final /*: public EveryFrameTask */ {
 public:
     MapRegionChangesTask
         (std::vector<RegionLoadJob> &&,
          std::vector<RegionDecayJob> &&,
          RegionEdgeConnectionsContainer &,
          MapRegionContainer &);
+#   if 0
+    void on_every_frame(TaskCallbacks &, Real) final;
+#   endif
 
-    void operator () (LoaderTask::Callbacks &) const final;
+    void run_changes(TaskCallbacks &);
 
 private:
     std::vector<RegionLoadJob> m_load_entries;

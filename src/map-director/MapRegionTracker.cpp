@@ -22,13 +22,35 @@
 #include "TileFactory.hpp"
 #include "MapRegionChangesTask.hpp"
 
+namespace {
+
+using TaskContinuation = MapRegionTracker::TaskContinuation;
+
+} // end of <anonymous> namespace
+#if 0
 void MapRegionTracker::process_load_requests
     (const RegionLoadRequest & request, TaskCallbacks & callbacks)
 {
+    // can this *NOT* be a task?
     callbacks.add
         (process_decays_into_task
             (process_into_decay_collector
                 (request, RegionLoadCollector{m_container})));
+}
+
+TaskContinuation & MapRegionTracker::process_load_requests
+    (const RegionLoadRequest &, TaskContinuation &)
+    {}
+#endif
+
+void MapRegionTracker::process_load_requests
+    (const RegionLoadRequest & request, TaskCallbacks & callbacks)
+{
+    auto decay_collector = process_into_decay_collector
+        (request, RegionLoadCollector{m_container});
+    m_container.decay_regions(decay_collector);
+    decay_collector.run_changes
+        (callbacks, m_edge_container, m_container);
 }
 
 /* private */ RegionDecayCollector
@@ -39,10 +61,11 @@ void MapRegionTracker::process_load_requests
         (request, RegionPositionFraming{}, collector);
     return collector.finish();
 }
-
-/* private */ SharedPtr<LoaderTask> MapRegionTracker::process_decays_into_task
+#if 0
+/* private */ SharedPtr<EveryFrameTask> MapRegionTracker::process_decays_into_task
     (RegionDecayCollector && decay_collector)
 {
     m_container.decay_regions(decay_collector);
     return decay_collector.finish_into_task_with(m_edge_container, m_container);
 }
+#endif

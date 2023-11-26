@@ -21,6 +21,7 @@
 #include "MapDirector.hpp"
 #include "map-loader-task.hpp"
 #include "RegionLoadRequest.hpp"
+#include "MapDirectorTask.hpp"
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
@@ -48,14 +49,32 @@ public:
             m_finished_loading_map = true;
             return strategy.continue_().wait_on(m_map_loader);
         }
+#       if 0
         auto map_director = make_shared<MapDirector>
             (m_ppdriver, m_map_loader->retrieve());
+#       endif
+        // have the map director live elsewhere (in its own task)
+        // getting weird race condition where:
+        // player update task: load region at (0, 0)
+        // map changes task: (gets spun up)
+        // player update task: does not know map changes is about to do stuff,
+        //                     requests load region at (0, 0) again
+        // map changes task: loads region at (0, 0)
+        // another changes task: gets spun up...
+        //
+        // why not just have another task that just does all loading?
         auto player_update_task = make_shared<PlayerUpdateTask>
-            (std::move(map_director), m_player_physics.as_reference());
+            (m_player_physics.as_reference());
+        auto map_director_task = make_shared<MapDirectorTask>
+            (m_player_physics, m_ppdriver, m_map_loader->retrieve());
         m_player_physics.
-            add<Velocity, SharedPtr<EveryFrameTask>>() = make_tuple
-                (Velocity{}, player_update_task);
+            add<
+                Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>
+                >() = make_tuple
+                (Velocity{}, player_update_task, map_director_task);
+
         callbacks.add(player_update_task);
+        callbacks.add(map_director_task);
         return strategy.finish_task();
     }
 

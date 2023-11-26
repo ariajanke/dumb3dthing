@@ -8,12 +8,8 @@ on:
   push:
     branches: [ main ]
   pull_request:
+    if: github.event.pull_request.draft == false
     branches: [ main ]
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:

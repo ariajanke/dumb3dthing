@@ -78,6 +78,16 @@ void print_out_type_info() {
     std::cout << "size " << sizeof(T) << " align " << alignof(T) << std::endl;
 }
 
+void print_out_lost_file_content(const char * filename) {
+    if constexpr (k_report_lost_file_string_content) {
+        std::cout << "Lost file contents for \"" << filename << "\""
+                  << std::endl;
+    }
+}
+
+void print_out_lost_file_content(const std::string & filename)
+    { print_out_lost_file_content(filename.c_str()); }
+
 // "cleans up" events before sending them to the driver
 class EventProcessor final {
 public:
@@ -106,13 +116,19 @@ public:
         class Impl final : public Future<std::string> {
         public:
             Impl(const char * filename):
+                m_filename(filename),
                 m_contents(file_to_string(filename)) {}
 
-            OptionalEither<Lost, std::string> retrieve() final
-                { return std::move(m_contents); }
+            OptionalEither<Lost, std::string> retrieve() final {
+                if (m_contents)
+                    { return std::move(*m_contents); }
+                print_out_lost_file_content(m_filename);
+                return Lost{};
+            }
 
         private:
-            std::string m_contents;
+            const char * m_filename = nullptr;
+            Optional<std::string> m_contents;
         };
         return make_shared<Impl>(filename);
     }
@@ -141,18 +157,23 @@ private:
             m_filename(filename) {}
 
         OptionalEither<Lost, std::string> retrieve() final {
-            if (!m_filename.empty()) return {};
-            return std::move(m_contents);
+            if (!m_loaded)
+                { return {}; }
+            if (m_contents)
+                { return std::move(*m_contents); }
+            print_out_lost_file_content(m_filename);
+            return Lost{};
         }
 
         void progress() {
+            m_loaded = true;
             m_contents = file_to_string(m_filename.c_str());
-            m_filename = "";
         }
 
     private:
+        bool m_loaded = false;
         std::string m_filename;
-        std::string m_contents;
+        Optional<std::string> m_contents;
     };
 
     std::vector<SharedPtr<FutureStringImpl>> m_unprocessed;

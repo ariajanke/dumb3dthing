@@ -30,7 +30,7 @@ using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 class EntityAndLinkInsertingAdder final : public ProducableTileCallbacks {
 public:
     EntityAndLinkInsertingAdder
-        (LoaderTask::Callbacks &,
+        (TaskCallbacks &,
          Size2I grid_size,
          const TilePositionFraming &);
 
@@ -58,7 +58,7 @@ private:
 
     ViewGridTriangle finish_triangle_grid();
 
-    LoaderTask::Callbacks & m_callbacks;
+    TaskCallbacks & m_callbacks;
     ViewGridInserter<TriangleSegment> m_triangle_inserter;
     std::vector<Entity> m_entities;
     TilePositionFraming m_tile_framing;
@@ -77,7 +77,7 @@ RegionLoadJob::RegionLoadJob
 void RegionLoadJob::operator ()
     (MapRegionContainer & container,
      RegionEdgeConnectionsAdder & edge_container_adder,
-     LoaderTask::Callbacks & callbacks) const
+     TaskCallbacks & callbacks) const
 {
     EntityAndLinkInsertingAdder triangle_entities_adder
         {callbacks, m_subgrid.size2(), m_sub_region_framing.tile_framing()};
@@ -105,7 +105,7 @@ RegionDecayJob::RegionDecayJob
 
 void RegionDecayJob::operator ()
     (RegionEdgeConnectionsRemover & connection_remover,
-     LoaderTask::Callbacks & callbacks) const
+     TaskCallbacks & callbacks) const
 {
     for (auto ent : m_entities)
         { ent.request_deletion(); }
@@ -151,8 +151,8 @@ void RegionDecayCollector::add
     m_decay_entries.emplace_back
         (on_field_position, std::move(scaled_grid), std::move(entities));
 }
-
-SharedPtr<LoaderTask> RegionDecayCollector::finish_into_task_with
+#if 0
+SharedPtr<EveryFrameTask> RegionDecayCollector::finish_into_task_with
     (RegionEdgeConnectionsContainer & edge_container,
      MapRegionContainer & container)
 {
@@ -161,6 +161,22 @@ SharedPtr<LoaderTask> RegionDecayCollector::finish_into_task_with
     return make_shared<MapRegionChangesTask>
         (std::move(m_load_entries), std::move(m_decay_entries),
          edge_container, container);
+}
+#endif
+void RegionDecayCollector::run_changes
+    (TaskCallbacks & task_callbacks,
+     RegionEdgeConnectionsContainer & edge_container,
+     MapRegionContainer & container)
+{
+    if (m_load_entries.empty() && m_decay_entries.empty())
+        { return; }
+
+    MapRegionChangesTask
+        {std::move(m_load_entries),
+         std::move(m_decay_entries),
+         edge_container,
+         container}.
+        run_changes(task_callbacks);
 }
 
 // ----------------------------------------------------------------------------
@@ -174,10 +190,21 @@ MapRegionChangesTask::MapRegionChangesTask
     m_decay_entries(std::move(decay_entries)),
     m_edge_container(edge_container),
     m_container(container) {}
-
-void MapRegionChangesTask::operator ()
-    (LoaderTask::Callbacks & callbacks) const
+#if 0
+void MapRegionChangesTask::on_every_frame
+    (TaskCallbacks & callbacks, Real)
 {
+    auto adder = m_edge_container.make_adder();
+    for (auto & load_entry : m_load_entries)
+        { load_entry(m_container, adder, callbacks); }
+
+    auto remover = adder.finish().make_remover();
+    for (auto & decay_entry : m_decay_entries)
+        { decay_entry(remover, callbacks); }
+    m_edge_container = remover.finish();
+}
+#endif
+void MapRegionChangesTask::run_changes(TaskCallbacks & callbacks) {
     auto adder = m_edge_container.make_adder();
     for (auto & load_entry : m_load_entries)
         { load_entry(m_container, adder, callbacks); }
@@ -194,7 +221,7 @@ SharedPtr<TriangleLink> to_link(const TriangleSegment & segment)
     { return make_shared<TriangleLink>(segment); }
 
 EntityAndLinkInsertingAdder::EntityAndLinkInsertingAdder
-    (LoaderTask::Callbacks & callbacks,
+    (TaskCallbacks & callbacks,
      Size2I grid_size,
      const TilePositionFraming & tile_framing):
     m_callbacks(callbacks),

@@ -28,40 +28,6 @@
 #include "../../Components.hpp"
 #include "../../TasksController.hpp"
 
-class BackgroundTaskTrap final {
-public:
-    using TaskContinuation = BackgroundTask::Continuation;
-    using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
-
-    void assign_callbacks(TaskCallbacks & callbacks_)
-        { m_callbacks = &callbacks_; }
-
-    void assign_continuation_strategy(ContinuationStrategy & strategy) {
-        m_strategy = &strategy;
-        m_continuation = &strategy.finish_task();
-    }
-
-    void add_background_task(const SharedPtr<BackgroundTask> & task) {
-        m_continuation = &m_strategy->continue_().wait_on(task);
-    }
-
-    TaskContinuation & continuation() const {
-        if (m_continuation) return *m_continuation;
-        throw RuntimeError{"Strategy was not set"};
-    }
-
-    bool delay_required() const {
-        return &continuation() == &m_strategy->continue_();
-    }
-
-private:
-    ContinuationStrategy * m_strategy = nullptr;
-    TaskContinuation * m_continuation = nullptr;
-    TaskCallbacks * m_callbacks = nullptr;
-};
-
-// ----------------------------------------------------------------------------
-
 class MapContentLoaderComplete final : public MapContentLoader {
 public:
     using TaskContinuation = BackgroundTask::Continuation;
@@ -72,7 +38,7 @@ public:
     explicit MapContentLoaderComplete(Platform &);
 
     bool delay_required() const final
-        { return m_background_task_trap.delay_required(); }
+        { return &continuation() == &m_strategy->continue_(); }
 
     FutureStringPtr promise_file_contents(const char * filename) final;
 
@@ -85,15 +51,14 @@ public:
     void assign_platform(Platform & platform)
         { m_platform = &platform; }
 
-    void assign_continuation_strategy(ContinuationStrategy & strategy)
-        { m_background_task_trap.assign_continuation_strategy(strategy); }
+    void assign_continuation_strategy(ContinuationStrategy &);
 
-    TaskContinuation & continuation() const
-        { return m_background_task_trap.continuation(); }
+    TaskContinuation & continuation() const;
 
 private:
     Platform * m_platform = nullptr;
-    BackgroundTaskTrap m_background_task_trap;
+    ContinuationStrategy * m_strategy = nullptr;
+    TaskContinuation * m_continuation = nullptr;
 };
 
 // ----------------------------------------------------------------------------

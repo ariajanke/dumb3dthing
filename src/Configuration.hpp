@@ -22,8 +22,10 @@
 
 #include "Definitions.hpp"
 
-static constexpr const auto k_testmap_filename = "nested-map-demo.tmx";
+static constexpr const auto k_testmap_filename = "comp-map-demo.tmx";
 static constexpr const Vector k_player_start{2, 12.1, -2};
 static constexpr const bool
     k_region_axis_container_report_maximum_sort_and_sweep = true;
 constexpr const bool k_promised_files_take_at_least_one_frame = false;
+constexpr const bool k_report_lost_file_string_content = true;
+constexpr const bool k_report_tile_region_loads_and_unloads = true;

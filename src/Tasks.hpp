@@ -24,8 +24,10 @@
 
 class Platform;
 class EveryFrameTask;
+#if 0
 class OccasionalTask;
 class LoaderTask;
+#endif
 class BackgroundTask;
 
 class TaskCallbacks {
@@ -33,12 +35,16 @@ public:
     virtual ~TaskCallbacks() {}
 
     virtual void add(const SharedPtr<EveryFrameTask> &) = 0;
-
+#   if 0
     virtual void add(const SharedPtr<LoaderTask> &) = 0;
-
+#   endif
     virtual void add(const SharedPtr<BackgroundTask> &) = 0;
 
     virtual void add(const Entity &) = 0;
+
+    virtual void add(const SharedPtr<TriangleLink> &) = 0;
+
+    virtual void remove(const SharedPtr<const TriangleLink> &) = 0;
 
     virtual Platform & platform() = 0;
 };
@@ -95,19 +101,22 @@ public:
     template <typename Func>
     static SharedPtr<BackgroundTask> make(Func && f_);
 };
-
+#if 0
 // ----------------------------------------------------------------------------
 
 class LoaderTask {
 public:
+#   if 0
     struct PlayerEntities final {
         PlayerEntities() {}
         PlayerEntities(Entity physical_, Entity renderable_):
-            physical(physical_), renderable(renderable_)
-        {}
+            physical(physical_), renderable(renderable_) {}
+
         Entity physical, renderable;
     };
-
+#   endif
+    using Callbacks = TaskCallbacks;
+#   if 0
     class Callbacks : public TaskCallbacks {
     public:
         using TaskCallbacks::add;
@@ -116,15 +125,16 @@ public:
 
         virtual void remove(const SharedPtr<const TriangleLink> &) = 0;
     };
-
+#   endif
     virtual ~LoaderTask() {}
 
     virtual void operator () (Callbacks &) const = 0;
-
+#   if 0
     template <typename Func>
     static SharedPtr<LoaderTask> make(Func && f_);
+#   endif
 };
-
+#endif
 // ----------------------------------------------------------------------------
 
 template <typename Func>
@@ -159,7 +169,7 @@ template <typename Func>
     };
     return make_shared<Impl>(std::move(f_));
 }
-
+#if 0
 // ----------------------------------------------------------------------------
 
 template <typename Func>
@@ -176,3 +186,4 @@ template <typename Func>
     };
     return make_shared<Impl>(std::move(f_));
 }
+#endif
