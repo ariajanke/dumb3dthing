@@ -44,12 +44,19 @@ Continuation & MapLoaderTask::in_background
 {
     m_content_loader.assign_platform(callbacks.platform());
     m_content_loader.assign_continuation_strategy(strat);
-    (void)m_map_loader.update_progress(m_content_loader).fold<int>(0).
+    auto res = m_map_loader.update_progress(m_content_loader);
+    if (res.is_empty()) {
+        // even if there are tasks in wait... great!
+        // if this was finish... we would have a problem
+        return strat.continue_();
+    }
+    res.fold<int>(0).
         map([this] (MapLoadingSuccess && res) {
             m_loaded_region = std::move(res.loaded_region);
             return 0;
         }).
         map_left([] (MapLoadingError &&) {
+            throw RuntimeError{"Failed to load map"};
             return 0;
         }).
         value();
@@ -70,7 +77,7 @@ MapContentLoaderComplete::MapContentLoaderComplete(Platform & platform):
 
 FutureStringPtr MapContentLoaderComplete::promise_file_contents
     (const char * filename)
-    { return m_platform->promise_file_contents(filename); }
+{ return m_platform->promise_file_contents(filename); }
 
 SharedPtr<Texture> MapContentLoaderComplete::make_texture() const
     { return m_platform->make_texture(); }

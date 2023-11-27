@@ -292,6 +292,7 @@ int main() {
             glm::radians(45.0f), float(window_width) / float(window_height),
             0.001f, 100.0f));
 
+        npcallbacks.progress_file_promises();
         gamedriver->update(1. / 60., npcallbacks);
         glfwSetTime(0.);
 
