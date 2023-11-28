@@ -22,8 +22,7 @@
 
 namespace {
 
-using MapSubRegionViewGrid = StackableSubRegionGrid::MapSubRegionViewGrid;
-using MapSubRegionOwners = StackableSubRegionGrid::MapSubRegionOwners;
+using MapSubRegionViewGrid = SubRegionGridStacker::MapSubRegionViewGrid;
 using MapSubRegionOwnersMap = SubRegionGridStacker::MapSubRegionOwnersMap;
 
 } // end of <anonymous> namespace
@@ -46,10 +45,10 @@ void MapSubRegion::process_load_request
 // ----------------------------------------------------------------------------
 
 CompositeMapRegion::CompositeMapRegion
-    (Tuple<MapSubRegionViewGrid, MapSubRegionOwners> && tup,
+    (Tuple<MapSubRegionViewGrid, MapSubRegionOwnersMap> && tup,
      ScaleComputation && scale):
     m_sub_regions(std::move(std::get<MapSubRegionViewGrid>(tup))),
-    m_sub_region_owners(std::move(std::get<MapSubRegionOwners>(tup))),
+    m_sub_region_owners(std::move(std::get<MapSubRegionOwnersMap>(tup))),
     m_scale(scale) {}
 
 void CompositeMapRegion::process_load_request
@@ -89,9 +88,6 @@ void CompositeMapRegion::process_load_request
     };
     framing.
         with_scaling(m_scale).
-        // this:
-        // for_each_overlap(m_sub_regions.size2(), request, std::move(on_overlap));
-        // should read: (test this!)
         for_each_overlap(subgrid.size2(), request, std::move(on_overlap));
 }
 
@@ -122,9 +118,6 @@ SubRegionGridStacker StackableSubRegionGrid::stack_with
     ViewGridInserter<const MapSubRegion *> grid_inserter{first.size2()};
     while (!grid_inserter.filled()) {
         for (auto & subregion_grid : subregions) {
-            // bug: plopping empty grids into your stack
-            if (!subregion_grid.has_position(grid_inserter.position()))
-                continue;
             const auto * subregion = subregion_grid(grid_inserter.position());
             if (!subregion) continue;
             if (!subregion->belongs_to_parent()) continue;
@@ -135,17 +128,6 @@ SubRegionGridStacker StackableSubRegionGrid::stack_with
     return grid_inserter.finish();
 }
 
-/* static */ MapSubRegionOwners SubRegionGridStacker::make_owners_container
-    (MapSubRegionOwnersMap && owners_map)
-{
-    MapSubRegionOwners owners_container;
-    owners_container.reserve(owners_map.size());
-    for (auto & [owner, _] : owners_map) {
-        owners_container.push_back(owner);
-    }
-    return owners_container;
-}
-
 void SubRegionGridStacker::stack_with
     (Grid<const MapSubRegion *> && subregion,
      SharedPtr<Grid<MapSubRegion>> && owner)
@@ -154,13 +136,9 @@ void SubRegionGridStacker::stack_with
     m_owners.emplace(std::move(owner), std::monostate{});
 }
 
-Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
+Tuple<MapSubRegionViewGrid, MapSubRegionOwnersMap>
     SubRegionGridStacker::to_sub_region_view_grid()
 {
-    return make_tuple(make_view_grid       (std::move(m_subregions)),
-                      make_owners_container(std::move(m_owners    )));
+    return make_tuple
+        (make_view_grid(std::move(m_subregions)), std::move(m_owners));
 }
-
-/* private static */ const MapSubRegionOwnersMap
-    SubRegionGridStacker::k_default_owners_map =
-    MapSubRegionOwnersMap{2, nullptr};

@@ -22,6 +22,8 @@
 
 #include "MapRegion.hpp"
 
+#include <ariajanke/cul/HashMap.hpp>
+
 class SubRegionGridStacker;
 
 class MapSubRegion final {
@@ -50,12 +52,14 @@ private:
 class CompositeMapRegion final : public MapRegion {
 public:
     using MapSubRegionViewGrid = ViewGrid<const MapSubRegion *>;
-    using MapSubRegionOwners = std::vector<SharedPtr<Grid<MapSubRegion>>>;
+    using MapSubRegionOwnerPtr = SharedPtr<Grid<MapSubRegion>>;
+    using MapSubRegionOwnersMap =
+        cul::HashMap<MapSubRegionOwnerPtr, std::monostate>;
 
-    CompositeMapRegion() {}
+    CompositeMapRegion(): m_sub_region_owners(nullptr) {}
 
     CompositeMapRegion
-        (Tuple<MapSubRegionViewGrid, MapSubRegionOwners> &&,
+        (Tuple<MapSubRegionViewGrid, MapSubRegionOwnersMap> &&,
          ScaleComputation &&);
 
     void process_load_request
@@ -77,7 +81,7 @@ private:
          RegionLoadCollectorBase & collector);
 
     MapSubRegionViewGrid m_sub_regions;
-    MapSubRegionOwners m_sub_region_owners;
+    MapSubRegionOwnersMap m_sub_region_owners;
     ScaleComputation m_scale;
 };
 
@@ -85,9 +89,6 @@ private:
 
 class StackableSubRegionGrid final {
 public:
-    using MapSubRegionViewGrid = CompositeMapRegion::MapSubRegionViewGrid;
-    using MapSubRegionOwners = CompositeMapRegion::MapSubRegionOwners;
-
     StackableSubRegionGrid() {}
 
     StackableSubRegionGrid
@@ -110,29 +111,26 @@ private:
 class SubRegionGridStacker final {
 public:
     using MapSubRegionViewGrid = CompositeMapRegion::MapSubRegionViewGrid;
-    using MapSubRegionOwners = CompositeMapRegion::MapSubRegionOwners;
     using MapSubRegionOwnerPtr = SharedPtr<Grid<MapSubRegion>>;
     using MapSubRegionOwnersMap =
-        rigtorp::HashMap<MapSubRegionOwnerPtr, std::monostate>;
+        cul::HashMap<MapSubRegionOwnerPtr, std::monostate>;
 
     static MapSubRegionViewGrid make_view_grid
         (std::vector<Grid<const MapSubRegion *>> &&);
 
-    static MapSubRegionOwners make_owners_container
-        (MapSubRegionOwnersMap &&);
+    SubRegionGridStacker():
+        m_owners(nullptr) {}
 
     void stack_with
         (Grid<const MapSubRegion *> && subregion,
          SharedPtr<Grid<MapSubRegion>> && owner);
 
-    Tuple<MapSubRegionViewGrid, MapSubRegionOwners>
+    Tuple<MapSubRegionViewGrid, MapSubRegionOwnersMap>
         to_sub_region_view_grid();
 
     bool is_empty() const { return m_subregions.empty(); }
 
 private:
-    static const MapSubRegionOwnersMap k_default_owners_map;
-
     std::vector<Grid<const MapSubRegion *>> m_subregions;
-    MapSubRegionOwnersMap m_owners = k_default_owners_map;
+    MapSubRegionOwnersMap m_owners;
 };

@@ -22,16 +22,8 @@
 
 #include "RegionPositionFraming.hpp"
 
-#include <rigtorp/HashMap.h>
-
-#include <unordered_map>
-
-class MapRegionPreparer;
 class RegionLoadRequestBase;
-class MapRegionContainer;
 class ScaleComputation;
-class RegionEdgeConnectionsAdder;
-class ProducableGroupFiller;
 class ProducableTileGridStacker;
 
 class RegionLoadCollectorBase {

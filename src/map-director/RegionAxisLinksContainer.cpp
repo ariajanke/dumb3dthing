@@ -128,12 +128,6 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
     int sort_sweep_count = 0;
     std::sort(entries.begin(), entries.end(),
               RegionAxisLinkEntry::bounds_less_than);
-#   if 0//def MACRO_DEBUG
-    assert(std::all_of(entries.begin(), entries.end(),
-        [] (const RegionAxisLinkEntry & entry) {
-            return !are_very_close(entry.low_bounds(), entry.high_bounds());
-        }));
-#   endif
     for (auto itr = entries.begin(); itr != entries.end(); ++itr) {
         for (auto jtr = itr + 1; jtr != entries.end(); ++jtr) {
             if (itr->high_bounds() < jtr->low_bounds())

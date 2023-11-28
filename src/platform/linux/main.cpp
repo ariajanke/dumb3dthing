@@ -419,6 +419,12 @@ glm::mat4 NativePlatformCallbacks::get_view() const {
         return glm::lookAt
             (to_glmv3(cam.position), to_glmv3(cam.target), to_glmv3(cam.up));
     } else {
+        return glm::mat4{
+            { 1, 0, 0, 0 },
+            { 0, 1, 0, 0 },
+            { 0, 0, 1, 0 },
+            { 0, 0, 0, 1 }
+        };
         throw std::runtime_error{"Camera entity not set, no view possible"};
     }
 }
