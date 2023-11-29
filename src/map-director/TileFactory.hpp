@@ -41,7 +41,8 @@ class TileFactory {
 public:
     virtual ~TileFactory() {}
 
-    void setup(const TilesetXmlGrid &, Platform &,
+    void setup(const TilesetXmlGrid &,
+               PlatformAssetsStrategy &,
                const Vector2I & location_on_tileset);
 
     static Vector grid_position_to_v3(const Vector2I & r)
@@ -66,7 +67,9 @@ protected:
         ProducableTileCallbacks & callbacks, Head && head, Types &&... arguments) const;
 
     SharedPtr<const RenderModel> make_render_model_with_common_texture_positions
-        (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const;
+        (PlatformAssetsStrategy & platform,
+         const Slopes & slopes,
+         Vector2I location_in_tileset) const;
 
     Size2 common_texture_tile_size() const;
 
@@ -75,7 +78,9 @@ protected:
     TileTexture floor_texture_at(Vector2I) const;
 
     virtual void setup_
-        (const Vector2I & loc_in_ts, const TileProperties & properties, Platform &) = 0;
+        (const Vector2I & location_in_tileset,
+         const TileProperties & properties,
+         PlatformAssetsStrategy &) = 0;
 
 private:
     void set_shared_texture_information

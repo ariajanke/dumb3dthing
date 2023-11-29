@@ -24,11 +24,13 @@
 #include "../ProducableGroupFiller.hpp"
 #include "../MapRegion.hpp"
 
+#include <map>
+
 class TilesetXmlGrid;
 class StackableSubRegionGrid;
 class TilesetMappingTile;
 class TilesetLayerWrapper;
-struct MapContentLoader;
+class MapContentLoader;
 
 class TilesetMapElementCollector {
 public:
@@ -45,12 +47,17 @@ public:
     using MappingView = View<MappingContainer::const_iterator>;
     using Continuation = BackgroundTask::Continuation;
     using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
+    using FillerFactory =
+        SharedPtr<ProducableGroupFiller>(*)
+        (const TilesetXmlGrid &, PlatformAssetsStrategy &);
+    using FillerFactoryMap = std::map<std::string, FillerFactory>;
 
     static SharedPtr<TilesetBase> make(const TiXmlElement &);
 
     virtual ~TilesetBase() {}
 
-    [[nodiscard]] virtual Continuation & load(Platform &, const TiXmlElement &, ContinuationStrategy &) = 0;
+    [[nodiscard]] virtual Continuation & load
+        (const TiXmlElement &, MapContentLoader &) = 0;
 
     virtual void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const = 0;

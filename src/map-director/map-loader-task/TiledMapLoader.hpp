@@ -24,6 +24,7 @@
 #include "MapLoadingError.hpp"
 #include "StateMachineDriver.hpp"
 #include "TilesetLoadingTask.hpp"
+#include "TilesetBase.hpp"
 
 #include "../ParseHelpers.hpp"
 #include "../ProducableGrid.hpp"
@@ -37,27 +38,33 @@
 #include <ariajanke/cul/TypeSet.hpp>
 #include <ariajanke/cul/TypeList.hpp>
 
+#include <map>
+
+class TilesetXmlGrid;
+
 struct MapLoadingSuccess final {
     UniquePtr<MapRegion> loaded_region;
     MapLoadingWarnings warnings;
 };
 
-// still have "unfinished" types
-// provide an interface to the outside world for anything loading
-// map related content
-struct MapContentLoader { // am I a visitor?
+class MapContentLoader : public PlatformAssetsStrategy {
+public:
+    using FillerFactoryMap = TilesetBase::FillerFactoryMap;
+    using TaskContinuation = BackgroundTask::Continuation;
+
     virtual ~MapContentLoader() {}
+
+    // I want my integration tests...
+    virtual const FillerFactoryMap & map_fillers() const = 0;
 
     /// @returns true if any promised file contents is not immediately ready
     virtual bool delay_required() const = 0;
 
-    virtual FutureStringPtr promise_file_contents(const char *) = 0;
-
     virtual void add_warning(MapLoadingWarningEnum) = 0;
 
-    virtual SharedPtr<Texture> make_texture() const = 0;
-
     virtual void wait_on(const SharedPtr<BackgroundTask> &) = 0;
+
+    virtual TaskContinuation & task_continuation() const = 0;
 };
 
 namespace tiled_map_loading {

@@ -47,11 +47,14 @@ std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
 
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TilesetXmlGrid & xml_grid, Platform & platform);
+     const TilesetXmlGrid & xml_grid,
+     MapContentLoader & platform);
 
 } // end of <anonymous> namespace
 
-/* static */ const ProducablesTileset::FillerFactoryMap & ProducablesTileset::builtin_fillers() {
+/* static */ const ProducablesTileset::FillerFactoryMap &
+    ProducablesTileset::builtin_fillers()
+{
     static auto s_map = [] {
         FillerFactoryMap s_map;
         for (auto type : slopes_group_filler_type_names::k_ramp_group_type_list) {
@@ -66,30 +69,27 @@ MakeFillerGridRt make_filler_grid
     } ();
     return s_map;
 }
-
+#if 0
 Continuation & ProducablesTileset::load
     (Platform & platform,
      const TiXmlElement & tileset_el,
      ContinuationStrategy & strategy)
 { return load(platform, tileset_el, strategy, builtin_fillers()); }
-
+#endif
 // four params, ouch!
 Continuation & ProducablesTileset::load
-    (Platform & platform,
-     const TiXmlElement & tileset_el,
-     ContinuationStrategy & strategy,
-     const FillerFactoryMap & filler_factories)
+    (const TiXmlElement & tileset_el, MapContentLoader & content_loader)
 {
     TilesetXmlGrid xml_grid;
-    xml_grid.load(platform, tileset_el);
+    xml_grid.load(content_loader.make_texture(), tileset_el);
     auto factory_and_locations = find_unique_factories_and_positions
-        (make_factory_grid_positions(xml_grid, filler_factories));
+        (make_factory_grid_positions(xml_grid, content_loader.map_fillers()));
 
-    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, platform);
+    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, content_loader);
     m_filler_grid = std::move(filler_things.grid);
     m_unique_fillers = std::move(filler_things.unique_fillers);
 
-    return strategy.finish_task();
+    return content_loader.task_continuation();
 }
 
 /* private */
@@ -183,7 +183,8 @@ std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
 
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TilesetXmlGrid & xml_grid, Platform & platform)
+     const TilesetXmlGrid & xml_grid,
+     MapContentLoader & platform)
 {
     MakeFillerGridRt rv;
     auto & filler_grid = rv.grid;

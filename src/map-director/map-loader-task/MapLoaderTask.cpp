@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "MapLoaderTask.hpp"
+#include "ProducablesTileset.hpp"
 
 #include "../../Definitions.hpp"
 #include "../../TasksController.hpp"
@@ -28,13 +29,16 @@ namespace {
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 using Continuation = BackgroundTask::Continuation;
 using TaskContinuation = MapContentLoaderComplete::TaskContinuation;
+using FillerFactoryMap = ProducablesTileset::FillerFactoryMap;
 
 } // end of <anonymous> namespace
 
-MapLoaderTask::MapLoaderTask(const char * map_filename, Platform & platform) {
+MapLoaderTask::MapLoaderTask
+    (const char * map_filename, PlatformAssetsStrategy & assets_strategy)
+{
     using namespace tiled_map_loading;
 
-    m_content_loader.assign_platform(platform);
+    m_content_loader.assign_assets_strategy(assets_strategy);
     m_map_loader = MapLoadStateMachine::make_with_starting_state
         (m_content_loader, map_filename);
 }
@@ -42,15 +46,9 @@ MapLoaderTask::MapLoaderTask(const char * map_filename, Platform & platform) {
 Continuation & MapLoaderTask::in_background
     (Callbacks & callbacks, ContinuationStrategy & strat)
 {
-    m_content_loader.assign_platform(callbacks.platform());
+    m_content_loader.assign_assets_strategy(callbacks.platform());
     m_content_loader.assign_continuation_strategy(strat);
-    auto res = m_map_loader.update_progress(m_content_loader);
-    if (res.is_empty()) {
-        // even if there are tasks in wait... great!
-        // if this was finish... we would have a problem
-        return strat.continue_();
-    }
-    res.fold<int>(0).
+    m_map_loader.update_progress(m_content_loader).fold<int>(0).
         map([this] (MapLoadingSuccess && res) {
             m_loaded_region = std::move(res.loaded_region);
             return 0;
@@ -60,7 +58,7 @@ Continuation & MapLoaderTask::in_background
             return 0;
         }).
         value();
-    return m_content_loader.continuation();
+    return m_content_loader.task_continuation();
 }
 
 UniquePtr<MapRegion> MapLoaderTask::retrieve() {
@@ -74,6 +72,9 @@ UniquePtr<MapRegion> MapLoaderTask::retrieve() {
 
 MapContentLoaderComplete::MapContentLoaderComplete(Platform & platform):
     m_platform(&platform) {}
+
+const FillerFactoryMap & MapContentLoaderComplete::map_fillers() const
+    { return ProducablesTileset::builtin_fillers(); }
 
 FutureStringPtr MapContentLoaderComplete::promise_file_contents
     (const char * filename)
@@ -93,7 +94,7 @@ void MapContentLoaderComplete::assign_continuation_strategy
     m_continuation = &strategy.finish_task();
 }
 
-TaskContinuation & MapContentLoaderComplete::continuation() const {
+TaskContinuation & MapContentLoaderComplete::task_continuation() const {
     if (m_continuation) return *m_continuation;
     throw RuntimeError{"Strategy was not set"};
 }

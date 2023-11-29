@@ -40,7 +40,8 @@ void SingleModelSlopedTileFactory::operator ()
 }
 
 /* protected */ void SingleModelSlopedTileFactory::setup_
-    (const TileProperties & properties, Platform & platform,
+    (const TileProperties & properties,
+     PlatformAssetsStrategy & platform,
      const SlopeFillerExtra &,
      const Vector2I & location_on_tileset)
 {
@@ -52,7 +53,8 @@ void SingleModelSlopedTileFactory::operator ()
 // ----------------------------------------------------------------------------
 
 /* private */ void RampTileFactory::setup_
-    (const TileProperties & properties, Platform & platform,
+    (const TileProperties & properties,
+     PlatformAssetsStrategy & platform,
      const SlopeFillerExtra & slope_extras,
      const Vector2I & location_on_tileset)
 {

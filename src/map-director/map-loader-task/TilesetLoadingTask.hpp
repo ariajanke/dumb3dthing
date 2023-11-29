@@ -30,7 +30,7 @@
 
 #include <ariajanke/cul/Either.hpp>
 
-struct MapContentLoader;
+class MapContentLoader;
 class TilesetBase;
 
 // ----------------------------------------------------------------------------

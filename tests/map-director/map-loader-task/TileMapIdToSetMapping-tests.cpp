@@ -34,7 +34,7 @@ using namespace cul::tree_ts;
 class TestTileset final : public TilesetBase {
 public:
     Continuation & load
-        (Platform &, const TiXmlElement &, ContinuationStrategy &) final
+        (const TiXmlElement &, MapContentLoader &) final
         { throw ""; }
 
     void add_map_elements

@@ -44,7 +44,8 @@ protected:
 
     virtual Slopes model_tile_elevations() const = 0;
 
-    void setup_(const TileProperties &, Platform &,
+    void setup_(const TileProperties &,
+                PlatformAssetsStrategy &,
                 const SlopeFillerExtra &,
                 const Vector2I & location_on_tileset) override;
 
@@ -62,7 +63,8 @@ protected:
     virtual void set_direction(const char *) = 0;
 
 private:
-    void setup_(const TileProperties & properties, Platform & platform,
+    void setup_(const TileProperties & properties,
+                PlatformAssetsStrategy & platform,
                 const SlopeFillerExtra &,
                 const Vector2I & location_on_tileset) final;
 };

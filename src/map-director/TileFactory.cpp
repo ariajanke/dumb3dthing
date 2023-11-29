@@ -52,7 +52,8 @@ void TileFactory::set_shared_texture_information
 }
 
 void TileFactory::setup
-    (const TilesetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid,
+     PlatformAssetsStrategy & platform,
      const Vector2I & location_on_tileset)
 {
     m_texture_ptr = xml_grid.texture();
@@ -132,7 +133,9 @@ void TileFactory::setup
 
 /* protected */ SharedPtr<const RenderModel>
     TileFactory::make_render_model_with_common_texture_positions
-    (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const
+    (PlatformAssetsStrategy & platform,
+     const Slopes & slopes,
+     Vector2I loc_in_ts) const
 {
     const auto & pos = get_points_for(slopes);
     auto txpos = common_texture_positions_from(loc_in_ts);

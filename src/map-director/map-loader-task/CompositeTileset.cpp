@@ -85,9 +85,7 @@ private:
 }
 
 Continuation & CompositeTileset::load
-    (Platform & platform,
-     const TiXmlElement & tileset_element,
-     ContinuationStrategy & strategy)
+    (const TiXmlElement & tileset_element, MapContentLoader & content_loader)
 {
     SharedPtr<MapLoaderTask> map_loader_task;
     auto properties = tileset_element.FirstChildElement("properties");
@@ -96,7 +94,7 @@ Continuation & CompositeTileset::load
         auto value = property.Attribute("value");
         if (!name || !value) continue;
         if (::strcmp(name, "filename") == 0) {
-            map_loader_task = make_shared<MapLoaderTask>(value, platform);
+            map_loader_task = make_shared<MapLoaderTask>(value, content_loader);
         }
     }
     if (!map_loader_task) {
@@ -107,7 +105,8 @@ Continuation & CompositeTileset::load
         (*size_of_tileset(tileset_element), MapSubRegion{});
     auto task_to_wait_on = make_shared<CompositeTilesetFinisherTask>
         (std::move(map_loader_task), m_sub_regions_grid, m_source_map);
-    return strategy.continue_().wait_on(task_to_wait_on);
+    content_loader.wait_on(task_to_wait_on);
+    return content_loader.task_continuation();
 }
 
 void CompositeTileset::add_map_elements

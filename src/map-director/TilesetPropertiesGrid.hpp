@@ -83,7 +83,7 @@ public:
     static Vector2I tid_to_tileset_location(const Grid<T> & grid, int tid)
         { return tid_to_tileset_location(grid.size2(), tid); }
 
-    void load(Platform &, const TiXmlElement &);
+    void load(SharedPtr<Texture> &&, const TiXmlElement &);
 
     const TileProperties & operator() (const Vector2I & r) const
         { return m_elements(r); }

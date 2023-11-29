@@ -55,7 +55,8 @@ public:
          ProducableGroupTileLayer && group_grid) const final;
 
     void load
-        (const TilesetXmlGrid & xml_grid, Platform & platform,
+        (const TilesetXmlGrid & xml_grid,
+         PlatformAssetsStrategy & platform,
          const RampGroupFactoryMap & factory_type_map = builtin_tile_factory_maker_map());
 
     static const RampGroupFactoryMap & builtin_tile_factory_maker_map();
@@ -67,7 +68,8 @@ private:
                         const RampGroupFactoryMap & factory_type_map);
 
     void setup_factories
-        (const TilesetXmlGrid & xml_grid, Platform & platform,
+        (const TilesetXmlGrid & xml_grid,
+         PlatformAssetsStrategy & platform,
          TileFactoryGrid &) const;
 
     SlopeFillerExtra m_specials;

@@ -35,8 +35,7 @@ public:
 
     static Optional<Size2I> size_of_tileset(const TiXmlElement &);
 
-    Continuation & load
-        (Platform &, const TiXmlElement &, ContinuationStrategy &) final;
+    Continuation & load(const TiXmlElement &, MapContentLoader &) final;
 
     void add_map_elements(TilesetMapElementCollector &, const TilesetLayerWrapper &) const final;
 

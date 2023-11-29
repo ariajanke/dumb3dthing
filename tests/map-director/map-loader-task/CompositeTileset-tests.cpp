@@ -20,6 +20,7 @@
 
 #include "../../../src/map-director/map-loader-task/CompositeTileset.hpp"
 #include "../../../src/TasksController.hpp"
+#include "../../../src/map-director/map-loader-task/TiledMapLoader.hpp"
 
 #include "../../test-helpers.hpp"
 
@@ -34,6 +35,7 @@ using TaskStrategy = RunableBackgroundTasks::TaskStrategy;
 using NewTaskEntry = ReturnToTasksCollection::NewTaskEntry;
 using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
 using Continuation = BackgroundTask::Continuation;
+using FillerFactoryMap = TilesetBase::FillerFactoryMap;
 
 constexpr const auto k_test_tileset_contents =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -107,9 +109,7 @@ public:
     }
 
     void add(const SharedPtr<EveryFrameTask> &) final {}
-#   if 0
-    void add(const SharedPtr<LoaderTask> &) {}
-#   endif
+
     void add(const SharedPtr<BackgroundTask> &) final { throw ""; }
 
     void add(const Entity &) final {}
@@ -119,6 +119,42 @@ public:
     void remove(const SharedPtr<const TriangleLink> &) final {}
 
     Platform & platform() final { return TestPlatform::platform(); }
+};
+
+class TestMapContentLoader final : public MapContentLoader {
+public:
+    using FillerFactoryMap = TilesetBase::FillerFactoryMap;
+    using TaskContinuation = BackgroundTask::Continuation;
+
+    static TestMapContentLoader & instance() {
+        static TestMapContentLoader inst;
+        return inst;
+    }
+
+    const FillerFactoryMap & map_fillers() const final
+        { throw ""; }
+
+    SharedPtr<Texture> make_texture() const final { throw ""; }
+
+    SharedPtr<RenderModel> make_render_model() const final { throw ""; }
+
+    FutureStringPtr promise_file_contents(const char * fn) final
+        { return TestPlatform::platform().promise_file_contents(fn); }
+
+    bool delay_required() const final { throw ""; }
+
+    void add_warning(MapLoadingWarningEnum) final {
+        throw "";
+    }
+
+    void wait_on(const SharedPtr<BackgroundTask> & task) final
+        { waited_on_tasks.push_back(task); }
+
+    TaskContinuation & task_continuation() const final {
+        return BackgroundTask::Continuation::task_completion();
+    }
+
+    std::vector<SharedPtr<BackgroundTask>> waited_on_tasks;
 };
 
 } // end of <anonymous> namespace
@@ -131,8 +167,7 @@ describe("CompositeTileset")([] {
     doc.Parse(k_test_tileset_contents);
     TaskContinuationComplete continuation;
     TaskStrategy strategy{continuation};
-    (void)tileset.load
-        (TestPlatform::platform(), *doc.RootElement(), strategy);
+    (void)tileset.load(*doc.RootElement(), TestMapContentLoader::instance());
     std::vector<NewTaskEntry> new_tasks;
     ReturnToTasksCollection col;
     auto add_new_wait_ons = [&] {

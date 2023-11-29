@@ -27,7 +27,7 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
+
 
 } // end of <anonymous> namespace
 
@@ -35,8 +35,9 @@ void TileProperties::load(const TiXmlElement & tile_el) {
     auto id = tile_el.IntAttribute("id", k_no_id);
     auto type = tile_el.Attribute("type");
     if (!type || id == k_no_id) {
-        throw InvArg{"TileProperties::load: both id and type attributes must "
-                     "be defined"                                             };
+        throw InvalidArgument
+            {"TileProperties::load: both id and type attributes must "
+             "be defined"                                             };
     }
     m_id = id;
     m_type = type;
@@ -53,17 +54,20 @@ void TileProperties::load(const TiXmlElement & tile_el) {
     (const Size2I & sz, int tid)
     { return Vector2I{tid % sz.width, tid / sz.width}; }
 
-void TilesetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
+void TilesetXmlGrid::load
+    (SharedPtr<Texture> && texture_for_tileset, const TiXmlElement & tileset)
+{
     Grid<TileProperties> tile_grid;
 
     if (int columns = tileset.IntAttribute("columns")) {
-        tile_grid.set_size
-            (columns, tileset.IntAttribute("tilecount") / columns, TileProperties{});
+        auto row_count = tileset.IntAttribute("tilecount") / columns;
+        tile_grid.set_size(columns, row_count, TileProperties{});
     }
     Size2 tile_size
         {tileset.IntAttribute("tilewidth"), tileset.IntAttribute("tileheight")};
+#   if 0 // where's the texture going?
     load_texture(platform, tileset);
-
+#   endif
     auto to_ts_loc = [&tile_grid] (int n)
         { return tid_to_tileset_location(tile_grid, n); };
 
@@ -74,7 +78,22 @@ void TilesetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
     }
 
     // following load_texture call, no more exceptions should be possible
+#   if 0
     std::tie(m_texture, m_texture_size) = load_texture(platform, tileset);
+#   else
+    auto el_ptr = tileset.FirstChildElement("image");
+    if (!el_ptr) {
+        throw RuntimeError
+            {"TileSetXmlGrid::load_texture: no texture associated with this "
+             "tileset"};
+    }
+
+    const auto & image_el = *el_ptr;
+    texture_for_tileset->load_from_file(image_el.Attribute("source"));
+    m_texture = std::move(texture_for_tileset);
+    m_texture_size = Size2
+        {image_el.IntAttribute("width"), image_el.IntAttribute("height")};
+#   endif
     m_tile_size = tile_size;
     m_elements = std::move(tile_grid);
 
@@ -86,7 +105,9 @@ void TilesetXmlGrid::load(Platform & platform, const TiXmlElement & tileset) {
 {
     auto el_ptr = tileset.FirstChildElement("image");
     if (!el_ptr) {
-        throw RtError{"TileSetXmlGrid::load_texture: no texture associated with this tileset"};
+        throw RuntimeError
+            {"TileSetXmlGrid::load_texture: no texture associated with this "
+             "tileset"};
     }
 
     const auto & image_el = *el_ptr;

@@ -37,8 +37,10 @@ public:
 
     explicit MapContentLoaderComplete(Platform &);
 
+    const FillerFactoryMap & map_fillers() const final;
+
     bool delay_required() const final
-        { return &continuation() == &m_strategy->continue_(); }
+        { return &task_continuation() == &m_strategy->continue_(); }
 
     FutureStringPtr promise_file_contents(const char * filename) final;
 
@@ -48,15 +50,18 @@ public:
 
     void wait_on(const SharedPtr<BackgroundTask> &) final;
 
-    void assign_platform(Platform & platform)
+    void assign_assets_strategy(PlatformAssetsStrategy & platform)
         { m_platform = &platform; }
 
     void assign_continuation_strategy(ContinuationStrategy &);
 
-    TaskContinuation & continuation() const;
+    SharedPtr<RenderModel> make_render_model() const final
+        { return m_platform->make_render_model(); }
+
+    TaskContinuation & task_continuation() const final;
 
 private:
-    Platform * m_platform = nullptr;
+    PlatformAssetsStrategy * m_platform = nullptr;
     ContinuationStrategy * m_strategy = nullptr;
     TaskContinuation * m_continuation = nullptr;
 };
@@ -65,7 +70,7 @@ private:
 
 class MapLoaderTask final : public MapLoaderTask_ {
 public:
-    MapLoaderTask(const char * map_filename, Platform & platform);
+    MapLoaderTask(const char * map_filename, PlatformAssetsStrategy &);
 
     Continuation & in_background
         (Callbacks &, ContinuationStrategy &) final;

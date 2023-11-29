@@ -130,7 +130,8 @@ void SlopeFillerExtra::setup_pure_texture
 // ----------------------------------------------------------------------------
 
 void SlopesBasedTileFactory::setup
-    (const TilesetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid,
+     PlatformAssetsStrategy & platform,
      const SlopeFillerExtra & slope_extras,
      const Vector2I & location_on_tileset)
 {

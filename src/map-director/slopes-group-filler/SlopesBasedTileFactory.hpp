@@ -79,7 +79,9 @@ protected:
     Vector translation() const { return m_translation; }
 
     void setup_
-        (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
+        (const Vector2I & location_in_tileset,
+         const TileProperties &,
+         PlatformAssetsStrategy &) override;
 
 private:
     Vector m_translation;
@@ -137,18 +139,20 @@ public:
         (const SlopeGroupNeighborhood &,
          ProducableTileCallbacks &) const = 0;
 
-    void setup(const TilesetXmlGrid &, Platform &,
+    void setup(const TilesetXmlGrid &,
+               PlatformAssetsStrategy &,
                const SlopeFillerExtra &,
                const Vector2I & location_on_tileset);
 
     virtual Slopes tile_elevations() const = 0;
 
 protected:
-    virtual void setup_(const TileProperties &, Platform &,
+    virtual void setup_(const TileProperties &,
+                        PlatformAssetsStrategy &,
                         const SlopeFillerExtra &,
                         const Vector2I & location_on_tileset) = 0;
 
-    void setup_(const Vector2I &, const TileProperties &, Platform &) final {}
+    void setup_(const Vector2I &, const TileProperties &, PlatformAssetsStrategy &) final {}
 };
 
 CardinalDirection cardinal_direction_from(const std::string & str);

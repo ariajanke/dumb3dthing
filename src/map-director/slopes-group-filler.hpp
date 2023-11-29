@@ -49,7 +49,7 @@ class TilesetXmlGrid;
 class SlopeGroupFiller_ final {
 public:
     static SharedPtr<ProducableGroupFiller> make
-        (const TilesetXmlGrid & xml_grid, Platform &);
+        (const TilesetXmlGrid & xml_grid, PlatformAssetsStrategy &);
 
 private:
     SlopeGroupFiller_() {}

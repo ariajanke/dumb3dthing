@@ -234,7 +234,7 @@ private:
          const TriangleToVerticies &,
          SharedPtr<RenderModel> && model_to_use) const;
 
-    SharedPtr<const RenderModel> make_top_model(Platform &) const;
+    SharedPtr<const RenderModel> make_top_model(PlatformAssetsStrategy &) const;
 
     auto make_triangle_to_floor_verticies() const
         { return TriangleToFloorVerticies{floor_texture(), -translation().y}; }
@@ -244,7 +244,8 @@ private:
         (const SlopeGroupNeighborhood & neighborhood,
          ProducableTileCallbacks &) const;
 
-    void setup_(const TileProperties &, Platform &,
+    void setup_(const TileProperties &,
+                PlatformAssetsStrategy &,
                 const SlopeFillerExtra &,
                 const Vector2I & location_on_tileset) final;
 

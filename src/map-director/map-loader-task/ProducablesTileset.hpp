@@ -21,6 +21,7 @@
 #pragma once
 
 #include "TilesetBase.hpp"
+#include "TiledMapLoader.hpp"
 
 #include <map>
 
@@ -29,21 +30,19 @@
 /// maybe a loader thing
 class ProducablesTileset final : public TilesetBase {
 public:
-    using FillerFactory = SharedPtr<ProducableGroupFiller>(*)(const TilesetXmlGrid &, Platform &);
-    using FillerFactoryMap = std::map<std::string, FillerFactory>;
+#   if 0
+    using FillerFactory = MapContentLoader::FillerFactory;
+    using FillerFactoryMap = MapContentLoader::FillerFactoryMap;
     using TilesetBase::load;
-
+#   endif
     static const FillerFactoryMap & builtin_fillers();
-
+#   if 0
     Continuation & load
         (Platform &, const TiXmlElement &, ContinuationStrategy &) final;
-
-    // four params, ouch!
+#   endif
+    // four params, ouch! (might be able to reduce this to three?
     Continuation & load
-        (Platform &,
-         const TiXmlElement &,
-         ContinuationStrategy &,
-         const FillerFactoryMap &);
+        (const TiXmlElement &, MapContentLoader &) final;
 
     void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const final;

@@ -105,7 +105,9 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
 } // end of wall namespace
 
 /* protected */ void TranslatableTileFactory::setup_
-    (const Vector2I &, const TileProperties & properties, Platform &)
+    (const Vector2I &,
+     const TileProperties & properties,
+     PlatformAssetsStrategy &)
 {
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
@@ -367,7 +369,7 @@ template <typename MakerFunc>
 
 /* protected */ SharedPtr<const RenderModel>
     WallTileFactoryBase::make_top_model
-    (Platform & platform) const
+    (PlatformAssetsStrategy & platform) const
 {
     return make_model_graphics(
         tile_elevations(), k_top_only,
@@ -388,7 +390,8 @@ WallTileFactoryBase::make_wall_graphics
 }
 
 /* private */ void WallTileFactoryBase::setup_
-    (const TileProperties & properties, Platform & platform,
+    (const TileProperties & properties,
+     PlatformAssetsStrategy & platform,
      const SlopeFillerExtra & specials,
      const Vector2I & location_on_tileset)
 {
