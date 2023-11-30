@@ -73,6 +73,8 @@ private:
     PropertiesMap m_properties;
 };
 
+// ----------------------------------------------------------------------------
+
 // this can't be loading, it's a tileset/filler thing
 // Grid of xml elements, plus info on tileset
 class TilesetXmlGrid final {

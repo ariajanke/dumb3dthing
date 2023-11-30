@@ -22,8 +22,6 @@
 
 #include "MapRegionTracker.hpp"
 
-#include "../Components.hpp"
-
 class MapLoaderTask_ : public BackgroundTask {
 public:
     static SharedPtr<MapLoaderTask_> make

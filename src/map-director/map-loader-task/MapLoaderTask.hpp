@@ -23,10 +23,6 @@
 #include "TiledMapLoader.hpp"
 
 #include "../map-loader-task.hpp"
-#include "../MapRegionTracker.hpp"
-
-#include "../../Components.hpp"
-#include "../../TasksController.hpp"
 
 class MapContentLoaderComplete final : public MapContentLoader {
 public:
@@ -67,7 +63,7 @@ private:
     PlatformAssetsStrategy * m_platform = nullptr;
     ContinuationStrategy * m_strategy = nullptr;
     TaskContinuation * m_continuation = nullptr;
-    const FillerFactoryMap * m_filler_map = nullptr;
+    const FillerFactoryMap * m_filler_map = &MapContentLoader::builtin_fillers();
 };
 
 // ----------------------------------------------------------------------------

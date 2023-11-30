@@ -21,26 +21,14 @@
 #pragma once
 
 #include "TilesetBase.hpp"
-#include "TiledMapLoader.hpp"
-
-#include <map>
 
 /// Tilesets map tileset ids to tile group fillers.
 ///
 /// maybe a loader thing
 class ProducablesTileset final : public TilesetBase {
 public:
-#   if 0
-    using FillerFactory = MapContentLoader::FillerFactory;
-    using FillerFactoryMap = MapContentLoader::FillerFactoryMap;
-    using TilesetBase::load;
-#   endif
     static const FillerFactoryMap & builtin_fillers();
-#   if 0
-    Continuation & load
-        (Platform &, const TiXmlElement &, ContinuationStrategy &) final;
-#   endif
-    // four params, ouch! (might be able to reduce this to three?
+
     Continuation & load
         (const TiXmlElement &, MapContentLoader &) final;
 

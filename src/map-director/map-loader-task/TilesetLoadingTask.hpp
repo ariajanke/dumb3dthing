@@ -23,14 +23,6 @@
 #include "MapLoadingError.hpp"
 #include "TilesetBase.hpp"
 
-#include "../../Tasks.hpp"
-#include "../ParseHelpers.hpp"
-
-#include "../../platform.hpp"
-#include "../../Definitions.hpp"
-
-#include <ariajanke/cul/Either.hpp>
-
 class MapContentLoader;
 class TilesetBase;
 
@@ -79,10 +71,6 @@ public:
     virtual OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>
         retrieve() = 0;
 };
-
-// loading tile set stages
-// load the actual document
-// load any prerequsite documents (which may include other tile maps
 
 class TilesetLoadingTask final :
     public BackgroundTask, public TilesetProvider

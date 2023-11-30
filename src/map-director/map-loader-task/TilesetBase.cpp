@@ -24,6 +24,15 @@
 
 #include <tinyxml2.h>
 
+namespace {
+
+using FillerFactoryMap = TilesetBase::FillerFactoryMap;
+
+} // end of <anonymous> namespace
+
+/* static */ const FillerFactoryMap & MapContentLoader::builtin_fillers()
+    { return ProducablesTileset::builtin_fillers(); }
+
 /* static */ SharedPtr<TilesetBase> TilesetBase::make
     (const TiXmlElement & tileset_el)
 {

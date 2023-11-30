@@ -21,24 +21,9 @@
 #pragma once
 
 #include "TileMapIdToSetMapping.hpp"
-#include "MapLoadingError.hpp"
 #include "StateMachineDriver.hpp"
-#include "TilesetLoadingTask.hpp"
-#include "TilesetBase.hpp"
 
-#include "../ParseHelpers.hpp"
-#include "../ProducableGrid.hpp"
 #include "../MapRegion.hpp"
-
-#include "../../platform.hpp"
-
-#include <ariajanke/cul/RectangleUtils.hpp>
-#include <ariajanke/cul/OptionalEither.hpp>
-
-#include <ariajanke/cul/TypeSet.hpp>
-#include <ariajanke/cul/TypeList.hpp>
-
-#include <map>
 
 class TilesetXmlGrid;
 
@@ -46,7 +31,6 @@ struct MapLoadingSuccess final {
     UniquePtr<MapRegion> loaded_region;
     MapLoadingWarnings warnings;
 };
-
 
 namespace tiled_map_loading {
 

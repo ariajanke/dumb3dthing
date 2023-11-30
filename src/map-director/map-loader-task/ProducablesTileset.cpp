@@ -23,6 +23,7 @@
 #include "../TilesetPropertiesGrid.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../twist-loop-filler.hpp"
+#include "../MapRegion.hpp"
 
 #include "TileMapIdToSetMapping.hpp"
 

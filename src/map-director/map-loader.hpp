@@ -20,12 +20,12 @@
 
 #pragma once
 
-#include <ariajanke/cul/Grid.hpp>
-#include <ariajanke/cul/RectangleUtils.hpp>
-
 #include "../Definitions.hpp"
 #include "../TriangleSegment.hpp"
 #include "../TriangleLink.hpp"
+
+#include <ariajanke/cul/Grid.hpp>
+#include <ariajanke/cul/RectangleUtils.hpp>
 
 struct Slopes final {
     Slopes() {}

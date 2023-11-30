@@ -24,6 +24,8 @@
 #include "TiledMapLoader.hpp"
 #include "TilesetBase.hpp"
 
+#include <ariajanke/cul/Either.hpp>
+
 #include <tinyxml2.h>
 
 namespace {
@@ -55,7 +57,6 @@ Continuation & TilesetLoadingTask::in_background
     if (m_loaded_tile_set) {
         return strategy.finish_task();
     } else if (m_unloaded.tile_set) {
-        // somehow inject my own fillers...
         MapContentLoaderComplete content_loader;
         content_loader.assign_assets_strategy(callbacks.platform());
         content_loader.assign_continuation_strategy(strategy);

@@ -19,7 +19,6 @@
 *****************************************************************************/
 
 #include "TiledMapLoader.hpp"
-#include "TilesetBase.hpp"
 #include "CompositeTileset.hpp"
 
 #include <ariajanke/cul/Either.hpp>

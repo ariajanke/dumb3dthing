@@ -118,59 +118,7 @@ ProducableGroupTileLayer SlopeGroupFiller::operator ()
     group_grid.add_group(std::move(factory_owner));
     return std::move(group_grid);
 }
-#if 0
-class Impl final : public ProducableGroupFiller::ProducableGroupCreation {
-public:
-    using TileFactoryGrid = Grid<SharedPtr<SlopesBasedTileFactory>>;
 
-    void copy_factory_grid(const TileFactoryGrid & factory_grid) {
-        owner = make_shared<SpecialLittleOwner>();
-        owner->factory_grid = factory_grid;
-    }
-
-    void set_mapwide_factory_grid(const SharedPtr<Grid<SlopesBasedTileFactory *>> & factgrid)
-        { m_mapwide_factory_grid = factgrid; }
-
-    void reserve(std::size_t number_of_members) final {
-        assert(owner);
-        owner->tiles.reserve(number_of_members);
-    }
-
-    void add_member(const TileLocation & tile_loc) final {
-        assert(owner);
-        owner->tiles.emplace_back(ProducableSlopeTile{tile_loc.on_map, m_mapwide_factory_grid});
-    }
-
-    SharedPtr<ProducableGroup_> finish() final {
-        return owner;
-    }
-
-private:
-    class SpecialLittleOwner final : public ProducableGroup_ {
-    public:
-        SpecialLittleOwner(const TileFactoryGrid & grid):
-            factory_grid(std::move(grid)) {}
-
-        TileFactoryGrid factory_grid;
-        std::vector<ProducableSlopeTile> tiles;
-    };
-
-    SharedPtr<Grid<SlopesBasedTileFactory *>> m_mapwide_factory_grid;
-    SharedPtr<SpecialLittleOwner> owner;
-};
-
-void SlopeGroupFiller::make_group
-    (CallbackWithCreator & callback) const
-{
-
-    Impl impl;
-    impl.copy_factory_grid(m_tile_factories);
-    auto mapwide_factory_grid = make_factory_grid_for_map
-        (tile_locations, factory_owner->factory_grid /* m_tile_factories */);
-    impl.set_mapwide_factory_grid()
-    callback(impl);
-}
-#endif
 void SlopeGroupFiller::load
     (const TilesetXmlGrid & xml_grid,
      PlatformAssetsStrategy & platform,
@@ -184,7 +132,6 @@ void SlopeGroupFiller::load
     (const TilesetXmlGrid & xml_grid,
      const RampGroupFactoryMap & factory_type_map)
 {
-    // I know how large the grid should be
     m_tile_factories.set_size(xml_grid.size2(), UniquePtr<SlopesBasedTileFactory>{});
 
     // this should be a function

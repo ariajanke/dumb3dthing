@@ -42,6 +42,8 @@ private:
     Vector2 m_top_left, m_top_right, m_bottom_left, m_bottom_right;
 };
 
+// ----------------------------------------------------------------------------
+
 class RegionLoadRequestBase {
 public:
     virtual ~RegionLoadRequestBase() {}
@@ -50,6 +52,8 @@ public:
 
     virtual Size2I max_region_size() const = 0;
 };
+
+// ----------------------------------------------------------------------------
 
 class RegionLoadRequest final : public RegionLoadRequestBase {
 public:
@@ -80,11 +84,7 @@ public:
     bool overlaps_with_field_rectangle
         (const cul::Rectangle<Real> & field_rectangle) const;
 
-    // data clumpy, but how can I cleanly separate it out?
     Size2I max_region_size() const final { return m_max_size; }
-
-    // not sure, maybe scale something else? :c
-    // RegionLoadRequest down_scale(const ScaleComputation &) const;
 
 private:
     static cul::Rectangle<Real> bounds_for

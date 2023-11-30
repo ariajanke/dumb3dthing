@@ -45,12 +45,11 @@ public:
 
     RegionAxis axis() const { return m_axis; }
 
-    // I want space ship :c
     int compare(const RegionAxisAddress &) const;
 
     int value() const { return m_value; }
 
-    /* new */ std::size_t hash() const;
+    std::size_t hash() const;
 
 private:
     RegionAxis m_axis = RegionAxis::uninitialized;

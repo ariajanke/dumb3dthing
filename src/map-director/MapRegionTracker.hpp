@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "RegionLoadRequest.hpp"
 #include "RegionEdgeConnectionsContainer.hpp"
 #include "MapRegionChangesTask.hpp"
 

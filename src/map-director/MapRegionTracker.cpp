@@ -21,6 +21,7 @@
 #include "MapRegionTracker.hpp"
 #include "TileFactory.hpp"
 #include "MapRegionChangesTask.hpp"
+#include "RegionLoadRequest.hpp"
 
 namespace {
 

@@ -20,11 +20,10 @@
 
 #pragma once
 
+#include "MapLoadingError.hpp"
+
 #include "../ParseHelpers.hpp"
 #include "../ProducableGroupFiller.hpp"
-#include "../MapRegion.hpp"
-
-#include "MapLoadingError.hpp"
 
 #include <map>
 
@@ -51,9 +50,10 @@ public:
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
     using TaskContinuation = BackgroundTask::Continuation;
 
+    static const FillerFactoryMap & builtin_fillers();
+
     virtual ~MapContentLoader() {}
 
-    // might be the wrong place to put this... where does this better belong to?
     virtual const FillerFactoryMap & map_fillers() const = 0;
 
     /// @returns true if any promised file contents is not immediately ready

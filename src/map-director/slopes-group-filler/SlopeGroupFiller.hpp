@@ -53,9 +53,7 @@ public:
     ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> & tile_locations,
          ProducableGroupTileLayer && group_grid) const final;
-#   if 0
-    void make_group(CallbackWithCreator & callback) const final;
-#   endif
+
     void load
         (const TilesetXmlGrid & xml_grid,
          PlatformAssetsStrategy & platform,
