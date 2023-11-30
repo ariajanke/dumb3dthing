@@ -55,6 +55,9 @@ public:
 
     void assign_continuation_strategy(ContinuationStrategy &);
 
+    void assign_filler_map(const FillerFactoryMap & filler_map)
+        { m_filler_map = &filler_map; }
+
     SharedPtr<RenderModel> make_render_model() const final
         { return m_platform->make_render_model(); }
 
@@ -64,6 +67,7 @@ private:
     PlatformAssetsStrategy * m_platform = nullptr;
     ContinuationStrategy * m_strategy = nullptr;
     TaskContinuation * m_continuation = nullptr;
+    const FillerFactoryMap * m_filler_map = nullptr;
 };
 
 // ----------------------------------------------------------------------------

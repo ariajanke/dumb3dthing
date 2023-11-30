@@ -73,8 +73,12 @@ UniquePtr<MapRegion> MapLoaderTask::retrieve() {
 MapContentLoaderComplete::MapContentLoaderComplete(Platform & platform):
     m_platform(&platform) {}
 
-const FillerFactoryMap & MapContentLoaderComplete::map_fillers() const
-    { return ProducablesTileset::builtin_fillers(); }
+const FillerFactoryMap & MapContentLoaderComplete::map_fillers() const {
+#   ifdef MACRO_DEBUG
+    assert(m_filler_map);
+#   endif
+    return *m_filler_map;
+}
 
 FutureStringPtr MapContentLoaderComplete::promise_file_contents
     (const char * filename)

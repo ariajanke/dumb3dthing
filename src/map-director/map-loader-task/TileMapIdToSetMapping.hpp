@@ -28,6 +28,8 @@
 class TilesetBase;
 struct TileLocation;
 
+// ----------------------------------------------------------------------------
+
 class TilesetMappingTile final {
 public:
     using ConstTileSetPtr = SharedPtr<const TilesetBase>;

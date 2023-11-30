@@ -35,15 +35,18 @@ using Continuation = BackgroundTask::Continuation;
 /* static */ TilesetLoadingTask TilesetLoadingTask::begin_loading
     (const char * filename, MapContentLoader & content_provider)
 {
-    return TilesetLoadingTask{content_provider.promise_file_contents(filename)};
+    return TilesetLoadingTask
+        {content_provider.promise_file_contents(filename),
+         content_provider.map_fillers()};
 }
 
 /* static */ TilesetLoadingTask TilesetLoadingTask::begin_loading
-    (DocumentOwningNode && tileset_xml)
+    (DocumentOwningNode && tileset_xml, MapContentLoader & content_provider)
 {
     const auto & el = tileset_xml.element();
     return TilesetLoadingTask
-        {UnloadedTileSet{TilesetBase::make(el), std::move(tileset_xml)}};
+        {UnloadedTileSet{TilesetBase::make(el), std::move(tileset_xml)},
+         content_provider.map_fillers()};
 }
 
 Continuation & TilesetLoadingTask::in_background
@@ -52,9 +55,11 @@ Continuation & TilesetLoadingTask::in_background
     if (m_loaded_tile_set) {
         return strategy.finish_task();
     } else if (m_unloaded.tile_set) {
+        // somehow inject my own fillers...
         MapContentLoaderComplete content_loader;
         content_loader.assign_assets_strategy(callbacks.platform());
         content_loader.assign_continuation_strategy(strategy);
+        content_loader.assign_filler_map(*m_filler_factory_map);
         auto & res = m_unloaded.tile_set->load
             (m_unloaded.xml_content.element(), content_loader);
         m_loaded_tile_set = std::move(m_unloaded.tile_set);

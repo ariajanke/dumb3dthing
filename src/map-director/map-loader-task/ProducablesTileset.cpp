@@ -69,13 +69,7 @@ MakeFillerGridRt make_filler_grid
     } ();
     return s_map;
 }
-#if 0
-Continuation & ProducablesTileset::load
-    (Platform & platform,
-     const TiXmlElement & tileset_el,
-     ContinuationStrategy & strategy)
-{ return load(platform, tileset_el, strategy, builtin_fillers()); }
-#endif
+
 // four params, ouch!
 Continuation & ProducablesTileset::load
     (const TiXmlElement & tileset_el, MapContentLoader & content_loader)

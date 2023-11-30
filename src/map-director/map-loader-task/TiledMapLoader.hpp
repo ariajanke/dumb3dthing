@@ -47,25 +47,6 @@ struct MapLoadingSuccess final {
     MapLoadingWarnings warnings;
 };
 
-class MapContentLoader : public PlatformAssetsStrategy {
-public:
-    using FillerFactoryMap = TilesetBase::FillerFactoryMap;
-    using TaskContinuation = BackgroundTask::Continuation;
-
-    virtual ~MapContentLoader() {}
-
-    // I want my integration tests...
-    virtual const FillerFactoryMap & map_fillers() const = 0;
-
-    /// @returns true if any promised file contents is not immediately ready
-    virtual bool delay_required() const = 0;
-
-    virtual void add_warning(MapLoadingWarningEnum) = 0;
-
-    virtual void wait_on(const SharedPtr<BackgroundTask> &) = 0;
-
-    virtual TaskContinuation & task_continuation() const = 0;
-};
 
 namespace tiled_map_loading {
 

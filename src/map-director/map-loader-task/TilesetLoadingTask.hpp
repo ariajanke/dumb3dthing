@@ -21,6 +21,7 @@
 #pragma once
 
 #include "MapLoadingError.hpp"
+#include "TilesetBase.hpp"
 
 #include "../../Tasks.hpp"
 #include "../ParseHelpers.hpp"
@@ -91,7 +92,7 @@ public:
         (const char * filename, MapContentLoader & content_provider);
 
     static TilesetLoadingTask begin_loading
-        (DocumentOwningNode && tileset_xml);
+        (DocumentOwningNode && tileset_xml, MapContentLoader & content_provider);
 
     Continuation & in_background
         (Callbacks &, ContinuationStrategy &) final;
@@ -100,6 +101,7 @@ public:
         retrieve() final;
 
 private:
+    using FillerFactoryMap = MapContentLoader::FillerFactoryMap;
     struct UnloadedTileSet final {
         UnloadedTileSet() {}
 
@@ -113,11 +115,17 @@ private:
         DocumentOwningNode xml_content;
     };
 
-    explicit TilesetLoadingTask(FutureStringPtr && content_):
-        m_tile_set_content(std::move(content_)) {}
+    TilesetLoadingTask
+        (FutureStringPtr && content_,
+         const FillerFactoryMap & filler_map):
+        m_tile_set_content(std::move(content_)),
+        m_filler_factory_map(&filler_map) {}
 
-    explicit TilesetLoadingTask(UnloadedTileSet && unloaded_ts_):
-        m_unloaded(std::move(unloaded_ts_)) {}
+    TilesetLoadingTask
+        (UnloadedTileSet && unloaded_ts_,
+         const FillerFactoryMap & filler_map):
+        m_unloaded(std::move(unloaded_ts_)),
+        m_filler_factory_map(&filler_map) {}
 
     static Either<MapLoadingError, UnloadedTileSet> get_unloaded
         (FutureStringPtr & tile_set_content);
@@ -126,6 +134,7 @@ private:
     SharedPtr<TilesetBase> m_loaded_tile_set;
     FutureStringPtr m_tile_set_content;
     Optional<MapLoadingError> m_loading_error;
+    const FillerFactoryMap * m_filler_factory_map = nullptr;
 };
 
 template <typename T>

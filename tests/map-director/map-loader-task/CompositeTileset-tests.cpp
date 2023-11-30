@@ -95,12 +95,6 @@ public:
     }
 };
 
-SharedPtr<BackgroundTask> make_finishing_task() {
-    return BackgroundTask::make([]
-        (TaskCallbacks &, ContinuationStrategy & strat) -> Continuation &
-        { return strat.finish_task(); });
-}
-
 class TestCallbacks final : public TaskCallbacks {
 public:
     static TestCallbacks & instance() {
@@ -148,12 +142,13 @@ public:
     }
 
     void wait_on(const SharedPtr<BackgroundTask> & task) final
-        { waited_on_tasks.push_back(task); }
+        { (void)continuation.wait_on(task); }
 
     TaskContinuation & task_continuation() const final {
-        return BackgroundTask::Continuation::task_completion();
+        return continuation.task_completion();
     }
 
+    TaskContinuationComplete continuation;
     std::vector<SharedPtr<BackgroundTask>> waited_on_tasks;
 };
 
@@ -165,34 +160,14 @@ describe("CompositeTileset")([] {
     CompositeTileset tileset;
     TiXmlDocument doc;
     doc.Parse(k_test_tileset_contents);
-    TaskContinuationComplete continuation;
+    auto & continuation = TestMapContentLoader::instance().continuation;
     TaskStrategy strategy{continuation};
     (void)tileset.load(*doc.RootElement(), TestMapContentLoader::instance());
     std::vector<NewTaskEntry> new_tasks;
     ReturnToTasksCollection col;
-    auto add_new_wait_ons = [&] {
-        continuation.add_waited_on_tasks_to
-            (make_finishing_task(),
-             nullptr,
-             ElementCollector{new_tasks},
-             col);
-    };
     mark_it("waits on a map loading task", [&] {
         return test_that(continuation.has_waited_on_tasks());
     });
-#   if 0 // guh not sure how possible this is...
-    mark_it("", [&] {
-        add_new_wait_ons();
-        for (auto & task : new_tasks) {
-            (void)task.task->in_background(TestCallbacks::instance(), strategy);
-        }
-        add_new_wait_ons();
-        for (auto & task : new_tasks) {
-            (void)task.task->in_background(TestCallbacks::instance(), strategy);
-        }
-        return test_that(false);
-    });
-#   endif
 });
 
 return [] {};

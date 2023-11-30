@@ -35,7 +35,54 @@ struct TileLocation final {
 class ProducableGroupFiller {
 public:
     virtual ~ProducableGroupFiller() {}
+#   if 0
+    class ProducableGroupCreation {
+    public:
+        virtual ~ProducableGroupCreation() {}
 
+        virtual void reserve(std::size_t number_of_members) = 0;
+
+        virtual void add_member(const TileLocation &) = 0;
+
+        virtual SharedPtr<ProducableGroup_> finish() = 0;
+    };
+
+    template <typename T>
+    class VectorBasedGroupCreation : public ProducableGroupCreation {
+    public:
+        static_assert(std::is_base_of_v<ProducableTile, T>);
+
+        virtual T instantiate_member(const TileLocation &) = 0;
+
+        void reserve(std::size_t number_of_members) final
+            { m_members.reserve(number_of_members); }
+
+        void add_member(const TileLocation & tile_loc) final
+            { m_members.emplace_back(instantiate_member(tile_loc)); }
+
+        SharedPtr<ProducableGroup_> finish() final {
+            struct Impl final : public ProducableGroup_ {
+                std::vector<T> members;
+            };
+            auto impl = make_shared<Impl>();
+            impl->members = std::move(m_members);
+            m_members.clear();
+            return impl;
+        }
+
+    private:
+        std::vector<T> m_members;
+    };
+
+    class CallbackWithCreator {
+    public:
+        virtual ~CallbackWithCreator();
+
+        virtual void operator () (ProducableGroupCreation &) const = 0;
+    };
+
+    virtual void make_group(CallbackWithCreator &) const {}
+#   endif
     virtual ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const = 0;
 };

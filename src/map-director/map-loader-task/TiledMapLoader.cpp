@@ -88,9 +88,9 @@ BaseState::MapLoadResult
             {first_gid,
              TilesetLoadingTask::begin_loading(source, content_loader)};
     } else {
-        return TilesetLoadersWithStartGid
-            {first_gid,
-             TilesetLoadingTask::begin_loading(DocumentOwningNode{tileset})};
+        auto task = TilesetLoadingTask::begin_loading
+            (DocumentOwningNode{tileset}, content_loader);
+        return TilesetLoadersWithStartGid{first_gid, std::move(task)};
     }
 }
 

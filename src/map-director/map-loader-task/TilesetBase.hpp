@@ -24,6 +24,8 @@
 #include "../ProducableGroupFiller.hpp"
 #include "../MapRegion.hpp"
 
+#include "MapLoadingError.hpp"
+
 #include <map>
 
 class TilesetXmlGrid;
@@ -41,16 +43,37 @@ public:
     virtual void add(StackableSubRegionGrid &&) = 0;
 };
 
+class MapContentLoader : public PlatformAssetsStrategy {
+public:
+    using FillerFactory =
+        SharedPtr<ProducableGroupFiller>(*)
+        (const TilesetXmlGrid &, PlatformAssetsStrategy &);
+    using FillerFactoryMap = std::map<std::string, FillerFactory>;
+    using TaskContinuation = BackgroundTask::Continuation;
+
+    virtual ~MapContentLoader() {}
+
+    // might be the wrong place to put this... where does this better belong to?
+    virtual const FillerFactoryMap & map_fillers() const = 0;
+
+    /// @returns true if any promised file contents is not immediately ready
+    virtual bool delay_required() const = 0;
+
+    virtual void add_warning(MapLoadingWarningEnum) = 0;
+
+    virtual void wait_on(const SharedPtr<BackgroundTask> &) = 0;
+
+    virtual TaskContinuation & task_continuation() const = 0;
+};
+
 class TilesetBase {
 public:
     using MappingContainer = std::vector<TilesetMappingTile>;
     using MappingView = View<MappingContainer::const_iterator>;
     using Continuation = BackgroundTask::Continuation;
     using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
-    using FillerFactory =
-        SharedPtr<ProducableGroupFiller>(*)
-        (const TilesetXmlGrid &, PlatformAssetsStrategy &);
-    using FillerFactoryMap = std::map<std::string, FillerFactory>;
+    using FillerFactory = MapContentLoader::FillerFactory;
+    using FillerFactoryMap = MapContentLoader::FillerFactoryMap;
 
     static SharedPtr<TilesetBase> make(const TiXmlElement &);
 

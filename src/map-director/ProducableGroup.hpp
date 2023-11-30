@@ -36,6 +36,8 @@ public:
 template <typename T>
 class UnfinishedProducableGroup final {
 public:
+    static_assert(std::is_base_of_v<ProducableTile, T>);
+
     class MakerPosition final {
     public:
         MakerPosition(Vector2I target,
