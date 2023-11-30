@@ -21,7 +21,7 @@
 #include "TwistLoopGroupFiller.hpp"
 
 #include "../TileFactory.hpp"
-#include "../TileSetPropertiesGrid.hpp"
+#include "../TilesetPropertiesGrid.hpp"
 #include "../twist-loop-filler.hpp"
 
 #include "../../Components.hpp"
@@ -34,7 +34,6 @@ constexpr const auto k_twisty_origin = TwistyStripRadii::k_twisty_origin;
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using cul::size_of, cul::top_left_of;
 
 } // end of <anonymous> namespace
@@ -72,21 +71,37 @@ using cul::size_of, cul::top_left_of;
 }
 
 void NorthSouthTwistTileGroup::operator ()
-    (const Vector2I & position_in_group, const Vector2I & tile_offset,
-     EntityAndTrianglesAdder & adder, Platform & platform) const
+    (const Vector2I & position_in_group, const Vector2I &,
+     ProducableTileCallbacks & callbacks) const
 {
+#   if 0
     // I forgot the formula
     auto v3_offset = TileFactory::grid_position_to_v3(tile_offset)
         + k_twisty_origin;
+#   endif
     for (auto & triangle : m_collision_triangles(position_in_group)) {
-        adder.add_triangle(triangle.move(v3_offset));
+        callbacks.add_collidable(triangle.move(k_twisty_origin));
     }
-    auto mod = platform.make_render_model();
+#   if 0
+    for (auto & triangle : m_collision_triangles(position_in_group)) {
+        callbacks.add(triangle.move(v3_offset));
+    }
+    // LoD x2
+    auto mod = callbacks.platform().make_render_model();
     auto & [elements, vertices] = m_elements_vertices(position_in_group);
     mod->load(elements, vertices);
-    auto entity = platform.make_renderable_entity();
+    auto entity = callbacks.platform().make_renderable_entity();
     entity.add<SharedPtr<const RenderModel>, Translation, Visible>()
         = make_tuple(mod, Translation{v3_offset}, Visible{});
+#   else
+    auto mod = callbacks.make_render_model();
+    auto & [elements, vertices] = m_elements_vertices(position_in_group);
+    mod->load(elements, vertices);
+    auto e = callbacks.
+        add_entity<SharedPtr<const RenderModel>, ModelVisibility>
+        (std::move(mod), ModelVisibility{});
+    e.get<ModelTranslation>() += k_twisty_origin;
+#   endif
 }
 
 RectangleI RectanglarGroupOfPred::get_rectangular_group_of
@@ -135,7 +150,7 @@ RectangleI RectanglarGroupOfPred::get_rectangular_group_of
 }
 
 void TwistLoopGroupFiller::load
-    (const TileSetXmlGrid &, Platform &)
+    (const TilesetXmlGrid &, Platform &)
 {
 #   if 0
     Grid<bool> checked;

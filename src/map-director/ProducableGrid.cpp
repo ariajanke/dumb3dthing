@@ -20,15 +20,26 @@
 
 #include "ProducableGrid.hpp"
 #include "ProducableGroupFiller.hpp"
+#include "MapRegion.hpp"
+
+#include "../TriangleSegment.hpp"
+
+void ProducableTileCallbacks::add_collidable
+    (const Vector & triangle_point_a,
+     const Vector & triangle_point_b,
+     const Vector & triangle_point_c)
+{
+    add_collidable_
+        (TriangleSegment{triangle_point_a, triangle_point_b, triangle_point_c});
+}
+
+// ----------------------------------------------------------------------------
 
 ProducableTileViewGrid::ProducableTileViewGrid
     (ViewGrid<ProducableTile *> && factory_view_grid,
-     std::vector<SharedPtr<ProducableGroup_>> && groups,
-     std::vector<SharedPtr<const ProducableGroupFiller>> && fillers):
+     std::vector<SharedPtr<ProducableGroup_>> && groups):
     m_factories(std::move(factory_view_grid)),
-    m_groups(std::move(groups)),
-    m_fillers(std::move(fillers))
-{}
+    m_groups(std::move(groups)) {}
 
 // ----------------------------------------------------------------------------
 
@@ -45,8 +56,7 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
 {
     auto [producables, groups] = move_out_producables_and_groups();
     auto map_fillers = extraction.move_out_fillers();
-    return ProducableTileViewGrid
-        {std::move(producables), std::move(groups), std::move(map_fillers)};
+    return ProducableTileViewGrid{std::move(producables), std::move(groups)};
 }
 
 /* private */ Tuple
@@ -68,26 +78,9 @@ ProducableTileViewGrid UnfinishedProducableTileViewGrid::
 
 // ----------------------------------------------------------------------------
 
-void ProducableGroupTileLayer::set_size(const Size2I & sz) {
-    using namespace cul::exceptions_abbr;
-    if (sz == Size2I{}) {
-        throw InvArg{"ProducableGroupTileLayer::set_size: given size must be "
-                     "non zero"};
-    } else if (m_target.size2() != Size2I{}) {
-        throw RtError{"ProducableGroupTileLayer::set_size: size may only be "
-                      "set once"};
-    }
-    m_groups.clear();
-    m_target.clear();
-    m_target.set_size(sz, nullptr);
-}
-
-UnfinishedProducableTileViewGrid
-    ProducableGroupTileLayer::move_self_to
-    (UnfinishedProducableTileViewGrid && unfinished_grid_view)
+StackableProducableTileGrid
+    ProducableGroupTileLayer::to_stackable_producable_tile_grid()
 {
-    unfinished_grid_view.add_layer(std::move(m_target), m_groups);
-    m_target.clear();
-    m_groups.clear();
-    return std::move(unfinished_grid_view);
+    return StackableProducableTileGrid
+        {std::move(m_target), std::move(m_groups)};
 }

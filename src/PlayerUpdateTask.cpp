@@ -27,19 +27,10 @@ using namespace cul::exceptions_abbr;
 
 } // end of <anonymous> namespace
 
-SharedPtr<BackgroundTask> PlayerUpdateTask::load_initial_map
-    (const char * initial_map, Platform & platform)
-{
-    return m_map_director->begin_initial_map_loading
-        (initial_map, platform, Entity{m_physics_ent});
-}
-
-void PlayerUpdateTask::on_every_frame(Callbacks & callbacks, Real) {
-
+void PlayerUpdateTask::on_every_frame(Callbacks &, Real) {
     if (!m_physics_ent)
         { throw RtError{"Player entity deleted before its update task"}; }
     Entity physics_ent{m_physics_ent};
-    m_map_director->on_every_frame(callbacks, physics_ent);
     check_fall_below(physics_ent);
 }
 

@@ -53,6 +53,13 @@ Samp make_view_grid_for_tile(const Vector2I & r) {
     return rv;
 }
 
+ScaledTriangleViewGrid make_scaled_triangle_view_grid
+    (const ViewGrid<SharedPtr<TriangleLink>> & triangle_grid)
+{
+    using ViewGridTriangle = ViewGrid<SharedPtr<TriangleLink>>;
+    return ScaledTriangleViewGrid{make_shared<ViewGridTriangle>(triangle_grid), ScaleComputation{}};
+}
+
 } // end of <anonymous> namespace
 
 [[maybe_unused]] static auto s_add_describes = [] {
@@ -68,7 +75,7 @@ describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
     auto samp_1_0     = make_view_grid_for_tile(Vector2I{1, 0});
     auto samp_0_0_new = make_view_grid_for_tile(Vector2I{});
 
-    auto samp_0_0_old_ptr = make_shared<ViewGridTriangle>(samp_0_0_old.view_grid);
+    auto samp_0_0_old_ptr = make_scaled_triangle_view_grid(samp_0_0_old.view_grid);
 
     RegionEdgeConnectionsAdder adder_first;
     RegionEdgeConnectionsContainer cont_first;
@@ -80,7 +87,7 @@ describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
 
     adder_first.add(Vector2I{    }, samp_0_0_old_ptr);
     {
-        auto samp_1_0_ptr = make_shared<ViewGridTriangle>(samp_1_0.view_grid);
+        auto samp_1_0_ptr = make_scaled_triangle_view_grid(samp_1_0.view_grid);
         adder_first.add(Vector2I{1, 0}, samp_1_0_ptr    );
     }
     cont_first = adder_first.finish();
@@ -102,7 +109,7 @@ describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
                          samp_1_0    .e.use_count() - usec10     == 4   );
     }).
     next([&] {
-        auto samp_0_0_new_ptr = make_shared<ViewGridTriangle>(samp_0_0_new.view_grid);
+        auto samp_0_0_new_ptr = make_scaled_triangle_view_grid(samp_0_0_new.view_grid);
         adder_first = cont_first.make_adder();
         adder_first.add(Vector2I{}, samp_0_0_new_ptr);
         cont_first = adder_first.finish();

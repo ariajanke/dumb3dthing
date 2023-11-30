@@ -73,9 +73,11 @@ private:
     PropertiesMap m_properties;
 };
 
+// ----------------------------------------------------------------------------
+
 // this can't be loading, it's a tileset/filler thing
 // Grid of xml elements, plus info on tileset
-class TileSetXmlGrid final {
+class TilesetXmlGrid final {
 public:
     static Vector2I tid_to_tileset_location(const Size2I &, int tid);
 
@@ -83,7 +85,7 @@ public:
     static Vector2I tid_to_tileset_location(const Grid<T> & grid, int tid)
         { return tid_to_tileset_location(grid.size2(), tid); }
 
-    void load(Platform &, const TiXmlElement &);
+    void load(SharedPtr<Texture> &&, const TiXmlElement &);
 
     const TileProperties & operator() (const Vector2I & r) const
         { return m_elements(r); }

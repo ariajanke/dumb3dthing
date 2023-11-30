@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
- <tileset firstgid="1" name="comps-demo-map-parts" tilewidth="32" tileheight="32" tilecount="4" columns="2">
-  <properties>
-   <property name="tiled-map-filename" value="comp-map-parts.tmx"/>
-  </properties>
-  <image source="comps-demo-map-parts.png" width="64" height="64"/>
- </tileset>
+<map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="2">
+ <properties>
+  <property name="scale" value="5"/>
+ </properties>
+ <tileset firstgid="1" source="comps-demo-map-parts.tsx"/>
  <layer id="1" name="Tile Layer 1" width="32" height="32">
   <data encoding="csv">
 3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
@@ -42,4 +40,12 @@
 3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,3,3,3,3,3,3
 </data>
  </layer>
+ <objectgroup id="2" name="Object Layer 1">
+  <object id="1" type="player-spawn-point" x="426.604" y="452.697">
+   <properties>
+    <property name="elevation" value="10"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
 </map>

@@ -36,6 +36,8 @@ public:
 template <typename T>
 class UnfinishedProducableGroup final {
 public:
+    static_assert(std::is_base_of_v<ProducableTile, T>);
+
     class MakerPosition final {
     public:
         MakerPosition(Vector2I target,
@@ -81,7 +83,9 @@ void UnfinishedProducableGroup<T>::MakerPosition::make_producable(Types && ... a
 // ----------------------------------------------------------------------------
 
 template <typename T>
-SharedPtr<ProducableGroup_> UnfinishedProducableGroup<T>::finish(Grid<ProducableTile *> & target) {
+SharedPtr<ProducableGroup_> UnfinishedProducableGroup<T>::finish
+    (Grid<ProducableTile *> & target)
+{
     class Impl final : public ProducableGroup_ {
     public:
         explicit Impl(std::vector<T> && producables_):

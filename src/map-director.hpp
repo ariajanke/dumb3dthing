@@ -21,6 +21,7 @@
 #pragma once
 
 #include "Components.hpp"
+#include "Tasks.hpp"
 
 namespace point_and_plane {
     class Driver;
@@ -30,13 +31,13 @@ class MapDirector_ {
 public:
     using PpDriver = point_and_plane::Driver;
 
-    ~MapDirector_() {}
+    static SharedPtr<BackgroundTask> begin_initial_map_loading
+        (Entity player_physics,
+         const char * initial_map,
+         Platform &,
+         PpDriver &);
 
-    static SharedPtr<MapDirector_> make(PpDriver *);
-
-    virtual SharedPtr<BackgroundTask> begin_initial_map_loading
-        (const char * initial_map, Platform & platform,
-         const Entity & player_physics) = 0;
+    virtual ~MapDirector_() {}
 
     virtual void on_every_frame
         (TaskCallbacks & callbacks, const Entity & physics_ent) = 0;

@@ -19,7 +19,8 @@
 *****************************************************************************/
 
 #include "TileFactory.hpp"
-#include "TileSetPropertiesGrid.hpp"
+#include "TilesetPropertiesGrid.hpp"
+#include "ProducableGrid.hpp"
 
 #include "../RenderModel.hpp"
 #include "../Components.hpp"
@@ -51,7 +52,8 @@ void TileFactory::set_shared_texture_information
 }
 
 void TileFactory::setup
-    (const TileSetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid,
+     PlatformAssetsStrategy & platform,
      const Vector2I & location_on_tileset)
 {
     m_texture_ptr = xml_grid.texture();
@@ -61,16 +63,18 @@ void TileFactory::setup
 }
 
 /* protected static */ void TileFactory::add_triangles_based_on_model_details
-    (Vector2I gridloc, Vector translation, const Slopes & slopes,
-     EntityAndTrianglesAdder & adder)
+    (const Vector & translation, const Slopes & slopes,
+     ProducableTileCallbacks & callbacks)
 {
-    const auto & els = get_common_elements();
-    const auto pos = get_points_for(slopes);
-    auto offset = grid_position_to_v3(gridloc) + translation;
-    adder.add_triangle(TriangleSegment{
-        pos[els[0]] + offset, pos[els[1]] + offset, pos[els[2]] + offset});
-    adder.add_triangle(TriangleSegment{
-        pos[els[3]] + offset, pos[els[4]] + offset, pos[els[5]] + offset});
+    auto el_pt_of = [&slopes] {
+        const auto & els = get_common_elements();
+        const auto pos = get_points_for(slopes);
+        return [=] (int n) { return pos[els[n]]; };
+    } ();
+    TriangleSegment first {el_pt_of(0), el_pt_of(1), el_pt_of(2)};
+    TriangleSegment second{el_pt_of(3), el_pt_of(4), el_pt_of(5)};
+    callbacks.add_collidable(first .move(translation));
+    callbacks.add_collidable(second.move(translation));
 }
 
 /* protected static */ std::array<Vector, 4>
@@ -129,7 +133,9 @@ void TileFactory::setup
 
 /* protected */ SharedPtr<const RenderModel>
     TileFactory::make_render_model_with_common_texture_positions
-    (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const
+    (PlatformAssetsStrategy & platform,
+     const Slopes & slopes,
+     Vector2I loc_in_ts) const
 {
     const auto & pos = get_points_for(slopes);
     auto txpos = common_texture_positions_from(loc_in_ts);
@@ -140,22 +146,8 @@ void TileFactory::setup
         verticies.emplace_back(pos[i], txpos[i]);
     }
 
-    auto render_model = platform.make_render_model(); // need platform
+    auto render_model = platform.make_render_model();
     const auto & els = get_common_elements();
     render_model->load(verticies, els);
     return render_model;
-}
-
-/* protected */ Entity TileFactory::make_entity
-    (Platform & platform, Vector translation,
-     const SharedPtr<const RenderModel> & model_ptr) const
-{
-    assert(model_ptr);
-    auto ent = platform.make_renderable_entity();
-    ent.add
-        <SharedPtr<const RenderModel>, SharedPtr<const Texture>,
-         Translation, Visible>
-        () = make_tuple
-        (model_ptr, common_texture(), Translation{translation}, true);
-    return ent;
 }

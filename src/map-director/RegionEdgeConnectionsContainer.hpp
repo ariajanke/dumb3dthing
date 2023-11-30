@@ -21,37 +21,11 @@
 #pragma once
 
 #include "RegionAxisLinksContainer.hpp"
+#include "ScaleComputation.hpp"
 
-#include <rigtorp/HashMap.h>
-
-[[deprecated]] RegionAxis side_to_axis(RegionSide);
+#include <ariajanke/cul/HashMap.hpp>
 
 class RegionEdgeConnectionsContainer;
-
-class RegionAxisAddress final {
-public:
-    RegionAxisAddress() {}
-
-    RegionAxisAddress(RegionAxis axis_, int value_):
-        m_axis(axis_), m_value(value_) {}
-
-    bool operator < (const RegionAxisAddress &) const;
-
-    bool operator == (const RegionAxisAddress &) const;
-
-    RegionAxis axis() const { return m_axis; }
-
-    // I want space ship :c
-    int compare(const RegionAxisAddress &) const;
-
-    int value() const { return m_value; }
-
-    /* new */ std::size_t hash() const;
-
-private:
-    RegionAxis m_axis = RegionAxis::uninitialized;
-    int m_value = 0;
-};
 
 struct RegionAxisAddressHasher final {
     std::size_t operator () (const RegionAxisAddress & addr) const
@@ -60,7 +34,7 @@ struct RegionAxisAddressHasher final {
 
 class RegionEdgeConnectionsContainerBase {
 public:
-    using EntryContainer = rigtorp::HashMap
+    using EntryContainer = cul::HashMap
         <RegionAxisAddress,
          Variant<RegionAxisLinksContainer,
                  RegionAxisLinksAdder,
@@ -84,7 +58,7 @@ public:
     explicit RegionEdgeConnectionsAdder(EntryContainer &&);
 
     void add(const Vector2I & on_field_position,
-             const SharedPtr<ViewGridTriangle> & triangle_grid);
+             const ScaledTriangleViewGrid & triangle_grid);
 
     RegionEdgeConnectionsContainer finish();
 
@@ -107,7 +81,7 @@ public:
     explicit RegionEdgeConnectionsRemover(EntryContainer &&);
 
     void remove_region(const Vector2I & on_field_position,
-                       const SharedPtr<ViewGridTriangle> & triangle_grid);
+                       const ScaledTriangleViewGrid & triangle_grid);
 
     RegionEdgeConnectionsContainer finish();
 

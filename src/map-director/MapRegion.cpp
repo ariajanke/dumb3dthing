@@ -21,56 +21,99 @@
 #include "MapRegion.hpp"
 #include "MapRegionTracker.hpp"
 
-#include <iostream>
-
-namespace {
-
-using namespace cul::exceptions_abbr;
-
-Vector2I region_load_step
-    (const ProducableTileViewGrid &, const RegionLoadRequest &);
-
-} // end of <anonymous> namespace
-
-TiledMapRegion::TiledMapRegion(ProducableTileViewGrid && full_factory_grid):
-    m_producables_view_grid(std::move(full_factory_grid)) {}
+TiledMapRegion::TiledMapRegion
+    (ProducableTileViewGrid && producables_view_grid,
+     ScaleComputation && scale_computation):
+    m_producables_view_grid(std::move(producables_view_grid)),
+    m_scale(std::move(scale_computation)) {}
 
 void TiledMapRegion::process_load_request
-    (const RegionLoadRequest & request, const Vector2I & offset,
+    (const RegionLoadRequestBase & request,
+     const RegionPositionFraming & framing,
+     RegionLoadCollectorBase & collector,
+     const Optional<RectangleI> & grid_scope)
+{
+    auto producables = grid_scope ?
+        m_producables_view_grid.make_subgrid(*grid_scope) :
+        m_producables_view_grid.make_subgrid();
+    process_load_request_(producables, request, framing, collector);
+}
+
+/* private */ void TiledMapRegion::process_load_request_
+    (ProducableTileViewGrid::SubGrid producables,
+     const RegionLoadRequestBase & request,
+     const RegionPositionFraming & region_position_framing,
      RegionLoadCollectorBase & collector)
 {
-    // reminder: tiles are laid out eastward (not westward)
-    //           it's assumed that bottom-top interpretation of a tiled map is
-    //           not comfortable (and therefore top-down)
-    auto step = region_load_step(m_producables_view_grid, request);
-    auto subgrid_size = cul::convert_to<Size2I>(step);
-    for (Vector2I r; r.x < m_producables_view_grid.width (); r.x += step.x) {
-    for (r.y = 0   ; r.y < m_producables_view_grid.height(); r.y += step.y) {
-        auto on_field_position = offset + r;
-        bool overlaps_this_subregion =
-            request.overlaps_with(RectangleI{on_field_position, subgrid_size});
-        if (!overlaps_this_subregion) continue;
-        auto subgrid = m_producables_view_grid.make_subgrid(RectangleI{r, subgrid_size});
-        collector.add_tiles(on_field_position, offset, subgrid);
-    }}
+    auto collect_load_jobs =
+        [&producables, &collector]
+        (const RegionPositionFraming & sub_frame,
+         const RectangleI & sub_region_bound_in_tiles)
+    {
+        const auto & bounds = sub_region_bound_in_tiles;
+        collector.collect_load_job
+            (sub_frame.as_sub_region_framing(),
+             producables.make_sub_grid(cul::top_left_of(bounds), bounds.width, bounds.height));
+    };
+    region_position_framing.
+        with_scaling(m_scale).
+        for_each_overlap(producables.size2(),
+                         request,
+                         std::move(collect_load_jobs));
 }
 
 // ----------------------------------------------------------------------------
 
-namespace {
+StackableProducableTileGrid::StackableProducableTileGrid() {}
 
-Vector2I region_load_step
-    (const ProducableTileViewGrid & view_grid,
-     const RegionLoadRequest & request)
+StackableProducableTileGrid::StackableProducableTileGrid
+    (Grid<ProducableTile *> && producables,
+     ProducableGroupCollection && producable_owners):
+    m_producable_grid(std::move(producables)),
+    m_producable_owners(producable_owners) {}
+
+ProducableTileGridStacker StackableProducableTileGrid::stack_with
+    (ProducableTileGridStacker && stacker)
 {
-    auto step_of_ = [] (int length, int max) {
-        // I want as even splits as possible
-        if (length < max) return length;
-        return length / (length / max);
-    };
-    return Vector2I
-        {step_of_(view_grid.width (), request.max_region_size().width ),
-         step_of_(view_grid.height(), request.max_region_size().height)};
+    stacker.stack_with
+        (std::move(m_producable_grid), std::move(m_producable_owners));
+    return std::move(stacker);
 }
 
-} // end of <anonymous> namespace
+// ----------------------------------------------------------------------------
+
+/* static */ ViewGrid<ProducableTile *>
+    ProducableTileGridStacker::producable_grids_to_view_grid
+    (std::vector<Grid<ProducableTile *>> && producables_grid)
+{
+    if (producables_grid.empty())
+        { return ViewGrid<ProducableTile *>{}; }
+
+    auto & first = producables_grid.front();
+    ViewGridInserter<ProducableTile *> inserter{first.size2()};
+    for (; !inserter.filled(); inserter.advance()) {
+        for (const auto & grid : producables_grid) {
+            if (auto * producable = grid(inserter.position()))
+                inserter.push(producable);
+        }
+    }
+    return inserter.finish();
+}
+
+void ProducableTileGridStacker::stack_with
+    (Grid<ProducableTile *> && producable_grid,
+     std::vector<SharedPtr<ProducableGroup_>> && producable_owners)
+{
+    using std::move_iterator;
+    m_producable_grids.emplace_back(std::move(producable_grid));
+    m_producable_owners.insert
+        (m_producable_owners.end(),
+         move_iterator{producable_owners.begin()},
+         move_iterator{producable_owners.end  ()});
+}
+
+ProducableTileViewGrid ProducableTileGridStacker::to_producables() {
+    return ProducableTileViewGrid
+        {producable_grids_to_view_grid (std::move(m_producable_grids)),
+         std::move(m_producable_owners)                               };
+}

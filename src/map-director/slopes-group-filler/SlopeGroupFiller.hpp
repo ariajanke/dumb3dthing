@@ -23,7 +23,7 @@
 #include "SlopesBasedTileFactory.hpp"
 
 #include "../ProducableGroupFiller.hpp"
-#include "../TileSetPropertiesGrid.hpp"
+#include "../TilesetPropertiesGrid.hpp"
 
 class ProducableSlopeTile final : public ProducableTile {
 public:
@@ -33,9 +33,7 @@ public:
         (const Vector2I & map_position,
          const TileFactoryGridPtr & factory_map_layer);
 
-    void operator ()
-        (const Vector2I & maps_offset, EntityAndTrianglesAdder & adder,
-         Platform & platform) const final;
+    void operator () (ProducableTileCallbacks & callbacks) const final;
 
 private:
     Vector2I m_map_position;
@@ -57,7 +55,8 @@ public:
          ProducableGroupTileLayer && group_grid) const final;
 
     void load
-        (const TileSetXmlGrid & xml_grid, Platform & platform,
+        (const TilesetXmlGrid & xml_grid,
+         PlatformAssetsStrategy & platform,
          const RampGroupFactoryMap & factory_type_map = builtin_tile_factory_maker_map());
 
     static const RampGroupFactoryMap & builtin_tile_factory_maker_map();
@@ -65,11 +64,12 @@ public:
 private:
     using TileFactoryGrid = Grid<SharedPtr<SlopesBasedTileFactory>>;
 
-    void load_factories(const TileSetXmlGrid & xml_grid,
+    void load_factories(const TilesetXmlGrid & xml_grid,
                         const RampGroupFactoryMap & factory_type_map);
 
     void setup_factories
-        (const TileSetXmlGrid & xml_grid, Platform & platform,
+        (const TilesetXmlGrid & xml_grid,
+         PlatformAssetsStrategy & platform,
          TileFactoryGrid &) const;
 
     SlopeFillerExtra m_specials;

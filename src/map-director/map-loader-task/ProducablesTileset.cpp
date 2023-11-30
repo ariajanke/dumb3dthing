@@ -18,19 +18,20 @@
 
 *****************************************************************************/
 
-#include "TileSet.hpp"
+#include "ProducablesTileset.hpp"
 
-#include "../TileSetPropertiesGrid.hpp"
+#include "../TilesetPropertiesGrid.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../twist-loop-filler.hpp"
+#include "../MapRegion.hpp"
 
-#include <tinyxml2.h>
+#include "TileMapIdToSetMapping.hpp"
 
 namespace {
 
-using namespace cul::exceptions_abbr;
-using FillerFactory = TileSet::FillerFactory;
-using FillerFactoryMap = TileSet::FillerFactoryMap;
+using FillerFactory = ProducablesTileset::FillerFactory;
+using FillerFactoryMap = ProducablesTileset::FillerFactoryMap;
+using Continuation = BackgroundTask::Continuation;
 
 struct MakeFillerGridRt final {
     Grid<SharedPtr<ProducableGroupFiller>> grid;
@@ -39,7 +40,7 @@ struct MakeFillerGridRt final {
 
 std::vector<Tuple<Vector2I, FillerFactory>>
     make_factory_grid_positions
-    (const TileSetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories);
+    (const TilesetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories);
 
 std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
     find_unique_factories_and_positions
@@ -47,11 +48,14 @@ std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
 
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TileSetXmlGrid & xml_grid, Platform & platform);
+     const TilesetXmlGrid & xml_grid,
+     MapContentLoader & platform);
 
 } // end of <anonymous> namespace
 
-/* static */ const TileSet::FillerFactoryMap & TileSet::builtin_fillers() {
+/* static */ const ProducablesTileset::FillerFactoryMap &
+    ProducablesTileset::builtin_fillers()
+{
     static auto s_map = [] {
         FillerFactoryMap s_map;
         for (auto type : slopes_group_filler_type_names::k_ramp_group_type_list) {
@@ -67,42 +71,66 @@ MakeFillerGridRt make_filler_grid
     return s_map;
 }
 
-void TileSet::load
-    (Platform & platform, const TiXmlElement & tileset,
-     const FillerFactoryMap & filler_factories)
+// four params, ouch!
+Continuation & ProducablesTileset::load
+    (const TiXmlElement & tileset_el, MapContentLoader & content_loader)
 {
-    TileSetXmlGrid xml_grid;
-    xml_grid.load(platform, tileset);
+    TilesetXmlGrid xml_grid;
+    xml_grid.load(content_loader.make_texture(), tileset_el);
     auto factory_and_locations = find_unique_factories_and_positions
-        (make_factory_grid_positions(xml_grid, filler_factories));
+        (make_factory_grid_positions(xml_grid, content_loader.map_fillers()));
 
-    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, platform);
+    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, content_loader);
     m_filler_grid = std::move(filler_things.grid);
     m_unique_fillers = std::move(filler_things.unique_fillers);
+
+    return content_loader.task_continuation();
 }
 
-std::vector<SharedPtr<const ProducableGroupFiller>> TileSet::move_out_fillers() {
-    m_filler_grid.clear();
-    auto rv = std::move(m_unique_fillers);
-    m_unique_fillers.clear();
+/* private */
+std::map<
+    SharedPtr<ProducableGroupFiller>,
+    std::vector<TileLocation>>
+    ProducablesTileset::make_fillers_and_locations
+    (const TilesetLayerWrapper & tile_layer_wrapper) const
+{
+    std::map<
+        SharedPtr<ProducableGroupFiller>,
+        std::vector<TileLocation>> rv;
+    for (auto & location : tile_layer_wrapper) {
+        // more cleaning out can be done here I think
+        if (!m_filler_grid(location.on_tile_set())) {
+            continue;
+        }
+
+        rv[m_filler_grid(location.on_tile_set())].
+            push_back(location.to_tile_location());
+    }
     return rv;
 }
 
-SharedPtr<ProducableGroupFiller> TileSet::find_filler(int tid) const
-    { return find_filler( tile_id_to_tileset_location(tid) ); }
+void ProducablesTileset::add_map_elements
+    (TilesetMapElementCollector & visitor,
+     const TilesetLayerWrapper & mapping_view) const
+{
+    auto unfinished = ProducableGroupTileLayer::
+        with_grid_size(mapping_view.grid_size());
+    auto fillers_to_locs = make_fillers_and_locations(mapping_view);
+    for (auto & [filler, locs] : fillers_to_locs) {
+#       if MACRO_DEBUG
+        assert(filler);
+#       endif
+        unfinished = (*filler)(locs, std::move(unfinished));
+    }
 
-/* private */ SharedPtr<ProducableGroupFiller> TileSet::find_filler
-    (Vector2I r) const
-    { return m_filler_grid(r); }
-
-Vector2I TileSet::tile_id_to_tileset_location(int tid) const
-    { return TileSetXmlGrid::tid_to_tileset_location(m_filler_grid, tid); }
+    visitor.add(unfinished.to_stackable_producable_tile_grid());
+}
 
 namespace {
 
 std::vector<Tuple<Vector2I, FillerFactory>>
     make_factory_grid_positions
-    (const TileSetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories)
+    (const TilesetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories)
 {
     std::vector<Tuple<Vector2I, FillerFactory>> factory_grid_positions;
     factory_grid_positions.reserve(xml_grid.size());
@@ -116,7 +144,8 @@ std::vector<Tuple<Vector2I, FillerFactory>>
             continue;
         }
         if (!itr->second) {
-            throw InvArg{"TileSet::load: no filler factory maybe nullptr"};
+            throw InvalidArgument
+                {"TileSet::load: no filler factory maybe nullptr"};
         }
         factory_grid_positions.emplace_back(r, itr->second);
     }
@@ -149,7 +178,8 @@ std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
 
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TileSetXmlGrid & xml_grid, Platform & platform)
+     const TilesetXmlGrid & xml_grid,
+     MapContentLoader & platform)
 {
     MakeFillerGridRt rv;
     auto & filler_grid = rv.grid;

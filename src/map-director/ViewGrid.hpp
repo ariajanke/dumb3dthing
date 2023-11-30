@@ -82,9 +82,10 @@ public:
     using GridViewContainer = Grid<ElementView>;
     using Iterator          = typename GridViewContainer::Iterator;
     using ConstIterator     = typename GridViewContainer::ConstIterator;
-    using SubGrid           = cul::ConstSubGrid
-        <ElementView, cul::SubGridParentAccess::allow_access_to_parent_elements>;
+    using SubGrid           = cul::ConstSubGrid<ElementView>;
     using Inserter          = ViewGridInserter<T>;
+
+    static ViewGrid from_grid(Grid<T> &&);
 
     ViewGrid() {}
 
@@ -123,6 +124,8 @@ public:
     int width() const noexcept { return m_views.width(); }
 
     SubGrid make_subgrid(const RectangleI &) const;
+
+    SubGrid make_subgrid() const { return SubGrid{m_views}; }
 
     Vector2I next(const Vector2I & r) const noexcept { return m_views.next(r); }
 
@@ -234,6 +237,16 @@ template <typename T>
     m_index_pairs(std::move(tuple_grid)) {}
 
 // ----------------------------------------------------------------------------
+
+template <typename T>
+/* static */ ViewGrid<T> ViewGrid<T>::from_grid(Grid<T> && grid) {
+    ViewGridInserter<T> inserter{grid.size2()};
+    while (!inserter.filled()) {
+        inserter.push(grid(inserter.position()));
+        inserter.advance();
+    }
+    return inserter.finish();
+}
 
 template <typename T>
 ViewGrid<T>::ViewGrid(ElementContainer && owning_container,

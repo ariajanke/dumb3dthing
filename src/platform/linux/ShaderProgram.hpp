@@ -37,6 +37,8 @@
 
 #include <string>
 
+#include "../../Definitions.hpp"
+
 class ShaderProgram {
 public:
     static constexpr const unsigned k_no_program = 0;
@@ -87,4 +89,4 @@ constexpr const unsigned k_texture_attribute = 2;
 
 } // end of default_shader_positions namespace
 
-std::string file_to_string(const char * filename);
+Optional<std::string> file_to_string(const char * filename);

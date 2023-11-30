@@ -23,6 +23,7 @@
 #include "map-loader.hpp"
 #include "ParseHelpers.hpp"
 #include "TileTexture.hpp"
+#include "ProducableGrid.hpp"
 
 #include "../Definitions.hpp"
 #include "../platform.hpp"
@@ -30,17 +31,8 @@
 #include <map>
 
 class TileProperties;
-
-class EntityAndTrianglesAdder {
-public:
-    virtual ~EntityAndTrianglesAdder() {}
-
-    virtual void add_entity(const Entity &) = 0;
-
-    virtual void add_triangle(const TriangleSegment &) = 0;
-};
-
-class TileSetXmlGrid;
+class ProducableTileCallbacks;
+class TilesetXmlGrid;
 
 /// A tile factory is a thing that produces tiles.
 /// It is local to the tileset
@@ -49,7 +41,8 @@ class TileFactory {
 public:
     virtual ~TileFactory() {}
 
-    void setup(const TileSetXmlGrid &, Platform &,
+    void setup(const TilesetXmlGrid &,
+               PlatformAssetsStrategy &,
                const Vector2I & location_on_tileset);
 
     static Vector grid_position_to_v3(const Vector2I & r)
@@ -57,8 +50,8 @@ public:
 
 protected:
     static void add_triangles_based_on_model_details
-        (Vector2I gridloc, Vector translation, const Slopes & slopes,
-         EntityAndTrianglesAdder & adder);
+        (const Vector & translation, const Slopes & slopes,
+         ProducableTileCallbacks & callbacks);
 
     static std::array<Vector, 4> get_points_for(const Slopes &);
 
@@ -69,11 +62,14 @@ protected:
 
     std::array<Vector2, 4> common_texture_positions_from(Vector2I ts_r) const;
 
-    Entity make_entity(Platform & platform, Vector translation,
-                       const SharedPtr<const RenderModel> & model_ptr) const;
+    template <typename Head, typename ... Types>
+    Entity add_visual_entity_with(
+        ProducableTileCallbacks & callbacks, Head && head, Types &&... arguments) const;
 
     SharedPtr<const RenderModel> make_render_model_with_common_texture_positions
-        (Platform & platform, const Slopes & slopes, Vector2I loc_in_ts) const;
+        (PlatformAssetsStrategy & platform,
+         const Slopes & slopes,
+         Vector2I location_in_tileset) const;
 
     Size2 common_texture_tile_size() const;
 
@@ -82,7 +78,9 @@ protected:
     TileTexture floor_texture_at(Vector2I) const;
 
     virtual void setup_
-        (const Vector2I & loc_in_ts, const TileProperties & properties, Platform &) = 0;
+        (const Vector2I & location_in_tileset,
+         const TileProperties & properties,
+         PlatformAssetsStrategy &) = 0;
 
 private:
     void set_shared_texture_information
@@ -93,3 +91,17 @@ private:
     Size2 m_texture_size;
     Size2 m_tile_size;
 };
+
+template <typename Head, typename ... Types>
+Entity TileFactory::add_visual_entity_with(
+    ProducableTileCallbacks & callbacks, Head && head, Types &&... arguments) const
+{
+    static_assert
+        (TypeList<Head, Types...>::
+         template RemoveIf<std::is_reference>::
+         template kt_equal_to_list<Head, Types...>,
+        "No reference types allowed");
+    return callbacks.add_entity
+        <SharedPtr<const Texture>, ModelVisibility, Head, Types...>
+        (common_texture(), ModelVisibility{true}, std::move(head), std::forward<Types>(arguments)...);
+}

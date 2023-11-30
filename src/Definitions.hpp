@@ -33,6 +33,7 @@
 #include <memory>
 #include <iosfwd>
 #include <optional>
+#include <stdexcept>
 
 // ----------------------------- Type Definitions -----------------------------
 
@@ -61,6 +62,9 @@ template <typename T>
 using WeakPtr = std::weak_ptr<T>;
 template <typename T, typename Del = std::default_delete<T>>
 using UniquePtr = std::unique_ptr<T, Del>;
+
+using RuntimeError = std::runtime_error;
+using InvalidArgument = std::invalid_argument;
 
 template <typename ... Types>
 using Variant = std::variant<Types...>;
@@ -130,6 +134,3 @@ constexpr const Vector k_east {1, 0, 0};
 constexpr const Vector k_up   {0, 1, 0};
 constexpr const Vector k_north{0, 0, 1};
 
-[[maybe_unused]] constexpr const std::array k_plus_shape_neighbor_offsets = {
-    Vector2I{0, 1}, Vector2I{0, -1}, Vector2I{1, 0}, Vector2I{-1, 0}
-};

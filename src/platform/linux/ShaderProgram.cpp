@@ -113,6 +113,8 @@ constexpr const char * k_vertex_shader_source =
 "    tex_coord = a_tex_coord + tex_offset;\n"
 "}\n\0";
 
+std::string throwing_file_to_string(const char * filename);
+
 } // end of <anonymous> namespace
 
 ShaderProgram::ShaderProgram(ShaderProgram && lhs)
@@ -158,8 +160,8 @@ void ShaderProgram::load_from_source
 void ShaderProgram::load_from_files
     (const char * vertex_shader_file, const char * fragment_shader_file)
 {
-    std::string vertex_source   = file_to_string(vertex_shader_file  );
-    std::string fragment_source = file_to_string(fragment_shader_file);
+    std::string vertex_source   = throwing_file_to_string(vertex_shader_file  );
+    std::string fragment_source = throwing_file_to_string(fragment_shader_file);
 
     load_from_source(vertex_source.c_str(), fragment_source.c_str());
 }
@@ -187,14 +189,12 @@ void ShaderProgram::set_vec2(const char * name, const glm::vec2 & r) const
 void ShaderProgram::swap(ShaderProgram && lhs)
     { std::swap(m_program_handle, lhs.m_program_handle); }
 
-std::string file_to_string(const char * filename) {
-    std::ifstream fin;
-    fin.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-    fin.open(filename);
-    std::stringstream sstrm;
-    sstrm << fin.rdbuf();
-    fin.close();
-    return sstrm.str();
+Optional<std::string> file_to_string(const char * filename) {
+    try {
+        return throwing_file_to_string(filename);
+    } catch (std::ios_base::failure &) {
+        return {};
+    }
 }
 
 namespace {
@@ -229,6 +229,16 @@ void ScopedShader::compile_fragment(const char * source_code) {
         throw RtError{  "Failed to compile " + std::string{shader_type}
                       + " shader:\n" + info_log.data()};
     }
+}
+
+std::string throwing_file_to_string(const char * filename) {
+    std::ifstream fin;
+    fin.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    fin.open(filename);
+    std::stringstream sstrm;
+    sstrm << fin.rdbuf();
+    fin.close();
+    return sstrm.str();
 }
 
 } // end of <anonymous> namespace

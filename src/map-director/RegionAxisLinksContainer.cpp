@@ -20,11 +20,15 @@
 
 #include "RegionAxisLinksContainer.hpp"
 
+#include "../Configuration.hpp"
 #include "../TriangleLink.hpp"
+
+#include <iostream>
 
 namespace {
 
-using namespace cul::exceptions_abbr;
+constexpr const bool k_report_maximum_sort_and_sweep =
+    k_region_axis_container_report_maximum_sort_and_sweep;
 
 Real get_x(const Vector & r) { return r.x; }
 
@@ -64,7 +68,7 @@ ItemType * generalize_seek
     case Axis::z_ways: return computed_bounds_<get_z>(link_ptr);
     default          : break;
     }
-    throw RtError{":c"};
+    throw RuntimeError{":c"};
 }
 
 RegionAxisLinkEntry::RegionAxisLinkEntry
@@ -104,19 +108,6 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
 
 // ----------------------------------------------------------------------------
 
-/* static */ void RegionAxisLinksAdder::add_sides_from
-    (RegionSide side,
-     const ViewGridTriangle & triangle_grid,
-     RegionAxisLinksAdder & adder)
-{
-    auto add_sides_for_tile = [&triangle_grid, &adder] (int x, int y) {
-        for (auto & link : triangle_grid(x, y))
-            adder.add(link);
-    };
-
-    for_each_tile_on_edge(triangle_grid, side, add_sides_for_tile);
-}
-
 /* static */ std::vector<RegionAxisLinkEntry>
     RegionAxisLinksAdder::dedupelicate
     (std::vector<RegionAxisLinkEntry> && entries)
@@ -133,13 +124,25 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
     RegionAxisLinksAdder::sort_and_sweep
     (std::vector<RegionAxisLinkEntry> && entries)
 {
+    static int s_sort_sweep_max = 0;
+    int sort_sweep_count = 0;
     std::sort(entries.begin(), entries.end(),
               RegionAxisLinkEntry::bounds_less_than);
     for (auto itr = entries.begin(); itr != entries.end(); ++itr) {
         for (auto jtr = itr + 1; jtr != entries.end(); ++jtr) {
             if (itr->high_bounds() < jtr->low_bounds())
                 break;
+            if constexpr (k_report_maximum_sort_and_sweep)
+                ++sort_sweep_count;
             RegionAxisLinkEntry::attach_matching_points(*itr, *jtr);
+        }
+    }
+    if constexpr (k_report_maximum_sort_and_sweep) {
+        if (sort_sweep_count > s_sort_sweep_max) {
+            auto entries_copy = entries;
+            entries_copy.resize( std::min( std::size_t(100), entries.size() ) );
+            s_sort_sweep_max = sort_sweep_count;
+            std::cout << "New sort sweep maximum: " << sort_sweep_count << std::endl;
         }
     }
     return std::move(entries);
@@ -149,12 +152,11 @@ RegionAxisLinksAdder::RegionAxisLinksAdder
     (std::vector<RegionAxisLinkEntry> && entries_,
      RegionAxis axis_):
     m_axis(axis_),
-    m_entries(verify_entries(std::move(entries_)))
-{}
+    m_entries(verify_entries(std::move(entries_))) {}
 
 void RegionAxisLinksAdder::add(const SharedPtr<TriangleLink> & link_ptr) {
     if (m_axis == RegionAxis::uninitialized) {
-        throw RtError{":c"};
+        throw RuntimeError{":c"};
     }
     m_entries.push_back(RegionAxisLinkEntry::computed_bounds(link_ptr, m_axis));
 }
@@ -170,7 +172,7 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
 {
 #   if MACRO_DEBUG
     if (std::any_of(entries.begin(), entries.end(), RegionAxisLinkEntry::linkless)) {
-        throw InvArg{":c"};
+        throw InvalidArgument{":c"};
     }
 #   endif
     return std::move(entries);
@@ -243,7 +245,7 @@ RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
     std::sort(entries.begin(), entries.end(), Entry::pointer_less_than);
     auto itr = std::unique(entries.begin(), entries.end(), Entry::pointer_equal);
     if (itr != entries.end()) {
-        throw InvArg{":c"};
+        throw InvalidArgument{":c"};
     }
 #   endif
     return std::move(entries);

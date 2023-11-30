@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include "TasksController.hpp"
 #include "Texture.hpp"
 #include "Systems.hpp"
+#include "Configuration.hpp"
 
 #include "map-director.hpp"
 #include "PlayerUpdateTask.hpp"
@@ -34,8 +35,6 @@
 #include <iostream>
 
 namespace {
-
-using namespace cul::exceptions_abbr;
 
 class TimeControl final {
 public:
@@ -69,10 +68,15 @@ public:
     void update(Real seconds, Platform &) final;
 
 private:
-    using PlayerEntities = LoaderTask::PlayerEntities;
-    using LoaderCallbacks   = LoaderTask::Callbacks;
+    struct PlayerEntities final {
+        PlayerEntities() {}
+        PlayerEntities(Entity physical_, Entity renderable_):
+            physical(physical_), renderable(renderable_) {}
 
-    void initial_load(LoaderCallbacks &);
+        Entity physical, renderable;
+    };
+
+    void initial_load(TaskCallbacks &);
 
     void update_(Real seconds);
 
@@ -154,7 +158,7 @@ Entity make_sample_bezier_model
 
     // very airy
     Entity rv = make_bezier_strip_model(k_hump_side, k_low_side, callbacks, texture, resolution, k_offset, k_scale);
-    rv.add<Translation>() = Vector{ 4, 0, -3 };
+    rv.add<ModelTranslation>() = Vector{ 4, 0, -3 };
     return rv;
 }
 
@@ -164,7 +168,7 @@ public:
         m_points(pts_) {}
 
     Vector operator () (Real) const
-        { throw RtError{"unimplemented"}; }
+        { throw RuntimeError{"unimplemented"}; }
 
 private:
     const Tuple<Vector, Vector, Vector> & m_points;
@@ -176,7 +180,6 @@ Entity make_loop(Platform & callbacks,
 Entity make_sample_loop
     (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
 {
-
     static constexpr const Real k_y = 10;
 
     static constexpr const Real k_s = 5;
@@ -193,16 +196,14 @@ Entity make_sample_loop
     constexpr const Vector2 k_offset{5./16, 1./16};
     constexpr const Real k_scale = 1. / 16;
     auto rv = make_bezier_strip_model(k_neg_side, k_pos_side, callbacks, texture, resolution, k_offset, k_scale);
-    rv.add<Translation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
+    rv.add<ModelTranslation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
     return rv;
 }
 
-static constexpr const Vector k_player_start{2, 5.1, -2};
-
 // model entity, physical entity
-Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
+Tuple<Entity, Entity>
     make_sample_player
-    (Platform & platform, point_and_plane::Driver & ppdriver)
+    (Platform & platform)
 {
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
@@ -256,25 +257,16 @@ Tuple<Entity, Entity, SharedPtr<BackgroundTask>>
     auto tx = platform.make_texture();
     tx->load_from_file("ground.png");
     model_ent.add
-        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, Translation,
+        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
          TranslationFromParent>
         () = make_tuple
-        (tx, model, Translation{k_player_start},
+        (tx, model, ModelTranslation{k_player_start},
          TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
     physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
-    static constexpr const auto k_testmap_filename = "demo-map2.tmx";
-
-    auto player_update_task = make_shared<PlayerUpdateTask>
-        (MapDirector_::make(&ppdriver), EntityRef{physics_ent});
-    auto map_loader_task = player_update_task->load_initial_map
-        (k_testmap_filename, platform);
-    SharedPtr<EveryFrameTask> & ptrref = physics_ent.add<SharedPtr<EveryFrameTask>>();
-    ptrref = SharedPtr<EveryFrameTask>{player_update_task};
-
-    return make_tuple(model_ent, physics_ent, map_loader_task);
+    return make_tuple(model_ent, physics_ent);
 }
 
 // ----------------------------------------------------------------------------
@@ -306,11 +298,13 @@ void GameDriverComplete::update(Real seconds, Platform & platform) {
     platform.render_scene(m_scene);
 }
 
-void GameDriverComplete::initial_load(LoaderCallbacks & callbacks) {
-    auto [renderable, physical, loader_task] =
-        make_sample_player(callbacks.platform(), *m_ppdriver);
+void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
+    auto [renderable, physical] =
+        make_sample_player(callbacks.platform());
+    callbacks.add
+        (MapDirector_::begin_initial_map_loading
+            (physical, k_testmap_filename, callbacks.platform(), *m_ppdriver));
     callbacks.platform().set_camera_entity(EntityRef{physical});
-    callbacks.add(loader_task);
     callbacks.add(physical);
     callbacks.add(renderable);
 
@@ -364,7 +358,7 @@ void GameDriverComplete::update_(Real seconds) {
             Entity{vis.next}.get<VisibilityChain>().visible = true;
         }
     },
-    [](TranslationFromParent & trans_from_parent, Translation & trans) {
+    [](TranslationFromParent & trans_from_parent, ModelTranslation & trans) {
         auto pent = Entity{trans_from_parent.parent};
         Real s = 1;
         auto & state = pent.get<PpState>();
@@ -381,7 +375,7 @@ void GameDriverComplete::update_(Real seconds) {
     CheckJump{},
     [ppstate = m_player_entities.physical.get<PpState>(),
      plyvel  = m_player_entities.physical.ptr<Velocity>()]
-        (Translation & trans, EcsOpt<Visible> vis)
+        (ModelTranslation & trans, EcsOpt<ModelVisibility> vis)
     {
         using point_and_plane::location_of;
         if (!vis) return;

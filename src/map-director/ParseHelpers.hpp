@@ -217,7 +217,7 @@ inline bool is_whitespace(char c)
     { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
 
 template <typename CharIter>
-inline auto make_trim_whitespace() {
+constexpr inline auto make_trim_whitespace() {
     return [] (CharIter & beg, CharIter & end)
         { cul::trim<is_whitespace>(beg, end); };
 }

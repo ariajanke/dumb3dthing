@@ -23,6 +23,12 @@
 // attorney class, but in source file structure form
 #include "map-director/MapDirector.hpp"
 
-/* static */ SharedPtr<MapDirector_> MapDirector_::make
-    (PpDriver * ppdriver)
-{ return make_shared<MapDirector>(ppdriver); }
+/* static */ SharedPtr<BackgroundTask> MapDirector_::begin_initial_map_loading
+    (Entity player_physics,
+     const char * initial_map,
+     Platform & platform,
+     PpDriver & ppdriver)
+{
+    return MapDirector::begin_initial_map_loading
+        (player_physics, initial_map, platform, ppdriver);
+}

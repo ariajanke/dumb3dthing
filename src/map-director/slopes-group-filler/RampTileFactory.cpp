@@ -20,7 +20,8 @@
 
 #include "RampTileFactory.hpp"
 
-#include "../TileSetPropertiesGrid.hpp"
+#include "../ProducableGrid.hpp"
+#include "../TilesetPropertiesGrid.hpp"
 
 namespace {
 
@@ -29,18 +30,18 @@ using namespace cul::exceptions_abbr;
 } // end of <anonymous> namespace
 
 void SingleModelSlopedTileFactory::operator ()
-    (EntityAndTrianglesAdder & adder, const SlopeGroupNeighborhood & nhood,
-     Platform & platform) const
+    (const SlopeGroupNeighborhood &,
+     ProducableTileCallbacks & callbacks) const
 {
-    auto r = nhood.tile_location_on_field();
-
     TileFactory::add_triangles_based_on_model_details
-        (r, translation(), model_tile_elevations(), adder);
-    adder.add_entity(make_entity(platform, r));
+        (translation(), model_tile_elevations(), callbacks);
+    add_modeled_entity_with(callbacks).
+        get<ModelTranslation>() += translation();
 }
 
 /* protected */ void SingleModelSlopedTileFactory::setup_
-    (const TileProperties & properties, Platform & platform,
+    (const TileProperties & properties,
+     PlatformAssetsStrategy & platform,
      const SlopeFillerExtra &,
      const Vector2I & location_on_tileset)
 {
@@ -52,7 +53,8 @@ void SingleModelSlopedTileFactory::operator ()
 // ----------------------------------------------------------------------------
 
 /* private */ void RampTileFactory::setup_
-    (const TileProperties & properties, Platform & platform,
+    (const TileProperties & properties,
+     PlatformAssetsStrategy & platform,
      const SlopeFillerExtra & slope_extras,
      const Vector2I & location_on_tileset)
 {

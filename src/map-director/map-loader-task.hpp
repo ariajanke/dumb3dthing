@@ -22,12 +22,11 @@
 
 #include "MapRegionTracker.hpp"
 
-#include "../Components.hpp"
-
-class MapLoaderTask_ {
+class MapLoaderTask_ : public BackgroundTask {
 public:
-    static SharedPtr<BackgroundTask> make
-        (const char * initial_map, Platform & platform,
-         const SharedPtr<MapRegionTracker> & target_region_instance,
-         const Entity & player_physics);
+    static SharedPtr<MapLoaderTask_> make
+        (const char * initial_map, Platform & platform);
+
+    /// @throws if the task has not finished
+    virtual UniquePtr<MapRegion> retrieve() = 0;
 };

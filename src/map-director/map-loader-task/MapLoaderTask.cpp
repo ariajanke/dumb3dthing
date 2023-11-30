@@ -19,46 +19,86 @@
 *****************************************************************************/
 
 #include "MapLoaderTask.hpp"
+#include "ProducablesTileset.hpp"
+
 #include "../../Definitions.hpp"
+#include "../../TasksController.hpp"
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
+using Continuation = BackgroundTask::Continuation;
+using TaskContinuation = MapContentLoaderComplete::TaskContinuation;
+using FillerFactoryMap = ProducablesTileset::FillerFactoryMap;
 
 } // end of <anonymous> namespace
 
 MapLoaderTask::MapLoaderTask
-    (tiled_map_loading::MapLoadStateMachine && map_loader,
-     const SharedPtr<MapRegionTracker> & target_region_instance,
-     const Entity & player_physics):
-     m_region_tracker(verify_region_tracker_presence
-         ("MapLoaderTask", target_region_instance)),
-     m_map_loader(std::move(map_loader)),
-     m_player_physics(player_physics) {}
+    (const char * map_filename, PlatformAssetsStrategy & assets_strategy)
+{
+    using namespace tiled_map_loading;
 
-BackgroundCompletion MapLoaderTask::operator () (Callbacks &) {
-    return m_map_loader.
-        update_progress().
-        fold<BackgroundCompletion>(BackgroundCompletion::in_progress).
-        map([this] (MapLoadingSuccess && res) {
-            Entity{m_player_physics}.ensure<Velocity>();
-            *m_region_tracker = MapRegionTracker
-                {std::move(res.loaded_region)};
-            return BackgroundCompletion::finished;
-        }).
-        map_left([] (MapLoadingError &&) {
-            return BackgroundCompletion::finished;
-        }).
-        value();
+    m_content_loader.assign_assets_strategy(assets_strategy);
+    m_map_loader = MapLoadStateMachine::make_with_starting_state
+        (m_content_loader, map_filename);
 }
 
-/* private static */ const SharedPtr<MapRegionTracker> &
-    MapLoaderTask::verify_region_tracker_presence
-    (const char * caller, const SharedPtr<MapRegionTracker> & ptr)
+Continuation & MapLoaderTask::in_background
+    (Callbacks & callbacks, ContinuationStrategy & strat)
 {
-    if (ptr) return ptr;
-    throw InvArg{"MapLoaderTask::" + std::string{caller} + ": given map "
-                 "region pointer must point to an existing instance, even "
-                 "(and favorably) one that has no root region"             };
+    m_content_loader.assign_assets_strategy(callbacks.platform());
+    m_content_loader.assign_continuation_strategy(strat);
+    m_map_loader.update_progress(m_content_loader).fold<int>(0).
+        map([this] (MapLoadingSuccess && res) {
+            m_loaded_region = std::move(res.loaded_region);
+            return 0;
+        }).
+        map_left([] (MapLoadingError &&) {
+            throw RuntimeError{"Failed to load map"};
+            return 0;
+        }).
+        value();
+    return m_content_loader.task_continuation();
+}
+
+UniquePtr<MapRegion> MapLoaderTask::retrieve() {
+    if (!m_loaded_region) {
+        throw RuntimeError{"No loaded region to retrieve"};
+    }
+    return std::move(m_loaded_region);
+}
+
+// ----------------------------------------------------------------------------
+
+MapContentLoaderComplete::MapContentLoaderComplete(Platform & platform):
+    m_platform(&platform) {}
+
+const FillerFactoryMap & MapContentLoaderComplete::map_fillers() const {
+#   ifdef MACRO_DEBUG
+    assert(m_filler_map);
+#   endif
+    return *m_filler_map;
+}
+
+FutureStringPtr MapContentLoaderComplete::promise_file_contents
+    (const char * filename)
+{ return m_platform->promise_file_contents(filename); }
+
+SharedPtr<Texture> MapContentLoaderComplete::make_texture() const
+    { return m_platform->make_texture(); }
+
+void MapContentLoaderComplete::wait_on
+    (const SharedPtr<BackgroundTask> & task)
+    { m_continuation = &m_strategy->continue_().wait_on(task); }
+
+void MapContentLoaderComplete::assign_continuation_strategy
+    (ContinuationStrategy & strategy)
+{
+    m_strategy = &strategy;
+    m_continuation = &strategy.finish_task();
+}
+
+TaskContinuation & MapContentLoaderComplete::task_continuation() const {
+    if (m_continuation) return *m_continuation;
+    throw RuntimeError{"Strategy was not set"};
 }

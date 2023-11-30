@@ -25,16 +25,6 @@
 class RegionAxisLinksAdder;
 class RegionAxisLinksRemover;
 
-enum class RegionSide {
-    left  , // west
-    right , // east
-    bottom, // south
-    top   , // north
-    uninitialized
-};
-
-enum class RegionAxis { x_ways, z_ways, uninitialized };
-
 class RegionAxisLinkEntry final {
 public:
     static bool bounds_less_than(const RegionAxisLinkEntry & lhs,
@@ -99,11 +89,6 @@ private:
 class RegionAxisLinksAdder final {
 public:
     using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
-
-    static void add_sides_from
-        (RegionSide side,
-         const ViewGridTriangle & triangle_grid,
-         RegionAxisLinksAdder & adder);
 
     static std::vector<RegionAxisLinkEntry> dedupelicate
         (std::vector<RegionAxisLinkEntry> &&);
@@ -172,47 +157,3 @@ private:
     std::vector<RegionAxisLinkEntry> m_entries;
     std::size_t m_original_size = 0;
 };
-
-template <typename Func>
-void for_each_tile_on_edge
-    (const RectangleI & bounds, RegionSide side, Func && f);
-
-template <typename T, typename Func>
-void for_each_tile_on_edge
-    (const ViewGrid<T> & view_grid, RegionSide side, Func && f);
-
-// ----------------------------------------------------------------------------
-
-template <typename T, typename Func>
-void for_each_tile_on_edge
-    (const ViewGrid<T> & view_grid, RegionSide side, Func && f)
-{
-    for_each_tile_on_edge
-        (RectangleI{Vector2I{}, view_grid.size2()}, side, std::move(f));
-}
-
-template <typename Func>
-void for_each_tile_on_edge
-    (const RectangleI & bounds, RegionSide side, Func && f)
-{
-    using Side = RegionSide;
-    using cul::right_of, cul::bottom_of;
-
-    auto for_each_horz_ = [bounds, &f] (int y_pos) {
-        for (int x = bounds.left; x != right_of(bounds); ++x)
-            { f(x, y_pos); }
-    };
-
-    auto for_each_vert_ = [bounds, &f] (int x_pos) {
-        for (int y = bounds.top; y != bottom_of(bounds); ++y)
-            { f(x_pos, y); }
-    };
-
-    switch (side) {
-    case Side::left  : return for_each_vert_(bounds.left          );
-    case Side::right : return for_each_vert_(right_of (bounds) - 1);
-    case Side::bottom: return for_each_horz_(bottom_of(bounds) - 1);
-    case Side::top   : return for_each_horz_(bounds.top           );
-    default: return;
-    }
-}

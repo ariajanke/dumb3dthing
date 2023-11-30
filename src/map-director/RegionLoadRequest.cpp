@@ -21,6 +21,7 @@
 #include "RegionLoadRequest.hpp"
 
 #include "MapDirector.hpp"
+#include "MapRegion.hpp"
 
 #include "../TriangleSegment.hpp"
 
@@ -51,12 +52,10 @@ RectanglePoints::RectanglePoints(const cul::Rectangle<Real> & rect):
 RegionLoadRequest::RegionLoadRequest
     (const Vector2 & triangle_a, const Vector2 & triangle_b,
      const Vector2 & triangle_c, Size2I max_region_size):
-    m_triangle_bounds(bounds_for(triangle_a, triangle_b, triangle_c)),
-    m_pt_a(triangle_a),
-    m_pt_b(triangle_b),
-    m_pt_c(triangle_c),
-    m_max_size(max_region_size)
-{}
+    RegionLoadRequest
+        (bounds_for(triangle_a, triangle_b, triangle_c),
+         triangle_a, triangle_b, triangle_c,
+         max_region_size                                ) {}
 
 /* static */ RegionLoadRequest RegionLoadRequest::find
     (const Vector & player_position, const Optional<Vector> & player_facing,
@@ -193,6 +192,18 @@ bool RegionLoadRequest::any_point_is_contained_in
     return cul::Rectangle<Real>
         {low.x, low.y, high.x - low.x, high.y - low.y};
 }
+
+/* private */ RegionLoadRequest::RegionLoadRequest
+    (const cul::Rectangle<Real> & triangle_bounds,
+     const Vector2 & triangle_a,
+     const Vector2 & triangle_b,
+     const Vector2 & triangle_c,
+     Size2I max_region_size):
+    m_triangle_bounds(triangle_bounds),
+    m_pt_a(triangle_a),
+    m_pt_b(triangle_b),
+    m_pt_c(triangle_c),
+    m_max_size(max_region_size) {}
 
 // ----------------------------------------------------------------------------
 

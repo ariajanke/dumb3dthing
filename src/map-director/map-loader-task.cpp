@@ -23,13 +23,9 @@
 
 #include "map-loader-task.hpp"
 
-SharedPtr<BackgroundTask> MapLoaderTask_::make
-    (const char * initial_map, Platform & platform,
-     const SharedPtr<MapRegionTracker> & target_region_instance,
-     const Entity & player_physics)
+/* static */ SharedPtr<MapLoaderTask_> MapLoaderTask_::make
+    (const char * initial_map, Platform & platform)
 {
     using tiled_map_loading::MapLoadStateMachine;
-    return make_shared<MapLoaderTask>
-        (MapLoadStateMachine{platform, initial_map},
-         target_region_instance, player_physics     );
+    return make_shared<MapLoaderTask>(initial_map, platform);
 }

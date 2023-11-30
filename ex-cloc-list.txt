@@ -1,0 +1,3 @@
+src/platform/linux/glad.c
+src/platform/linux/stb_image.h
+

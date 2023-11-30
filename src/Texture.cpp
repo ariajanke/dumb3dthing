@@ -19,15 +19,16 @@
 *****************************************************************************/
 
 #include "Texture.hpp"
+#include "Definitions.hpp"
 
 #include <ariajanke/cul/Util.hpp>
 
 #include <string>
 
 void Texture::load_from_file(const char * filename) {
-    using namespace cul::exceptions_abbr;
-    if (!load_from_file_no_throw(filename)) {
-        throw RtError{  std::string{"Texture::load_from_file: Failed to load texture \""}
-                      + filename + "\""};
-    }
+    if (load_from_file_no_throw(filename)) return;
+
+    throw RuntimeError
+        {std::string{"Texture::load_from_file: Failed to load texture \""} +
+         filename + "\""};
 }

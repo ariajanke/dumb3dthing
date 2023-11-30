@@ -22,11 +22,46 @@
 
 #include "ProducableGroup.hpp"
 #include "ViewGrid.hpp"
+#include "ScaleComputation.hpp"
 
-class EntityAndTrianglesAdder;
+#include "../Tasks.hpp"
+#include "../Components.hpp"
+
 class Platform;
 class UnfinishedProducableTileViewGrid;
-class TileMapIdToSetMapping;
+
+class ProducableTileCallbacks {
+public:
+    virtual ~ProducableTileCallbacks() {}
+
+    void add_collidable(const TriangleSegment & triangle)
+        { add_collidable_(triangle); }
+
+    void add_collidable(const Vector & triangle_point_a,
+                        const Vector & triangle_point_b,
+                        const Vector & triangle_point_c);
+
+    template <typename ... Types>
+    Entity add_entity(Types &&... arguments) {
+        auto e = add_entity_();
+        e.
+            add<ModelScale, ModelTranslation, Types...>() =
+            make_tuple(model_scale(), model_translation(),
+                       std::forward<Types>(arguments)...  );
+        return e;
+    }
+
+    virtual SharedPtr<RenderModel> make_render_model() = 0;
+
+protected:
+    virtual void add_collidable_(const TriangleSegment &) = 0;
+
+    virtual Entity add_entity_() = 0;
+
+    virtual ModelScale model_scale() const = 0;
+
+    virtual ModelTranslation model_translation() const = 0;
+};
 
 /// Represents how to make a single instance of a tile.
 /// It is local to the entire in game field.
@@ -34,12 +69,14 @@ class ProducableTile {
 public:
     virtual ~ProducableTile() {}
 
-    virtual void operator () (const Vector2I & maps_offset,
-                              EntityAndTrianglesAdder &, Platform &) const = 0;
+    /// @param maps_offset describes the position of the tile on the map itself
+    // instead of maps_offset, can I pass TriangleSegmentTransformation instead?
+    // Tuple<ModelTranslation, ModelScale>?
+    virtual void operator () (ProducableTileCallbacks &) const = 0;
 };
 
 using ProducableTileViewSubGrid = ViewGrid<ProducableTile *>::SubGrid;
-class TileSet;
+class ProducablesTileset;
 class ProducableGroupFiller;
 
 /// A ViewGrid of producable tiles
@@ -53,21 +90,23 @@ public:
 
     ProducableTileViewGrid
         (ViewGrid<ProducableTile *> && factory_view_grid,
-         std::vector<SharedPtr<ProducableGroup_>> && groups,
-         std::vector<SharedPtr<const ProducableGroupFiller>> && fillers);
+         std::vector<SharedPtr<ProducableGroup_>> && groups);
 
     auto height() const { return m_factories.height(); }
 
     auto width() const { return m_factories.width(); }
 
+    auto size2() const { return m_factories.size2(); }
+
     /** this object must live at least as long as the return value */
     auto make_subgrid(const RectangleI & range) const
         { return m_factories.make_subgrid(range); }
 
+    auto make_subgrid() const { return m_factories.make_subgrid(); }
+
 private:
     ViewGrid<ProducableTile *> m_factories;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
-    std::vector<SharedPtr<const ProducableGroupFiller>> m_fillers;
 };
 
 class UnfinishedProducableTileViewGrid final {
@@ -101,19 +140,34 @@ private:
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };
 
+class StackableProducableTileGrid;
+
 class ProducableGroupTileLayer final {
 public:
-    // may only be set once
-    void set_size(const Size2I &);
+    static ProducableGroupTileLayer with_grid_size(const Size2I & sz)
+        { return ProducableGroupTileLayer{sz}; }
+
+    ProducableGroupTileLayer() {}
 
     template <typename T>
     void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
         { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
 
-    UnfinishedProducableTileViewGrid
-        move_self_to(UnfinishedProducableTileViewGrid &&);
+    void add_group(SharedPtr<ProducableGroup_> && group)
+        { m_groups.emplace_back(std::move(group)); }
+
+    StackableProducableTileGrid to_stackable_producable_tile_grid();
 
 private:
+    explicit ProducableGroupTileLayer(const Size2I & target_size) {
+        using namespace cul::exceptions_abbr;
+        if (target_size.width <= 0 || target_size.height <= 0) {
+            throw InvArg{"ProducableGroupTileLayer::set_size: given size must be "
+                         "non zero"};
+        }
+        m_target.set_size(target_size, nullptr);
+    }
+
     Grid<ProducableTile *> m_target;
     std::vector<SharedPtr<ProducableGroup_>> m_groups;
 };

@@ -126,6 +126,10 @@ EM_JS(void, from_js_view_matrix_look_at,
         [upX , upY , upZ ]);
 });
 
+EM_JS(void, from_js_model_matrix_scale, (float x, float y, float z), {
+    jsPlatform.modelMatrix.scale([x, y, z]);
+});
+
 EM_JS(void, from_js_view_matrix_apply, (), {
     jsPlatform.viewMatrix.apply();
 });
@@ -256,7 +260,7 @@ public:
 
     ~WebFutureString() {}
 
-    OptionalEither<Lost, std::string> operator () () final {
+    OptionalEither<Lost, std::string> retrieve() final {
         if (m_fulfilled) {
             m_lost = true;
             m_fulfilled = false;
@@ -310,12 +314,12 @@ public:
                 <SharedPtr<const Texture>, SharedPtr<const RenderModel>>
                 ())
             { continue; }
-            if (auto * vis = ent.ptr<Visible>()) {
+            if (auto * vis = ent.ptr<ModelVisibility>()) {
                 if (!vis->value)
                     continue;
             }
             from_js_reset_model_matrix();
-            if (auto * translation = ent.ptr<Translation>()) {
+            if (auto * translation = ent.ptr<ModelTranslation>()) {
                 const auto & r = translation->value;
                 from_js_model_matrix_translate(r.x, r.y, r.z);
 #               if 0
@@ -327,6 +331,10 @@ public:
 #               if 0
                 from_js_log_line("[cpp]: applying y rotation");
 #               endif
+            }
+            if (auto * scale = ent.ptr<ModelScale>()) {
+                const auto & r = scale->value;
+                from_js_model_matrix_scale(r.x, r.y, r.z);
             }
 #           if 0
             from_js_log_line("[cpp]: rendering model");

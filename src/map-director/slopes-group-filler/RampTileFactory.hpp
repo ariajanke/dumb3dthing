@@ -25,19 +25,27 @@
 class SingleModelSlopedTileFactory : public SlopesBasedTileFactory {
 public:
     void operator ()
-        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
-         Platform &) const final;
+        (const SlopeGroupNeighborhood &,
+         ProducableTileCallbacks &) const final;
 
     Slopes tile_elevations() const final
         { return translate_y(model_tile_elevations(), translation().y); }
 
 protected:
-    Entity make_entity(Platform & platform, Vector2I r) const
-        { return TranslatableTileFactory::make_entity(platform, r, m_render_model); }
+    template <typename ... Types>
+    Entity add_modeled_entity_with(
+        ProducableTileCallbacks & callbacks, Types &&... arguments) const
+    {
+        return add_visual_entity_with
+            <SharedPtr<const RenderModel>, Types...>
+            (callbacks, SharedPtr<const RenderModel>{m_render_model},
+             std::forward<Types>(arguments)...);
+    }
 
     virtual Slopes model_tile_elevations() const = 0;
 
-    void setup_(const TileProperties &, Platform &,
+    void setup_(const TileProperties &,
+                PlatformAssetsStrategy &,
                 const SlopeFillerExtra &,
                 const Vector2I & location_on_tileset) override;
 
@@ -55,7 +63,8 @@ protected:
     virtual void set_direction(const char *) = 0;
 
 private:
-    void setup_(const TileProperties & properties, Platform & platform,
+    void setup_(const TileProperties & properties,
+                PlatformAssetsStrategy & platform,
                 const SlopeFillerExtra &,
                 const Vector2I & location_on_tileset) final;
 };

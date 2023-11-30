@@ -22,7 +22,7 @@
 #include "slopes-group-filler/SlopeGroupFiller.hpp"
 
 /* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
-    (const TileSetXmlGrid & xml_grid, Platform & platform)
+    (const TilesetXmlGrid & xml_grid, PlatformAssetsStrategy & platform)
 {
     auto rv = make_shared<SlopeGroupFiller>();
     rv->load(xml_grid, platform);

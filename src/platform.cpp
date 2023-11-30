@@ -59,7 +59,7 @@ private:
 
 } // end of <anonymous> namespace
 
-Platform::~Platform() {}
+PlatformAssetsStrategy::~PlatformAssetsStrategy() {}
 
 /* static */ Platform & Platform::null_callbacks() {
     static constexpr const auto k_cannot_promise_file_contents =

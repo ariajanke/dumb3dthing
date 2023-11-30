@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2023 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ const initShaderProgram = (gl, vsSource, fsSource) => {
       // so I can use monads and things like that?
       console.log(`Failed to compile shader: ${gl.getShaderInfoLog(shader)}`);
       gl.deleteShader(shader);
-      return null; 
+      return null;
     }
     return shader;
   };
@@ -93,14 +93,14 @@ const setPlatformCallbacks = getShader => {
     const attrLoc       = gl.getUniformLocation(shaderProgram, "uViewMatrix")
     return matrix => gl.uniformMatrix4fv(attrLoc, false, matrix);
   });
-  
+
   jsPlatform.setRenderModelAttributesNeederFactory(gl => {
     const shaderProgram  = getShader();
     const vertexPosition = gl.getAttribLocation(shaderProgram, "aVertexPosition");
     const textureCoord   = gl.getAttribLocation(shaderProgram, "aTextureCoord");
     return render => render(vertexPosition, textureCoord);
   });
-  
+
   jsPlatform.setTextureUnitHandlerFactory(gl => {
     const shaderProgram = getShader();
     const samplerAttrLoc = gl.getUniformLocation(shaderProgram, "uSampler");
@@ -114,7 +114,7 @@ const setPlatformCallbacks = getShader => {
       const zNear = 0.1;
       const zFar = 100.0;
       const projectionMatrix = mat4.create();
-  
+
       // note: glmatrix.js always has the first argument
       // as the destination to receive the result.
       mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
@@ -169,7 +169,7 @@ const startNewFrame = (gl, shaderProgram) => {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   perspectiveMatrix.reset();
-  
+
   // Tell WebGL to use our program when drawing
   gl.useProgram(shaderProgram);
 
@@ -209,7 +209,7 @@ return (() => {
         console.log('Update routine stopped.');
         return; // <- stop, no more udpates!
       }
-      let start = new Date(); 
+      let start = new Date();
       startNewFrame(mGlContext, mShaderProgram);
       mMod.update(1 / oldFrameRate);
       if (oldFrameRate != mTargetFrameRate) {
@@ -241,7 +241,7 @@ return (() => {
       mKeyMapper = keymapper;
       mMod       = startUpModule(module);
       mMod.startUp();
-      
+
       resume();
     },
     setTargetFrameRate: fps => mTargetFrameRate = fps,

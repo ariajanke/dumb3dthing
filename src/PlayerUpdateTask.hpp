@@ -27,19 +27,14 @@
 /// stuffing it in here, until there's a proper living place for this class
 class PlayerUpdateTask final : public EveryFrameTask {
 public:
-    PlayerUpdateTask
-        (SharedPtr<MapDirector_> && map_director, const EntityRef & physics_ent):
-        m_map_director(std::move(map_director)),
+    explicit PlayerUpdateTask
+        (const EntityRef & physics_ent):
         m_physics_ent(physics_ent) {}
-
-    SharedPtr<BackgroundTask> load_initial_map(const char * initial_map, Platform & platform);
 
     void on_every_frame(Callbacks & callbacks, Real) final;
 
 private:
     static void check_fall_below(Entity & ent);
-
-    SharedPtr<MapDirector_> m_map_director;
     // | extremely important that the task is *not* owning
     // v the reason entity refs exists
     EntityRef m_physics_ent;

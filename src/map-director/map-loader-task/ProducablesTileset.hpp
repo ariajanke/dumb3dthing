@@ -20,38 +20,31 @@
 
 #pragma once
 
-#include "../ParseHelpers.hpp"
-#include "../ProducableGroupFiller.hpp"
-
-#include <map>
-
-class TileSetXmlGrid;
+#include "TilesetBase.hpp"
 
 /// Tilesets map tileset ids to tile group fillers.
 ///
 /// maybe a loader thing
-class TileSet final {
+class ProducablesTileset final : public TilesetBase {
 public:
-    using FillerFactory = SharedPtr<ProducableGroupFiller>(*)(const TileSetXmlGrid &, Platform &);
-    using FillerFactoryMap = std::map<std::string, FillerFactory>;
-
     static const FillerFactoryMap & builtin_fillers();
 
-    void load(Platform &, const TiXmlElement &,
-              const FillerFactoryMap & = builtin_fillers());
+    Continuation & load
+        (const TiXmlElement &, MapContentLoader &) final;
 
-    /// also clears out the entire tileset
-    std::vector<SharedPtr<const ProducableGroupFiller>> move_out_fillers();
-
-    SharedPtr<ProducableGroupFiller> find_filler(int tid) const;
-
-    Vector2I tile_id_to_tileset_location(int tid) const;
-
-    auto total_tile_count() const
-        { return m_filler_grid.size(); }
+    void add_map_elements
+        (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const final;
 
 private:
-    SharedPtr<ProducableGroupFiller> find_filler(Vector2I) const;
+    Size2I size2() const final { return m_filler_grid.size2(); }
+
+    // TODO
+    // kind of ugly in general, reveals the need for refactoring of filler
+    // classes, BUT not doing yet
+    std::map<
+        SharedPtr<ProducableGroupFiller>,
+        std::vector<TileLocation>>
+        make_fillers_and_locations(const TilesetLayerWrapper &) const;
 
     Grid<SharedPtr<ProducableGroupFiller>> m_filler_grid;
     std::vector<SharedPtr<const ProducableGroupFiller>> m_unique_fillers;

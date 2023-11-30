@@ -22,25 +22,63 @@
 
 #include "TiledMapLoader.hpp"
 
-#include "../MapRegionTracker.hpp"
+#include "../map-loader-task.hpp"
 
-#include "../../Components.hpp"
-
-class MapLoaderTask final : public BackgroundTask {
+class MapContentLoaderComplete final : public MapContentLoader {
 public:
-    MapLoaderTask
-        (tiled_map_loading::MapLoadStateMachine && map_loader,
-         const SharedPtr<MapRegionTracker> & target_region_instance,
-         const Entity & player_physics);
+    using TaskContinuation = BackgroundTask::Continuation;
+    using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
 
-    BackgroundCompletion operator () (Callbacks &) final;
+    MapContentLoaderComplete() {}
+
+    explicit MapContentLoaderComplete(Platform &);
+
+    const FillerFactoryMap & map_fillers() const final;
+
+    bool delay_required() const final
+        { return &task_continuation() == &m_strategy->continue_(); }
+
+    FutureStringPtr promise_file_contents(const char * filename) final;
+
+    void add_warning(MapLoadingWarningEnum) final {}
+
+    SharedPtr<Texture> make_texture() const final;
+
+    void wait_on(const SharedPtr<BackgroundTask> &) final;
+
+    void assign_assets_strategy(PlatformAssetsStrategy & platform)
+        { m_platform = &platform; }
+
+    void assign_continuation_strategy(ContinuationStrategy &);
+
+    void assign_filler_map(const FillerFactoryMap & filler_map)
+        { m_filler_map = &filler_map; }
+
+    SharedPtr<RenderModel> make_render_model() const final
+        { return m_platform->make_render_model(); }
+
+    TaskContinuation & task_continuation() const final;
 
 private:
-    static const SharedPtr<MapRegionTracker> &
-        verify_region_tracker_presence
-        (const char * caller, const SharedPtr<MapRegionTracker> &);
+    PlatformAssetsStrategy * m_platform = nullptr;
+    ContinuationStrategy * m_strategy = nullptr;
+    TaskContinuation * m_continuation = nullptr;
+    const FillerFactoryMap * m_filler_map = &MapContentLoader::builtin_fillers();
+};
 
-    SharedPtr<MapRegionTracker> m_region_tracker;
+// ----------------------------------------------------------------------------
+
+class MapLoaderTask final : public MapLoaderTask_ {
+public:
+    MapLoaderTask(const char * map_filename, PlatformAssetsStrategy &);
+
+    Continuation & in_background
+        (Callbacks &, ContinuationStrategy &) final;
+
+    UniquePtr<MapRegion> retrieve() final;
+
+private:
+    UniquePtr<MapRegion> m_loaded_region;
     tiled_map_loading::MapLoadStateMachine m_map_loader;
-    EntityRef m_player_physics;
+    MapContentLoaderComplete m_content_loader;
 };

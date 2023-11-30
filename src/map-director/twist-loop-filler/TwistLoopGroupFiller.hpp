@@ -31,7 +31,7 @@
 // how does tile generation work here?
 // only load in geometry relevant to a tile? (yes)
 
-class TileSetXmlGrid;
+class TilesetXmlGrid;
 class TwistTileGroup {
 public:
     using Rectangle = cul::Rectangle<Real>;
@@ -40,7 +40,7 @@ public:
 
     virtual void operator ()
         (const Vector2I & position_in_group, const Vector2I & tile_offset,
-         EntityAndTrianglesAdder &, Platform &) const = 0;
+         ProducableTileCallbacks &) const = 0;
 
     Vector2I group_start() const { return m_group_start; }
 
@@ -66,7 +66,7 @@ public:
 
     void operator ()
         (const Vector2I & position_in_group, const Vector2I & tile_offset,
-         EntityAndTrianglesAdder &, Platform &) const final;
+         ProducableTileCallbacks &) const final;
 
 private:
     struct ElementsVerticesPair final {
@@ -90,9 +90,11 @@ public:
         m_position_in_group(position_in_group),
         m_twist_group(tile_group) {}
 
-    void operator () (const Vector2I & maps_offset,
-                      EntityAndTrianglesAdder & adder, Platform & platform) const final
-        { (*m_twist_group)(m_position_in_group, m_position_in_map + maps_offset, adder, platform); }
+    void operator () (ProducableTileCallbacks & callbacks) const final
+    {
+        (*m_twist_group)
+            (m_position_in_group, m_position_in_map, callbacks);
+    }
 
 private:
     Vector2I m_position_in_map;
@@ -109,7 +111,7 @@ public:
     static Grid<bool> map_positions_to_grid
         (const std::vector<TileLocation> &);
 
-    void load(const TileSetXmlGrid & xml_grid, Platform & platform);
+    void load(const TilesetXmlGrid & xml_grid, Platform & platform);
 
     ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const final;

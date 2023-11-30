@@ -163,14 +163,14 @@ public:
     };
 
     void operator ()
-        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
-         Platform &) const final;
+        (const SlopeGroupNeighborhood &,
+         ProducableTileCallbacks &) const final;
 
     Slopes computed_tile_elevations(const SlopeGroupNeighborhood &) const;
 
     // should have translations and all
     void make_physical_triangles
-        (const SlopeGroupNeighborhood &, EntityAndTrianglesAdder &) const;
+        (const SlopeGroupNeighborhood &, ProducableTileCallbacks &) const;
 
     Slopes tile_elevations() const final;
 
@@ -201,7 +201,8 @@ private:
     Real known_elevation() const;
 
     SharedPtr<const RenderModel> ensure_bottom_model
-        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood,
+         ProducableTileCallbacks & callbacks) const;
 
     template <typename MakerFunc>
     SharedPtr<const RenderModel> ensure_model
@@ -210,11 +211,13 @@ private:
 
     SharedPtr<const RenderModel>
         ensure_wall_graphics
-        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood,
+         ProducableTileCallbacks &) const;
 
     SharedPtr<const RenderModel>
         make_bottom_graphics
-        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood,
+         ProducableTileCallbacks & callbacks) const;
 
     std::array<Tuple<bool, CardinalDirection>, 4>
         make_known_corners_with_preposition() const;
@@ -222,18 +225,27 @@ private:
     SharedPtr<const RenderModel>
         make_model_graphics
         (const Slopes & elevations, SplitOpt,
-         const TriangleToVerticies &, Platform & platform) const;
+         const TriangleToVerticies &,
+         ProducableTileCallbacks &) const;
 
-    SharedPtr<const RenderModel> make_top_model(Platform & platform) const;
+    SharedPtr<const RenderModel>
+        make_model_graphics
+        (const Slopes & elevations, SplitOpt,
+         const TriangleToVerticies &,
+         SharedPtr<RenderModel> && model_to_use) const;
+
+    SharedPtr<const RenderModel> make_top_model(PlatformAssetsStrategy &) const;
 
     auto make_triangle_to_floor_verticies() const
         { return TriangleToFloorVerticies{floor_texture(), -translation().y}; }
 
     SharedPtr<const RenderModel>
         make_wall_graphics
-        (const SlopeGroupNeighborhood & neighborhood, Platform & platform) const;
+        (const SlopeGroupNeighborhood & neighborhood,
+         ProducableTileCallbacks &) const;
 
-    void setup_(const TileProperties &, Platform &,
+    void setup_(const TileProperties &,
+                PlatformAssetsStrategy &,
                 const SlopeFillerExtra &,
                 const Vector2I & location_on_tileset) final;
 

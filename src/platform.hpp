@@ -48,10 +48,30 @@ public:
 
     virtual ~Future() {}
 
-    virtual OptionalEither<Lost, T> operator () () = 0;
+    virtual OptionalEither<Lost, T> retrieve() = 0;
 };
 
-using FutureStringPtr = UniquePtr<Future<std::string>>;
+// TODO refactor allowing only one unique retriever
+using FutureStringPtr = SharedPtr<Future<std::string>>;
+
+class PlatformAssetsStrategy {
+public:
+    virtual ~PlatformAssetsStrategy();
+
+    /// @returns created platform dependant texture.
+    virtual SharedPtr<Texture> make_texture() const = 0;
+
+    /// @returns created platform dependant render model
+    virtual SharedPtr<RenderModel> make_render_model() const = 0;
+
+    /** @returns special future string type, promising the contents of a
+     *           file.
+     *
+     *  @note This design is in place in enable compatibility without
+     *        having to use a blocking call with Web Assembly.
+     */
+    virtual FutureStringPtr promise_file_contents(const char *) = 0;
+};
 
 /** Represents the platform on which the application runs. This class is a way
  *  for the driver/loaders/certain systems to obtain platform specific
@@ -59,11 +79,9 @@ using FutureStringPtr = UniquePtr<Future<std::string>>;
  *
  *  @note run platform dependant code
  */
-class Platform {
+class Platform : public PlatformAssetsStrategy {
 public:
     static Platform & null_callbacks();
-
-    virtual ~Platform();
 
     /** Renders an entire scene, all entities that you wish to render, will
      *  need to have been created with the "make_renderable_entity" method.
@@ -83,30 +101,11 @@ public:
      */
     virtual Entity make_renderable_entity() const = 0;
 
-    /** Creates a new texture.
-     *
-     */
-    virtual SharedPtr<Texture> make_texture() const = 0;
-
-    /** Creates a new render model
-     */
-    virtual SharedPtr<RenderModel> make_render_model() const = 0;
-
     /** There's only one camera per load, use it wisely!
      *
      *  Perhaps save the camera for the player.
      */
     virtual void set_camera_entity(EntityRef) = 0;
-
-    /** Makes a special future string type, promising the contents of a
-     *  file.
-     *
-     *  @note This design is in place in enable compatibility without
-     *        having to use a blocking call with Web Assembly.
-     *
-     *  @return
-     */
-    virtual FutureStringPtr promise_file_contents(const char *) = 0;
 
     /// I need a UI at some point
     /// for now, it can be very simple

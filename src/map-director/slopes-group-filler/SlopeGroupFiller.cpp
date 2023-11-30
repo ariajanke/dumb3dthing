@@ -43,8 +43,7 @@ ProducableSlopeTile::ProducableSlopeTile
 {}
 
 void ProducableSlopeTile::operator ()
-    (const Vector2I & maps_offset, EntityAndTrianglesAdder & adder,
-     Platform & platform) const
+    (ProducableTileCallbacks & callbacks) const
 {
     class Impl final : public SlopesGridInterface {
     public:
@@ -58,10 +57,10 @@ void ProducableSlopeTile::operator ()
         const TileFactoryGridPtr & m_grid;
     };
     Impl intf_impl{m_factory_map_layer};
-    SlopeGroupNeighborhood ninfo{intf_impl, m_map_position,maps_offset};
+    SlopeGroupNeighborhood ninfo{intf_impl, m_map_position};
 
     auto factory = (*m_factory_map_layer)(m_map_position);
-    (*factory)(adder, ninfo, platform);
+    (*factory)(ninfo, callbacks);
 }
 
 // ----------------------------------------------------------------------------
@@ -98,18 +97,31 @@ ProducableGroupTileLayer SlopeGroupFiller::operator ()
     (const std::vector<TileLocation> & tile_locations,
      ProducableGroupTileLayer && group_grid) const
 {
-    auto mapwide_factory_grid = make_factory_grid_for_map(tile_locations, m_tile_factories);
+    class SpecialLittleOwner final : public ProducableGroup_ {
+    public:
+        SpecialLittleOwner(const TileFactoryGrid & grid):
+            factory_grid(std::move(grid)) {}
+
+        TileFactoryGrid factory_grid;
+    };
+
+    auto factory_owner = make_shared<SpecialLittleOwner>(m_tile_factories);
+    auto mapwide_factory_grid = make_factory_grid_for_map
+        (tile_locations, factory_owner->factory_grid /* m_tile_factories */);
     UnfinishedProducableGroup<ProducableSlopeTile> group;
     for (auto & location : tile_locations) {
-        group.at_location(location.on_map).
+        group.
+            at_location(location.on_map).
             make_producable(location.on_map, mapwide_factory_grid);
     }
     group_grid.add_group(std::move(group));
+    group_grid.add_group(std::move(factory_owner));
     return std::move(group_grid);
 }
 
 void SlopeGroupFiller::load
-    (const TileSetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid,
+     PlatformAssetsStrategy & platform,
      const RampGroupFactoryMap & factory_type_map)
 {
     load_factories(xml_grid, factory_type_map);
@@ -117,10 +129,9 @@ void SlopeGroupFiller::load
 }
 
 /* private */ void SlopeGroupFiller::load_factories
-    (const TileSetXmlGrid & xml_grid,
+    (const TilesetXmlGrid & xml_grid,
      const RampGroupFactoryMap & factory_type_map)
 {
-    // I know how large the grid should be
     m_tile_factories.set_size(xml_grid.size2(), UniquePtr<SlopesBasedTileFactory>{});
 
     // this should be a function
@@ -139,7 +150,8 @@ void SlopeGroupFiller::load
 }
 
 /* private */ void SlopeGroupFiller::setup_factories
-    (const TileSetXmlGrid & xml_grid, Platform & platform,
+    (const TilesetXmlGrid & xml_grid,
+     PlatformAssetsStrategy & platform,
      TileFactoryGrid & tile_factories) const
 {
     for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {

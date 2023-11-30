@@ -22,6 +22,8 @@
 
 #include "../TileFactory.hpp"
 
+class ProducableTileCallbacks;
+
 enum class CardinalDirection {
     n, s, e, w,
     nw, sw, se, ne
@@ -61,31 +63,25 @@ class TileGroup;
 class SlopeGroupNeighborhood final {
 public:
     SlopeGroupNeighborhood
-        (const SlopesGridInterface &, Vector2I tile_loc_on_map,
-         Vector2I maps_spawner_offset);
+        (const SlopesGridInterface &, Vector2I tile_loc_on_map);
 
     Real neighbor_elevation(CardinalDirection) const;
-
-    Vector2I tile_location_on_field() const { return m_loc + m_offset; }
 
 private:
     Real neighbor_elevation(const Vector2I &, CardinalDirection) const;
 
     const SlopesGridInterface * m_grid = &SlopesGridInterface::null_instance();
     Vector2I m_loc;
-    Vector2I m_offset;
 };
 
 class TranslatableTileFactory : public TileFactory {
 protected:
     Vector translation() const { return m_translation; }
 
-    Entity make_entity
-        (Platform & platform, Vector2I tile_loc,
-         const SharedPtr<const RenderModel> & model_ptr) const;
-
     void setup_
-        (const Vector2I & loc_in_ts, const TileProperties &, Platform &) override;
+        (const Vector2I & location_in_tileset,
+         const TileProperties &,
+         PlatformAssetsStrategy &) override;
 
 private:
     Vector m_translation;
@@ -97,7 +93,7 @@ private:
 class SlopeFillerExtra final {
 public:
     using TileTextureMap = std::map<std::string, TileTexture>;
-    using SpecialTypeFunc = void(SlopeFillerExtra::*)(const TileSetXmlGrid & xml_grid, const Vector2I & r);
+    using SpecialTypeFunc = void(SlopeFillerExtra::*)(const TilesetXmlGrid & xml_grid, const Vector2I & r);
     using SpecialTypeFuncMap = std::map<std::string, SpecialTypeFunc>;
 
     static const SpecialTypeFuncMap & special_type_funcs();
@@ -106,11 +102,11 @@ public:
     void for_texture(const Key & key, Func && f) const;
 
     void setup_pure_texture
-        (const TileSetXmlGrid & xml_grid, const Vector2I & r);
+        (const TilesetXmlGrid & xml_grid, const Vector2I & r);
 
     template <typename Key>
     void action_by_tile_type
-        (const Key & key, const TileSetXmlGrid & xml_grid, const Vector2I & r,
+        (const Key & key, const TilesetXmlGrid & xml_grid, const Vector2I & r,
          const SpecialTypeFuncMap & special_funcs_ = special_type_funcs());
 
 private:
@@ -119,7 +115,7 @@ private:
 
 template <typename Key>
 void SlopeFillerExtra::action_by_tile_type
-    (const Key & key, const TileSetXmlGrid & xml_grid, const Vector2I & r,
+    (const Key & key, const TilesetXmlGrid & xml_grid, const Vector2I & r,
      const SpecialTypeFuncMap & special_funcs_)
 {
     auto jtr = special_funcs_.find(key);
@@ -140,21 +136,23 @@ void SlopeFillerExtra::for_texture(const Key & key, Func && f) const {
 class SlopesBasedTileFactory : public TranslatableTileFactory {
 public:
     virtual void operator ()
-        (EntityAndTrianglesAdder &, const SlopeGroupNeighborhood &,
-         Platform &) const = 0;
+        (const SlopeGroupNeighborhood &,
+         ProducableTileCallbacks &) const = 0;
 
-    void setup(const TileSetXmlGrid &, Platform &,
+    void setup(const TilesetXmlGrid &,
+               PlatformAssetsStrategy &,
                const SlopeFillerExtra &,
                const Vector2I & location_on_tileset);
 
     virtual Slopes tile_elevations() const = 0;
 
 protected:
-    virtual void setup_(const TileProperties &, Platform &,
+    virtual void setup_(const TileProperties &,
+                        PlatformAssetsStrategy &,
                         const SlopeFillerExtra &,
                         const Vector2I & location_on_tileset) = 0;
 
-    void setup_(const Vector2I &, const TileProperties &, Platform &) final {}
+    void setup_(const Vector2I &, const TileProperties &, PlatformAssetsStrategy &) final {}
 };
 
 CardinalDirection cardinal_direction_from(const std::string & str);

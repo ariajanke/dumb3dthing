@@ -18,28 +18,19 @@
 
 *****************************************************************************/
 
-#include "../../src/map-director/MapRegionContainer.hpp"
+#include "../../src/map-director/MapRegion.hpp"
 #include "../../src/TriangleLink.hpp"
+#include "../../src/map-director/RegionLoadRequest.hpp"
 
 #include "../test-helpers.hpp"
 
+#include <set>
+
 namespace {
 
-using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
-
-struct SingleLinkGrid final {
-    static SingleLinkGrid make() {
-        SingleLinkGrid rv;
-        rv.link = make_shared<TriangleLink>();
-
-        ViewGridTriangle::Inserter inserter{Size2I{1, 1}};
-        inserter.push(rv.link);
-        inserter.advance();
-        rv.grid = make_shared<ViewGridTriangle>(inserter.finish());
-        return rv;
-    }
-    SharedPtr<TriangleLink> link;
-    SharedPtr<ViewGridTriangle> grid;
+class TestProducableTile final : public ProducableTile {
+public:
+    void operator () (ProducableTileCallbacks &) const final {}
 };
 
 } // end of <anonymous> namespace
@@ -48,43 +39,26 @@ struct SingleLinkGrid final {
 
 using namespace cul::tree_ts;
 
-describe<MapRegionContainer>("MapRegionContainer")([]
-{
-    // yuck, complicated setup
-    MapRegionContainer container;
-    auto test_region = SingleLinkGrid::make();
-    container.set_region
-        (Vector2I{1, 1}, test_region.grid, std::vector<Entity>{});
-
-    mark_it("decays the link that was for a given region", [&] {
-        struct Impl final : public MapRegionContainer::RegionDecayAdder {
-            void add(const Vector2I &,
-                     const Size2I &,
-                     SharedPtr<ViewGridTriangle> && view_grid,
-                     std::vector<Entity> &&) final
-            { decayed_link = *(*view_grid)(Vector2I{}).begin(); }
-
-            SharedPtr<TriangleLink> decayed_link;
-        };
-        Impl impl;
-        container.decay_regions(impl);
-        container.decay_regions(impl);
-        return test_that(impl.decayed_link == test_region.link);
-    }).
-    mark_it("decays the same region that was added", [&] {
-        struct Impl final : public MapRegionContainer::RegionDecayAdder {
-            void add(const Vector2I & r,
-                     const Size2I & sz,
-                     SharedPtr<ViewGridTriangle> &&,
-                     std::vector<Entity> &&) final
-            { decayed_region = RectangleI{r, sz}; }
-
-            RectangleI decayed_region;
-        };
-        Impl impl;
-        container.decay_regions(impl);
-        container.decay_regions(impl);
-        return test_that(impl.decayed_region == RectangleI{1, 1, 1, 1});
+describe("ProducableTileGridStacker")([] {
+    mark_it("makes a producable tile view grid", [&] {
+        TestProducableTile a, b;
+        Grid<ProducableTile *> grid_a { { &a } };
+        Grid<ProducableTile *> grid_b { { &b } };
+        auto stacker = StackableProducableTileGrid{std::move(grid_a), {}}.
+            stack_with(ProducableTileGridStacker{});
+        stacker = StackableProducableTileGrid{std::move(grid_b), {}}.
+            stack_with(std::move(stacker));
+        auto producables = stacker.to_producables();
+        auto view = producables.make_subgrid()(Vector2I{0, 0});
+        std::set<ProducableTile *> tiles = { &a, &b };
+        for (auto & tile : view) {
+            auto itr = tiles.find(tile);
+            if (itr == tiles.end()) {
+                return test_that(false);
+            }
+            tiles.erase(itr);
+        }
+        return test_that(tiles.empty());
     });
 });
 
