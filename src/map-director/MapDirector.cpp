@@ -24,6 +24,8 @@
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
+#include "../RenderModel.hpp"
+#include "../Texture.hpp"
 
 namespace {
 
@@ -95,17 +97,8 @@ void MapDirector::on_every_frame
 /* private */ void MapDirector::check_for_other_map_segments
     (TaskCallbacks & callbacks, const Entity & physics_ent)
 {
-    auto facing = [&physics_ent] () -> Optional<Vector> {
-        auto & camera = physics_ent.get<Camera>();
-        if (!are_very_close(camera.target, camera.position))
-            return {};
-        return normalize(camera.target - camera.position);
-    } ();
-    auto player_position = point_and_plane::location_of(physics_ent.get<PpState>());
-    auto player_velocity = physics_ent.get<Velocity>().value;
-    auto request = RegionLoadRequest::find
-        (player_position, facing, player_velocity);
-    m_region_tracker.process_load_requests(request, callbacks);
+    m_region_tracker.process_load_requests
+        (RegionLoadRequest::find(physics_ent), callbacks);
 }
 
 namespace {

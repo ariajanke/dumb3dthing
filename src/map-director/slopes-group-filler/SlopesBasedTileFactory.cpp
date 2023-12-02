@@ -23,17 +23,10 @@
 
 #include <cstring>
 
-namespace {
-
-using namespace cul::exceptions_abbr;
-
-} // end of <anonymous> namespace
-
 SlopeGroupNeighborhood::SlopeGroupNeighborhood
     (const SlopesGridInterface & slopesintf, Vector2I tilelocmap):
     m_grid(&slopesintf),
-    m_loc(tilelocmap)
-{}
+    m_loc(tilelocmap) {}
 
 Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
     using Cd = CardinalDirection;
@@ -54,7 +47,7 @@ Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
 
     switch (dir) {
     case Cd::n: case Cd::s: case Cd::e: case Cd::w:
-        throw InvArg{"Not a corner"};
+        throw InvalidArgument{"Not a corner"};
     case Cd::nw:
         return select_el(std::array{
             make_tuple(Vector2I{ 0, -1}, Cd::sw),
@@ -91,7 +84,7 @@ Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
     auto get_slopes = [this, r] { return (*m_grid)(m_loc + r); };
     switch (dir) {
     case Cd::n: case Cd::s: case Cd::e: case Cd::w:
-        throw InvArg{"Not a corner"};
+        throw InvalidArgument{"Not a corner"};
     case Cd::nw: return get_slopes().nw;
     case Cd::sw: return get_slopes().sw;
     case Cd::se: return get_slopes().se;
@@ -154,8 +147,9 @@ CardinalDirection cardinal_direction_from(const char * str) {
     auto seq = [str](const char * s) { return !::strcmp(str, s); };
     using Cd = CardinalDirection;
     if (!str) {
-        throw InvArg{"cardinal_direction_from: cannot convert nullptr to a "
-                     "cardinal direction"                                   };
+        throw InvalidArgument
+            {"cardinal_direction_from: cannot convert nullptr to a cardinal "
+             "direction"                                                     };
     }
     if (seq("n" )) return Cd::n;
     if (seq("s" )) return Cd::s;
@@ -165,7 +159,8 @@ CardinalDirection cardinal_direction_from(const char * str) {
     if (seq("nw")) return Cd::nw;
     if (seq("se")) return Cd::se;
     if (seq("sw")) return Cd::sw;
-    throw InvArg{  "cardinal_direction_from: cannot convert \""
-                 + std::string{str} + "\" to a cardinal direction"};
+    throw InvalidArgument
+        {"cardinal_direction_from: cannot convert \"" + std::string{str} +
+         "\" to a cardinal direction"};
 }
 

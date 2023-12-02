@@ -57,9 +57,9 @@ describe<RegionLoadRequestFindTriangle>("RegionLoadRequest::find_triangle")([] {
     mark_it("has good values, for zero velocity and no facing", [] {
         auto segment = RlRequest::find_triangle(Vector{}, {}, Vector{});
         return test_that
-            (are_very_close(segment.point_a(), Vector{-4, 0,  0}) &&
-             are_very_close(segment.point_b(), Vector{ 6, 0, -8}) &&
-             are_very_close(segment.point_c(), Vector{ 6, 0,  8})   );
+            (are_very_close(segment.point_a(), Vector{-4.5, 0,   0}) &&
+             are_very_close(segment.point_b(), Vector{ 8  , 0, -10}) &&
+             are_very_close(segment.point_c(), Vector{ 8  , 0,  10})   );
     }).
     mark_it("has same area, regardless of velocity", [] {
         auto segment_a = RlRequest::find_triangle(Vector{}, {}, Vector{2, 0, 0});
@@ -81,7 +81,22 @@ describe<RegionLoadRequestFindTriangle>("RegionLoadRequest::find_triangle")([] {
         // maybe based on the wrong thing?
         auto segment_a = RlRequest::find_triangle(Vector{}, {}, Vector{2, 0, 0});
         auto segment_b = RlRequest::find_triangle(Vector{}, {}, Vector{6, 0, 0});
-        return test_that(perimeter_of(segment_a) < perimeter_of(segment_b));
+        auto segment_a_x_ways =
+            magnitude(segment_a.point_a().x - segment_a.point_b().x);
+        auto segment_b_x_ways =
+            magnitude(segment_b.point_a().x - segment_b.point_b().x);
+        return test_that(segment_a_x_ways < segment_b_x_ways);
+    }).
+    mark_it("handles different facing correctly", [] {
+        using std::sqrt;
+        const Real bc_dist_from_origin = sqrt(10*10 + 8*8);
+        auto segment = RlRequest::find_triangle
+            (Vector{}, normalize(Vector{-1, 0, -1}), Vector{});
+        auto expected_point_a = Vector{4.5/sqrt(2.), 0., 4.5/sqrt(2.)};
+        return test_that
+            (are_very_close(segment.point_a(), expected_point_a) &&
+             are_very_close(magnitude(segment.point_b()), bc_dist_from_origin) &&
+             are_very_close(magnitude(segment.point_c()), bc_dist_from_origin)   );
     });
 });
 

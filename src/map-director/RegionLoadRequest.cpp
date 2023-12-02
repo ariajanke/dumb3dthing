@@ -25,6 +25,7 @@
 
 #include "../TriangleSegment.hpp"
 
+#include "../point-and-plane.hpp"
 #include "../geometric-utilities.hpp"
 
 namespace {
@@ -50,36 +51,67 @@ RectanglePoints::RectanglePoints(const cul::Rectangle<Real> & rect):
 // ----------------------------------------------------------------------------
 
 RegionLoadRequest::RegionLoadRequest
-    (const Vector2 & triangle_a, const Vector2 & triangle_b,
-     const Vector2 & triangle_c, Size2I max_region_size):
+    (const Vector2 & triangle_a,
+     const Vector2 & triangle_b,
+     const Vector2 & triangle_c,
+     Size2I max_region_size):
     RegionLoadRequest
         (bounds_for(triangle_a, triangle_b, triangle_c),
-         triangle_a, triangle_b, triangle_c,
-         max_region_size                                ) {}
+         triangle_a,
+         triangle_b,
+         triangle_c,
+         max_region_size) {}
 
 /* static */ RegionLoadRequest RegionLoadRequest::find
-    (const Vector & player_position, const Optional<Vector> & player_facing,
-     const Vector & player_velocity, Size2I max_region_size)
+    (const Entity & physical_ent)
+{ return find(find_triangle(physical_ent)); }
+
+/* static */ RegionLoadRequest RegionLoadRequest::find
+    (const Vector & player_position,
+     const Optional<Vector> & player_facing,
+     const Vector & player_velocity,
+     Size2I max_region_size)
+{
+    return find
+        (find_triangle(player_position, player_facing, player_velocity),
+         max_region_size);
+}
+
+/* static */ RegionLoadRequest RegionLoadRequest::find
+    (const TriangleSegment & positional_triangle,
+     Size2I max_region_size)
 {
     auto to_v2 = [](const Vector & r) { return Vector2{r.x, r.z}; };
-    auto triangle = find_triangle(player_position, player_facing, player_velocity);
     return RegionLoadRequest
-        {to_v2(triangle.point_a()),
-         to_v2(triangle.point_b()),
-         to_v2(triangle.point_c()),
+        {to_v2(positional_triangle.point_a()),
+         to_v2(positional_triangle.point_b()),
+         to_v2(positional_triangle.point_c()),
          max_region_size};
 }
 
 /* static */ TriangleSegment RegionLoadRequest::find_triangle
-    (const Vector & player_position, const Optional<Vector> & player_facing,
+    (const Entity & physical_ent)
+{
+    auto facing = [&physical_ent] () -> Optional<Vector> {
+        auto & camera = physical_ent.get<Camera>();
+        if (are_very_close(camera.target, camera.position))
+            return {};
+        return normalize(camera.target - camera.position);
+    } ();
+    auto player_position = point_and_plane::location_of(physical_ent.get<PpState>());
+    auto player_velocity = physical_ent.get<Velocity>().value;
+    return find_triangle(player_position, facing, player_velocity);
+}
+
+/* static */ TriangleSegment RegionLoadRequest::find_triangle
+    (const Vector & player_position,
+     const Optional<Vector> & player_facing,
      const Vector & player_velocity)
 {
     // check parameters
     if (player_facing) {
-        if (!are_very_close(magnitude(*player_facing), 1)) {
-            using namespace cul::exceptions_abbr;
-            throw InvArg{k_bad_facing_msg};
-        }
+        if (!are_very_close(magnitude(*player_facing), 1))
+            { throw InvalidArgument{k_bad_facing_msg}; }
     }
 
     // adjust parameters
@@ -177,7 +209,8 @@ bool RegionLoadRequest::any_point_is_contained_in
 }
 
 /* private static */ cul::Rectangle<Real> RegionLoadRequest::bounds_for
-    (const Vector2 & triangle_a, const Vector2 & triangle_b,
+    (const Vector2 & triangle_a,
+     const Vector2 & triangle_b,
      const Vector2 & triangle_c)
 {
     Vector2 low { k_inf,  k_inf};
@@ -216,11 +249,11 @@ TriangleSegment find_triangle_with_adjusted
     (const Vector & position, const Vector & facing, Real speed)
 {
     static constexpr Real k_max_speed   = 8;
-    static constexpr Real k_low_offset  = 4; // 1.1
-    static constexpr Real k_high_offset = 1;
+    static constexpr Real k_low_offset  = 4.5;
+    static constexpr Real k_high_offset = 1.5;
     static_assert(k_low_offset > k_high_offset);
-    static constexpr Real k_out_point_offset_low  = k_low_offset + 6;
-    static constexpr Real k_out_point_offset_high = k_low_offset + 10;
+    static constexpr Real k_out_point_offset_low  = k_low_offset + 8;
+    static constexpr Real k_out_point_offset_high = k_low_offset + 12;
 
     Real normalized_speed = std::min(speed, k_max_speed) / k_max_speed;
     auto a = position -

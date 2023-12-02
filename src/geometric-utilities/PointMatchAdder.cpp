@@ -53,7 +53,6 @@ Optional<PointMatch> PointMatch::meeting_points() const
 {
     using Pt = TrianglePoint;
     using Side = TriangleSide;
-    using namespace cul::exceptions_abbr;
     bool flip = static_cast<int>(a) > static_cast<int>(b);
     if (flip)
         { std::swap(a, b); }
@@ -71,7 +70,7 @@ Optional<PointMatch> PointMatch::meeting_points() const
         break;
     default: break;
     }
-    throw RtError{":c"};
+    throw RuntimeError{":c"};
 }
 
 PointPairFlip::PointPairFlip(bool parameters_flipped_, TriangleSide side_):
@@ -115,11 +114,10 @@ PointMatchAdder::PointMatchAdder():
     m_position(m_entries.begin()) {}
 
 PointMatchAdder & PointMatchAdder::add(const Optional<PointMatch> & match) {
-    using namespace cul::exceptions_abbr;
     if (!match) { return *this; }
     if (m_position == m_entries.end()) {
-        throw RtError{"PointMatchAdder::add: maybe called at most " +
-                      std::to_string(m_entries.size()) + " times"    };
+        throw RuntimeError{"PointMatchAdder::add: maybe called at most " +
+                           std::to_string(m_entries.size()) + " times"    };
     }
     *m_position++ = *match;
     return *this;

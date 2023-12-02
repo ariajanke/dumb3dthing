@@ -25,8 +25,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
-
 class NullRenderModel final : public RenderModel {
 public:
     void render() const final {}
@@ -81,7 +79,7 @@ PlatformAssetsStrategy::~PlatformAssetsStrategy() {}
         void set_camera_entity(EntityRef) {}
 
         FutureStringPtr promise_file_contents(const char *) final
-            { throw RtError{k_cannot_promise_file_contents}; }
+            { throw RuntimeError{k_cannot_promise_file_contents}; }
     };
     static Impl impl;
     return impl;

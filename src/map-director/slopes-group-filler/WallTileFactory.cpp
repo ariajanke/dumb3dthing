@@ -22,7 +22,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using Triangle = TriangleSegment;
 using SplitOpt = WallTileFactoryBase::SplitOpt;
 using KnownCorners = WallTileFactoryBase::KnownCorners;
@@ -284,21 +283,26 @@ void north_south_split
     // in all but top case, northerns must also be reals
     using cul::is_real;
     if (!is_real(south_west_y) || !is_real(south_east_y)) {
-        throw InvArg{"north_south_split: Southern elevations must be real numbers in all cases"};
+        throw InvalidArgument
+            {"north_south_split: Southern elevations must be real numbers in "
+             "all cases"};
     }
     if (   (opt & ~k_top_only)
         && (!is_real(north_west_y) || !is_real(north_east_y)))
     {
-        throw InvArg{"north_south_split: Northern elevations must be real numbers in top cases"};
+        throw InvalidArgument
+            {"north_south_split: Northern elevations must be real numbers in "
+             "top cases"};
     }
     if (division_z < -0.5 || division_z > 0.5) {
-        throw InvArg{"north_south_split: division must be in [0.5 0.5]"};
+        throw InvalidArgument
+            {"north_south_split: division must be in [0.5 0.5]"};
     }
     if (   (opt & ~k_top_only)
         && (south_west_y < north_west_y || south_east_y < north_east_y))
     {
-        throw InvArg{"north_south_split: method was designed assuming south is "
-                     "the top"};
+        throw InvalidArgument
+            {"north_south_split: method was designed assuming south is the top"};
     }
 
     const Vector div_nw{-0.5, north_west_y, -division_z};
@@ -364,15 +368,16 @@ void northwest_in_corner_split
     if (   (opt & ~k_top_only)
         && can_only_do_top)
     {
-        throw InvArg{"northwest_in_corner_split: "};
+        throw InvalidArgument{"northwest_in_corner_split: "};
     }
     if (   are_all_real
         && (   south_east_y < north_west_y || south_east_y < north_east_y
             || south_east_y < south_west_y))
     {
-        throw InvArg{"northwest_in_corner_split: south_east_y is assumed to be "
-                     "the top's elevation, method not explicitly written to "
-                     "handle south east *not* being the top"};
+        throw InvalidArgument
+            {"northwest_in_corner_split: south_east_y is assumed to be the "
+             "top's elevation, method not explicitly written to handle south "
+             "east *not* being the top"};
     }
     // amount of top space when should follow out corner:
     // "late division, less top space, early division... more"
@@ -464,15 +469,16 @@ void northwest_out_corner_split
     if (   (opt & ~k_top_only)
         && can_only_do_top)
     {
-        throw InvArg{"northwest_out_corner_split: "};
+        throw InvalidArgument{"northwest_out_corner_split: "};
     }
     if (   are_all_real
         && (   south_east_y < north_west_y || south_east_y < north_east_y
             || south_east_y < south_west_y))
     {
-        throw InvArg{"northwest_out_corner_split: south_east_y is assumed to be "
-                     "the top's elevation, method not explicitly written to "
-                     "handle south east *not* being the top"};
+        throw InvalidArgument
+            {"northwest_out_corner_split: south_east_y is assumed to be the "
+             "top's elevation, method not explicitly written to handle south "
+             "east *not* being the top"};
     }
     // late division, less top space, early division... more
     // the top "flat's" depth/width remain equal regardless where the division

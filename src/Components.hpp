@@ -123,7 +123,7 @@ struct ModelVisibility final {
     bool value = true;
 };
 
-struct ModelScale final : public VectorLike<ModelTranslation> {
+struct ModelScale final : public VectorLike<ModelScale> {
     using LikeBase::LikeBase;
     using LikeBase::operator=;
     using LikeBase::operator+=;

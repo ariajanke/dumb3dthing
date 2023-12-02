@@ -21,15 +21,9 @@
 #include "PlayerUpdateTask.hpp"
 #include "point-and-plane.hpp"
 
-namespace {
-
-using namespace cul::exceptions_abbr;
-
-} // end of <anonymous> namespace
-
 void PlayerUpdateTask::on_every_frame(Callbacks &, Real) {
     if (!m_physics_ent)
-        { throw RtError{"Player entity deleted before its update task"}; }
+        { throw RuntimeError{"Player entity deleted before its update task"}; }
     Entity physics_ent{m_physics_ent};
     check_fall_below(physics_ent);
 }

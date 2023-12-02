@@ -27,8 +27,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
-
 constexpr const auto k_comma_splitter = [](char c) { return c == ','; };
 constexpr const auto k_whitespace_trimmer =
     make_trim_whitespace<const char *>();

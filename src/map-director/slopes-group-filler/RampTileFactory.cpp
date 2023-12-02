@@ -23,12 +23,6 @@
 #include "../ProducableGrid.hpp"
 #include "../TilesetPropertiesGrid.hpp"
 
-namespace {
-
-using namespace cul::exceptions_abbr;
-
-} // end of <anonymous> namespace
-
 void SingleModelSlopedTileFactory::operator ()
     (const SlopeGroupNeighborhood &,
      ProducableTileCallbacks & callbacks) const

@@ -347,23 +347,22 @@ template <typename T>
 /* private */ void SpatialDivisionContainer<T>::verify_container
     (const char * caller) const
 {
-    using namespace cul::exceptions_abbr;
     static auto make_head = [] (const char * caller)
         { return "SpatialDivisionContainer::" + std::string{caller}; };
     if (!is_sorted(m_container))
-        { throw InvArg{make_head(caller) + ": divisions must be sorted"}; }
+        { throw InvalidArgument{make_head(caller) + ": divisions must be sorted"}; }
     if (m_container.size() < 2) {
-        throw InvArg{  make_head(caller)
-                     + ": container must have at least two elements"};
+        throw InvalidArgument
+            {make_head(caller) + ": container must have at least two elements"};
     }
     // this class is built on lower bound, there must be an element that no
     // interval/position comes after, and therefore, there must be a last
     // "infinity" element
     if (m_container.back().position != k_inf) {
-        throw InvArg{  make_head(caller)
-                     + ": last element must be at infinity, as it must be the "
-                       "case that no interval position overtakes the last "
-                       "element in the container"};
+        throw InvalidArgument
+            {make_head(caller) + ": last element must be at infinity, as it "
+             "must be the case that no interval position overtakes the last "
+             "element in the container"};
     }
 }
 
@@ -374,12 +373,12 @@ template <typename Element>
     SpatialPartitionMapHelpers<Element>::compute_divisions
     (const EntryContainer & entries)
 {
-    using namespace cul::exceptions_abbr;
     if (entries.empty())
         { return { 0., k_inf }; }
     if (!is_sorted(entries)) {
-        throw InvArg{"SpatialPartitionMapHelpers::compute_divisions:"
-                     "entries must be sorted"};
+        throw InvalidArgument
+            {"SpatialPartitionMapHelpers::compute_divisions: entries must be "
+             "sorted"};
     }
     // a little more difficult, I'll do hard coded quarters to start
     auto first_entry_max_is_min = [](const Entry & lhs, const Entry & rhs)
@@ -407,10 +406,10 @@ template <typename Element>
      DivisionsPopulator<std::size_t> & index_divisions,
      EntryContainer & product_container)
 {
-    using namespace cul::exceptions_abbr;
     if (divisions.size() == 1) {
-        throw InvArg{"SpatialPartitionMapHelpers::make_indexed_divisions: "
-                     "divisions may not contain only one element"};
+        throw InvalidArgument
+            {"SpatialPartitionMapHelpers::make_indexed_divisions: divisions "
+             "may not contain only one element"};
     }
     for (auto itr = divisions.begin(); itr + 1 != divisions.end(); ++itr) {
         auto low = *itr;

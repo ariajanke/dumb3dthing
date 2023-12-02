@@ -158,7 +158,6 @@ std::vector<Real> verify_all_within_zero_to_one
 std::vector<Real> pad_t_breaks_until_target
     (int target_number_of_breaks, std::vector<Real> && unavoidable_breaks)
 {
-    using namespace cul::exceptions_abbr;
     // unavoidable breaks must be:
     // - sorted
     // - all within [0 1]

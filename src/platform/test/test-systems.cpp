@@ -53,7 +53,6 @@ using Triangle = TriangleSegment;
 }
 
 bool run_systems_tests() {
-    using namespace cul::exceptions_abbr;
     using namespace cul::ts;
 
     TestSuite suite;
@@ -224,7 +223,7 @@ bool run_systems_tests() {
             default_prof, init_run, Vector{-1, 0, 0}, k_et).value;
         // must be true, if a valid test case
         if (magnitude(res) <= default_prof.max_willed_speed) {
-            throw RtError{"Test assumption failed, must result in speed faster, could also be a regular test failure."};
+            throw RuntimeError{"Test assumption failed, must result in speed faster, could also be a regular test failure."};
         }
         return test(magnitude(res) < magnitude(init_run.value));
     });

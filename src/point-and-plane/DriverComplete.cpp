@@ -28,7 +28,6 @@ namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
 
-using namespace cul::exceptions_abbr;
 using namespace point_and_plane;
 using std::get;
 using cul::find_smallest_diff, cul::is_solution, cul::project_onto,
@@ -264,10 +263,12 @@ void verify_decreasing_displacement
      const char * caller)
 {
     if (!is_real(displc)) {
-        throw InvArg{std::string{caller} + ": new displacement must be a real vector."};
+        throw InvalidArgument
+            {std::string{caller} + ": new displacement must be a real vector."};
     }
     if (sum_of_squares(displc) > sum_of_squares(old_displacement)) {
-        throw InvArg{std::string{caller} + ": new displacement must be decreasing."};
+        throw InvalidArgument
+            {std::string{caller} + ": new displacement must be decreasing."};
     }
 }
 

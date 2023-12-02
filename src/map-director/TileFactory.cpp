@@ -29,8 +29,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
-
 using Triangle = TriangleSegment;
 
 static const constexpr std::array k_flat_points = {
