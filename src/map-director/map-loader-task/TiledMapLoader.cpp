@@ -29,8 +29,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
-
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
 Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement &);

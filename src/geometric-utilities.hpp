@@ -305,9 +305,8 @@ template <typename VecT>
 constexpr typename LineSegmentIntersection<VecT>::VectorType
     LineSegmentIntersection<VecT>::value() const
 {
-    using cul::exceptions_abbr::RtError;
     if (!m_is_defined) {
-        throw RtError{"intersection is undefined (there is none)"};
+        throw RuntimeError{"intersection is undefined (there is none)"};
     }
     return Helpers::template plus<0>(
         m_first,

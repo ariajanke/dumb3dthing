@@ -144,8 +144,6 @@ EM_JS(void, from_js_promise_file_contents_as_string, (const void * instance, con
 
 namespace {
 
-using namespace cul::exceptions_abbr;
-
 class WebGlTexture final : public Texture {
 public:
     static constexpr int k_no_handle = -1;
@@ -176,8 +174,9 @@ public:
     }
 
     void load_from_memory(int, int, const void *) final {
-        throw RtError{"WebGlTexture::load_from_memory: Loading texture from "
-                      "memory not supported on this platform."};
+        throw RuntimeError
+            {"WebGlTexture::load_from_memory: Loading texture from memory "
+             "not supported on this platform."};
     }
 
     int width () const final { return from_js_get_width (m_handle); }

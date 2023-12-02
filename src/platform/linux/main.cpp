@@ -388,7 +388,7 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
         if (!should_be_visible(vis)) return;
         texture->bind_texture();
     }
-    , [this] (EcsOpt<ModelVisibility> vis, glm::mat4 & model, SharedPtr<const RenderModel> mod_) {
+    , [this] (EcsOpt<ModelVisibility> vis, glm::mat4 & model, SharedPtr<const RenderModel> & mod_) {
         if (!should_be_visible(vis)) return;
         m_shader.set_mat4("model", model);
         mod_->render();

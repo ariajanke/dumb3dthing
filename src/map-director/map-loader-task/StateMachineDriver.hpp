@@ -269,8 +269,7 @@ template <typename T>
     ConstructorFunctions<Base>::copy_function_for()
 {
     return [] (void *, const void *) -> Base * {
-        using namespace cul::exceptions_abbr;
-        throw RtError{"Cannot copy this type"};
+        throw std::runtime_error{"Cannot copy this type"};
     };
 }
 

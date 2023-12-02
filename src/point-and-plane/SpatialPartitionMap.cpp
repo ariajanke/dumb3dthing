@@ -25,16 +25,15 @@ namespace {
 using Triangle = ProjectionLine::Triangle;
 using Interval = ProjectionLine::Interval;
 
-using namespace cul::exceptions_abbr;
-
 } // end of <anonymous> namespace ---------------------------------------------
 
 ProjectionLine::ProjectionLine(const Vector & a_, const Vector & b_):
     m_a(a_), m_b(b_)
 {
     if (!are_very_close(a_, b_)) return;
-    throw InvArg{"ProjectionLine::ProjectionLine: points a and b must be "
-                 "two different points to form a line."};
+    throw InvalidArgument
+        {"ProjectionLine::ProjectionLine: points a and b must be two "
+         "different points to form a line."};
 }
 
 Interval ProjectionLine::interval_for(const Triangle & triangle) const {
@@ -80,7 +79,7 @@ SpatialPartitionMap::SpatialPartitionMap(const EntryContainer & sorted_entries)
 
 void SpatialPartitionMap::populate(const EntryContainer & sorted_entries) {
     if (!Helpers::is_sorted(sorted_entries))
-        { throw InvArg{"entries must be sorted"}; }
+        { throw InvalidArgument{"entries must be sorted"}; }
 
     m_container.clear();
 
@@ -97,7 +96,7 @@ void SpatialPartitionMap::populate(const EntryContainer & sorted_entries) {
             "SpatialPartitionMap::populate: index is out of bounds for entries "
             "container; something is broken";
         if (idx > m_container.size())
-            { throw RtError{k_idx_oob_msg}; }
+            { throw RuntimeError{k_idx_oob_msg}; }
         return m_container.begin() + idx;
     };
 

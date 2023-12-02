@@ -46,7 +46,6 @@ namespace {
 
 constexpr const int k_info_log_size = 512;
 using InfoLog = std::array<char, k_info_log_size>;
-using namespace cul::exceptions_abbr;
 
 class ScopedShader {
 public:
@@ -150,7 +149,8 @@ void ShaderProgram::load_from_source
     if (!success) {
         InfoLog info_log;
         glGetProgramInfoLog(shader_program, info_log.size(), nullptr, info_log.data());
-        throw RtError{std::string{"Failed to link shader program:\n"} + info_log.data()};
+        throw RuntimeError
+            {std::string{"Failed to link shader program:\n"} + info_log.data()};
     }
 
     m_program_handle = shader_program;
@@ -226,8 +226,9 @@ void ScopedShader::compile_fragment(const char * source_code) {
     if (!success) {
         InfoLog info_log;
         glGetShaderInfoLog(m_shad_handle, info_log.size(), nullptr, info_log.data());
-        throw RtError{  "Failed to compile " + std::string{shader_type}
-                      + " shader:\n" + info_log.data()};
+        throw RuntimeError
+            {"Failed to compile " + std::string{shader_type} + " shader:\n" +
+             info_log.data()};
     }
 }
 

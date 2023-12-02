@@ -160,10 +160,10 @@ public:
 
 private:
     explicit ProducableGroupTileLayer(const Size2I & target_size) {
-        using namespace cul::exceptions_abbr;
         if (target_size.width <= 0 || target_size.height <= 0) {
-            throw InvArg{"ProducableGroupTileLayer::set_size: given size must be "
-                         "non zero"};
+            throw InvalidArgument
+                {"ProducableGroupTileLayer::set_size: given size must be non "
+                 "zero"};
         }
         m_target.set_size(target_size, nullptr);
     }

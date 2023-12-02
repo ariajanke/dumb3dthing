@@ -37,6 +37,8 @@
 
 #include "TextureImpl.hpp"
 
+#include "../../Definitions.hpp"
+
 #define STBI_NO_PSD
 #define STBI_NO_GIF
 #define STBI_NO_HDR
@@ -51,7 +53,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 static constexpr const int k_rgba_channel_count = 4;
 
 void * allocate_memory(std::size_t n) { return STBI_MALLOC(n); }
@@ -66,8 +67,7 @@ OpenGlTexture::OpenGlTexture():
     m_width (0),
     m_height(0),
     m_channel_count(0),
-    m_has_texture_id(false)
-{}
+    m_has_texture_id(false) {}
 
 // we must use malloc here, by API for stb image
 // resources are allocated/freed using c standard library
@@ -124,7 +124,7 @@ void OpenGlTexture::load_from_memory
         "integers. They must both be positive integers for a texture to be "
         "created.";
     if (width_ < 0 || height_ < 0) {
-        throw InvArg{k_bad_width_height_msg};
+        throw InvalidArgument{k_bad_width_height_msg};
     }
 
     // parameters where doing nothing is apporpiate

@@ -19,15 +19,16 @@
 *****************************************************************************/
 
 #include "FrameTimeLinkContainer.hpp"
+#include "../Configuration.hpp"
 
 #include <iostream>
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using Iterator = FrameTimeLinkContainer::Iterator;
 
-constexpr const bool k_report_triangle_drops = false;
+constexpr const bool k_report_triangle_drops =
+    k_report_physics_driver_dropping_triangles;
 
 } // end of <anonymous> namespace
 
@@ -80,11 +81,10 @@ void FrameTimeLinkContainer::update() {
 View<Iterator> FrameTimeLinkContainer::view_for
     (const Vector & a, const Vector & b) const
 {
-    if (is_dirty()) {
-        throw RtError{"FrameTimeLinkContainer::view_for: update must be called "
-                      "first"};
-    }
-    return m_spm.view_for(a, b);
+    if (!is_dirty())
+        { return m_spm.view_for(a, b); }
+    throw RuntimeError
+        {"FrameTimeLinkContainer::view_for: update must be called first"};
 }
 
 void FrameTimeLinkContainer::clear() {

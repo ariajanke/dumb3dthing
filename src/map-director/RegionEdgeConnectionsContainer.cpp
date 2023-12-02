@@ -28,7 +28,6 @@
 
 namespace {
 
-using namespace cul::exceptions_abbr;
 using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 using EntryContainer = RegionEdgeConnectionsContainerBase::EntryContainer;
 

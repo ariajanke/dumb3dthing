@@ -22,19 +22,15 @@
 
 #include <tinyxml2.h>
 
-namespace {
-
-using namespace cul::exceptions_abbr;
-
-} // end of <anonymous> namespace
-
 TiXmlIter::TiXmlIter(): el(nullptr), name(nullptr) {}
 
 TiXmlIter::TiXmlIter(const TiXmlElement * el_, const char * name_):
     el(el_), name(name_) {}
 
-TiXmlIter & TiXmlIter::operator ++ ()
-    { el = el->NextSiblingElement(name); return *this; }
+TiXmlIter & TiXmlIter::operator ++ () {
+    el = el->NextSiblingElement(name);
+    return *this;
+}
 
 bool TiXmlIter::operator != (const TiXmlIter & rhs) const
     { return el != rhs.el; }

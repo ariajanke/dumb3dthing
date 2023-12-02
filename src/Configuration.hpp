@@ -29,3 +29,4 @@ static constexpr const bool
 constexpr const bool k_promised_files_take_at_least_one_frame = true;
 constexpr const bool k_report_lost_file_string_content = true;
 constexpr const bool k_report_tile_region_loads_and_unloads = false;
+constexpr const bool k_report_physics_driver_dropping_triangles = false;

@@ -26,8 +26,6 @@ namespace {
 
 #define MACRO_MAKE_BAD_BRANCH_EXCEPTION() BadBranchException(__LINE__, __FILE__)
 
-using cul::exceptions_abbr::InvArg;
-
 using Side = TriangleSide;
 using SideCrossing = TriangleSegment::SideCrossing;
 using LimitIntersection = TriangleSegment::LimitIntersection;
@@ -64,16 +62,18 @@ TriangleSegment::TriangleSegment
     m_a(a), m_b(b), m_c(c)
 {
     if (!is_real(a) || !is_real(b) || !is_real(c)) {
-        throw InvArg{"TriangleSegment::TriangleSegment: points a, b, and c must "
-                     "have all real components."};
+        throw InvalidArgument
+            {"TriangleSegment::TriangleSegment: points a, b, and c must have "
+             "all real components."};
     }
     if (are_very_close(a, b) || are_very_close(b, c) || are_very_close(c, a)) {
-        throw InvArg{"TriangleSegment::TriangleSegment: all three points must "
-                     "be far enough apart, as to be recognized as a triangle."};
+        throw InvalidArgument
+            {"TriangleSegment::TriangleSegment: all three points must be far "
+             "enough apart, as to be recognized as a triangle."};
     }
     if (are_parallel(b - a, b - c)) {
-        throw InvArg{"TriangleSegment::TriangleSegment: points must not be "
-                     "co-linear."};
+        throw InvalidArgument
+            {"TriangleSegment::TriangleSegment: points must not be co-linear."};
     }
     // early exceptions should catch bad a, b, c values
     m_bx_2d = find_point_b_x_in_2d(a, b);
@@ -234,8 +234,9 @@ Vector TriangleSegment::opposing_point(Side side) const {
     case Side::k_side_bc: return point_a();
     case Side::k_side_ca: return point_b();
     default:
-        throw InvArg{"TriangleSegment::opposing_point: given side must "
-                     "represent a side (and not the inside)."};
+        throw InvalidArgument
+            {"TriangleSegment::opposing_point: given side must represent a "
+             "side (and not the inside)."};
     }
 }
 
@@ -256,8 +257,9 @@ Vector2 TriangleSegment::point_c_in_2d() const noexcept
 
 Vector TriangleSegment::point_at(const Vector2 & r) const {
     if (!is_real(r)) {
-         throw InvArg{"TriangleSurface::point_at: given point must have all "
-                      "real number components."};
+         throw InvalidArgument
+            {"TriangleSurface::point_at: given point must have all real "
+             "number components."};
     }
     return point_a() + basis_i()*r.x + basis_j()*r.y;
 }
@@ -272,10 +274,11 @@ Tuple<Vector, Vector> TriangleSegment::side_points(Side side) const {
     case Side::k_side_ab: return make_tuple(point_a(), point_b());
     case Side::k_side_bc: return make_tuple(point_b(), point_c());
     case Side::k_side_ca: return make_tuple(point_c(), point_a());
-    default:
-        throw InvArg{"TriangleSegment::side_points: given side must "
-                     "represent a side of the triangle (and not the inside)."};
+    default: break;
     }
+    throw InvalidArgument
+        {"TriangleSegment::side_points: given side must represent a side of "
+         "the triangle (and not the inside)."};
 }
 
 Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
@@ -283,10 +286,12 @@ Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
     case Side::k_side_ab: return make_tuple(point_a_in_2d(), point_b_in_2d());
     case Side::k_side_bc: return make_tuple(point_b_in_2d(), point_c_in_2d());
     case Side::k_side_ca: return make_tuple(point_c_in_2d(), point_a_in_2d());
-    default:
-        throw InvArg{"TriangleSegment::side_points_in_2d: given side must "
-                     "represent a side of the triangle (and not the inside)."};
+    default: break;
     }
+    throw InvalidArgument
+        {"TriangleSegment::side_points_in_2d: given side must represent a "
+         "side of the triangle (and not the inside)."};
+
 }
 
 /* private */ void TriangleSegment::check_invarients() const noexcept {
@@ -332,8 +337,9 @@ Tuple<Vector2, Vector2> TriangleSegment::side_points_in_2d(Side side) const {
     (const Vector2 & r) const
 {
     if (!is_real(r)) {
-        throw InvArg{"TriangleSegment::point_region: only real vectors should "
-                     "reach this function."};
+        throw InvalidArgument
+            {"TriangleSegment::point_region: only real vectors should reach "
+             "this function."};
     }
     // mmm... always use the same method? floating points are quite odd
     // if there's a solution... r must be outside

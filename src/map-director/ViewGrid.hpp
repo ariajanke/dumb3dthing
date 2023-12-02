@@ -170,10 +170,9 @@ class ViewGridInserterAttn final {
 
 template <typename T>
 void ViewGridInserter<T>::advance() {
-    using namespace cul::exceptions_abbr;
     if (filled()) {
-        throw RtError{"ViewGridInserter::advance: cannot advance a filled "
-                      "inserter"};
+        throw RuntimeError
+            {"ViewGridInserter::advance: cannot advance a filled inserter"};
     }
     auto el_count = m_elements.size();
     std::get<1>(m_index_pairs(m_position)) = el_count;
@@ -310,8 +309,8 @@ template <typename T>
 /* private */ void ViewGrid<T>::verify_filled_inserter
     (const char * caller, const ViewGridInserter<T> & inserter)
 {
-    using namespace cul::exceptions_abbr;
     if (inserter.filled()) return;
-    throw InvArg{"GridView::" + std::string{caller} + ": "
-                 "only accepts a filled grid view inserter"};
+    throw InvalidArgument
+        {"GridView::" + std::string{caller} + ": only accepts a filled "
+         "grid view inserter"};
 }
