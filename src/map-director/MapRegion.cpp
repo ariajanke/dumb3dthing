@@ -102,7 +102,7 @@ ProducableTileGridStacker StackableProducableTileGrid::stack_with
 
 void ProducableTileGridStacker::stack_with
     (Grid<ProducableTile *> && producable_grid,
-     std::vector<SharedPtr<ProducableGroup_>> && producable_owners)
+     std::vector<SharedPtr<ProducableGroupOwner>> && producable_owners)
 {
     using std::move_iterator;
     m_producable_grids.emplace_back(std::move(producable_grid));

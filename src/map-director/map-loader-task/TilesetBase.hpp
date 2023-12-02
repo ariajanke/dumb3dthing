@@ -32,6 +32,7 @@ class StackableSubRegionGrid;
 class TilesetMappingTile;
 class TilesetLayerWrapper;
 class MapContentLoader;
+class StackableProducableTileGrid;
 
 class TilesetMapElementCollector {
 public:

@@ -26,6 +26,7 @@
 namespace {
 
 using RampGroupFactoryMap = SlopeGroupFiller::RampGroupFactoryMap;
+using TileFactoryGrid = SlopeGroupFiller::TileFactoryGrid;
 
 template <typename T>
 UniquePtr<SlopesBasedTileFactory> make_unique_base_factory() {
@@ -33,14 +34,77 @@ UniquePtr<SlopesBasedTileFactory> make_unique_base_factory() {
     return make_unique<T>();
 }
 
+// ----------------------------------------------------------------------------
+
+class SlopesGroupOwner final : public ProducableGroupOwner {
+public:
+    void reserve(std::size_t number_of_members, const Size2I & grid_size) {
+        m_slope_tiles.reserve(number_of_members);
+        m_tileset_to_map_mapping =
+            make_shared<Grid<SlopesBasedTileFactory *>>();
+        m_tileset_to_map_mapping->set_size(grid_size, nullptr);
+    }
+
+    ProducableTile & add_member(const TileLocation & tile_location) {
+#       ifdef MACRO_DEBUG
+        assert(m_slope_tiles.capacity() > m_slope_tiles.size());
+#       endif
+        m_slope_tiles.emplace_back
+            (ProducableSlopeTile{tile_location.on_map, m_tileset_to_map_mapping});
+        (*m_tileset_to_map_mapping)(tile_location.on_map) =
+            m_tile_factory_grid(tile_location.on_tileset).get();
+        return m_slope_tiles.back();
+    }
+
+    void set_tile_factory_grid(const TileFactoryGrid & grid) {
+        m_tile_factory_grid = grid;
+    }
+
+private:
+    SharedPtr<Grid<SlopesBasedTileFactory *>> m_tileset_to_map_mapping;
+    std::vector<ProducableSlopeTile> m_slope_tiles;
+    TileFactoryGrid m_tile_factory_grid;
+};
+
+// ----------------------------------------------------------------------------
+
+class SlopesGroupCreation final :
+    public ProducableGroupFiller::ProducableGroupCreation
+{
+public:
+    void reserve(std::size_t number_of_members, const Size2I & grid_size) final {
+#       ifdef MACRO_DEBUG
+        assert(m_owner);
+#       endif
+        m_owner->reserve(number_of_members, grid_size);
+    }
+
+    ProducableTile & add_member(const TileLocation & tile_location) final {
+#       ifdef MACRO_DEBUG
+        assert(m_owner);
+#       endif
+        return m_owner->add_member(tile_location);
+    }
+
+    SharedPtr<ProducableGroupOwner> finish() final
+        { return std::move(m_owner); }
+
+    void setup_with_tile_factory_grid(const TileFactoryGrid & grid) {
+        m_owner = make_shared<SlopesGroupOwner>();
+        m_owner->set_tile_factory_grid(grid);
+    }
+
+private:
+    SharedPtr<SlopesGroupOwner> m_owner;
+};
+
 } // end of <anonymous> namespace
 
 ProducableSlopeTile::ProducableSlopeTile
     (const Vector2I & map_position,
      const TileFactoryGridPtr & factory_map_layer):
     m_map_position(map_position),
-    m_factory_map_layer(factory_map_layer)
-{}
+    m_factory_map_layer(factory_map_layer) {}
 
 void ProducableSlopeTile::operator ()
     (ProducableTileCallbacks & callbacks) const
@@ -65,58 +129,10 @@ void ProducableSlopeTile::operator ()
 
 // ----------------------------------------------------------------------------
 
-/* static */ SharedPtr<Grid<SlopesBasedTileFactory *>>
-    SlopeGroupFiller::make_factory_grid_for_map
-    (const std::vector<TileLocation> & tile_locations,
-     const Grid<SharedPtr<SlopesBasedTileFactory>> & tile_factories)
-{
-    // I don't know how big things are... so I have to figure it out
-    // This will need to change to ensure that the grid is large enough to
-    // subgrid creation
-
-    Size2I map_grid_size = [&tile_locations] {
-        static constexpr const auto k_min = std::numeric_limits<int>::min();
-        Size2I res{k_min, k_min};
-        for (auto & tl : tile_locations) {
-            res.width = std::max(tl.on_map.x + 1, res.width);
-            res.height = std::max(tl.on_map.y + 1, res.height);
-        }
-        return res;
-    } ();
-
-    auto factory_grid_for_map = make_shared<Grid<SlopesBasedTileFactory *>>();
-    factory_grid_for_map->set_size(map_grid_size, nullptr);
-    for (auto & location : tile_locations) {
-        (*factory_grid_for_map)(location.on_map) =
-            tile_factories(location.on_tileset).get();
-    }
-    return factory_grid_for_map;
-}
-
-ProducableGroupTileLayer SlopeGroupFiller::operator ()
-    (const std::vector<TileLocation> & tile_locations,
-     ProducableGroupTileLayer && group_grid) const
-{
-    class SpecialLittleOwner final : public ProducableGroup_ {
-    public:
-        SpecialLittleOwner(const TileFactoryGrid & grid):
-            factory_grid(std::move(grid)) {}
-
-        TileFactoryGrid factory_grid;
-    };
-
-    auto factory_owner = make_shared<SpecialLittleOwner>(m_tile_factories);
-    auto mapwide_factory_grid = make_factory_grid_for_map
-        (tile_locations, factory_owner->factory_grid /* m_tile_factories */);
-    UnfinishedProducableGroup<ProducableSlopeTile> group;
-    for (auto & location : tile_locations) {
-        group.
-            at_location(location.on_map).
-            make_producable(location.on_map, mapwide_factory_grid);
-    }
-    group_grid.add_group(std::move(group));
-    group_grid.add_group(std::move(factory_owner));
-    return std::move(group_grid);
+void SlopeGroupFiller::make_group(CallbackWithCreator & creator) const {
+    SlopesGroupCreation impl;
+    impl.setup_with_tile_factory_grid(m_tile_factories);
+    creator(impl);
 }
 
 void SlopeGroupFiller::load

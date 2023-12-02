@@ -187,7 +187,7 @@ void TwistLoopGroupFiller::load
     m_tile_groups.swap(tile_groups);
 #   endif
 }
-
+#if 0
 ProducableGroupTileLayer TwistLoopGroupFiller::operator ()
     (const std::vector<TileLocation> & positions,
      ProducableGroupTileLayer && unfinished_group_grid) const
@@ -243,3 +243,4 @@ ProducableGroupTileLayer TwistLoopGroupFiller::operator ()
     return std::move(unfinished_group_grid);
 #   endif
 }
+#endif

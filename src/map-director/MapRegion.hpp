@@ -84,7 +84,7 @@ private:
 
 class StackableProducableTileGrid final {
 public:
-    using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroup_>>;
+    using ProducableGroupCollection = std::vector<SharedPtr<ProducableGroupOwner>>;
 
     StackableProducableTileGrid();
 
@@ -108,11 +108,11 @@ public:
 
     void stack_with
         (Grid<ProducableTile *> && producable_grid,
-         std::vector<SharedPtr<ProducableGroup_>> && producable_owners);
+         std::vector<SharedPtr<ProducableGroupOwner>> && producable_owners);
 
     ProducableTileViewGrid to_producables();
 
 private:
     std::vector<Grid<ProducableTile *>> m_producable_grids;
-    std::vector<SharedPtr<ProducableGroup_>> m_producable_owners;
+    std::vector<SharedPtr<ProducableGroupOwner>> m_producable_owners;
 };

@@ -112,10 +112,10 @@ public:
         (const std::vector<TileLocation> &);
 
     void load(const TilesetXmlGrid & xml_grid, Platform & platform);
-
+#   if 0
     ProducableGroupTileLayer operator ()
         (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const final;
-
+#   endif
 private:
 #   if 0
     Grid<SharedPtr<TwistTileGroup>> m_tile_groups;

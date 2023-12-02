@@ -29,6 +29,7 @@
 namespace {
 
 using namespace cul::tree_ts;
+using ProducableGroupCreation = ProducableGroupFiller::ProducableGroupCreation;
 
 constexpr auto k_test_map_content =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -77,6 +78,47 @@ public:
     Vector2I on_map, on_tileset;
 };
 
+class TestProducableGroupCreation final : public ProducableGroupCreation {
+public:
+    static TestProducableGroupCreation & instance() {
+        static TestProducableGroupCreation inst;
+        return inst;
+    }
+
+    void reserve
+        (std::size_t number_of_members, const Size2I & grid_size) final
+    {
+        m_test_tiles.reserve(number_of_members);
+        m_grid_size = grid_size;
+    }
+
+    ProducableTile & add_member(const TileLocation & loc) {
+        assert(m_test_tiles.capacity() > m_test_tiles.size());
+        m_test_tiles.emplace_back(loc.on_map, loc.on_tileset);
+        return m_test_tiles.back();
+    }
+
+    SharedPtr<ProducableGroupOwner> finish() {
+        class Impl final : public ProducableGroupOwner {
+        public:
+            std::vector<TestProducableTile> made_tiles;
+        };
+        auto impl = make_shared<Impl>();
+        impl->made_tiles = std::move(m_test_tiles);
+        m_test_tiles = impl->made_tiles;
+        return impl;
+    }
+
+    Size2I grid_size() const { return m_grid_size; }
+
+    const std::vector<TestProducableTile> & created_tiles() const
+        { return m_test_tiles; }
+
+private:
+    Size2I m_grid_size;
+    std::vector<TestProducableTile> m_test_tiles;
+};
+
 class TestProducableGroupFiller final : public ProducableGroupFiller {
 public:
     static TestProducableGroupFiller & instance() {
@@ -88,18 +130,8 @@ public:
         return inst;
     }
 
-
-    ProducableGroupTileLayer operator ()
-        (const std::vector<TileLocation> & tile_locations,
-         ProducableGroupTileLayer && layer) const
-    {
-        UnfinishedProducableGroup<TestProducableTile> group;
-        for (auto & loc : tile_locations) {
-            group.at_location(loc.on_map).make_producable(loc.on_map, loc.on_tileset);
-        }
-        layer.add_group(std::move(group));
-        return std::move(layer);
-    }
+    void make_group(CallbackWithCreator & creation) const final
+        { creation(TestProducableGroupCreation::instance()); }
 };
 
 class TestMapContentLoader final : public MapContentLoader {
