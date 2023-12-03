@@ -68,7 +68,5 @@ private:
          TileFactoryGrid &) const;
 
     SlopeFillerExtra m_specials;
-    // I'm not sure how reusable this is...
-    // or how big of a problem that would be...
     TileFactoryGrid m_tile_factories;
 };

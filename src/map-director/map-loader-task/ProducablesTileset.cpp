@@ -110,7 +110,7 @@ std::map<
 }
 
 void ProducablesTileset::add_map_elements
-    (TilesetMapElementCollector & visitor,
+    (TilesetMapElementCollector & collector,
      const TilesetLayerWrapper & mapping_view) const
 {
     using CallbackWithCreator = ProducableGroupFiller::CallbackWithCreator;
@@ -136,8 +136,7 @@ void ProducablesTileset::add_map_elements
         filler->make_group(creator);
     }
 
-    visitor.add(StackableProducableTileGrid{
-        std::move(producables), std::move(owners)});
+    collector.add(std::move(producables), std::move(owners));
 }
 
 namespace {

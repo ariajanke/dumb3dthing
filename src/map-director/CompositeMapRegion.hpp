@@ -87,27 +87,6 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class StackableSubRegionGrid final {
-public:
-    StackableSubRegionGrid() {}
-
-    StackableSubRegionGrid
-        (Grid<const MapSubRegion *> && subregions,
-         const SharedPtr<Grid<MapSubRegion>> & owner);
-
-    SubRegionGridStacker stack_with(SubRegionGridStacker &&);
-
-private:
-    StackableSubRegionGrid
-        (std::vector<Grid<const MapSubRegion *>> && subregions,
-         std::vector<SharedPtr<Grid<MapSubRegion>>> && owner);
-
-    Grid<const MapSubRegion *> m_subregion;
-    SharedPtr<Grid<MapSubRegion>> m_owner;
-};
-
-// ----------------------------------------------------------------------------
-
 class SubRegionGridStacker final {
 public:
     using MapSubRegionViewGrid = CompositeMapRegion::MapSubRegionViewGrid;
@@ -123,7 +102,7 @@ public:
 
     void stack_with
         (Grid<const MapSubRegion *> && subregion,
-         SharedPtr<Grid<MapSubRegion>> && owner);
+         const SharedPtr<Grid<MapSubRegion>> & owner);
 
     Tuple<MapSubRegionViewGrid, MapSubRegionOwnersMap>
         to_sub_region_view_grid();

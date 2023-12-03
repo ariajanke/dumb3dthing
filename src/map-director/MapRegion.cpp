@@ -64,24 +64,6 @@ void TiledMapRegion::process_load_request
 
 // ----------------------------------------------------------------------------
 
-StackableProducableTileGrid::StackableProducableTileGrid() {}
-
-StackableProducableTileGrid::StackableProducableTileGrid
-    (Grid<ProducableTile *> && producables,
-     ProducableGroupCollection && producable_owners):
-    m_producable_grid(std::move(producables)),
-    m_producable_owners(producable_owners) {}
-
-ProducableTileGridStacker StackableProducableTileGrid::stack_with
-    (ProducableTileGridStacker && stacker)
-{
-    stacker.stack_with
-        (std::move(m_producable_grid), std::move(m_producable_owners));
-    return std::move(stacker);
-}
-
-// ----------------------------------------------------------------------------
-
 /* static */ ViewGrid<ProducableTile *>
     ProducableTileGridStacker::producable_grids_to_view_grid
     (std::vector<Grid<ProducableTile *>> && producables_grid)
