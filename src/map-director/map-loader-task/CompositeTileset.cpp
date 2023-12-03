@@ -113,9 +113,9 @@ void CompositeTileset::add_map_elements
     (TilesetMapElementCollector & collector,
      const TilesetLayerWrapper & layer_wrapper) const
 {
-    collector.add(StackableSubRegionGrid
-        {to_layer(*m_sub_regions_grid, layer_wrapper),
-         m_sub_regions_grid});
+    collector.add
+        (to_layer(*m_sub_regions_grid, layer_wrapper),
+         m_sub_regions_grid);
 }
 
 namespace {

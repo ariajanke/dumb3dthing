@@ -52,7 +52,7 @@ describe<ViewGridInserter<int>>("ViewGridInserter #advance -> #filled")([] {
         return test_that(inserter.filled());
     });
     mark_it("throws a runtime exception if overfilled", [&] {
-        return expect_exception<RtError>([&] {
+        return expect_exception<RuntimeError>([&] {
             for (int i = 0; i != 10000; ++i) {
                 inserter.advance();
             }

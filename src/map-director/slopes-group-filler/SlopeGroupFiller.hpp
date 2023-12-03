@@ -41,18 +41,15 @@ private:
     TileFactoryGridPtr m_factory_map_layer;
 };
 
+// ----------------------------------------------------------------------------
+
 class SlopeGroupFiller final : public ProducableGroupFiller {
 public:
     using RampGroupFactoryMakeFunc = UniquePtr<SlopesBasedTileFactory>(*)();
     using RampGroupFactoryMap = std::map<std::string, RampGroupFactoryMakeFunc>;
+    using TileFactoryGrid = Grid<SharedPtr<SlopesBasedTileFactory>>;
 
-    static SharedPtr<Grid<SlopesBasedTileFactory *>> make_factory_grid_for_map
-        (const std::vector<TileLocation> & tile_locations,
-         const Grid<SharedPtr<SlopesBasedTileFactory>> & tile_factories);
-
-    ProducableGroupTileLayer operator ()
-        (const std::vector<TileLocation> & tile_locations,
-         ProducableGroupTileLayer && group_grid) const final;
+    void make_group(CallbackWithCreator &) const final;
 
     void load
         (const TilesetXmlGrid & xml_grid,
@@ -62,8 +59,6 @@ public:
     static const RampGroupFactoryMap & builtin_tile_factory_maker_map();
 
 private:
-    using TileFactoryGrid = Grid<SharedPtr<SlopesBasedTileFactory>>;
-
     void load_factories(const TilesetXmlGrid & xml_grid,
                         const RampGroupFactoryMap & factory_type_map);
 

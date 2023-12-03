@@ -228,15 +228,18 @@ public:
 
     MapRegionBuilder() {}
 
-    void add(StackableProducableTileGrid && layer) final {
-        m_producables_stacker = layer.
-            stack_with(std::move(m_producables_stacker));
+    void add(Grid<ProducableTile *> && producables,
+             ProducableOwnerCollection && producable_owners) final
+    {
+        m_producables_stacker.
+            stack_with(std::move(producables),
+                       std::move(producable_owners));
     }
 
-    void add(StackableSubRegionGrid && subregion_layer) final {
-        m_subregion_stacker = subregion_layer.
-            stack_with(std::move(m_subregion_stacker));
-    }
+    void add
+        (Grid<const MapSubRegion *> && subregions,
+         const SharedPtr<Grid<MapSubRegion>> & owner) final
+    { m_subregion_stacker.stack_with(std::move(subregions), owner); }
 
     UniquePtr<MapRegion> make_map_region(ScaleComputation && scale) {
         if (m_subregion_stacker.is_empty()) {

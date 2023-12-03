@@ -29,13 +29,48 @@ struct TileLocation final {
     Vector2I on_tileset;
 };
 
-/// How to fill out a grid with a tile group.
-///
-///
+/// How to fill out a grid with a group of tiles
 class ProducableGroupFiller {
 public:
+    class ProducableGroupCreation {
+    public:
+        virtual ~ProducableGroupCreation() {}
+
+        // Note: not an optimization, essential
+        virtual void reserve
+            (std::size_t number_of_members, const Size2I & grid_size) = 0;
+
+        /// @returns stable, non-null pointer
+        virtual ProducableTile & add_member(const TileLocation &) = 0;
+
+        virtual SharedPtr<ProducableGroupOwner> finish() = 0;
+    };
+
+    class CallbackWithCreator {
+    public:
+        template <typename Func>
+        static auto make(Func && f_) {
+            class Impl final : public CallbackWithCreator {
+            public:
+                explicit Impl(Func && f_):
+                    m_f(std::move(f_)) {}
+
+                void operator () (ProducableGroupCreation & creation) const final
+                    { m_f(creation); }
+
+            private:
+                Func m_f;
+            };
+
+            return Impl{std::move(f_)};
+        }
+
+        virtual ~CallbackWithCreator() {}
+
+        virtual void operator () (ProducableGroupCreation &) const = 0;
+    };
+
     virtual ~ProducableGroupFiller() {}
 
-    virtual ProducableGroupTileLayer operator ()
-        (const std::vector<TileLocation> &, ProducableGroupTileLayer &&) const = 0;
+    virtual void make_group(CallbackWithCreator &) const {}
 };

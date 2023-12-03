@@ -24,15 +24,3 @@
 
 #include <ariajanke/cul/TreeTestSuite.hpp>
 
-using namespace cul::exceptions_abbr;
-#if 0
-template <typename ExpType, typename Func>
-cul::tree_ts::TestAssertion expect_exception(Func && f) {
-    try {
-        f();
-    } catch (ExpType &) {
-        return cul::tree_ts::test_that(true);
-    }
-    return cul::tree_ts::test_that(false);
-}
-#endif

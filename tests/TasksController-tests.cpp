@@ -80,7 +80,7 @@ describe<TriangleLinksReceiver>("MultiReceiver for triangles")([] {
     };
     MultiReceiver mrecv;
     mark_it("throws if driver is not set", [&] {
-        return expect_exception<RtError>([&] {
+        return expect_exception<RuntimeError>([&] {
             mrecv.add(make_shared<TriangleLink>());
         });
     });

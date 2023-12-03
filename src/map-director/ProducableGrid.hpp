@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "ProducableGroup.hpp"
 #include "ViewGrid.hpp"
 #include "ScaleComputation.hpp"
 
@@ -79,6 +78,12 @@ using ProducableTileViewSubGrid = ViewGrid<ProducableTile *>::SubGrid;
 class ProducablesTileset;
 class ProducableGroupFiller;
 
+/// A producable group owns a set of producable tiles.
+class ProducableGroupOwner {
+public:
+    virtual ~ProducableGroupOwner() {}
+};
+
 /// A ViewGrid of producable tiles
 ///
 /// An instance of this is used to represent a loaded map.
@@ -90,7 +95,7 @@ public:
 
     ProducableTileViewGrid
         (ViewGrid<ProducableTile *> && factory_view_grid,
-         std::vector<SharedPtr<ProducableGroup_>> && groups);
+         std::vector<SharedPtr<ProducableGroupOwner>> && groups);
 
     auto height() const { return m_factories.height(); }
 
@@ -106,68 +111,5 @@ public:
 
 private:
     ViewGrid<ProducableTile *> m_factories;
-    std::vector<SharedPtr<ProducableGroup_>> m_groups;
-};
-
-class UnfinishedProducableTileViewGrid final {
-public:
-    class ProducableGroupFillerExtraction {
-    public:
-        virtual ~ProducableGroupFillerExtraction()  {}
-
-        virtual std::vector<SharedPtr<const ProducableGroupFiller>>
-            move_out_fillers() = 0;
-    };
-
-    void add_layer
-        (Grid<ProducableTile *> && target,
-         const std::vector<SharedPtr<ProducableGroup_>> & groups);
-
-    [[nodiscard]] ProducableTileViewGrid
-        finish(ProducableGroupFillerExtraction &);
-
-private:
-    /// Moves out a view grid of all producables, and owners of those
-    /// producables.
-    ///
-    /// As such they must be destroyed, and kept existing together.
-    [[nodiscard]] Tuple
-        <ViewGrid<ProducableTile *>,
-         std::vector<SharedPtr<ProducableGroup_>>>
-        move_out_producables_and_groups();
-
-    std::vector<Grid<ProducableTile *>> m_targets;
-    std::vector<SharedPtr<ProducableGroup_>> m_groups;
-};
-
-class StackableProducableTileGrid;
-
-class ProducableGroupTileLayer final {
-public:
-    static ProducableGroupTileLayer with_grid_size(const Size2I & sz)
-        { return ProducableGroupTileLayer{sz}; }
-
-    ProducableGroupTileLayer() {}
-
-    template <typename T>
-    void add_group(UnfinishedProducableGroup<T> && unfinished_pgroup)
-        { m_groups.emplace_back(unfinished_pgroup.finish(m_target)); }
-
-    void add_group(SharedPtr<ProducableGroup_> && group)
-        { m_groups.emplace_back(std::move(group)); }
-
-    StackableProducableTileGrid to_stackable_producable_tile_grid();
-
-private:
-    explicit ProducableGroupTileLayer(const Size2I & target_size) {
-        if (target_size.width <= 0 || target_size.height <= 0) {
-            throw InvalidArgument
-                {"ProducableGroupTileLayer::set_size: given size must be non "
-                 "zero"};
-        }
-        m_target.set_size(target_size, nullptr);
-    }
-
-    Grid<ProducableTile *> m_target;
-    std::vector<SharedPtr<ProducableGroup_>> m_groups;
+    std::vector<SharedPtr<ProducableGroupOwner>> m_groups;
 };

@@ -44,10 +44,9 @@ describe("ProducableTileGridStacker")([] {
         TestProducableTile a, b;
         Grid<ProducableTile *> grid_a { { &a } };
         Grid<ProducableTile *> grid_b { { &b } };
-        auto stacker = StackableProducableTileGrid{std::move(grid_a), {}}.
-            stack_with(ProducableTileGridStacker{});
-        stacker = StackableProducableTileGrid{std::move(grid_b), {}}.
-            stack_with(std::move(stacker));
+        ProducableTileGridStacker stacker;
+        stacker.stack_with(std::move(grid_a), {});
+        stacker.stack_with(std::move(grid_b), {});
         auto producables = stacker.to_producables();
         auto view = producables.make_subgrid()(Vector2I{0, 0});
         std::set<ProducableTile *> tiles = { &a, &b };

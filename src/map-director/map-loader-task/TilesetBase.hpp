@@ -24,6 +24,7 @@
 
 #include "../ParseHelpers.hpp"
 #include "../ProducableGroupFiller.hpp"
+#include "../CompositeMapRegion.hpp"
 
 #include <map>
 
@@ -32,14 +33,22 @@ class StackableSubRegionGrid;
 class TilesetMappingTile;
 class TilesetLayerWrapper;
 class MapContentLoader;
+class StackableProducableTileGrid;
 
 class TilesetMapElementCollector {
 public:
+    using ProducableOwnerCollection =
+        ProducableTileGridStacker::ProducableOwnerCollection;
+
     virtual ~TilesetMapElementCollector() {}
 
-    virtual void add(StackableProducableTileGrid &&) = 0;
+    virtual void add
+        (Grid<ProducableTile *> && producables,
+         ProducableOwnerCollection && producable_owners) = 0;
 
-    virtual void add(StackableSubRegionGrid &&) = 0;
+    virtual void add
+        (Grid<const MapSubRegion *> && subregions,
+         const SharedPtr<Grid<MapSubRegion>> & owner) = 0;
 };
 
 class MapContentLoader : public PlatformAssetsStrategy {

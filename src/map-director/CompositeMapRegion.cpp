@@ -93,21 +93,6 @@ void CompositeMapRegion::process_load_request
 
 // ----------------------------------------------------------------------------
 
-StackableSubRegionGrid::StackableSubRegionGrid
-    (Grid<const MapSubRegion *> && subregions,
-     const SharedPtr<Grid<MapSubRegion>> & owner):
-    m_subregion(std::move(subregions)),
-    m_owner(owner) {}
-
-SubRegionGridStacker StackableSubRegionGrid::stack_with
-    (SubRegionGridStacker && stacker)
-{
-    stacker.stack_with(std::move(m_subregion), std::move(m_owner));
-    return std::move(stacker);
-}
-
-// ----------------------------------------------------------------------------
-
 /* static */ MapSubRegionViewGrid SubRegionGridStacker::make_view_grid
     (std::vector<Grid<const MapSubRegion *>> && subregions)
 {
@@ -130,10 +115,10 @@ SubRegionGridStacker StackableSubRegionGrid::stack_with
 
 void SubRegionGridStacker::stack_with
     (Grid<const MapSubRegion *> && subregion,
-     SharedPtr<Grid<MapSubRegion>> && owner)
+     const SharedPtr<Grid<MapSubRegion>> & owner)
 {
     m_subregions.emplace_back(std::move(subregion));
-    m_owners.emplace(std::move(owner), std::monostate{});
+    m_owners.insert(owner, std::monostate{});
 }
 
 Tuple<MapSubRegionViewGrid, MapSubRegionOwnersMap>

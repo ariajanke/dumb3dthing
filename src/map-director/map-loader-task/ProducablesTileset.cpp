@@ -110,20 +110,33 @@ std::map<
 }
 
 void ProducablesTileset::add_map_elements
-    (TilesetMapElementCollector & visitor,
+    (TilesetMapElementCollector & collector,
      const TilesetLayerWrapper & mapping_view) const
 {
-    auto unfinished = ProducableGroupTileLayer::
-        with_grid_size(mapping_view.grid_size());
+    using CallbackWithCreator = ProducableGroupFiller::CallbackWithCreator;
+    using ProducableGroupCreation = ProducableGroupFiller::ProducableGroupCreation;
     auto fillers_to_locs = make_fillers_and_locations(mapping_view);
-    for (auto & [filler, locs] : fillers_to_locs) {
+    Grid<ProducableTile *> producables;
+    std::vector<SharedPtr<ProducableGroupOwner>> owners;
+    producables.set_size(mapping_view.grid_size(), nullptr);
+    for (auto & pair : fillers_to_locs) {
+        auto & filler = pair.first;
 #       if MACRO_DEBUG
         assert(filler);
 #       endif
-        unfinished = (*filler)(locs, std::move(unfinished));
+        auto & locs = pair.second;
+
+        auto creator = CallbackWithCreator::make([&] (ProducableGroupCreation & creation) {
+            creation.reserve(locs.size(), mapping_view.grid_size());
+            for (auto & loc : locs) {
+                producables(loc.on_map) = &creation.add_member(loc);
+            }
+            owners.emplace_back(creation.finish());
+        });
+        filler->make_group(creator);
     }
 
-    visitor.add(unfinished.to_stackable_producable_tile_grid());
+    collector.add(std::move(producables), std::move(owners));
 }
 
 namespace {

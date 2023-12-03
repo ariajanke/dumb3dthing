@@ -37,50 +37,6 @@ void ProducableTileCallbacks::add_collidable
 
 ProducableTileViewGrid::ProducableTileViewGrid
     (ViewGrid<ProducableTile *> && factory_view_grid,
-     std::vector<SharedPtr<ProducableGroup_>> && groups):
+     std::vector<SharedPtr<ProducableGroupOwner>> && groups):
     m_factories(std::move(factory_view_grid)),
     m_groups(std::move(groups)) {}
-
-// ----------------------------------------------------------------------------
-
-void UnfinishedProducableTileViewGrid::add_layer
-    (Grid<ProducableTile *> && target,
-     const std::vector<SharedPtr<ProducableGroup_>> & groups)
-{
-    m_groups.insert(m_groups.end(), groups.begin(), groups.end());
-    m_targets.emplace_back(std::move(target));
-}
-
-ProducableTileViewGrid UnfinishedProducableTileViewGrid::
-    finish(ProducableGroupFillerExtraction & extraction)
-{
-    auto [producables, groups] = move_out_producables_and_groups();
-    auto map_fillers = extraction.move_out_fillers();
-    return ProducableTileViewGrid{std::move(producables), std::move(groups)};
-}
-
-/* private */ Tuple
-    <ViewGrid<ProducableTile *>,
-     std::vector<SharedPtr<ProducableGroup_>>>
-    UnfinishedProducableTileViewGrid::move_out_producables_and_groups()
-{
-    ViewGridInserter<ProducableTile *> producables_inserter{m_targets.front().size2()};
-    for (Vector2I r; r != m_targets.front().end_position(); r = m_targets.front().next(r)) {
-        for (auto & target : m_targets) {
-            if (!target(r)) continue;
-            producables_inserter.push(target(r));
-        }
-        producables_inserter.advance();
-    }
-    m_targets.clear();
-    return make_tuple(producables_inserter.finish(), std::move(m_groups));
-}
-
-// ----------------------------------------------------------------------------
-
-StackableProducableTileGrid
-    ProducableGroupTileLayer::to_stackable_producable_tile_grid()
-{
-    return StackableProducableTileGrid
-        {std::move(m_target), std::move(m_groups)};
-}
