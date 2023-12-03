@@ -54,7 +54,7 @@ using Continuation = BackgroundTask::Continuation;
 Continuation & TilesetLoadingTask::in_background
     (Callbacks & callbacks, ContinuationStrategy & strategy)
 {
-    if (m_loaded_tile_set) {
+    if (m_loaded_tile_set || m_loading_error) {
         return strategy.finish_task();
     } else if (m_unloaded.tile_set) {
         MapContentLoaderComplete content_loader;
@@ -85,22 +85,24 @@ OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>
 }
 
 /* private static */
-    Either<MapLoadingError, TilesetLoadingTask::UnloadedTileSet>
+    OptionalEither<MapLoadingError, TilesetLoadingTask::UnloadedTileSet>
     TilesetLoadingTask::get_unloaded
     (FutureStringPtr & tile_set_content)
 {
+    static constexpr const auto k_not_retrieved =
+        map_loading_messages::k_tile_map_file_contents_not_retrieved;
     using FutureLost = Future<std::string>::Lost;
-    return tile_set_content->retrieve().require().
+    return tile_set_content->retrieve().
         map_left([] (FutureLost &&) {
-            return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
+            return MapLoadingError{k_not_retrieved};
         }).
-        chain(DocumentOwningNode::load_root).
+        chain(DocumentOwningNode::optionally_load_root).
         chain([]
             (DocumentOwningNode && node) ->
-                Either<MapLoadingError, UnloadedTileSet>
+                OptionalEither<MapLoadingError, UnloadedTileSet>
         {
             auto ts = TilesetBase::make(node.element());
-            if (!ts) return MapLoadingError{map_loading_messages::k_tile_map_file_contents_not_retrieved};
+            if (!ts) return MapLoadingError{k_not_retrieved};
             return UnloadedTileSet{std::move(ts), std::move(node)};
         });
 }

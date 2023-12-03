@@ -26,8 +26,6 @@
 class MapContentLoader;
 class TilesetBase;
 
-// ----------------------------------------------------------------------------
-
 class DocumentOwningNode final {
 public:
     static Either<MapLoadingError, DocumentOwningNode>
@@ -72,6 +70,8 @@ public:
         retrieve() = 0;
 };
 
+// ----------------------------------------------------------------------------
+
 class TilesetLoadingTask final :
     public BackgroundTask, public TilesetProvider
 {
@@ -115,7 +115,7 @@ private:
         m_unloaded(std::move(unloaded_ts_)),
         m_filler_factory_map(&filler_map) {}
 
-    static Either<MapLoadingError, UnloadedTileSet> get_unloaded
+    static OptionalEither<MapLoadingError, UnloadedTileSet> get_unloaded
         (FutureStringPtr & tile_set_content);
 
     UnloadedTileSet m_unloaded;
@@ -124,6 +124,8 @@ private:
     Optional<MapLoadingError> m_loading_error;
     const FillerFactoryMap * m_filler_factory_map = nullptr;
 };
+
+// ----------------------------------------------------------------------------
 
 template <typename T>
 struct StartGidWith {

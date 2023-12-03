@@ -19,17 +19,14 @@
 *****************************************************************************/
 
 #include "../../../src/map-director/map-loader-task/TiledMapLoader.hpp"
-
+#include "TestMapContentLoader.hpp"
 #include "../../test-helpers.hpp"
 
 #include <tinyxml2.h>
 
-#include <set>
+#include <unordered_set>
 
 namespace {
-
-using namespace cul::tree_ts;
-using ProducableGroupCreation = ProducableGroupFiller::ProducableGroupCreation;
 
 constexpr auto k_test_map_content =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -44,6 +41,9 @@ constexpr auto k_test_map_content =
       "<data encoding=\"csv\">1,1,1,1</data>"
     "</layer>"
     "</map>";
+
+using namespace cul::tree_ts;
+using ProducableGroupCreation = ProducableGroupFiller::ProducableGroupCreation;
 
 class TestTileset final : public TilesetBase {
 public:
@@ -66,110 +66,14 @@ struct Info final {
     std::vector<TilesetMappingTile> mapping_tiles;
 };
 
-class TestProducableTile final : public ProducableTile {
+class TestMapContentLoader final : public TestMapContentLoaderCommon {
 public:
-    TestProducableTile() {}
-
-    TestProducableTile(Vector2I on_map_, Vector2I on_tileset_):
-        on_map(on_map_), on_tileset(on_tileset_) {}
-
-    void operator () (ProducableTileCallbacks &) const final {}
-
-    Vector2I on_map, on_tileset;
-};
-
-class TestProducableGroupCreation final : public ProducableGroupCreation {
-public:
-    static TestProducableGroupCreation & instance() {
-        static TestProducableGroupCreation inst;
-        return inst;
-    }
-
-    void reserve
-        (std::size_t number_of_members, const Size2I & grid_size) final
-    {
-        m_test_tiles.reserve(number_of_members);
-        m_grid_size = grid_size;
-    }
-
-    ProducableTile & add_member(const TileLocation & loc) {
-        assert(m_test_tiles.capacity() > m_test_tiles.size());
-        m_test_tiles.emplace_back(loc.on_map, loc.on_tileset);
-        return m_test_tiles.back();
-    }
-
-    SharedPtr<ProducableGroupOwner> finish() {
-        class Impl final : public ProducableGroupOwner {
-        public:
-            std::vector<TestProducableTile> made_tiles;
-        };
-        auto impl = make_shared<Impl>();
-        impl->made_tiles = std::move(m_test_tiles);
-        m_test_tiles = impl->made_tiles;
-        return impl;
-    }
-
-    Size2I grid_size() const { return m_grid_size; }
-
-    const std::vector<TestProducableTile> & created_tiles() const
-        { return m_test_tiles; }
-
-private:
-    Size2I m_grid_size;
-    std::vector<TestProducableTile> m_test_tiles;
-};
-
-class TestProducableGroupFiller final : public ProducableGroupFiller {
-public:
-    static TestProducableGroupFiller & instance() {
-        return *instance_ptr();
-    }
-
-    static SharedPtr<TestProducableGroupFiller> instance_ptr() {
-        static auto inst = make_shared<TestProducableGroupFiller>();
-        return inst;
-    }
-
-    void make_group(CallbackWithCreator & creation) const final
-        { creation(TestProducableGroupCreation::instance()); }
-};
-
-class TestMapContentLoader final : public MapContentLoader {
-public:
-    using ContinuationStrategy = BackgroundTask::ContinuationStrategy;
-    static constexpr const char * k_test_map = "blah";
+    static constexpr const auto k_test_map = "test-map";
 
     static TestMapContentLoader & instance() {
         static TestMapContentLoader inst;
         return inst;
     }
-
-    static ContinuationStrategy & continuation_strategy() {
-        using Continuation = BackgroundTask::Continuation;
-        class ContImpl final : public Continuation {
-        public:
-            Continuation & wait_on(const SharedPtr<BackgroundTask> & task) {
-                instance().wait_on(task);
-                return *this;
-            }
-        };
-
-        class Impl final : public ContinuationStrategy {
-        public:
-            Continuation & continue_() { return impl; }
-
-        private:
-            ContImpl impl;
-        };
-        static Impl impl;
-        return impl;
-    }
-
-    SharedPtr<Texture> make_texture() const final
-        { return Platform::null_callbacks().make_texture(); }
-
-    SharedPtr<RenderModel> make_render_model() const final
-        { return Platform::null_callbacks().make_render_model(); }
 
     FutureStringPtr promise_file_contents(const char * fn) final {
         if (::strcmp(fn, k_test_map))
@@ -180,32 +84,6 @@ public:
         };
         return make_shared<Impl>();
     }
-
-    const FillerFactoryMap & map_fillers() const final {
-        static FillerFactoryMap map = [] {
-            FillerFactoryMap map;
-            map["test-tile-type"] = []
-                (const TilesetXmlGrid &, PlatformAssetsStrategy &)
-                    -> SharedPtr<ProducableGroupFiller>
-                { return TestProducableGroupFiller::instance_ptr(); };
-            return map;
-        } ();
-        return map;
-    }
-
-    bool delay_required() const final
-        { return !waited_on_tasks.empty(); }
-
-    void add_warning(MapLoadingWarningEnum) final
-        { throw "unhandled"; }
-
-    void wait_on(const SharedPtr<BackgroundTask> & task) final
-        { waited_on_tasks.push_back(task); }
-
-    TaskContinuation & task_continuation() const final
-        { throw "unhandled"; }
-
-    std::vector<SharedPtr<BackgroundTask>> waited_on_tasks;
 };
 
 class TestPlatform final : public Platform {
@@ -258,18 +136,31 @@ public:
 [[maybe_unused]] static auto s_add_describes = [] {
 
 describe("TiledMapLoader")([] {
-    mark_it("stuff", [] {
-        auto & content_loader = TestMapContentLoader::instance();
-        auto sm = tiled_map_loading::MapLoadStateMachine::
-            make_with_starting_state
-                (content_loader, TestMapContentLoader::k_test_map);
-        sm.update_progress(content_loader);
-        (void)content_loader.waited_on_tasks.front()->in_background
-            (TestTaskCallbacks::instance(),
-             TestMapContentLoader::continuation_strategy());
-        sm.update_progress(content_loader);
-        auto res = sm.update_progress(content_loader);
+    auto & cret =
+        TestProducableGroupCreation::instance() =
+        TestProducableGroupCreation{};
+    auto & content_loader =
+        TestMapContentLoader::instance() =
+        TestMapContentLoader{};
+    auto sm = tiled_map_loading::MapLoadStateMachine::
+        make_with_starting_state
+            (content_loader, TestMapContentLoader::k_test_map);
+    sm.update_progress(content_loader);
+    (void)content_loader.waited_on_tasks.front()->in_background
+        (TestTaskCallbacks::instance(),
+         content_loader.coninuation_strategy);
+    sm.update_progress(content_loader);
+    auto res = sm.update_progress(content_loader);
+    mark_it("successfully loads a map", [&] {
         return test_that(res.is_right());
+    }).
+    mark_it("creates map of expected size", [&] {
+        std::unordered_set<Vector2I, Vector2IHasher> map_locations =
+            { Vector2I{0, 0}, Vector2I{0, 1}, Vector2I{1, 0}, Vector2I{1, 1} };
+        for (auto & tile : cret.created_tiles()) {
+            map_locations.erase(tile.on_map);
+        }
+        return test_that(map_locations.empty());
     });
 });
 
