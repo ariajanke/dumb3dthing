@@ -66,7 +66,6 @@ private:
     TiXmlIter m_beg;
 };
 
-
 class StringSplitterIteratorEnd {};
 
 template <typename CharIter, typename SplitterFunc, typename WithAdditionalFunc, typename EndIter = CharIter>

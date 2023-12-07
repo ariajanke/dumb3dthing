@@ -50,7 +50,8 @@ BaseState::MapLoadResult
     }).
     chain([&] (std::string && contents) {
         using namespace map_loading_messages;
-        return DocumentOwningNode::load_root(std::move(contents)).
+        return MapLoadingError::failed_load_as_error
+            (DocumentOwningNode::load_root(std::move(contents))).
             fold<MapLoadResult>().
             map([&] (DocumentOwningNode && root) {
                 switcher.set_next_state<InitialDocumentReadState>(std::move(root));

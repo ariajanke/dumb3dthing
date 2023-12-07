@@ -20,47 +20,13 @@
 
 #pragma once
 
+#include "../MapObject.hpp"
+
 #include "MapLoadingError.hpp"
 #include "TilesetBase.hpp"
 
 class MapContentLoader;
 class TilesetBase;
-
-class DocumentOwningNode final {
-public:
-    static Either<MapLoadingError, DocumentOwningNode>
-        load_root(std::string && file_contents);
-
-    static OptionalEither<MapLoadingError, DocumentOwningNode>
-        optionally_load_root(std::string && file_contents);
-
-    DocumentOwningNode() {}
-
-    DocumentOwningNode make_with_same_owner
-        (const TiXmlElement & same_document_element) const;
-
-    const TiXmlElement * operator -> () const { return &element(); }
-
-    const TiXmlElement & operator * () const { return element(); }
-
-    const TiXmlElement & element() const;
-
-    explicit operator bool() const { return m_element; }
-
-private:
-    struct Owner {
-        virtual ~Owner() {}
-    };
-
-    DocumentOwningNode
-        (const SharedPtr<Owner> & owner, const TiXmlElement & element_):
-        m_owner(owner), m_element(&element_) {}
-
-    SharedPtr<Owner> m_owner;
-    const TiXmlElement * m_element = nullptr;
-};
-
-// ----------------------------------------------------------------------------
 
 class TilesetProvider {
 public:
@@ -117,6 +83,9 @@ private:
 
     static OptionalEither<MapLoadingError, UnloadedTileSet> get_unloaded
         (FutureStringPtr & tile_set_content);
+
+    static OptionalEither<MapLoadingError, DocumentOwningNode>
+        optionally_load_root(std::string && file_contents);
 
     UnloadedTileSet m_unloaded;
     SharedPtr<TilesetBase> m_loaded_tile_set;

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="2">
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="8">
  <properties>
   <property name="scale" value="5"/>
  </properties>
@@ -40,12 +40,39 @@
 3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,3,3,3,3,3,3
 </data>
  </layer>
- <objectgroup id="2" name="Object Layer 1">
+ <objectgroup id="2" name="Object Layer 1" class="immediate">
   <object id="1" type="player-spawn-point" x="426.604" y="452.697">
    <properties>
     <property name="elevation" value="10"/>
+    <property name="wave" type="int" value="5"/>
+    <property name="will-fight" value="property:enemy-of"/>
    </properties>
    <point/>
   </object>
  </objectgroup>
+ <group id="4" name="Group Layer 1" class="immediate">
+  <objectgroup id="5" name="wave-one" class="stop">
+   <properties>
+    <property name="spawn-trigger" value="player-available"/>
+   </properties>
+   <object id="5" type="baddie-type-a" x="530.979" y="398.083">
+    <properties>
+     <property name="enemy-of" type="object" value="1"/>
+    </properties>
+    <point/>
+   </object>
+   <object id="6" type="baddie-type-a" x="514.594" y="438.134">
+    <properties>
+     <property name="enemy-of" type="object" value="1"/>
+    </properties>
+    <point/>
+   </object>
+   <object id="7" type="baddie-type-a" x="561.927" y="437.527">
+    <properties>
+     <property name="enemy-of" type="object" value="1"/>
+    </properties>
+    <point/>
+   </object>
+  </objectgroup>
+ </group>
 </map>
