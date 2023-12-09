@@ -41,6 +41,17 @@ static const auto k_size_t_length_empty_string = [] {
     return buf;
 } ();
 
+static constexpr const std::size_t k_hash_string_length_limit = 3;
+
+std::size_t limited_string_length(const char * str) {
+    std::size_t remaining = k_hash_string_length_limit;
+    while (remaining && *str) {
+        --remaining;
+        ++str;
+    }
+    return k_hash_string_length_limit - remaining;
+}
+
 } // end of <anonymous> namespace
 
 /* static */ Optional<DocumentOwningNode>
@@ -158,7 +169,7 @@ const TiXmlElement & DocumentOwningNode::element() const
                 { break; }
         }
         group.set_child_objects
-            (View<ObjectReorderIterator>{name_itr, end_name_itr},
+            (View<ObjectNamesIterator>{name_itr, end_name_itr},
              View<ObjectIterator>{object_itr, end_object_itr});
     }
 
@@ -172,9 +183,9 @@ const TiXmlElement & DocumentOwningNode::element() const
     MapObjectGroup::k_empty_group_view = View<MapObjectGroup::ConstIterator>
     {k_empty_group_container.end(), k_empty_group_container.end()};
 
-/* private static */ const View<MapObjectGroup::ObjectReorderIterator>
+/* private static */ const View<MapObjectGroup::ObjectNamesIterator>
     MapObjectGroup::k_empty_object_reorder_view =
-    View<MapObjectGroup::ObjectReorderIterator>
+    View<MapObjectGroup::ObjectNamesIterator>
     {k_empty_reordering_container.end(), k_empty_reordering_container.end()};
 
 /* private static */ const View<MapObjectGroup::ObjectIterator>
@@ -264,7 +275,7 @@ const TiXmlElement & DocumentOwningNode::element() const
 
 std::size_t MapObject::CStringHasher::operator () (const char * cstr) const {
     std::size_t temp = 0;
-    auto left = ::strlen(cstr);
+    auto left = limited_string_length(cstr);
     while (left >= sizeof(std::size_t)) {
         temp ^= *reinterpret_cast<const std::size_t *>(cstr);
         cstr += sizeof(std::size_t);
@@ -286,6 +297,13 @@ bool MapObject::CStringEqual:: operator ()
         return lhs == rhs;
     }
     return ::strcmp(lhs, rhs) == 0;
+}
+
+bool MapObject::NameLessThan::operator ()
+    (const MapObject * lhs, const MapObject * rhs) const
+{
+    assert(lhs && rhs);
+    return ::strcmp(lhs->name().value_or(""), rhs->name().value_or("")) < 0;
 }
 
 template <typename Func>

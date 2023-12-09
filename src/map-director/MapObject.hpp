@@ -76,7 +76,7 @@ public:
 
             const MapObject * seek_by_name(const char *) const { return nullptr; }
 
-            const MapObject * seek_by_id(int) const { return nullptr; }
+            const MapObject * seek_object_by_id(int) const { return nullptr; }
         };
         static Impl impl;
         return impl;
@@ -93,7 +93,7 @@ public:
     // or even the same group? Need to rethink disambiguation...
     virtual const MapObject * seek_by_name(const char *) const = 0;
 
-    virtual const MapObject * seek_by_id(int) const = 0;
+    virtual const MapObject * seek_object_by_id(int) const = 0;
 };
 
 class MapObjectGroup;
@@ -112,6 +112,10 @@ public:
 
     struct CStringEqual final {
         bool operator () (const char *, const char *) const;
+    };
+
+    struct NameLessThan final {
+        bool operator () (const MapObject *, const MapObject *) const;
     };
 
     struct Key final {
@@ -151,6 +155,7 @@ public:
     Optional<T> get_attribute(const char * name) const
         { return get<T>(FieldType::attribute, name); }
 
+    // TilEd always requires this
     Optional<const char *> name() const
         { return get_attribute<const char *>("name"); }
 
@@ -226,7 +231,7 @@ public:
     using NameObjectMap = MapObject::NameObjectMap;
     using ObjectReorderContainer = std::vector<const MapObject *>;
     using ObjectContainer = std::vector<MapObject>;
-    using ObjectReorderIterator = ObjectReorderContainer::const_iterator;
+    using ObjectNamesIterator = ObjectReorderContainer::const_iterator;
     using ObjectIterator = ObjectContainer::const_iterator;
 
     // names, ranks, returned in heap order
@@ -275,18 +280,40 @@ public:
          std::vector<MapObject> &&) const;
 
     void set_child_objects
-        (View<ObjectReorderIterator> name_ordered_objects,
+        (View<ObjectNamesIterator> name_ordered_objects,
          View<ObjectIterator> child_objects)
     {
+        auto any_nullptrs =
+            std::any_of(name_ordered_objects.begin(), name_ordered_objects.end(),
+                        [] (const MapObject * obj) { return obj == nullptr; });
+        if (any_nullptrs) {
+            throw InvalidArgument{"named range cannot contain any nullptrs"};
+        }
         m_name_ordered_objects = name_ordered_objects;
         m_objects = child_objects;
     }
 
     View<ObjectIterator> objects() const { return m_objects; }
 
+    View<ConstIterator> groups() const { return m_groups; }
+
+    const MapObject * seek_by_name(const char * object_name) const {
+        auto itr = std::lower_bound
+            (m_name_ordered_objects.begin(), m_name_ordered_objects.end(),
+             object_name,
+             [] (const MapObject * obj, const char * object_name) {
+                return ::strcmp(obj->name().value_or(""), object_name) < 0;
+             });
+        if (itr == m_name_ordered_objects.end())
+            { return nullptr; }
+        if (::strcmp((**itr).name().value_or(""), object_name))
+            { return nullptr; }
+        return *itr;
+    }
+
 private:
     static const View<ConstIterator> k_empty_group_view;
-    static const View<ObjectReorderIterator> k_empty_object_reorder_view;
+    static const View<ObjectNamesIterator> k_empty_object_reorder_view;
     static const View<ObjectIterator> k_empty_object_view;
 
     static void emplace_group_children
@@ -311,7 +338,7 @@ private:
     int m_id = 0;
     int m_rank = 0;
     View<ConstIterator> m_groups = k_empty_group_view;
-    View<ObjectReorderIterator> m_name_ordered_objects = k_empty_object_reorder_view;
+    View<ObjectNamesIterator> m_name_ordered_objects = k_empty_object_reorder_view;
     View<ObjectIterator> m_objects = k_empty_object_view;
 };
 
@@ -341,11 +368,11 @@ public:
         { return nullptr; }
 
     const MapObject * seek_by_name(const char *) const { return nullptr; }
-
+#   if 0
     const MapObject * seek_by_id(int id) const {
         return nullptr;
     }
-
+#   endif
     const MapObject * seek_object_by_id(int id) const {
         auto itr = m_id_to_object.find(id);
         if (itr == m_id_to_object.end())
@@ -353,7 +380,14 @@ public:
         return itr->second;
     }
 
+    const MapObjectGroup * top_level_group() const {
+        if (m_groups.empty())
+            { return nullptr; }
+        return &m_groups.front();
+    }
+
 private:
+#   if 0
     enum class NameField { object, layer };
 
     struct GroupName final {
@@ -375,7 +409,7 @@ private:
     };
 
     using ReverseLookupTable = cul::HashMap<Key, const MapObject *, KeyHasher, KeyEqual>;
-
+#   endif
     cul::HashMap<int, const MapObject *> m_id_to_object{0};
     std::vector<MapObject> m_map_objects;
     GroupContainer m_groups;

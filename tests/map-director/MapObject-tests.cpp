@@ -41,19 +41,49 @@ constexpr const auto k_simple_object_map =
  "</objectgroup>"
 "</map>";
 
+constexpr const auto k_object_map_for_name_finding =
+"";
+
 [[maybe_unused]] static auto s_add_describes = [] {
 
 using namespace cul::tree_ts;
 
+describe("MapObjectGroup")([] {
+    auto node = DocumentOwningNode::load_root(k_simple_object_map);
+    assert(node);
+    MapObjectCollection collection;
+    collection.load(*node);
+    auto * group = collection.top_level_group();
+    assert(group);
+    mark_it("can find player by name", [&] {
+        return test_that(group->seek_by_name("player"));
+    });
+});
+
 describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] {
-    mark_it("did not die", [] {
-        auto node = DocumentOwningNode::load_root(k_simple_object_map);
-        assert(node);
-        MapObjectCollection collection;
-        collection.load(*node);
-        auto * object = collection.seek_object_by_id(1);
-        auto * parent = object->parent_group();
-        return test_that(object);
+    auto node = DocumentOwningNode::load_root(k_simple_object_map);
+    assert(node);
+    MapObjectCollection collection;
+    collection.load(*node);
+    static constexpr const int k_player_id = 1;
+    auto * player_object = collection.seek_object_by_id(k_player_id);
+    mark_it("able to find player object", [&] {
+        return test_that(player_object);
+    }).
+    mark_it("has a top level group", [&] {
+        return test_that(collection.top_level_group());
+    }).
+    mark_it("top level group has player object accessible", [&] {
+        auto * group = collection.top_level_group();
+        if (!group)
+            { return test_that(false); }
+        auto objects = group->objects();
+        auto itr = std::find_if(objects.begin(), objects.end(),
+                     [&](const MapObject & object)
+                     { return object.id() == k_player_id; });
+        if (itr == objects.end())
+            { return test_that(false); }
+        return test_that(itr->id() == k_player_id);
     });
 });
 
