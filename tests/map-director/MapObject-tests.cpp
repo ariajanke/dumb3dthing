@@ -62,6 +62,21 @@ constexpr const auto k_object_up_tree_example =
     "</objectgroup>"
     "</map>";
 
+constexpr const auto k_groups_for_bfs_example =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<map version=\"1.10\" tiledversion=\"1.10.2\">"
+    "<objectgroup id=\"1\">"
+    "    <objectgroup id=\"2\">"
+    "        <objectgroup id=\"4\"></objectgroup>"
+    "        <objectgroup id=\"5\"></objectgroup>"
+    "    </objectgroup>"
+    "    <objectgroup id=\"3\">"
+    "        <objectgroup id=\"6\"></objectgroup>"
+    "        <objectgroup id=\"7\"></objectgroup>"
+    "    </objectgroup>"
+    "</objectgroup>"
+    "</map>";
+
 struct MapObjectFindUpTree final {};
 
 using CStringEqual = MapObject::CStringEqual;
@@ -81,6 +96,23 @@ describe("MapObjectGroup")([] {
     assert(group);
     mark_it("can find player by name", [&] {
         return test_that(group->seek_by_name("player"));
+    });
+});
+
+describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
+    auto node = DocumentOwningNode::load_root(k_groups_for_bfs_example);
+    assert(node);
+    auto groups = MapObjectGroup::initialize_names_and_parents_for_map(*node);
+    mark_it("loads seven groups", [&] {
+        return test_that(groups.size() == 7);
+    }).
+    mark_it("groups are in BFS order", [&] {
+        auto ids = { 1, 2, 3, 4, 5, 6, 7 };
+        auto are_equal_and_in_order = std::equal
+            (groups.begin(), groups.end(), ids.begin(), ids.end(),
+             [](const MapObjectGroup & group, int id)
+             { return group.id() == id; });
+        return test_that(are_equal_and_in_order);
     });
 });
 
@@ -140,6 +172,11 @@ describe<MapObjectFindUpTree>("MapObject find up tree").
     mark_it("able to find object id=3", [&] {
         return test_that(object);
     }).
+    mark_it("object can see two objects", [&] {
+        auto x = object->seek_by_name("x");
+        auto something = object->seek_by_name("something");
+        return test_that(x && something);
+    }).
     mark_it("finds the right object", [&] {
         if (!object)
             { return test_that(false); }
@@ -166,6 +203,34 @@ describe<MapObject>("MapObject").depends_on<MapObject::CStringHasher>()([] {
     mark_it("parses a property correctly", [&] {
         auto elevation = object.get_property<int>("elevation");
         return test_that(elevation.value_or(0) == 10);
+    });
+});
+
+describe<MapObject>("MapObject::find_first_visible_named_objects")([] {
+    auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
+    using GroupConstIterator = MapObjectGroup::ConstIterator;
+    auto groups = MapObjectGroup::set_groups_and_ranks_for
+        (MapObjectGroup::initialize_names_and_parents_for_map(*node));
+    auto objects = MapObject::load_from
+        (MapObjectRetrieval::null_instance(),
+         View<GroupConstIterator>{groups.begin(), groups.end()});
+    auto global_names = MapObject::find_first_visible_named_objects(objects);
+    mark_it("there are exactly two names visible", [&] {
+        return test_that(global_names.size() == 2);
+    }).
+    mark_it("an \"x\" is visible", [&] {
+        auto itr = global_names.find("x");
+        return test_that(itr != global_names.end());
+    }).
+    mark_it("it is the top most \"x\"", [&] {
+        auto itr = global_names.find("x");
+        if (itr == global_names.end())
+            return test_that(false);
+        return test_that(itr->second->id() == 1);
+    }).
+    mark_it("an \"something\" is visible", [&] {
+        return test_that(global_names.find("something") !=
+                         global_names.end()               );
     });
 });
 

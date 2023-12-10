@@ -236,7 +236,7 @@ public:
     using ObjectNamesIterator = ObjectReorderContainer::const_iterator;
     using ObjectIterator = ObjectContainer::const_iterator;
 
-    // names, ranks, returned in heap order
+    // names, ranks, returned in BFS order
     static GroupContainer initialize_names_and_parents_for_map
         (const DocumentOwningNode & map_element);
 
@@ -312,6 +312,8 @@ public:
             { return nullptr; }
         return *itr;
     }
+
+    int id() const { return m_id; }
 
 private:
     static const View<ConstIterator> k_empty_group_view;

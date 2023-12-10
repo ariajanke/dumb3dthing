@@ -122,10 +122,15 @@ const MapObject * MapObject::seek_by_name(const char * object_name) const {
      View<Iterator> all_groups)
 {
     // make sure objects are group ordered
+#   ifdef MACRO_DEBUG
     static auto group_order = [](const MapObject & lhs, const MapObject & rhs)
         { return lhs.parent_group() < rhs.parent_group(); };
-    auto is_in_group_order = std::is_sorted(all_objects.begin(), all_objects.end(), group_order);
-    std::sort(all_objects.begin(), all_objects.end(), group_order);
+    auto is_in_group_order =
+        std::is_sorted(all_objects.begin(), all_objects.end(), group_order);
+    if (!is_in_group_order) {
+        throw InvalidArgument{"Groups were not given in pointer order"};
+    }
+#   endif
 
     // for each group, get a map containing visible names
     std::vector<const MapObject *> group_name_ordered_objects =
@@ -155,6 +160,7 @@ const MapObject * MapObject::seek_by_name(const char * object_name) const {
                 if (next->parent_group() != &group)
                     { break; }
             }
+            object_itr = next;
             for (auto pair : temp) {
                 group_name_ordered_objects.emplace_back(pair.second);
             }
