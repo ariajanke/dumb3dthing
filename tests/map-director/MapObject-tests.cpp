@@ -26,6 +26,8 @@
 
 #include <tinyxml2.h>
 
+namespace {
+
 constexpr const auto k_simple_object_map =
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 "<map version=\"1.10\" tiledversion=\"1.10.2\" orientation=\"orthogonal\" "
@@ -41,8 +43,30 @@ constexpr const auto k_simple_object_map =
  "</objectgroup>"
 "</map>";
 
-constexpr const auto k_object_map_for_name_finding =
-"";
+// this turns out to not be valid TilEd map
+// but were created just to make sure the "find up the tree" feature works
+//
+// as there maybe a way to make that thing actually happen sometime in the
+// future
+constexpr const auto k_object_up_tree_example =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<map version=\"1.10\" tiledversion=\"1.10.2\">"
+    "<objectgroup id=\"2\">"
+    "  <object id=\"1\" name=\"x\"></object>"
+    "  <objectgroup id=\"3\">"
+    "    <object id=\"2\" name=\"x\"></object>"
+    "    <objectgroup id=\"4\" name=\"deeply-nested\">"
+    "      <object id=\"3\" name=\"something\"></object>"
+    "    </objectgroup>"
+    "  </objectgroup>"
+    "</objectgroup>"
+    "</map>";
+
+struct MapObjectFindUpTree final {};
+
+using CStringEqual = MapObject::CStringEqual;
+
+} // end of <anonymous> namespace
 
 [[maybe_unused]] static auto s_add_describes = [] {
 
@@ -57,6 +81,24 @@ describe("MapObjectGroup")([] {
     assert(group);
     mark_it("can find player by name", [&] {
         return test_that(group->seek_by_name("player"));
+    });
+});
+
+describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
+    auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
+    assert(node);
+    MapObjectCollection collection;
+    auto groups = MapObjectGroup::initialize_names_and_parents_for_map(*node);
+    mark_it("loads three groups", [&] {
+        return test_that(groups.size() == 3);
+    }).
+    mark_it("contains \"deeply-nested\" group", [&] {
+        bool found_nested_group = std::any_of
+            (groups.begin(),
+             groups.end(),
+             [] (const MapObjectGroup & group)
+             { return  CStringEqual{}(group.name().value_or(""), "deeply-nested"); });
+        return test_that(found_nested_group);
     });
 });
 
@@ -84,6 +126,27 @@ describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] 
         if (itr == objects.end())
             { return test_that(false); }
         return test_that(itr->id() == k_player_id);
+    });
+});
+
+describe<MapObjectFindUpTree>("MapObject find up tree").
+    depends_on<MapObjectCollection>()([]
+{
+    auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
+    assert(node);
+    MapObjectCollection collection;
+    collection.load(*node);
+    auto * object = collection.seek_object_by_id(3);
+    mark_it("able to find object id=3", [&] {
+        return test_that(object);
+    }).
+    mark_it("finds the right object", [&] {
+        if (!object)
+            { return test_that(false); }
+        auto * found = object->seek_by_name("x");
+        if (!found)
+            { return test_that(false); }
+        return test_that(found->id() == 2);
     });
 });
 

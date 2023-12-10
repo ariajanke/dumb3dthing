@@ -77,6 +77,13 @@ const TiXmlElement & DocumentOwningNode::element() const
 
 // ----------------------------------------------------------------------------
 
+const MapObject * MapObject::seek_by_name(const char * object_name) const {
+    if (!m_parent_group) return nullptr;
+    return m_parent_group->seek_by_name(object_name);
+}
+
+// ----------------------------------------------------------------------------
+
 /* static */ std::vector<MapObjectGroup>
     MapObjectGroup::initialize_names_and_parents_for_map
     (const DocumentOwningNode & map_element)
@@ -93,9 +100,10 @@ const TiXmlElement & DocumentOwningNode::element() const
 {
     auto name = element.Attribute("name");
     auto id   = element.IntAttribute("id");
-    if (!name || !id) {
-        return {};
-    }
+    if (!id)
+        { return {}; }
+    if (!name)
+        { name = ""; }
     return MapObjectGroup{element, name, id, rank};
 }
 
@@ -214,9 +222,10 @@ const TiXmlElement & DocumentOwningNode::element() const
 {
     for (auto * tag : k_group_tags) {
     for (auto & node : XmlRange{any_element, tag}) {
-        if (auto group = initialize_from_element(node, current_rank)) {
-            groups.emplace_back(std::move(*group));
-        }
+        auto group = initialize_from_element(node, current_rank);
+        if (!group)
+            { continue; }
+        groups.emplace_back(std::move(*group));
     }}
 }
 

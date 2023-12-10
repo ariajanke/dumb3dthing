@@ -170,6 +170,8 @@ public:
         return *maybe_id;
     }
 
+    const MapObject * seek_by_name(const char * object_name) const;
+
 private:
     template <typename T>
     Optional<T> get(FieldType type, const char * name) const {
@@ -368,11 +370,7 @@ public:
         { return nullptr; }
 
     const MapObject * seek_by_name(const char *) const { return nullptr; }
-#   if 0
-    const MapObject * seek_by_id(int id) const {
-        return nullptr;
-    }
-#   endif
+
     const MapObject * seek_object_by_id(int id) const {
         auto itr = m_id_to_object.find(id);
         if (itr == m_id_to_object.end())
@@ -387,29 +385,6 @@ public:
     }
 
 private:
-#   if 0
-    enum class NameField { object, layer };
-
-    struct GroupName final {
-        const char * name = "";
-    };
-
-    struct ObjectName final {
-        const char * name = "";
-    };
-
-    using Key = Variant<GroupName, ObjectName, int>;
-
-    struct KeyHasher final {
-        std::size_t operator () (const Key &) const;
-    };
-
-    struct KeyEqual final {
-        bool operator () (const Key &, const Key &) const;
-    };
-
-    using ReverseLookupTable = cul::HashMap<Key, const MapObject *, KeyHasher, KeyEqual>;
-#   endif
     cul::HashMap<int, const MapObject *> m_id_to_object{0};
     std::vector<MapObject> m_map_objects;
     GroupContainer m_groups;
