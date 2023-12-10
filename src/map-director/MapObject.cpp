@@ -84,8 +84,8 @@ const MapObject * MapObject::seek_by_name(const char * object_name) const {
 
 // ----------------------------------------------------------------------------
 
-/* static */ std::vector<MapObjectGroup>
-    MapObjectGroup::initialize_names_and_parents_for_map
+/* protected static */ std::vector<MapObjectGroup>
+    MapObjectGroupBase::_initialize_names_and_parents_for_map
     (const DocumentOwningNode & map_element)
 {
     std::vector<MapObjectGroup> groups;
@@ -94,8 +94,8 @@ const MapObject * MapObject::seek_by_name(const char * object_name) const {
     return groups;
 }
 
-/* static */ Optional<MapObjectGroup>
-    MapObjectGroup::initialize_from_element
+/* protected static */ Optional<MapObjectGroup>
+    MapObjectGroupBase::_initialize_from_element
     (const TiXmlElement & element, int rank)
 {
     auto name = element.Attribute("name");
@@ -107,12 +107,203 @@ const MapObject * MapObject::seek_by_name(const char * object_name) const {
     return MapObjectGroup{element, name, id, rank};
 }
 
-/* static */ std::vector<MapObjectGroup>
-    MapObjectGroup::set_groups_and_ranks_for
+/* protected static */ std::vector<MapObjectGroup>
+    MapObjectGroupBase::_set_groups_and_ranks_for
     (std::vector<MapObjectGroup> && groups)
 {
     set_groups_and_ranks_for(View{groups.begin(), groups.end()});
     return std::move(groups);
+}
+
+namespace {
+
+std::vector<const MapObject *> name_sorted
+    (const MapObjectGroupBase::NameObjectMap & globally_visible_named_objects)
+{
+    std::vector<const MapObject *> name_sorted;
+    name_sorted.reserve(globally_visible_named_objects.size());
+    for (auto pair : globally_visible_named_objects) {
+        name_sorted.emplace_back(pair.second);
+    }
+    std::sort(name_sorted.begin(), name_sorted.end(), MapObject::NameLessThan{});
+    return name_sorted;
+}
+
+} // end of <anonymous> namespace
+
+/* protected static */ std::vector<const MapObject *>
+    MapObjectGroupBase::_group_name_ordered_objects_for
+    (const NameObjectMap & globally_visible_named_objects,
+     View<ObjectIterator> all_objects,
+     View<Iterator> all_groups)
+{
+    std::vector<const MapObject *> group_name_ordered_objects;
+    group_name_ordered_objects.reserve
+        ((all_groups.end() - all_groups.end())*
+         globally_visible_named_objects.size());
+    auto object_itr = all_objects.begin();
+    auto name_sorted_ = name_sorted(globally_visible_named_objects);
+    std::vector<const MapObject *> temp;
+    for (auto & group : all_groups) {
+        if (object_itr != all_objects.end()) {
+            assert(&group == object_itr->parent_group());
+        }
+        temp = name_sorted_;
+        auto next = object_itr;
+        for (; next != all_objects.end(); ++next) {
+            if (next->parent_group() != &group)
+                { break; }
+            auto name = next->name();
+            if (!name)
+                { continue; }
+
+            // not accounted for in current implementation
+            // what about names above the current group?
+
+            auto named_object_itr = std::lower_bound
+                (temp.begin(), temp.end(), *name,
+                 MapObjectGroup::find_name_predicate);
+            // if named, it has *got* to be on the table
+            assert(named_object_itr != temp.end());
+            *named_object_itr = &*next;
+        }
+        object_itr = next;
+        group_name_ordered_objects.insert
+            (group_name_ordered_objects.end(),
+             temp.begin(),
+             temp.end());
+    }
+#   if 0
+    // this is not in name order...
+    NameObjectMap temp{nullptr};
+    for (auto & group : all_groups) {
+        if (object_itr != all_objects.end()) {
+            assert(&group == object_itr->parent_group());
+        }
+        temp = globally_visible_named_objects;
+        auto next = object_itr;
+        for (; next != all_objects.end(); ++next) {
+            if (next->parent_group() != &group)
+                { break; }
+            auto name = next->name();
+            if (!name)
+                { continue; }
+
+            auto named_object_itr = temp.find(*name);
+            // if named, it has *got* to be on the table
+            assert(named_object_itr != temp.end());
+            named_object_itr->second = &*next;
+        }
+        object_itr = next;
+        std::size_t old_size = group_name_ordered_objects.size();
+        for (auto pair : temp) {
+            group_name_ordered_objects.emplace_back(pair.second);
+        }
+        // v this hurts... but it *should* work
+        std::sort(group_name_ordered_objects.begin() + old_size,
+                  group_name_ordered_objects.end(),
+                  MapObject::NameLessThan{});
+    }
+#   endif
+#   if 0
+    // can't work because objects may come from any group up the tree
+    std::sort(group_name_ordered_objects.begin(),
+              group_name_ordered_objects.end(),
+              _group_name_order);
+#   endif
+    return group_name_ordered_objects;
+}
+
+/* protected static */ bool MapObjectGroupBase::_group_name_order
+    (const MapObject * lhs, const MapObject * rhs)
+{
+    using NameLessThan = MapObject::NameLessThan;
+    assert(lhs && rhs);
+    // (no group) < (root/any group)
+    auto lhs_parent = lhs->parent_group();
+    auto rhs_parent = rhs->parent_group();
+    if (!lhs_parent || !rhs_parent)
+        { return static_cast<bool>(rhs_parent); }
+    if (lhs_parent->rank() < rhs_parent->rank())
+        return true;
+    return NameLessThan{}(lhs, rhs);
+}
+
+/* private static */ void MapObjectGroupBase::emplace_group_children
+    (std::vector<MapObjectGroup> & groups,
+     const TiXmlElement & any_element,
+     int current_rank)
+{
+    for (auto * tag : k_group_tags) {
+    for (auto & node : XmlRange{any_element, tag}) {
+        emplace_groups(groups, node, current_rank + 1);
+    }}
+    for (auto * tag : k_group_tags) {
+    for (auto & node : XmlRange{any_element, tag}) {
+        emplace_group_children(groups, node, current_rank + 1);
+    }}
+}
+
+/* private static */ void MapObjectGroupBase::emplace_groups
+    (std::vector<MapObjectGroup> & groups,
+     const TiXmlElement & any_element,
+     int current_rank)
+{
+    for (auto * tag : k_group_tags) {
+    for (auto & node : XmlRange{any_element, tag}) {
+        auto group = _initialize_from_element(node, current_rank);
+        if (!group)
+            { continue; }
+        groups.emplace_back(std::move(*group));
+    }}
+}
+
+/* private static */ void MapObjectGroupBase::set_groups_and_ranks_for
+    (View<Iterator> groups, int current_rank)
+{
+    if (groups.begin() == groups.end())
+        { return; }
+    auto next_rank_beg = groups.begin();
+    while (next_rank_beg != groups.end()) {
+        if (next_rank_beg->rank() != current_rank)
+            { break; }
+        ++next_rank_beg;
+    }
+    auto current_rank_end = next_rank_beg;
+    for (auto itr = groups.begin(); itr != current_rank_end; ++itr) {
+        next_rank_beg = itr->set_child_groups(next_rank_beg, groups.end());
+    }
+    set_groups_and_ranks_for
+        (View{current_rank_end, groups.end()}, current_rank + 1);
+}
+
+// ----------------------------------------------------------------------------
+
+/* static */ Optional<MapObjectGroup>
+    MapObjectGroupForTests::initialize_from_element
+    (const TiXmlElement & el, int rank)
+    { return _initialize_from_element(el, rank); }
+
+/* static */ std::vector<const MapObject *>
+    MapObjectGroupForTests::group_name_ordered_objects_for
+    (const NameObjectMap & globally_visible_named_objects,
+     View<ObjectIterator> all_objects,
+     View<Iterator> all_groups)
+{
+    return _group_name_ordered_objects_for
+        (globally_visible_named_objects,
+         all_objects,
+         all_groups);
+}
+
+// ----------------------------------------------------------------------------
+
+/* static */ MapObjectGroup::GroupContainer
+    MapObjectGroup::initialize_for_map
+    (const DocumentOwningNode & map_element)
+{
+    return MapObjectGroupBase::_set_groups_and_ranks_for
+        (MapObjectGroupBase::_initialize_names_and_parents_for_map(map_element));
 }
 
 /* static */ MapObjectGroupOrdering
@@ -134,59 +325,15 @@ const MapObject * MapObject::seek_by_name(const char * object_name) const {
 
     // for each group, get a map containing visible names
     std::vector<const MapObject *> group_name_ordered_objects =
-    [&all_objects, &all_groups, &globally_visible_named_objects] {
-        std::vector<const MapObject *> group_name_ordered_objects;
-        group_name_ordered_objects.reserve
-            ((all_groups.end() - all_groups.end())*
-             globally_visible_named_objects.size());
-        auto object_itr = all_objects.begin();
-        NameObjectMap temp{nullptr};
-        for (auto & group : all_groups) {
-            if (object_itr != all_objects.end()) {
-                assert(&group == object_itr->parent_group());
-            }
-            temp = globally_visible_named_objects;
-            auto next = object_itr;
-            for (; next != all_objects.end(); ++next) {
-                auto name = next->name();
-                if (!name)
-                    { continue; }
+        _group_name_ordered_objects_for
+        (globally_visible_named_objects,
+         View{all_objects.cbegin(), all_objects.cend()},
+         all_groups);
 
-                auto named_object_itr = temp.find(*name);
-                // if named, it has *got* to be on the table
-                assert(named_object_itr != temp.end());
-                named_object_itr->second = &*next;
-
-                if (next->parent_group() != &group)
-                    { break; }
-            }
-            object_itr = next;
-            for (auto pair : temp) {
-                group_name_ordered_objects.emplace_back(pair.second);
-            }
-        }
-        return group_name_ordered_objects;
-    } ();
-
-    // okay, everything's sorted, now just modify groups
-    auto object_itr = all_objects.begin();
-    auto name_itr = group_name_ordered_objects.begin();
-    for (auto & group : all_groups) {
-        auto end_object_itr = object_itr;
-        for (; end_object_itr != all_objects.end(); ++end_object_itr) {
-            if (end_object_itr->parent_group() != &group)
-                { break; }
-        }
-        auto end_name_itr = name_itr;
-        for (; end_name_itr != group_name_ordered_objects.end(); ++end_name_itr) {
-            if ((**end_name_itr).parent_group() != &group)
-                { break; }
-        }
-        group.set_child_objects
-            (View<ObjectNamesIterator>{name_itr, end_name_itr},
-             View<ObjectIterator>{object_itr, end_object_itr});
-    }
-
+    populate_groups_with_objects
+        (View{all_objects.cbegin(), all_objects.cend()},
+         all_groups,
+         View{group_name_ordered_objects.cbegin(), group_name_ordered_objects.cend()});
     MapObjectGroupOrdering rv;
     rv.group_name_ordered_objects = std::move(group_name_ordered_objects);
     rv.group_ordered_objects = std::move(all_objects);
@@ -205,56 +352,72 @@ const MapObject * MapObject::seek_by_name(const char * object_name) const {
 /* private static */ const View<MapObjectGroup::ObjectIterator>
     MapObjectGroup::k_empty_object_view = View<MapObjectGroup::ObjectIterator>
     {k_empty_object_container.end(), k_empty_object_container.end()};
-
-/* private static */ void MapObjectGroup::emplace_group_children
-    (std::vector<MapObjectGroup> & groups,
-     const TiXmlElement & any_element,
-     int current_rank)
+#if 0
+/* private static */ std::vector<const MapObject *>
+    MapObjectGroup::group_name_ordered_objects_for
+    (const NameObjectMap & globally_visible_named_objects,
+     View<ObjectIterator> all_objects,
+     View<Iterator> all_groups)
 {
-    for (auto * tag : k_group_tags) {
-    for (auto & node : XmlRange{any_element, tag}) {
-        emplace_groups(groups, node, current_rank + 1);
-    }}
-    for (auto * tag : k_group_tags) {
-    for (auto & node : XmlRange{any_element, tag}) {
-        emplace_group_children(groups, node, current_rank + 1);
-    }}
-}
+    std::vector<const MapObject *> group_name_ordered_objects;
+    group_name_ordered_objects.reserve
+        ((all_groups.end() - all_groups.end())*
+         globally_visible_named_objects.size());
+    auto object_itr = all_objects.begin();
+    NameObjectMap temp{nullptr};
+    for (auto & group : all_groups) {
+        if (object_itr != all_objects.end()) {
+            assert(&group == object_itr->parent_group());
+        }
+        temp = globally_visible_named_objects;
+        auto next = object_itr;
+        for (; next != all_objects.end(); ++next) {
+            if (next->parent_group() != &group)
+                { break; }
+            auto name = next->name();
+            if (!name)
+                { continue; }
 
-/* private static */ void MapObjectGroup::emplace_groups
-    (std::vector<MapObjectGroup> & groups,
-     const TiXmlElement & any_element,
-     int current_rank)
-{
-    for (auto * tag : k_group_tags) {
-    for (auto & node : XmlRange{any_element, tag}) {
-        auto group = initialize_from_element(node, current_rank);
-        if (!group)
-            { continue; }
-        groups.emplace_back(std::move(*group));
-    }}
-}
-
-/* private static */ void MapObjectGroup::set_groups_and_ranks_for
-    (View<Iterator> groups, int current_rank)
-{
-    if (groups.begin() == groups.end())
-        { return; }
-    auto next_rank_beg = groups.begin();
-    while (next_rank_beg != groups.end()) {
-        if (next_rank_beg->rank() != current_rank)
-            { break; }
-        ++next_rank_beg;
+            auto named_object_itr = temp.find(*name);
+            // if named, it has *got* to be on the table
+            assert(named_object_itr != temp.end());
+            named_object_itr->second = &*next;
+        }
+        object_itr = next;
+        for (auto pair : temp) {
+            group_name_ordered_objects.emplace_back(pair.second);
+        }
     }
-    auto current_rank_end = next_rank_beg;
-    for (auto itr = groups.begin(); itr != current_rank_end; ++itr) {
-        next_rank_beg = itr->set_child_groups(next_rank_beg, groups.end());
+    return group_name_ordered_objects;
+}
+#endif
+/* private static */ void MapObjectGroup::populate_groups_with_objects
+    (View<ObjectIterator> all_objects,
+     View<Iterator> all_groups,
+     View<ObjectNamesIterator> group_name_ordered_objects)
+{
+    auto object_itr = all_objects.begin();
+    auto name_itr = group_name_ordered_objects.begin();
+    for (auto & group : all_groups) {
+        auto not_in_group = [&group] (const MapObject & obj)
+            { return obj.parent_group() != &group; };
+        auto not_in_group_ptr = [&not_in_group] (const MapObject * obj) {
+            assert(obj);
+            return not_in_group(*obj);
+        };
+        auto end_object_itr =
+            std::find_if(object_itr, all_objects.end(), not_in_group);
+        auto end_name_itr =
+            std::find_if(name_itr, group_name_ordered_objects.end(), not_in_group_ptr);
+        group.set_child_objects
+            (View<ObjectNamesIterator>{name_itr, end_name_itr},
+             View<ObjectIterator>{object_itr, end_object_itr});
+        object_itr = end_object_itr;
+        name_itr = end_name_itr;
     }
-    set_groups_and_ranks_for
-        (View{current_rank_end, groups.end()}, current_rank + 1);
 }
 
-/* private */ MapObjectGroup::Iterator
+MapObjectGroup::Iterator
     MapObjectGroup::set_child_groups
     (Iterator starting_at, Iterator end)
 {
@@ -404,8 +567,7 @@ bool MapObject::KeyEqual::operator () (const Key & lhs, const Key & rhs) const {
 
 void MapObjectCollection::load(const DocumentOwningNode & map_element) {
     using GroupConstIterator = MapObjectGroup::ConstIterator;
-    auto groups = MapObjectGroup::set_groups_and_ranks_for
-        (MapObjectGroup::initialize_names_and_parents_for_map(map_element));
+    auto groups = MapObjectGroup::initialize_for_map(map_element);
     auto objects = MapObject::load_from
         (MapObjectRetrieval::null_instance(),
          View<GroupConstIterator>{groups.begin(), groups.end()});

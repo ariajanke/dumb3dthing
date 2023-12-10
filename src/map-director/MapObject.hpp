@@ -212,39 +212,89 @@ public:
          /* and something about nested loaders? */);
 };
 
-// sort of "joins" object
-// joining...
-//
-// lookup names starting at current group down, using the first occuring
-// global instance as a fallback (i.e. you *could* look up something by name,
-// *anywhere* on the map)
-//
-// map object, its name, its group
-// primarily ordered by name, secondarily by group ~~as a heap~~
+// ----------------------------------------------------------------------------
 
-class MapObjectGroup final {
+class MapObjectGroupBase {
 public:
+    using GroupContainer = MapObject::GroupContainer;
+    using Iterator = GroupContainer::iterator;
+    using NameObjectMap = MapObject::NameObjectMap;
+    using ObjectContainer = std::vector<MapObject>;
+    using ObjectIterator = ObjectContainer::const_iterator;
+
     static constexpr const std::array k_group_tags =
         { "objectgroup", "group" };
 
-    using GroupContainer = MapObject::GroupContainer;
-    using ConstIterator = GroupContainer::const_iterator;
-    using Iterator = GroupContainer::iterator;
-    using NameObjectMap = MapObject::NameObjectMap;
-    using ObjectReorderContainer = std::vector<const MapObject *>;
-    using ObjectContainer = std::vector<MapObject>;
-    using ObjectNamesIterator = ObjectReorderContainer::const_iterator;
-    using ObjectIterator = ObjectContainer::const_iterator;
-
+protected:
     // names, ranks, returned in BFS order
-    static GroupContainer initialize_names_and_parents_for_map
+    static GroupContainer _initialize_names_and_parents_for_map
         (const DocumentOwningNode & map_element);
 
     // parent, groups
-    static GroupContainer set_groups_and_ranks_for(GroupContainer &&);
+    static GroupContainer _set_groups_and_ranks_for(GroupContainer &&);
+
+    static Optional<MapObjectGroup> _initialize_from_element
+        (const TiXmlElement &, int rank);
+
+    static std::vector<const MapObject *>
+        _group_name_ordered_objects_for
+        (const NameObjectMap & globally_visible_named_objects,
+         View<ObjectIterator> all_objects,
+         View<Iterator> all_groups);
+
+    // goes unused?
+    static bool _group_name_order(const MapObject *, const MapObject *);
+
+private:
+    static void emplace_group_children
+        (GroupContainer &,
+         const TiXmlElement & any_element,
+         int current_rank);
+
+    static void emplace_groups
+        (GroupContainer &,
+         const TiXmlElement & any_element,
+         int current_rank);
+
+    static void set_groups_and_ranks_for
+        (View<Iterator> groups, int current_rank = 0);
+};
+
+// ----------------------------------------------------------------------------
+
+class MapObjectGroupForTests final : public MapObjectGroupBase {
+public:
+    static GroupContainer initialize_names_and_parents_for_map
+        (const DocumentOwningNode & map_element)
+        { return _initialize_names_and_parents_for_map(map_element); }
+
+    static GroupContainer set_groups_and_ranks_for
+        (GroupContainer && groups)
+        { return _set_groups_and_ranks_for(std::move(groups)); }
 
     static Optional<MapObjectGroup> initialize_from_element
-        (const TiXmlElement &, int rank);
+        (const TiXmlElement & el, int rank);
+
+    static std::vector<const MapObject *>
+        group_name_ordered_objects_for
+        (const NameObjectMap & globally_visible_named_objects,
+         View<ObjectIterator> all_objects,
+         View<Iterator> all_groups);
+
+    static bool group_name_order(const MapObject * lhs, const MapObject * rhs)
+        { return _group_name_order(lhs, rhs); }
+};
+
+// ----------------------------------------------------------------------------
+
+class MapObjectGroup final : public MapObjectGroupBase {
+public:
+    using ConstIterator = GroupContainer::const_iterator;
+    using ObjectReorderContainer = std::vector<const MapObject *>;
+    using ObjectNamesIterator = ObjectReorderContainer::const_iterator;
+
+    static GroupContainer initialize_for_map
+        (const DocumentOwningNode & map_element);
 
     struct MapObjectGroupOrdering final {
         std::vector<const MapObject *> group_name_ordered_objects;
@@ -258,6 +308,11 @@ public:
         (const NameObjectMap & globally_visible_named_objects,
          std::vector<MapObject> && all_objects,
          View<Iterator> all_groups);
+
+    // MapObject::NameLessThan should be built on me
+    static bool find_name_predicate
+        (const MapObject * obj, const char * object_name)
+    { return ::strcmp(obj->name().value_or(""), object_name) < 0; }
 
     explicit MapObjectGroup(int id): m_id(id) {}
 
@@ -302,10 +357,7 @@ public:
     const MapObject * seek_by_name(const char * object_name) const {
         auto itr = std::lower_bound
             (m_name_ordered_objects.begin(), m_name_ordered_objects.end(),
-             object_name,
-             [] (const MapObject * obj, const char * object_name) {
-                return ::strcmp(obj->name().value_or(""), object_name) < 0;
-             });
+             object_name, find_name_predicate);
         if (itr == m_name_ordered_objects.end())
             { return nullptr; }
         if (::strcmp((**itr).name().value_or(""), object_name))
@@ -315,25 +367,18 @@ public:
 
     int id() const { return m_id; }
 
+    Iterator set_child_groups(Iterator starting_at, Iterator end);
+
 private:
     static const View<ConstIterator> k_empty_group_view;
     static const View<ObjectNamesIterator> k_empty_object_reorder_view;
     static const View<ObjectIterator> k_empty_object_view;
 
-    static void emplace_group_children
-        (GroupContainer &,
-         const TiXmlElement & any_element,
-         int current_rank);
 
-    static void emplace_groups
-        (GroupContainer &,
-         const TiXmlElement & any_element,
-         int current_rank);
-
-    static void set_groups_and_ranks_for
-        (View<Iterator> groups, int current_rank = 0);
-
-    Iterator set_child_groups(Iterator starting_at, Iterator end);
+    static void populate_groups_with_objects
+        (View<ObjectIterator> all_objects,
+         View<Iterator> all_groups,
+         View<ObjectNamesIterator> group_name_ordered_objects);
 
     // v still not yet set by anything
     const MapObjectGroup * m_parent = nullptr;
