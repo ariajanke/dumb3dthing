@@ -132,52 +132,6 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
     });
 });
 
-describe("MapObjectGroup::group_name_ordered_objects_for")([] {
-    using GroupConstIterator = MapObjectGroup::ConstIterator;
-    auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
-    assert(node);
-    auto groups = MapObjectGroup::initialize_for_map(*node);
-    auto objects = MapObject::load_from
-        (MapObjectRetrieval::null_instance(),
-         View<GroupConstIterator>{groups.begin(), groups.end()});
-    auto global_names = MapObject::find_first_visible_named_objects(objects);
-    std::vector<const MapObject *> group_name_ordered_objects =
-        MapObjectGroupForTests::group_name_ordered_objects_for
-        (global_names,
-         View{objects.cbegin(), objects.cend()},
-         View{groups.begin(), groups.end()});
-    mark_it("there are six groups", [&] {
-        return test_that(group_name_ordered_objects.size() == 6);
-    }).
-    mark_it("names for first group are sorted", [&] {
-        auto first  = group_name_ordered_objects[0]->name();
-        auto second = group_name_ordered_objects[1]->name();
-        if (!first || !second)
-            return test_that(false);
-        return test_that(::strcmp(*first, *second) < 0);
-    }).
-    mark_it("mappings fit to expected groups", [&] {
-        // amoung 2, 3, 4
-        auto expect_group_ids_in_mappings = {
-            4, 2,
-            4, 3,
-            4, 3
-        };
-        std::vector<int> group_ids;
-        for (auto & obj_ptr : group_name_ordered_objects) {
-            if (obj_ptr->parent_group()) {
-                group_ids.push_back(obj_ptr->parent_group()->id());
-            } else {
-                return test_that(false);
-            }
-        }
-        return test_that(std::equal(expect_group_ids_in_mappings.begin(),
-                                    expect_group_ids_in_mappings.end(),
-                                    group_ids.begin(),
-                                    group_ids.end()));
-    });
-});
-
 describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] {
     auto node = DocumentOwningNode::load_root(k_simple_object_map);
     assert(node);

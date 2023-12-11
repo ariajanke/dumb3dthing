@@ -236,15 +236,6 @@ protected:
     static Optional<MapObjectGroup> _initialize_from_element
         (const TiXmlElement &, int rank);
 
-    static std::vector<const MapObject *>
-        _group_name_ordered_objects_for
-        (const NameObjectMap & globally_visible_named_objects,
-         View<ObjectIterator> all_objects,
-         View<Iterator> all_groups);
-
-    // goes unused?
-    static bool _group_name_order(const MapObject *, const MapObject *);
-
 private:
     static void emplace_group_children
         (GroupContainer &,
@@ -274,15 +265,6 @@ public:
 
     static Optional<MapObjectGroup> initialize_from_element
         (const TiXmlElement & el, int rank);
-
-    static std::vector<const MapObject *>
-        group_name_ordered_objects_for
-        (const NameObjectMap & globally_visible_named_objects,
-         View<ObjectIterator> all_objects,
-         View<Iterator> all_groups);
-
-    static bool group_name_order(const MapObject * lhs, const MapObject * rhs)
-        { return _group_name_order(lhs, rhs); }
 };
 
 // ----------------------------------------------------------------------------
@@ -296,15 +278,8 @@ public:
     static GroupContainer initialize_for_map
         (const DocumentOwningNode & map_element);
 
-    struct MapObjectGroupOrdering final {
-        std::vector<const MapObject *> group_name_ordered_objects;
-        // bfs order *should be* pointer order also
-        // (if groups themselves are bfs ordered)
-        std::vector<MapObject> group_ordered_objects;
-    };
-
     // ordered by (group, name), assigned to groups
-    static MapObjectGroupOrdering assign_groups_objects
+    static std::vector<MapObject> assign_groups_objects
         (const NameObjectMap & globally_visible_named_objects,
          std::vector<MapObject> && all_objects,
          View<Iterator> all_groups);
@@ -336,59 +311,44 @@ public:
         (const MapObjectRetrieval &,
          std::vector<MapObject> &&) const;
 
-    void set_child_objects
-        (View<ObjectNamesIterator> name_ordered_objects,
-         View<ObjectIterator> child_objects)
-    {
-        auto any_nullptrs =
-            std::any_of(name_ordered_objects.begin(), name_ordered_objects.end(),
-                        [] (const MapObject * obj) { return obj == nullptr; });
-        if (any_nullptrs) {
-            throw InvalidArgument{"named range cannot contain any nullptrs"};
-        }
-        m_name_ordered_objects = name_ordered_objects;
-        m_objects = child_objects;
-    }
+    void set_child_objects(View<ObjectIterator> child_objects)
+        { m_objects = child_objects; }
 
     View<ObjectIterator> objects() const { return m_objects; }
 
     View<ConstIterator> groups() const { return m_groups; }
 
     const MapObject * seek_by_name(const char * object_name) const {
-        auto itr = std::lower_bound
-            (m_name_ordered_objects.begin(), m_name_ordered_objects.end(),
-             object_name, find_name_predicate);
-        if (itr == m_name_ordered_objects.end())
-            { return nullptr; }
-        if (::strcmp((**itr).name().value_or(""), object_name))
-            { return nullptr; }
-        return *itr;
+        auto itr = m_object_name_map.find(object_name);
+        if (itr != m_object_name_map.end()) {
+            return itr->second;
+        } else if (m_parent) {
+            return m_parent->seek_by_name(object_name);
+        }
+        return nullptr;
     }
 
     int id() const { return m_id; }
 
     Iterator set_child_groups(Iterator starting_at, Iterator end);
 
+    void set_object_name_map(NameObjectMap && name_map)
+        { m_object_name_map = std::move(name_map); }
+
 private:
     static const View<ConstIterator> k_empty_group_view;
     static const View<ObjectNamesIterator> k_empty_object_reorder_view;
     static const View<ObjectIterator> k_empty_object_view;
 
-
-    static void populate_groups_with_objects
-        (View<ObjectIterator> all_objects,
-         View<Iterator> all_groups,
-         View<ObjectNamesIterator> group_name_ordered_objects);
-
-    // v still not yet set by anything
     const MapObjectGroup * m_parent = nullptr;
     const char * m_name = "";
+    // v probably shouldn't, or at least null out later
     const TiXmlElement * m_element = nullptr;
     int m_id = 0;
     int m_rank = 0;
     View<ConstIterator> m_groups = k_empty_group_view;
-    View<ObjectNamesIterator> m_name_ordered_objects = k_empty_object_reorder_view;
     View<ObjectIterator> m_objects = k_empty_object_view;
+    NameObjectMap m_object_name_map{nullptr};
 };
 
 struct MapObjectGroupAssignment final {
@@ -435,7 +395,6 @@ private:
     cul::HashMap<int, const MapObject *> m_id_to_object{0};
     std::vector<MapObject> m_map_objects;
     GroupContainer m_groups;
-    ObjectReorderContainer m_reordered_objects;
 };
 
 template <>
