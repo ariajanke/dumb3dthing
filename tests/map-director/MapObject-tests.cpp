@@ -196,7 +196,7 @@ describe<MapObject>("MapObject").depends_on<MapObject::CStringHasher>()([] {
         return test_that(object.id() == 1);
     }).
     mark_it("parses object name", [&] {
-        return test_that(object.name().value_or("") == std::string{"player"});
+        return test_that(object.name() == std::string{"player"});
     }).
     mark_it("parses a property correctly", [&] {
         auto elevation = object.get_property<int>("elevation");

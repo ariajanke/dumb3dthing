@@ -146,7 +146,7 @@ public:
     MapObject() {}
 
     void load(const DocumentOwningNode &, const MapObjectRetrieval &);
-
+#   if 0
     template <typename T>
     Optional<T> get_property(const char * name) const
         { return get<T>(FieldType::property, name); }
@@ -154,16 +154,42 @@ public:
     template <typename T>
     Optional<T> get_attribute(const char * name) const
         { return get<T>(FieldType::attribute, name); }
+#   endif
+
+    template <typename T>
+    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+        get_numeric_property(const char * name) const
+        { return get_arithmetic<T>(FieldType::property, name); }
+
+    template <typename T>
+    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+        get_numeric_attribute(const char * name) const
+        { return get_arithmetic<T>(FieldType::attribute, name); }
+
+    const MapObject * get_object_property(const char * name) const {
+        auto maybe_id = get_arithmetic<int>(FieldType::property, name);
+        if (!maybe_id)
+            { return nullptr; }
+    }
+
+    const MapObjectGroup * get_group_property(const char *) const;
+
+    View<std::vector<const MapObject *>::const_iterator>
+        get_referrers_property(const char *) const;
+
+    const char * get_string_property(const char *) const;
+
+    const char * get_string_attribute(const char *) const;
 
     // TilEd always requires this
-    Optional<const char *> name() const
-        { return get_attribute<const char *>("name"); }
+    const char * name() const
+        { return *get_attribute<const char *>("name"); }
 
     const MapObjectGroup * parent_group() const
         { return m_parent_group; }
 
     int id() const {
-        auto maybe_id = get_attribute<int>("id");
+        auto maybe_id = get_numeric_attribute<int>("id");
         if (!maybe_id) {
             throw RuntimeError{"object without an id"};
         }
@@ -178,6 +204,19 @@ private:
         auto itr = m_values.find(Key{name, type});
         if (itr == m_values.end()) return {};
         return MapObjectConversion<T>::convert(itr->second);
+    }
+
+    template <typename T>
+    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+        get_arithmetic(FieldType type, const char * name) const
+    {
+        auto itr = m_values.find(Key{name, type});
+        if (itr == m_values.end()) return {};
+        T i = 0;
+        auto end = itr->second + ::strlen(itr->second);
+        if (cul::string_to_number(itr->second, end, i))
+            return i;
+        return {};
     }
 
     struct KeyHasher final {
@@ -287,7 +326,7 @@ public:
     // MapObject::NameLessThan should be built on me
     static bool find_name_predicate
         (const MapObject * obj, const char * object_name)
-    { return ::strcmp(obj->name().value_or(""), object_name) < 0; }
+    { return ::strcmp(obj->name(), object_name) < 0; }
 
     explicit MapObjectGroup(int id): m_id(id) {}
 

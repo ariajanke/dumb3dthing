@@ -242,9 +242,7 @@ std::vector<const MapObject *> name_sorted
             pair_ref.second = found_object;
         }
         for (auto & object : group.objects()) {
-            auto name = object.name();
-            if (!name) { continue; }
-            auto itr = groups_name_map.find(*name);
+            auto itr = groups_name_map.find(object.name());
 #           if MACRO_DEBUG
             assert(itr != groups_name_map.end());
 #           endif
@@ -334,7 +332,7 @@ bool MapObject::NameLessThan::operator ()
     (const MapObject * lhs, const MapObject * rhs) const
 {
     assert(lhs && rhs);
-    return ::strcmp(lhs->name().value_or(""), rhs->name().value_or("")) < 0;
+    return ::strcmp(lhs->name(), rhs->name()) < 0;
 }
 
 template <typename Func>
@@ -398,9 +396,7 @@ void for_each_object_kv_pair
     NameObjectMap map{nullptr};
     map.reserve(objects.size());
     for (auto & object : objects) {
-        if (auto name = object.name()) {
-            (void)map.insert(*name, &object);
-        }
+        (void)map.insert(object.name(), &object);
     }
     return map;
 }
