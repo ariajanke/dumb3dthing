@@ -96,13 +96,6 @@ const TiXmlElement & DocumentOwningNode::element() const
 
 // ----------------------------------------------------------------------------
 
-const MapObject * MapObject::seek_by_name(const char * object_name) const {
-    if (!m_parent_group) return nullptr;
-    return m_parent_group->seek_by_name(object_name);
-}
-
-// ----------------------------------------------------------------------------
-
 std::size_t MapObject::CStringHasher::operator () (const char * cstr) const {
     std::size_t temp = 0;
     auto left = limited_string_length(cstr);
@@ -120,6 +113,8 @@ std::size_t MapObject::CStringHasher::operator () (const char * cstr) const {
     return temp ^ *reinterpret_cast<const std::size_t *>(&buf.front());
 }
 
+// ----------------------------------------------------------------------------
+
 bool MapObject::CStringEqual::operator ()
     (const char * lhs, const char * rhs) const
 {
@@ -129,12 +124,17 @@ bool MapObject::CStringEqual::operator ()
     return ::strcmp(lhs, rhs) == 0;
 }
 
+
+// ----------------------------------------------------------------------------
+
 bool MapObject::NameLessThan::operator ()
     (const MapObject * lhs, const MapObject * rhs) const
 {
     assert(lhs && rhs);
     return ::strcmp(lhs->name(), rhs->name()) < 0;
 }
+
+// ----------------------------------------------------------------------------
 
 /* static */ MapObject MapObject::load_from
     (const TiXmlElement & object_element,
@@ -179,13 +179,28 @@ bool MapObject::NameLessThan::operator ()
     return map;
 }
 
+const MapObjectGroup * MapObject::get_group_property(const char * name) const {
+    auto maybe_id = get_numeric_property<int>(name);
+    if (!maybe_id)
+        { return nullptr; }
+    return m_parent_retrieval->seek_group_by_id(*maybe_id);
+}
+
 const MapObject * MapObject::get_object_property(const char * name) const {
     auto maybe_id = get_arithmetic<int>(FieldType::property, name);
     if (!maybe_id)
         { return nullptr; }
-    // seek by id...
-    //return m_parent_group->see;
-    throw "";
+    return m_parent_retrieval->seek_object_by_id(*maybe_id);
+}
+
+const char * MapObject::get_string_property(const char * name) const
+    { return get_string(FieldType::property, name); }
+
+const char * MapObject::get_string_attribute(const char * name) const
+    { return get_string(FieldType::attribute, name); }
+
+int MapObject::id() const {
+    return verify_has_id(get_numeric_attribute<int>("id"));
 }
 
 const char * MapObject::name() const {
@@ -194,13 +209,43 @@ const char * MapObject::name() const {
     return "";
 }
 
+const MapObject * MapObject::seek_by_object_name
+    (const char * object_name) const
+{
+    if (!m_parent_group) return nullptr;
+    return m_parent_group->seek_by_name(object_name);
+}
+
+/* private static */ int MapObject::verify_has_id(Optional<int> maybe_id) {
+    if (maybe_id) return *maybe_id;
+    throw RuntimeError{"objects are expect to always have ids"};
+}
+
+/* private */ MapObject::MapObject
+    (const MapObjectGroup & parent_group,
+     ValuesMap && values,
+     const MapObjectRetrieval & retrieval):
+    m_parent_group(&parent_group),
+    m_values(std::move(values)),
+    m_parent_retrieval(&retrieval) {}
+
+/* private */ const char * MapObject::get_string
+    (FieldType type, const char * name) const
+{
+    auto itr = m_values.find(Key{name, type});
+    if (itr == m_values.end()) return nullptr;
+    return itr->second;
+}
+
 // ----------------------------------------------------------------------------
 
-std::size_t MapObject::KeyHasher::operator () (const Key & key) const {
+std::size_t MapObject::/* private */ KeyHasher::
+    operator () (const Key & key) const
+{
     std::size_t temp = key.type == FieldType::attribute ? 0 : ~0;
     return temp ^ CStringHasher{}(key.name);
 }
 
-bool MapObject::KeyEqual::operator () (const Key & lhs, const Key & rhs) const {
-    return lhs.type == rhs.type && CStringEqual{}(lhs.name, rhs.name);
-}
+bool MapObject::/* private */ KeyEqual::
+    operator () (const Key & lhs, const Key & rhs) const
+{ return lhs.type == rhs.type && CStringEqual{}(lhs.name, rhs.name); }

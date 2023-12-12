@@ -137,6 +137,17 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
             RegionAxisLinkEntry::attach_matching_points(*itr, *jtr);
         }
     }
+    // contrived little contraint only applicable to current test map
+    if (entries.size() > 2) {
+        for (auto itr = entries.begin() + 1; itr != entries.end(); ++itr) {
+            const auto & lhs = (itr - 1)->link()->segment();
+            const auto & rhs = itr->link()->segment();
+            assert(!are_very_close(lhs.point_a(), rhs.point_a()) ||
+                   !are_very_close(lhs.point_b(), rhs.point_b()) ||
+                   !are_very_close(lhs.point_c(), rhs.point_c())   );
+        }
+    }
+
     if constexpr (k_report_maximum_sort_and_sweep) {
         if (sort_sweep_count > s_sort_sweep_max) {
             auto entries_copy = entries;
@@ -200,11 +211,21 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
 
 /* static */ std::vector<RegionAxisLinkEntry>
     RegionAxisLinksRemover::remove_nulls
-    (std::vector<RegionAxisLinkEntry> && entries)
+    (std::vector<RegionAxisLinkEntry> && entries, RegionAxisAddress addr)
 {
-    entries.erase
-        (std::remove_if(entries.begin(), entries.end(), Entry::linkless),
-         entries.end());
+    auto nulls_begin =
+        std::remove_if(entries.begin(), entries.end(), Entry::linkless);
+    auto triangles_removed = entries.end() - nulls_begin;
+    // if (triangles_removed > 0)
+    static auto region_axis_to_string = [](RegionAxis axis) {
+        switch (axis) {
+        case RegionAxis::x_ways: return "x_ways";
+        case RegionAxis::z_ways: return "z_ways";
+        default: return "uninitialized/invalid";
+        }
+    };
+    std::cout << "Removing " << triangles_removed << " triangles at addr: " << addr.value() << ", " << region_axis_to_string(addr.axis()) << std::endl;
+    entries.erase(nulls_begin, entries.end());
     return std::move(entries);
 }
 
@@ -232,9 +253,9 @@ void RegionAxisLinksRemover::add(const SharedPtr<TriangleLink> & link_ptr) {
     m_entries.emplace_back(link_ptr);
 }
 
-RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
+RegionAxisLinksContainer RegionAxisLinksRemover::finish(RegionAxisAddress addr) {
     return RegionAxisLinksContainer
-        {remove_nulls(null_out_dupelicates(std::move(m_entries))), m_axis};
+        {remove_nulls(null_out_dupelicates(std::move(m_entries)), addr), m_axis};
 }
 
 /* private static */ std::vector<RegionAxisLinkEntry>

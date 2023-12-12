@@ -136,7 +136,7 @@ void RegionEdgeConnectionsRemover::remove_region
 RegionEdgeConnectionsContainer RegionEdgeConnectionsRemover::finish() {
     for (auto entry : m_entries) {
         entry.second = std::get_if<RegionAxisLinksRemover>(&entry.second)->
-            finish();
+            finish(entry.first);
     }
     return RegionEdgeConnectionsContainer{std::move(m_entries)};
 }

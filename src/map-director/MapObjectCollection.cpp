@@ -243,7 +243,7 @@ void MapObjectCollection::load(const DocumentOwningNode & map_element) {
     using GroupConstIterator = MapObjectGroup::ConstIterator;
     auto groups = MapObjectGroup::initialize_for_map(map_element);
     auto objects = MapObject::load_objects_from
-        (MapObjectRetrieval::null_instance(),
+        (*this,
          View<GroupConstIterator>{groups.begin(), groups.end()});
     auto global_names = MapObject::find_first_visible_named_objects(objects);
     m_map_objects = MapObjectGroup::assign_groups_objects
@@ -252,5 +252,8 @@ void MapObjectCollection::load(const DocumentOwningNode & map_element) {
     for (auto & map_object : m_map_objects) {
         m_id_to_object.insert(map_object.id(), &map_object);
     }
+    for (auto & group : m_groups) {
+        m_id_to_group.insert(group.id(), &group);
+    }
+    m_names_to_objects = std::move(global_names);
 }
-

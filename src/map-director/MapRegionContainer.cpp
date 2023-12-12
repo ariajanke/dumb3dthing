@@ -20,6 +20,8 @@
 
 #include "MapRegionContainer.hpp"
 
+#include <iostream>
+
 namespace {
 
 using RegionRefresh = MapRegionContainer::RegionRefresh;
@@ -57,4 +59,10 @@ void MapRegionContainer::set_region
     region->entities = std::move(entities);
     region->triangle_grid = triangle_grid;
     region->keep_on_refresh = true;
+
+    static std::size_t s_max_regions_loaded = 0;
+    if (s_max_regions_loaded < m_loaded_regions.size()) {
+        std::cout << "New maximum map region container size: " << m_loaded_regions.size() << std::endl;
+        s_max_regions_loaded = m_loaded_regions.size();
+    }
 }

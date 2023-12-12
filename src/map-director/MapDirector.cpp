@@ -24,8 +24,6 @@
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
-#include "../RenderModel.hpp"
-#include "../Texture.hpp"
 
 namespace {
 
@@ -149,7 +147,7 @@ Continuation & PlayerMapPreperationTask::in_background
         auto x = player_object->get_numeric_attribute<Real>("x");
         auto y = player_object->get_numeric_attribute<Real>("y");
         if (x && y) {
-            location = Vector{*x, 0, -*y};
+            location = Vector{*x / 32, -10, -*y / 32};
         }
     }
     m_player_physics.

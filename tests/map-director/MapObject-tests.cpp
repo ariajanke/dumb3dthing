@@ -76,7 +76,7 @@ constexpr const auto k_groups_for_bfs_example =
     "</objectgroup>"
     "</map>";
 
-constexpr const auto k_something_with_groups =
+constexpr const auto k_multiple_top_level_groups =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
     "<map>"
     "<objectgroup id=\"2\" name=\"Object Layer 1\" class=\"immediate\">"
@@ -93,6 +93,23 @@ constexpr const auto k_something_with_groups =
         "</object>"
       "</objectgroup>"
     "</group>"
+    "</map>";
+
+constexpr const auto k_object_with_properties =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<map>"
+    "<objectgroup id=\"2\" name=\"Object Layer 1\">"
+      "<object id=\"1\" type=\"player-spawn-point\" x=\"426.604\" y=\"452.697\""
+        "      someattribute=\"hello\">"
+        "<properties>"
+          "<property name=\"object\" value=\"3\"/>"
+          "<property name=\"group\" value=\"2\"/>"
+          "<property name=\"numeric\" value=\"10\"/>"
+          "<property name=\"string\" value=\"hello mario\"/>"
+        "</properties>"
+      "</object>"
+      "<object id=\"3\" name=\"something\"></object>"
+    "</objectgroup>"
     "</map>";
 
 struct MapObjectFindUpTree final {};
@@ -117,7 +134,7 @@ describe("MapObjectGroup")([] {
 });
 
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
-    auto node = DocumentOwningNode::load_root(k_something_with_groups);
+    auto node = DocumentOwningNode::load_root(k_multiple_top_level_groups);
     assert(node);
     auto groups = MapObjectGroup::initialize_for_map(*node);
     // two groups without a parent is completely valid
@@ -199,7 +216,7 @@ describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] 
     });
 });
 
-describe<MapObjectFindUpTree>("MapObject find up tree").
+describe<MapObjectFindUpTree>("MapObject#seek_by_object_name").
     depends_on<MapObjectCollection>()([]
 {
     auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
@@ -210,14 +227,14 @@ describe<MapObjectFindUpTree>("MapObject find up tree").
         return test_that(object);
     }).
     mark_it("object can see two objects", [&] {
-        auto x = object->seek_by_name("x");
-        auto something = object->seek_by_name("something");
+        auto x = object->seek_by_object_name("x");
+        auto something = object->seek_by_object_name("something");
         return test_that(x && something);
     }).
     mark_it("finds the right object", [&] {
         if (!object)
             { return test_that(false); }
-        auto * found = object->seek_by_name("x");
+        auto * found = object->seek_by_object_name("x");
         if (!found)
             { return test_that(false); }
         return test_that(found->id() == 2);
@@ -240,6 +257,46 @@ describe<MapObject>("MapObject").depends_on<MapObject::CStringHasher>()([] {
     mark_it("parses a property correctly", [&] {
         auto elevation = object.get_numeric_property<int>("elevation");
         return test_that(elevation.value_or(0) == 10);
+    });
+});
+
+describe<MapObject>("MapObject and its properties")([] {
+    auto node = DocumentOwningNode::load_root(k_object_with_properties);
+    assert(node);
+    auto collection = MapObjectCollection::load_from(*node);
+    auto * object = collection.seek_object_by_id(1);
+    assert(object);
+    mark_it("read string attribute", [&] {
+        auto strattr = object->get_string_attribute("someattribute");
+        if (strattr) {
+            return test_that(::strcmp(strattr, "hello") == 0);
+        }
+        return test_that(false);
+    }).
+    mark_it("read numeric attribute", [&] {
+        auto num = object->get_numeric_attribute<Real>("x");
+        if (!num) return test_that(false);
+        return test_that(are_very_close(*num, 426.604));
+    }).
+    mark_it("read object property", [&] {
+        auto other_object = object->get_object_property("object");
+        if (!other_object) return test_that(false);
+        return test_that(other_object->id() == 3);
+    }).
+    mark_it("read group property", [&] {
+        auto group = object->get_group_property("group");
+        if (!group) return test_that(false);
+        return test_that(group->id() == 2);
+    }).
+    mark_it("read numeric property", [&] {
+        auto num = object->get_numeric_property<int>("numeric");
+        if (!num) return test_that(false);
+        return test_that(*num == 10);
+    }).
+    mark_it("read string property", [&] {
+        auto str = object->get_string_property("string");
+        if (!str) return test_that(false);
+        return test_that(::strcmp(str, "hello mario") == 0);
     });
 });
 

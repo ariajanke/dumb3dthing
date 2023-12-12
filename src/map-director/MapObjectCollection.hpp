@@ -161,6 +161,7 @@ class MapObjectCollection final : public MapObjectRetrieval {
 public:
     using GroupContainer = MapObject::GroupContainer;
     using ObjectReorderContainer = MapObjectGroup::ObjectReorderContainer;
+    using NameObjectMap = MapObjectGroup::NameObjectMap;
 
     static MapObjectCollection load_from(const DocumentOwningNode & map_element) {
         MapObjectCollection collection;
@@ -172,14 +173,16 @@ public:
 
     void load(const DocumentOwningNode & map_element);
 
-    const MapObjectRetrieval * seek_group(const char *) const
-        { return nullptr; }
-
-    const MapObject * seek_by_name(const char *) const { return nullptr; }
-
-    const MapObject * seek_object_by_id(int id) const {
+    const MapObject * seek_object_by_id(int id) const final {
         auto itr = m_id_to_object.find(id);
         if (itr == m_id_to_object.end())
+            { return nullptr; }
+        return itr->second;
+    }
+
+    const MapObjectGroup * seek_group_by_id(int id) const final {
+        auto itr = m_id_to_group.find(id);
+        if (itr == m_id_to_group.end())
             { return nullptr; }
         return itr->second;
     }
@@ -190,8 +193,17 @@ public:
         return &m_groups.front();
     }
 
+    const MapObject * seek_by_name(const char * name) const {
+        auto itr = m_names_to_objects.find(name);
+        if (itr == m_names_to_objects.end())
+            { return nullptr; }
+        return itr->second;
+    }
+
 private:
     cul::HashMap<int, const MapObject *> m_id_to_object{0};
+    cul::HashMap<int, const MapObjectGroup *> m_id_to_group{0};
+    NameObjectMap m_names_to_objects{nullptr};
     std::vector<MapObject> m_map_objects;
     GroupContainer m_groups;
 };

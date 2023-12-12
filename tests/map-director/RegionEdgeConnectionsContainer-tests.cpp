@@ -23,8 +23,6 @@
 
 #include "../test-helpers.hpp"
 
-#include <unordered_set>
-
 namespace {
 
 struct Samp final {

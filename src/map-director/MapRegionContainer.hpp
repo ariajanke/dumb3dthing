@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "ViewGrid.hpp"
 #include "ScaleComputation.hpp"
 
 #include <unordered_map>
