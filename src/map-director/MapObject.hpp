@@ -100,7 +100,6 @@ class MapObjectGroup;
 
 class MapObject final {
 public:
-    // I should know my parent group
     using GroupContainer = std::vector<MapObjectGroup>;
     using GroupConstIterator = GroupContainer::const_iterator;
 
@@ -130,31 +129,20 @@ public:
 
     using NameObjectMap = cul::HashMap<const char *, const MapObject *, CStringHasher, CStringEqual>;
 
+    static NameObjectMap find_first_visible_named_objects
+        (const std::vector<MapObject> &);
+
     static MapObject load_from
         (const TiXmlElement &,
          const MapObjectGroup & parent_group,
          const MapObjectRetrieval &);
 
     // objects also in BFS group order
-    static std::vector<MapObject> load_from
+    static std::vector<MapObject> load_objects_from
         (const MapObjectRetrieval & retrieval,
          View<GroupConstIterator>);
 
-    static NameObjectMap find_first_visible_named_objects
-        (const std::vector<MapObject> &);
-
     MapObject() {}
-
-    void load(const DocumentOwningNode &, const MapObjectRetrieval &);
-#   if 0
-    template <typename T>
-    Optional<T> get_property(const char * name) const
-        { return get<T>(FieldType::property, name); }
-
-    template <typename T>
-    Optional<T> get_attribute(const char * name) const
-        { return get<T>(FieldType::attribute, name); }
-#   endif
 
     template <typename T>
     std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
@@ -166,59 +154,29 @@ public:
         get_numeric_attribute(const char * name) const
         { return get_arithmetic<T>(FieldType::attribute, name); }
 
-    const MapObject * get_object_property(const char * name) const {
-        auto maybe_id = get_arithmetic<int>(FieldType::property, name);
-        if (!maybe_id)
-            { return nullptr; }
-    }
+    const MapObject * get_object_property(const char * name) const;
 
-    const MapObjectGroup * get_group_property(const char *) const;
+    const MapObjectGroup * get_group_property(const char * name) const;
 
-    View<std::vector<const MapObject *>::const_iterator>
-        get_referrers_property(const char *) const;
+    const char * get_string_property(const char * name) const
+        { return get_string(FieldType::property, name); }
 
-    const char * get_string_property(const char *) const;
-
-    const char * get_string_attribute(const char *) const;
+    const char * get_string_attribute(const char * name) const
+        { return get_string(FieldType::attribute, name); }
 
     // TilEd always requires this
-    const char * name() const
-        { return *get_attribute<const char *>("name"); }
+    const char * name() const;
 
     const MapObjectGroup * parent_group() const
         { return m_parent_group; }
 
     int id() const {
-        auto maybe_id = get_numeric_attribute<int>("id");
-        if (!maybe_id) {
-            throw RuntimeError{"object without an id"};
-        }
-        return *maybe_id;
+        return verify_has_id(get_numeric_attribute<int>("id"));
     }
 
     const MapObject * seek_by_name(const char * object_name) const;
 
 private:
-    template <typename T>
-    Optional<T> get(FieldType type, const char * name) const {
-        auto itr = m_values.find(Key{name, type});
-        if (itr == m_values.end()) return {};
-        return MapObjectConversion<T>::convert(itr->second);
-    }
-
-    template <typename T>
-    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
-        get_arithmetic(FieldType type, const char * name) const
-    {
-        auto itr = m_values.find(Key{name, type});
-        if (itr == m_values.end()) return {};
-        T i = 0;
-        auto end = itr->second + ::strlen(itr->second);
-        if (cul::string_to_number(itr->second, end, i))
-            return i;
-        return {};
-    }
-
     struct KeyHasher final {
         std::size_t operator () (const Key & key) const;
     };
@@ -229,28 +187,42 @@ private:
 
     using ValuesMap = cul::HashMap<Key, const char *, KeyHasher, KeyEqual>;
 
+    static int verify_has_id(Optional<int> maybe_id) {
+        if (maybe_id) return *maybe_id;
+        throw RuntimeError{"objects are expect to always have ids"};
+    }
+
     MapObject(const MapObjectGroup & parent_group, ValuesMap && values, const MapObjectRetrieval & retrieval):
         m_parent_group(&parent_group),
         m_values(std::move(values)),
         m_parent_retrieval(&retrieval) {}
 
+    const char * get_string(FieldType type, const char * name) const {
+        auto itr = m_values.find(Key{name, type});
+        if (itr == m_values.end()) return nullptr;
+        return itr->second;
+    }
+
+    template <typename T>
+    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+        get_arithmetic(FieldType type, const char * name) const
+    {
+        T i = 0;
+        auto as_str = get_string(type, name);
+        if (!as_str)
+            { return {}; }
+        auto end = as_str + ::strlen(as_str);
+        if (cul::string_to_number(as_str, end, i))
+            return i;
+        return {};
+    }
+
+
     const MapObjectGroup * m_parent_group = nullptr;
     ValuesMap m_values = ValuesMap{Key{}};
     const MapObjectRetrieval * m_parent_retrieval = nullptr;
 };
-
-class MapObjectSomething;
-
-class MapObjectLoader final {
-public:
-    using ObjectIterator = std::vector<MapObject>::const_iterator;
-
-    virtual void operator ()
-        (MapObjectSomething &,
-         View<ObjectIterator>
-         /* and something about nested loaders? */);
-};
-
+#if 0
 // ----------------------------------------------------------------------------
 
 class MapObjectGroupBase {
@@ -339,10 +311,7 @@ public:
 
     int rank() const { return m_rank; }
 
-    Optional<const char *> name() const {
-        if (m_name[0] == '\0') return {};
-        return m_name;
-    }
+    const char * name() const { return m_name; }
 
     // at some point, add behavior
 
@@ -373,6 +342,8 @@ public:
 
     void set_object_name_map(NameObjectMap && name_map)
         { m_object_name_map = std::move(name_map); }
+
+    bool has_parent() const { return static_cast<bool>(m_parent); }
 
 private:
     static const View<ConstIterator> k_empty_group_view;
@@ -406,7 +377,11 @@ public:
     using GroupContainer = MapObject::GroupContainer;
     using ObjectReorderContainer = MapObjectGroup::ObjectReorderContainer;
 
-    static MapObjectCollection load_from(const DocumentOwningNode & map_element);
+    static MapObjectCollection load_from(const DocumentOwningNode & map_element) {
+        MapObjectCollection collection;
+        collection.load(map_element);
+        return collection;
+    }
 
     MapObjectCollection() {}
 
@@ -465,3 +440,4 @@ public:
         return {};
     }
 };
+#endif

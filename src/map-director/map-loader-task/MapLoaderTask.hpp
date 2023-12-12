@@ -75,10 +75,10 @@ public:
     Continuation & in_background
         (Callbacks &, ContinuationStrategy &) final;
 
-    UniquePtr<MapRegion> retrieve() final;
+    Result retrieve() final;
 
 private:
-    UniquePtr<MapRegion> m_loaded_region;
+    Result m_map_result;
     tiled_map_loading::MapLoadStateMachine m_map_loader;
     MapContentLoaderComplete m_content_loader;
 };

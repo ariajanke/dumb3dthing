@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "../../src/map-director/MapObject.hpp"
+#include "../../src/map-director/MapObjectCollection.hpp"
 
 #include "../test-helpers.hpp"
 
@@ -75,6 +76,25 @@ constexpr const auto k_groups_for_bfs_example =
     "</objectgroup>"
     "</map>";
 
+constexpr const auto k_something_with_groups =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<map>"
+    "<objectgroup id=\"2\" name=\"Object Layer 1\" class=\"immediate\">"
+      "<object id=\"1\" type=\"player-spawn-point\" x=\"426.604\" y=\"452.697\">"
+      "</object>"
+    "</objectgroup>"
+    "<group id=\"4\" name=\"Group Layer 1\" class=\"immediate\">"
+      "<objectgroup id=\"5\" name=\"wave-one\" class=\"stop\">"
+        "<object id=\"5\" type=\"baddie-type-a\" x=\"530.979\" y=\"398.083\">"
+        "</object>"
+        "<object id=\"6\" type=\"baddie-type-a\" x=\"514.594\" y=\"438.134\">"
+        "</object>"
+        "<object id=\"7\" type=\"baddie-type-a\" x=\"561.927\" y=\"437.527\">"
+        "</object>"
+      "</objectgroup>"
+    "</group>"
+    "</map>";
+
 struct MapObjectFindUpTree final {};
 
 using CStringEqual = MapObject::CStringEqual;
@@ -88,12 +108,33 @@ using namespace cul::tree_ts;
 describe("MapObjectGroup")([] {
     auto node = DocumentOwningNode::load_root(k_simple_object_map);
     assert(node);
-    MapObjectCollection collection;
-    collection.load(*node);
+    auto collection = MapObjectCollection::load_from(*node);
     auto * group = collection.top_level_group();
     assert(group);
     mark_it("can find player by name", [&] {
         return test_that(group->seek_by_name("player"));
+    });
+});
+
+describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
+    auto node = DocumentOwningNode::load_root(k_something_with_groups);
+    assert(node);
+    auto groups = MapObjectGroup::initialize_for_map(*node);
+    // two groups without a parent is completely valid
+    mark_it("loads three groups", [&] {
+        return test_that(groups.size() == 3);
+    }).
+    mark_it("all but the first group have a parent", [&] {
+        // I want a fast fall option...
+        if (groups.size() != 3)
+            { return test_that(false); }
+        bool first_two_non_parents = std::all_of
+            (groups.begin(),
+             groups.begin() + 2,
+             [] (const MapObjectGroup & group)
+             { return !group.has_parent(); });
+        return test_that(groups.back().has_parent() &&
+                         first_two_non_parents);
     });
 });
 
@@ -117,7 +158,6 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
     auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
     assert(node);
-    MapObjectCollection collection;
     auto groups = MapObjectGroupForTests::initialize_names_and_parents_for_map(*node);
     mark_it("loads three groups", [&] {
         return test_that(groups.size() == 3);
@@ -127,7 +167,7 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
             (groups.begin(),
              groups.end(),
              [] (const MapObjectGroup & group)
-             { return  CStringEqual{}(group.name().value_or(""), "deeply-nested"); });
+             { return  CStringEqual{}(group.name(), "deeply-nested"); });
         return test_that(found_nested_group);
     });
 });
@@ -135,8 +175,8 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
 describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] {
     auto node = DocumentOwningNode::load_root(k_simple_object_map);
     assert(node);
-    MapObjectCollection collection;
-    collection.load(*node);
+    auto collection = MapObjectCollection::load_from(*node);
+
     static constexpr const int k_player_id = 1;
     auto * player_object = collection.seek_object_by_id(k_player_id);
     mark_it("able to find player object", [&] {
@@ -164,8 +204,7 @@ describe<MapObjectFindUpTree>("MapObject find up tree").
 {
     auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
     assert(node);
-    MapObjectCollection collection;
-    collection.load(*node);
+    auto collection = MapObjectCollection::load_from(*node);
     auto * object = collection.seek_object_by_id(3);
     mark_it("able to find object id=3", [&] {
         return test_that(object);
@@ -199,7 +238,7 @@ describe<MapObject>("MapObject").depends_on<MapObject::CStringHasher>()([] {
         return test_that(object.name() == std::string{"player"});
     }).
     mark_it("parses a property correctly", [&] {
-        auto elevation = object.get_property<int>("elevation");
+        auto elevation = object.get_numeric_property<int>("elevation");
         return test_that(elevation.value_or(0) == 10);
     });
 });
@@ -208,7 +247,7 @@ describe<MapObject>("MapObject::find_first_visible_named_objects")([] {
     auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
     using GroupConstIterator = MapObjectGroup::ConstIterator;
     auto groups = MapObjectGroup::initialize_for_map(*node);
-    auto objects = MapObject::load_from
+    auto objects = MapObject::load_objects_from
         (MapObjectRetrieval::null_instance(),
          View<GroupConstIterator>{groups.begin(), groups.end()});
     auto global_names = MapObject::find_first_visible_named_objects(objects);
