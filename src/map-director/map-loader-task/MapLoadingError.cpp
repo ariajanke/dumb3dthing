@@ -19,7 +19,8 @@
 *****************************************************************************/
 
 #include "MapLoadingError.hpp"
-#include "TiledMapLoader.hpp"
+
+#include "../MapObject.hpp"
 
 #include <ariajanke/cul/Either.hpp>
 

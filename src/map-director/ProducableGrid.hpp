@@ -21,9 +21,7 @@
 #pragma once
 
 #include "ViewGrid.hpp"
-#include "ScaleComputation.hpp"
 
-#include "../Tasks.hpp"
 #include "../Components.hpp"
 
 class Platform;

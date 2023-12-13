@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "WallTileFactory.hpp"
+#include "SlopesBasedTileFactory.hpp"
 
 class SingleModelSlopedTileFactory : public SlopesBasedTileFactory {
 public:

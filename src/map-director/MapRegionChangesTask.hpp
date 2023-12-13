@@ -21,7 +21,7 @@
 #pragma once
 
 #include "../Definitions.hpp"
-#include "../Components.hpp"
+#include "../Tasks.hpp"
 
 #include "ProducableGrid.hpp"
 #include "MapRegion.hpp"

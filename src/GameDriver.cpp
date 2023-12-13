@@ -27,12 +27,8 @@
 #include "Configuration.hpp"
 
 #include "map-director.hpp"
-#include "PlayerUpdateTask.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
-
-
-#include <iostream>
 
 namespace {
 

@@ -21,14 +21,11 @@
 #pragma once
 
 #include "map-loader.hpp"
-#include "ParseHelpers.hpp"
 #include "TileTexture.hpp"
 #include "ProducableGrid.hpp"
 
 #include "../Definitions.hpp"
 #include "../platform.hpp"
-
-#include <map>
 
 class TileProperties;
 class ProducableTileCallbacks;

@@ -20,9 +20,7 @@
 
 #include "RegionLoadRequest.hpp"
 
-#include "MapDirector.hpp"
-#include "MapRegion.hpp"
-
+#include "../Components.hpp"
 #include "../TriangleSegment.hpp"
 
 #include "../point-and-plane.hpp"

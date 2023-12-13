@@ -23,7 +23,6 @@
 #include "ProducableGrid.hpp"
 
 #include "../RenderModel.hpp"
-#include "../Components.hpp"
 
 #include <tinyxml2.h>
 

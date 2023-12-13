@@ -20,6 +20,7 @@
 
 #include "PlayerUpdateTask.hpp"
 #include "point-and-plane.hpp"
+#include "Components.hpp"
 
 void PlayerUpdateTask::on_every_frame(Callbacks &, Real) {
     if (!m_physics_ent)

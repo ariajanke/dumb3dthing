@@ -26,6 +26,8 @@
 #include "../ProducableGroupFiller.hpp"
 #include "../CompositeMapRegion.hpp"
 
+#include "../../Tasks.hpp"
+
 #include <map>
 
 class TilesetXmlGrid;

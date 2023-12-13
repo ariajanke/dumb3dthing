@@ -25,8 +25,6 @@
 
 #include <numeric>
 
-#include <cstring>
-
 namespace {
 
 using VertexArray = TriangleToFloorVerticies::VertexArray;

@@ -20,13 +20,14 @@
 
 #include "../../Definitions.hpp"
 #include "../../GameDriver.hpp"
-#include "../../Systems.hpp"
 #include "../../Configuration.hpp"
+#include "../../Components.hpp"
+#include "../../point-and-plane.hpp"
+#include "GlmVectorTraits.hpp"
 
 #include "RenderModelImpl.hpp"
 #include "TextureImpl.hpp"
 #include "ShaderProgram.hpp"
-#include "GlmVectorTraits.hpp"
 #include "GlmDefs.hpp"
 
 #include <iostream>
@@ -216,6 +217,7 @@ private:
 // ----------------------------------------------------------------------------
 
 int main() {
+    (void)cul::VectorTraits<glm::vec<3, Real, glm::highp>>{};
     // glfw: initialize and configure
     // ------------------------------
     GlfwLibraryRAII glfw_raii; (void)glfw_raii;
