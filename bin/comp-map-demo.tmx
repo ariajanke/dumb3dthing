@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="8">
  <properties>
-  <property name="scale" value="5"/>
+  <property name="scale" value="5,1,5"/>
  </properties>
  <tileset firstgid="1" source="comps-demo-map-parts.tsx"/>
  <layer id="1" name="Tile Layer 1" width="32" height="32">
@@ -41,9 +41,9 @@
 </data>
  </layer>
  <objectgroup id="2" name="Object Layer 1" class="immediate">
-  <object id="1" name="player-spawn-point" type="player-spawn-point" x="426.604" y="452.697">
+  <object id="1" name="player-spawn-point" type="player-spawn-point" x="438.854" y="520.947">
    <properties>
-    <property name="elevation" value="10"/>
+    <property name="elevation" value="8"/>
     <property name="wave" type="int" value="5"/>
     <property name="will-fight" value="property:enemy-of"/>
    </properties>

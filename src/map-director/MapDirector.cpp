@@ -143,12 +143,14 @@ Continuation & PlayerMapPreperationTask::in_background
         (m_player_physics, m_ppdriver, std::move(res.map_region));
     auto * player_object = res.map_objects.seek_by_name("player-spawn-point");
     auto & location = std::get<PpInAir>(m_player_physics.get<PpState>()).location;
+    const auto & object_framing = res.object_framing;
     if (player_object) {
-        auto x = player_object->get_numeric_attribute<Real>("x");
-        auto y = player_object->get_numeric_attribute<Real>("y");
-        if (x && y) {
-            location = Vector{*x / 32, -10, -*y / 32};
-        }
+        (void)object_framing.
+            get_position_from(*player_object).
+            map([&location] (Vector && r) {
+                location = r;
+                return std::monostate{};
+            });
     }
     m_player_physics.
         add<

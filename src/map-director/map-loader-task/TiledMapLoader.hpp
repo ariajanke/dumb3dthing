@@ -31,6 +31,7 @@ class TilesetXmlGrid;
 struct MapLoadingSuccess final {
     UniquePtr<MapRegion> loaded_region;
     MapObjectCollection object_collection;
+    MapObjectFraming object_framing;
     MapLoadingWarnings warnings;
 };
 

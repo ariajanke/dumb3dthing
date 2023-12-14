@@ -52,6 +52,7 @@ Continuation & MapLoaderTask::in_background
         map([this] (MapLoadingSuccess && res) {
             m_map_result.map_region = std::move(res.loaded_region);
             m_map_result.map_objects = std::move(res.object_collection);
+            m_map_result.object_framing = std::move(res.object_framing);
             return 0;
         }).
         map_left([] (MapLoadingError &&) {

@@ -92,16 +92,13 @@ public:
          std::vector<MapObject> && all_objects,
          View<Iterator> all_groups);
 
-    // MapObject::NameLessThan should be built on me
     static bool find_name_predicate
-        (const MapObject * obj, const char * object_name)
-    { return ::strcmp(obj->name(), object_name) < 0; }
+        (const MapObject * obj, const char * object_name);
 
     explicit MapObjectGroup(int id): m_id(id) {}
 
     MapObjectGroup
-        (const TiXmlElement & element, const char * name, int id, int rank):
-        m_name(name), m_element(&element), m_id(id), m_rank(rank) {}
+        (const TiXmlElement & element, const char * name, int id, int rank);
 
     View<ConstIterator> groups() const { return m_groups; }
 
@@ -119,26 +116,15 @@ public:
 
     int rank() const { return m_rank; }
 
-    const MapObject * seek_by_name(const char * object_name) const {
-        auto itr = m_object_name_map.find(object_name);
-        if (itr != m_object_name_map.end()) {
-            return itr->second;
-        } else if (m_parent) {
-            return m_parent->seek_by_name(object_name);
-        }
-        return nullptr;
-    }
+    const MapObject * seek_by_name(const char * object_name) const;
 
-    void set_child_objects(View<ObjectIterator> child_objects)
-        { m_objects = child_objects; }
+    void set_child_objects(View<ObjectIterator> child_objects);
 
     Iterator set_child_groups(Iterator starting_at, Iterator end);
 
-    void set_object_name_map(NameObjectMap && name_map)
-        { m_object_name_map = std::move(name_map); }
+    void set_object_name_map(NameObjectMap && name_map);
 
-    void set_parent(const MapObjectGroup & group)
-        { m_parent = &group; }
+    void set_parent(const MapObjectGroup & group);
 
 private:
     static const View<ConstIterator> k_empty_group_view;
@@ -157,53 +143,60 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class MapObjectCollection final : public MapObjectRetrieval {
+class MapObjectCollection final {
 public:
     using GroupContainer = MapObject::GroupContainer;
+    using GroupIterator = GroupContainer::const_iterator;
     using ObjectReorderContainer = MapObjectGroup::ObjectReorderContainer;
     using NameObjectMap = MapObjectGroup::NameObjectMap;
 
-    static MapObjectCollection load_from(const DocumentOwningNode & map_element) {
-        MapObjectCollection collection;
-        collection.load(map_element);
-        return collection;
-    }
+    static MapObjectCollection load_from(const DocumentOwningNode & map_element);
 
-    MapObjectCollection() {}
+    MapObjectCollection(): m_top_level_groups_end(m_groups.end()) {}
 
     void load(const DocumentOwningNode & map_element);
 
-    const MapObject * seek_object_by_id(int id) const final {
-        auto itr = m_id_to_object.find(id);
-        if (itr == m_id_to_object.end())
-            { return nullptr; }
-        return itr->second;
-    }
 
-    const MapObjectGroup * seek_group_by_id(int id) const final {
-        auto itr = m_id_to_group.find(id);
-        if (itr == m_id_to_group.end())
-            { return nullptr; }
-        return itr->second;
-    }
+    const MapObject * seek_object_by_id(int id) const
+        { return m_id_maps.seek_object_by_id(id); }
 
-    const MapObjectGroup * top_level_group() const {
-        if (m_groups.empty())
-            { return nullptr; }
-        return &m_groups.front();
-    }
+    const MapObjectGroup * seek_group_by_id(int id) const
+        { return m_id_maps.seek_group_by_id(id); }
 
-    const MapObject * seek_by_name(const char * name) const {
-        auto itr = m_names_to_objects.find(name);
-        if (itr == m_names_to_objects.end())
-            { return nullptr; }
-        return itr->second;
-    }
+    View<GroupIterator> top_level_groups() const
+        { return View{m_groups.begin(), m_top_level_groups_end}; }
+
+    const MapObject * seek_by_name(const char * name) const;
 
 private:
-    cul::HashMap<int, const MapObject *> m_id_to_object{0};
-    cul::HashMap<int, const MapObjectGroup *> m_id_to_group{0};
+    template <typename T>
+    using IntHashMap = cul::HashMap<int, T>;
+
+    class IdsToElementsMap final : public MapObjectRetrieval {
+    public:
+        IdsToElementsMap() {}
+
+        void set_object_id_map(const std::vector<MapObject> &);
+
+        void set_group_id_map(const GroupContainer &);
+
+        const MapObjectGroup * seek_group_by_id(int id) const final;
+
+        const MapObject * seek_object_by_id(int id) const final;
+
+    private:
+        template <typename T>
+        static T seek_in(const IntHashMap<T> & hash_map, int id);
+
+        IntHashMap<const MapObject *> m_id_to_object{0};
+        IntHashMap<const MapObjectGroup *> m_id_to_group{0};
+    };
+
+    void load(GroupContainer &&, std::vector<MapObject> &&);
+
+    IdsToElementsMap m_id_maps;
     NameObjectMap m_names_to_objects{nullptr};
     std::vector<MapObject> m_map_objects;
     GroupContainer m_groups;
+    GroupIterator m_top_level_groups_end;
 };

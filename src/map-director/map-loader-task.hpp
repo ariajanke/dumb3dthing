@@ -31,6 +31,7 @@ public:
     struct Result final {
         UniquePtr<MapRegion> map_region;
         MapObjectCollection map_objects;
+        MapObjectFraming object_framing;
     };
 
     static SharedPtr<MapLoaderTask_> make

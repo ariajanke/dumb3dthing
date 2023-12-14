@@ -205,6 +205,14 @@ std::vector<const MapObject *> name_sorted
     return std::move(all_objects);
 }
 
+/* static */ bool MapObjectGroup::find_name_predicate
+    (const MapObject * obj, const char * object_name)
+{ return ::strcmp(obj->name(), object_name) < 0; }
+
+MapObjectGroup::MapObjectGroup
+    (const TiXmlElement & element, const char * name, int id, int rank):
+    m_name(name), m_element(&element), m_id(id), m_rank(rank) {}
+
 MapObjectGroup::Iterator
     MapObjectGroup::set_child_groups
     (Iterator starting_at, Iterator end)
@@ -237,23 +245,102 @@ std::vector<MapObject>
     return std::move(objects);
 }
 
+const MapObject * MapObjectGroup::seek_by_name(const char * object_name) const {
+    auto itr = m_object_name_map.find(object_name);
+    if (itr != m_object_name_map.end()) {
+        return itr->second;
+    } else if (m_parent) {
+        return m_parent->seek_by_name(object_name);
+    }
+    return nullptr;
+}
+
+void MapObjectGroup::set_child_objects(View<ObjectIterator> child_objects)
+    { m_objects = child_objects; }
+
+void MapObjectGroup::set_object_name_map(NameObjectMap && name_map)
+    { m_object_name_map = std::move(name_map); }
+
+void MapObjectGroup::set_parent(const MapObjectGroup & group)
+    { m_parent = &group; }
+
 // ----------------------------------------------------------------------------
+
+/* static */ MapObjectCollection MapObjectCollection::load_from
+    (const DocumentOwningNode & map_element)
+{
+    MapObjectCollection collection;
+    collection.load(map_element);
+    return collection;
+}
 
 void MapObjectCollection::load(const DocumentOwningNode & map_element) {
     using GroupConstIterator = MapObjectGroup::ConstIterator;
     auto groups = MapObjectGroup::initialize_for_map(map_element);
     auto objects = MapObject::load_objects_from
-        (*this,
+        (m_id_maps,
          View<GroupConstIterator>{groups.begin(), groups.end()});
+    load(std::move(groups), std::move(objects));
+}
+
+const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
+    auto itr = m_names_to_objects.find(name);
+    if (itr == m_names_to_objects.end())
+        { return nullptr; }
+    return itr->second;
+}
+
+/* private */ void MapObjectCollection::load
+    (GroupContainer && groups, std::vector<MapObject> && objects)
+{
     auto global_names = MapObject::find_first_visible_named_objects(objects);
     m_map_objects = MapObjectGroup::assign_groups_objects
         (global_names, std::move(objects), View{groups.begin(), groups.end()});
     m_groups = std::move(groups);
-    for (auto & map_object : m_map_objects) {
-        m_id_to_object.insert(map_object.id(), &map_object);
+    m_names_to_objects = std::move(global_names);
+    m_id_maps.set_group_id_map(m_groups);
+    m_id_maps.set_object_id_map(m_map_objects);
+    m_top_level_groups_end = std::find_if
+        (m_groups.begin(),
+         m_groups.end(),
+         [](const MapObjectGroup & group)
+         { return group.has_parent(); });
+}
+
+// ----------------------------------------------------------------------------
+
+void MapObjectCollection::/* private */ IdsToElementsMap::
+    set_object_id_map(const std::vector<MapObject> & objects)
+{
+    m_id_to_object.reserve(objects.size());
+    for (const auto & object : objects) {
+        m_id_to_object.insert(object.id(), &object);
     }
-    for (auto & group : m_groups) {
+}
+
+void MapObjectCollection::/* private */ IdsToElementsMap::
+    set_group_id_map(const GroupContainer & groups)
+{
+    m_id_to_group.reserve(groups.size());
+    for (const auto & group : groups) {
         m_id_to_group.insert(group.id(), &group);
     }
-    m_names_to_objects = std::move(global_names);
+}
+
+const MapObjectGroup * MapObjectCollection::/* private */ IdsToElementsMap::
+    seek_group_by_id(int id) const
+    { return seek_in(m_id_to_group, id); }
+
+const MapObject * MapObjectCollection::/* private */ IdsToElementsMap::
+    seek_object_by_id(int id) const
+    { return seek_in(m_id_to_object, id); }
+
+template <typename T>
+/* private static */ T MapObjectCollection::/* private */ IdsToElementsMap::
+    seek_in(const IntHashMap<T> & hash_map, int id)
+{
+    auto itr = hash_map.find(id);
+    if (itr == hash_map.end())
+        { return nullptr; }
+    return itr->second;
 }

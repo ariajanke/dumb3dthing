@@ -280,21 +280,14 @@ MapLoadResult MapElementCollectorState::update_progress
         load_from_elements(std::move(m_id_mapping_set), std::move(m_layers)).
         make_map_region(map_scale());
     res.object_collection = MapObjectCollection::load_from(m_document_root);
+    res.object_framing = MapObjectFraming::load_from(*m_document_root);
     state_switcher.set_next_state<ExpiredState>();
     return res;
 }
 
 /* private */ ScaleComputation MapElementCollectorState::map_scale() const {
     // there maybe more properties in the future, but for now there's only one
-    auto props = m_document_root->FirstChildElement("properties");
-    for (auto & el : XmlRange{props, "property"}) {
-        if (::strcmp(el.Attribute("name"), "scale") == 0) {
-            auto scale = ScaleComputation::parse(el.Attribute("value"));
-            if (scale)
-                { return *scale; }
-        }
-    }
-    return ScaleComputation{};
+    return ScaleComputation::tile_scale_from_map(*m_document_root);
 }
 
 // ----------------------------------------------------------------------------

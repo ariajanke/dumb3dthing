@@ -115,6 +115,12 @@ std::size_t MapObject::CStringHasher::operator () (const char * cstr) const {
 
 // ----------------------------------------------------------------------------
 
+/* static */ MapObjectFraming MapObjectFraming::load_from
+    (const TiXmlElement & map_element)
+{ return MapObjectFraming{ScaleComputation::pixel_scale_from_map(map_element)}; }
+
+// ----------------------------------------------------------------------------
+
 bool MapObject::CStringEqual::operator ()
     (const char * lhs, const char * rhs) const
 {
@@ -131,7 +137,7 @@ bool MapObject::NameLessThan::operator ()
     (const MapObject * lhs, const MapObject * rhs) const
 {
     assert(lhs && rhs);
-    return ::strcmp(lhs->name(), rhs->name()) < 0;
+    return MapObjectGroup::find_name_predicate(lhs, rhs->name());
 }
 
 // ----------------------------------------------------------------------------
@@ -187,7 +193,7 @@ const MapObjectGroup * MapObject::get_group_property(const char * name) const {
 }
 
 const MapObject * MapObject::get_object_property(const char * name) const {
-    auto maybe_id = get_arithmetic<int>(FieldType::property, name);
+    auto maybe_id = get_numeric<int>(FieldType::property, name);
     if (!maybe_id)
         { return nullptr; }
     return m_parent_retrieval->seek_object_by_id(*maybe_id);

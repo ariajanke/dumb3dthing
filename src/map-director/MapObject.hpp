@@ -22,9 +22,11 @@
 
 #include "../Definitions.hpp"
 #include "ParseHelpers.hpp"
+#include "ScaleComputation.hpp"
 
 #include <ariajanke/cul/HashMap.hpp>
 #include <ariajanke/cul/StringUtil.hpp>
+#include <ariajanke/cul/Either.hpp>
 
 #include <cstring>
 
@@ -84,14 +86,104 @@ public:
     virtual const MapObjectGroup * seek_group_by_id(int) const = 0;
 };
 
-class MapObjectGroup;
+// ----------------------------------------------------------------------------
 
-class MapObject final {
+class MapObjectBase {
+public:
+    enum class FieldType { attribute, property };
+
+    struct LoadFailed final {};
+
+protected:
+    constexpr MapObjectBase() {}
+};
+
+// ----------------------------------------------------------------------------
+
+template <Real Vector::*>
+class MapObjectVectorMemberFraming final : public MapObjectBase {
+public:
+    constexpr MapObjectVectorMemberFraming
+        (FieldType field_type, const char * name, bool required):
+        m_field_type(field_type), m_name(name), m_required(required) {}
+
+    Either<LoadFailed, Vector> operator ()
+        (Either<LoadFailed, Vector> &&, const MapObject & object) const;
+
+private:
+    FieldType m_field_type;
+    const char * m_name;
+    bool m_required;
+};
+
+// ----------------------------------------------------------------------------
+
+class MapObjectVectorFraming final : public MapObjectBase {
+public:
+    template <Real Vector::* kt_member_pointer>
+    using MemberFraming = MapObjectVectorMemberFraming<kt_member_pointer>;
+
+    constexpr MapObjectVectorFraming
+        (const MemberFraming<&Vector::x> & x_framing,
+         const MemberFraming<&Vector::y> & y_framing,
+         const MemberFraming<&Vector::z> & z_framing):
+        m_x_framing(x_framing),
+        m_y_framing(y_framing),
+        m_z_framing(z_framing) {}
+
+    Either<LoadFailed, Vector> operator () (const MapObject & object) const {
+        return m_z_framing(m_y_framing(m_x_framing(Vector{}, object), object), object);
+    }
+
+private:
+    MemberFraming<&Vector::x> m_x_framing;
+    MemberFraming<&Vector::y> m_y_framing;
+    MemberFraming<&Vector::z> m_z_framing;
+};
+
+// ----------------------------------------------------------------------------
+
+class MapObjectFraming final : public MapObjectBase {
+public:
+    template <Real Vector::* kt_member_pointer>
+    using VectorMemberFraming = MapObjectVectorMemberFraming<kt_member_pointer>;
+
+    using VectorXFraming = VectorMemberFraming<&Vector::x>;
+    using VectorYFraming = VectorMemberFraming<&Vector::y>;
+    using VectorZFraming = VectorMemberFraming<&Vector::z>;
+
+    static constexpr const auto k_point_object_framing =
+        MapObjectVectorFraming
+            {VectorXFraming{FieldType::attribute, "x"        , true },
+             VectorYFraming{FieldType::property , "elevation", false},
+             VectorZFraming{FieldType::attribute, "y"        , true }};
+
+    static MapObjectFraming load_from(const TiXmlElement & map_element);
+
+    MapObjectFraming() {}
+
+    explicit MapObjectFraming(const ScaleComputation & scale):
+        m_map_pixel_scale(scale) {}
+
+    Either<LoadFailed, Vector> get_position_from
+        (const MapObject & object,
+         const MapObjectVectorFraming & framing = k_point_object_framing) const
+    {
+        return framing(object).map([this] (Vector && r) {
+            return m_map_pixel_scale.of(r);
+        });
+    }
+
+private:
+    ScaleComputation m_map_pixel_scale;
+};
+
+// ----------------------------------------------------------------------------
+
+class MapObject final : public MapObjectBase {
 public:
     using GroupContainer = std::vector<MapObjectGroup>;
     using GroupConstIterator = GroupContainer::const_iterator;
-
-    enum class FieldType { attribute, property };
 
     struct CStringHasher final {
         std::size_t operator () (const char *) const;
@@ -134,13 +226,17 @@ public:
 
     template <typename T>
     std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+        get_numeric(FieldType type, const char * name) const;
+
+    template <typename T>
+    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
         get_numeric_property(const char * name) const
-        { return get_arithmetic<T>(FieldType::property, name); }
+        { return get_numeric<T>(FieldType::property, name); }
 
     template <typename T>
     std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
         get_numeric_attribute(const char * name) const
-        { return get_arithmetic<T>(FieldType::attribute, name); }
+        { return get_numeric<T>(FieldType::attribute, name); }
 
     const MapObjectGroup * get_group_property(const char * name) const;
 
@@ -177,9 +273,6 @@ private:
 
     const char * get_string(FieldType, const char * name) const;
 
-    template <typename T>
-    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
-        get_arithmetic(FieldType type, const char * name) const;
 
     const MapObjectGroup * m_parent_group = nullptr;
     ValuesMap m_values = ValuesMap{Key{}};
@@ -188,9 +281,33 @@ private:
 
 // ----------------------------------------------------------------------------
 
+template <Real Vector::* kt_member_pointer>
+Either<MapObjectBase::LoadFailed, Vector>
+    MapObjectVectorMemberFraming<kt_member_pointer>::operator ()
+    (Either<LoadFailed, Vector> && ei, const MapObject & object) const
+{
+    return ei.chain([&object, this] (Vector && r) -> Either<LoadFailed, Vector> {
+        if (auto num = object.get_numeric<Real>(m_field_type, m_name)) {
+            auto & member = (r.*kt_member_pointer) = *num;
+            if constexpr (kt_member_pointer == &Vector::z) {
+                member *= -1;
+                member -= 0.5;
+            }
+            if constexpr (kt_member_pointer == &Vector::x) {
+                member += 0.5;
+            }
+        } else if (m_required) {
+            return LoadFailed{};
+        }
+        return std::move(r);
+    });
+}
+
+// ----------------------------------------------------------------------------
+
 template <typename T>
 std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
-    MapObject::get_arithmetic(FieldType type, const char * name) const
+    MapObject::get_numeric(FieldType type, const char * name) const
 {
     T i = 0;
     auto as_str = get_string(type, name);
