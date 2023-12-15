@@ -75,6 +75,7 @@ ModelTranslation TilePositionFraming::model_translation() const
     { return ModelTranslation{translation()}; }
 
 /* private */ Vector TilePositionFraming::translation() const {
+    // something about seems wrong...
     return Vector
         {Real(m_on_field_tile_position.x),
          0,

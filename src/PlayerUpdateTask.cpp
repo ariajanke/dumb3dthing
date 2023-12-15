@@ -32,9 +32,10 @@ void PlayerUpdateTask::on_every_frame(Callbacks &, Real) {
 /* private static */ void PlayerUpdateTask::check_fall_below(Entity & ent) {
     auto * ppair = get_if<PpInAir>(&ent.get<PpState>());
     if (!ppair) return;
+    const auto & recovery_point = ent.get<PlayerRecovery>();
     auto & loc = ppair->location;
     if (loc.y < -10) {
-        loc = Vector{loc.x, 4, loc.z};
+        loc = recovery_point.value;
         ent.get<Velocity>() = Velocity{};
     }
 }

@@ -154,9 +154,10 @@ Continuation & PlayerMapPreperationTask::in_background
     }
     m_player_physics.
         add<
-            Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>
+            Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>,
+            PlayerRecovery
             >() = make_tuple
-            (Velocity{}, player_update_task, map_director_task);
+            (Velocity{}, player_update_task, map_director_task, location);
 
     callbacks.add(player_update_task);
     callbacks.add(map_director_task);

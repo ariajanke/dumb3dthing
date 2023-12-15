@@ -291,10 +291,10 @@ Either<MapObjectBase::LoadFailed, Vector>
             auto & member = (r.*kt_member_pointer) = *num;
             if constexpr (kt_member_pointer == &Vector::z) {
                 member *= -1;
-                member -= 0.5;
+                member += k_tile_top_left.z;
             }
             if constexpr (kt_member_pointer == &Vector::x) {
-                member += 0.5;
+                member += k_tile_top_left.x;
             }
         } else if (m_required) {
             return LoadFailed{};

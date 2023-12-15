@@ -41,10 +41,6 @@ public:
     void setup(const TilesetXmlGrid &,
                PlatformAssetsStrategy &,
                const Vector2I & location_on_tileset);
-
-    static Vector grid_position_to_v3(const Vector2I & r)
-        { return Vector{r.x, 0, -r.y}; }
-
 protected:
     static void add_triangles_based_on_model_details
         (const Vector & translation, const Slopes & slopes,

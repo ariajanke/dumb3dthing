@@ -41,7 +41,7 @@
 </data>
  </layer>
  <objectgroup id="2" name="Object Layer 1" class="immediate">
-  <object id="1" name="player-spawn-point" type="player-spawn-point" x="438.854" y="520.947">
+  <object id="1" name="player-spawn-point" type="player-spawn-point" x="424.354" y="535.697">
    <properties>
     <property name="elevation" value="8"/>
     <property name="wave" type="int" value="5"/>

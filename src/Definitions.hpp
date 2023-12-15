@@ -134,3 +134,6 @@ constexpr const Vector k_east {1, 0, 0};
 constexpr const Vector k_up   {0, 1, 0};
 constexpr const Vector k_north{0, 0, 1};
 
+// top-left of tile is closer to 0, 0
+// it is the north-west corner of the tile
+constexpr const Vector k_tile_top_left{-0.5, 0, 0.5};

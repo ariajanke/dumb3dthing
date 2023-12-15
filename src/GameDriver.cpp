@@ -271,7 +271,9 @@ void GameDriverComplete::press_key(KeyControl ky) {
     m_player_entities.physical.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
-        m_player_entities.physical.get<PpState>() = PpInAir{k_player_start, Vector{}};
+        auto recovery_point = m_player_entities.physical.get<PlayerRecovery>();
+        m_player_entities.physical.get<PpState>() =
+            PpInAir{k_player_start, recovery_point.value};
     }
 }
 
