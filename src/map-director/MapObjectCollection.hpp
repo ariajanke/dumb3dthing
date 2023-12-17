@@ -214,7 +214,8 @@ private:
 
         void set_group_id_map(const GroupContainer &);
 
-        void set_referrers(MapObjectReferrers &&);
+        void set_referrers(MapObjectReferrers && referrers)
+            { m_referrers = std::move(referrers); }
 
         const MapObjectGroup * seek_group_by_id(int id) const final;
 
@@ -233,7 +234,7 @@ private:
         IntHashMap<const MapObjectGroup *> m_id_to_group{0};
     };
 
-    void load(GroupContainer &&, std::vector<MapObject> &&);
+    void load(GroupContainer &&, std::vector<MapObject> &&, std::vector<const TiXmlElement *> && group_elements);
 
     IdsToElementsMap m_id_maps;
     NameObjectMap m_names_to_objects{nullptr};

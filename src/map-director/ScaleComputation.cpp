@@ -58,8 +58,9 @@ constexpr const auto k_whitespace_trimmer =
     if (tile_height < 1 || tile_width < 1) {
         return ScaleComputation{};
     }
-    return tile_scale_from_map(map_root).of
-        (ScaleComputation{ 1. / Real(tile_width), 1., 1. / Real(tile_width) });
+    ScaleComputation tile_scale
+        { Real(1.) / Real(tile_width), Real(1.), Real(1.) / Real(tile_height) };
+    return tile_scale_from_map(map_root).of(tile_scale);
 }
 
 /* static */ Optional<ScaleComputation>

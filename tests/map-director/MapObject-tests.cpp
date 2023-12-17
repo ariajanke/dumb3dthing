@@ -95,6 +95,31 @@ constexpr const auto k_multiple_top_level_groups =
     "</group>"
     "</map>";
 
+constexpr const auto k_referrers_map =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<map>"
+    "<objectgroup id=\"2\" name=\"Object Layer 1\" class=\"immediate\">"
+      "<object id=\"1\" type=\"player-spawn-point\" x=\"426.604\" y=\"452.697\">"
+      "</object>"
+      "<object id=\"5\" type=\"baddie-type-a\" x=\"530.979\" y=\"398.083\">"
+        "<properties>"
+          "<property name=\"object\" type=\"object\" value=\"1\"/>"
+        "</properties>"
+      "</object>"
+      "<object id=\"6\" type=\"baddie-type-a\" x=\"514.594\" y=\"438.134\">"
+        "<properties>"
+          "<property name=\"object1\" type=\"object\" value=\"1\"/>"
+          "<property name=\"object2\" type=\"object\" value=\"7\"/>"
+        "</properties>"
+      "</object>"
+      "<object id=\"7\" type=\"baddie-type-a\" x=\"561.927\" y=\"437.527\">"
+        "<properties>"
+          "<property name=\"object\" type=\"object\" value=\"1\"/>"
+        "</properties>"
+      "</object>"
+    "</objectgroup>"
+    "</map>";
+
 constexpr const auto k_object_with_properties =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
     "<map>"
@@ -243,7 +268,45 @@ describe<MapObjectFindUpTree>("MapObject#seek_by_object_name").
     });
 });
 
-describe<MapObject>("MapObject").depends_on<MapObject::CStringHasher>()([] {
+describe("MapObject#get_referrers")([] {
+    auto node = DocumentOwningNode::load_root(k_referrers_map);
+    assert(node);
+    auto collection = MapObjectCollection::load_from(*node);
+    auto * object1 = collection.seek_object_by_id(1);
+    auto * object6 = collection.seek_object_by_id(6);
+    auto * object7 = collection.seek_object_by_id(7);
+    mark_it("finds prerequsite objects", [&] {
+        return test_that(object1 && object7 && object6);
+    }).
+    mark_it("object 1 has three referrers", [&] {
+        auto refrs = object1->get_referrers();
+        return test_that(refrs.end() - refrs.begin() == 3);
+    }).
+    mark_it("all object 1 referrers are \"baddie-type-a\"s", [&] {
+        auto refrs = object1->get_referrers();
+        auto all_type_a_baddies = std::all_of
+            (refrs.begin(), refrs.end(), [](const MapObject * obj) {
+                auto type = obj->get_string_attribute("type");
+                if (!type) return false;
+                return ::strcmp(type, "baddie-type-a") == 0;
+            });
+        return test_that(all_type_a_baddies);
+    }).
+    mark_it("object 6 has no referrers", [&] {
+        auto refrs = object6->get_referrers();
+        return test_that(refrs.begin() == refrs.end());
+    }).
+    mark_it("object 7 has one referrer", [&] {
+        auto refrs = object7->get_referrers();
+        return test_that(refrs.end() - refrs.begin() == 1);
+    }).
+    mark_it("object 7's referrer is object 6", [&] {
+        auto refrs = object7->get_referrers();
+        return test_that(object6 == *refrs.begin());
+    });
+});
+
+describe<MapObject>("MapObject")([] {
     auto node = DocumentOwningNode::load_root(k_simple_object_map);
     auto objectgroup = (**node).FirstChildElement("objectgroup");
     auto object_el = objectgroup->FirstChildElement("object");
@@ -328,18 +391,6 @@ describe<MapObject>("MapObject::find_first_visible_named_objects")([] {
     mark_it("an \"something\" is visible", [&] {
         return test_that(global_names.find("something") !=
                          global_names.end()               );
-    });
-});
-
-describe<MapObject::CStringHasher>("CStringHasher")([] {
-    mark_it("consistently hashes strings", [&] {
-        auto sample_hash1 = MapObject::CStringHasher{}("sample");
-        auto strings = { "apples", "peas", "car", "reallylongstring", "stuff" };
-        for (auto & string : strings) {
-            (void)MapObject::CStringHasher{}(string);
-        }
-        auto sample_hash2 = MapObject::CStringHasher{}("sample");
-        return test_that(sample_hash1 == sample_hash2);
     });
 });
 

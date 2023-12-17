@@ -34,7 +34,6 @@ MapObjectGroup::ObjectIterator empty_object_container_iterator() {
     return object_container.end();
 }
 
-
 class MapObjectReferrersInserter final {
 public:
     using ObjectViewMap = MapObjectReferrers::ObjectViewMap;
@@ -84,6 +83,33 @@ private:
 
     std::vector<RefPair> m_object_pairs;
 };
+
+MapObjectReferrers
+    referrers_from
+    (const MapObjectRetrieval & object_retrieval,
+     const std::vector<const TiXmlElement *> & group_elements)
+{
+    MapObjectReferrersInserter inserter;
+    for (auto & group_el : group_elements) {
+    for (auto & object_xml : XmlRange{group_el, "object"}) {
+        auto * properties = object_xml.FirstChildElement("properties");
+        auto * object = object_retrieval.seek_object_by_id
+            (object_xml.IntAttribute("id"));
+        if (!properties || !object)
+            { continue; }
+        for (auto & property : XmlRange{properties, "property"}) {
+            const char * type = property.Attribute("type");
+            if (type && ::strcmp(type, "object") != 0)
+                { continue; }
+            auto target = object_retrieval.
+                seek_object_by_id(property.IntAttribute("value"));
+            if (!target)
+                { continue; }
+            inserter.add(*object, *target);
+        }
+    }}
+    return std::move(inserter).finish();
+}
 
 } // end of <anonymous> namespace
 
@@ -365,7 +391,7 @@ void MapObjectCollection::load(const DocumentOwningNode & map_element) {
         (View<GroupConstIterator>{groups.begin(), groups.end()},
          View{elements.cbegin(), elements.cend()});
     // MapObjectReferrersInserter refs_inserter;
-    load(std::move(groups), std::move(objects));
+    load(std::move(groups), std::move(objects), std::move(elements));
 }
 
 const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
@@ -376,7 +402,9 @@ const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
 }
 
 /* private */ void MapObjectCollection::load
-    (GroupContainer && groups, std::vector<MapObject> && objects)
+    (GroupContainer && groups,
+     std::vector<MapObject> && objects,
+     std::vector<const TiXmlElement *> && group_elements)
 {
     // MapObjectReferrersInserter refs_inserter;
     auto global_names = MapObject::find_first_visible_named_objects(objects);
@@ -395,6 +423,7 @@ const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
     for (auto & object : m_map_objects) {
         object.set_by_id_retrieval(m_id_maps);
     }
+    m_id_maps.set_referrers(referrers_from(m_id_maps, group_elements));
 }
 
 // ----------------------------------------------------------------------------
