@@ -24,6 +24,8 @@
 
 namespace {
 
+using XmlElementContainer = MapObject::XmlElementContainer;
+
 class MapObjectReferrersInserter final {
 public:
     using ObjectViewMap = MapObjectReferrers::ObjectViewMap;
@@ -47,7 +49,7 @@ private:
 MapObjectReferrers
     referrers_from
     (const MapObjectRetrieval & object_retrieval,
-     const std::vector<const TiXmlElement *> & group_elements);
+               const XmlElementContainer & group_elements);
 
 } // end of <anonymous> namespace
 
@@ -95,8 +97,8 @@ const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
 
 /* private */ void MapObjectCollection::load
     (GroupContainer && groups,
-     std::vector<MapObject> && objects,
-     std::vector<const TiXmlElement *> && group_elements)
+     MapObjectContainer && objects,
+                                             XmlElementContainer && group_elements)
 {
     auto global_names = MapObject::find_first_visible_named_objects(objects);
     m_map_objects = MapObjectGroup::assign_groups_objects
@@ -120,7 +122,7 @@ const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
 // ----------------------------------------------------------------------------
 
 void MapObjectCollection::/* private */ IdsToElementsMap::
-    set_object_id_map(const std::vector<MapObject> & objects)
+    set_object_id_map(const MapObjectContainer & objects)
 {
     m_id_to_object.reserve(objects.size());
     for (const auto & object : objects) {
@@ -157,7 +159,9 @@ template <typename T>
 
 namespace {
 
-void MapObjectReferrersInserter::add(const MapObject & referrer, const MapObject & target) {
+void MapObjectReferrersInserter::add
+    (const MapObject & referrer, const MapObject & target)
+{
     RefPair pair;
     pair.referrer = &referrer;
     pair.target = &target;
@@ -194,7 +198,7 @@ MapObjectReferrers MapObjectReferrersInserter::finish() && {
 MapObjectReferrers
     referrers_from
     (const MapObjectRetrieval & object_retrieval,
-     const std::vector<const TiXmlElement *> & group_elements)
+               const XmlElementContainer & group_elements)
 {
     MapObjectReferrersInserter inserter;
     for (auto & group_el : group_elements) {

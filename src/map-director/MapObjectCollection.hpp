@@ -24,15 +24,13 @@
 
 class MapObjectReferrers final {
 public:
-    using MapObjectContainer = std::vector<const MapObject *>;
-    using MapObjectConstIterator = MapObjectContainer::const_iterator;
+    using MapObjectContainer = MapObject::MapObjectRefContainer;
+    using MapObjectConstIterator = MapObject::MapObjectRefConstIterator;
     using ObjectViewMap = cul::HashMap<int, View<MapObjectConstIterator>>;
 
     MapObjectReferrers() {}
 
-    MapObjectReferrers
-        (MapObjectContainer &&,
-         ObjectViewMap &&);
+    MapObjectReferrers(MapObjectContainer &&, ObjectViewMap &&);
 
     View<MapObjectConstIterator> get_referrers(int) const;
 
@@ -47,12 +45,12 @@ class MapObjectCollection final {
 public:
     using GroupContainer = MapObject::GroupContainer;
     using GroupIterator = GroupContainer::const_iterator;
-#   if 0
-    using ObjectReorderContainer = MapObjectGroup::ObjectReorderContainer;
-#   endif
     using NameObjectMap = MapObjectGroup::NameObjectMap;
+    using XmlElementContainer = MapObject::XmlElementContainer;
+    using MapObjectContainer = MapObject::MapObjectContainer;
 
-    static MapObjectCollection load_from(const DocumentOwningNode & map_element);
+    static MapObjectCollection load_from
+        (const DocumentOwningNode & map_element);
 
     MapObjectCollection(): m_top_level_groups_end(m_groups.end()) {}
 
@@ -88,7 +86,7 @@ private:
 
         const MapObject * seek_object_by_id(int id) const final;
 
-        View<std::vector<const MapObject *>::const_iterator>
+        View<MapObjectRefConstIterator>
             seek_referrers_by_id(int id) const final
             { return m_referrers.get_referrers(id); }
 
@@ -101,7 +99,10 @@ private:
         IntHashMap<const MapObjectGroup *> m_id_to_group{0};
     };
 
-    void load(GroupContainer &&, std::vector<MapObject> &&, std::vector<const TiXmlElement *> && group_elements);
+    void load
+        (GroupContainer &&,
+         MapObjectContainer &&,
+              XmlElementContainer && group_elements);
 
     IdsToElementsMap m_id_maps;
     NameObjectMap m_names_to_objects{nullptr};

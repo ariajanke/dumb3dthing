@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "MapObject.hpp"
-#include "MapObjectCollection.hpp"
+#include "MapObjectGroup.hpp"
 
 #include <tinyxml2.h>
 
@@ -28,7 +28,7 @@
 namespace {
 
 using ObjectGroupContainer = MapObjectGroup::GroupContainer;
-using MapObjectContainer = MapObjectGroup::ObjectContainer;
+using MapObjectContainer = MapObjectGroup::MapObjectContainer;
 
 static const auto k_size_t_length_empty_string = [] {
     std::array<char, sizeof(std::size_t)> buf;
@@ -38,37 +38,10 @@ static const auto k_size_t_length_empty_string = [] {
 
 static constexpr const std::size_t k_hash_string_length_limit = 3;
 
-std::size_t limited_string_length(const char * str) {
-    std::size_t remaining = k_hash_string_length_limit;
-    while (remaining && *str) {
-        --remaining;
-        ++str;
-    }
-    return k_hash_string_length_limit - remaining;
-}
+std::size_t limited_string_length(const char *);
 
 template <typename Func>
-void for_each_object_kv_pair
-    (const TiXmlElement & object_element,
-     Func && f)
-{
-    using FieldType = MapObject::FieldType;
-    for (auto attr = object_element.FirstAttribute(); attr; attr = attr->Next()) {
-        auto * name = attr->Name();
-        const auto * value = attr->Value();
-        if (!name || !value) continue;
-        f(MapObject::Key{name, FieldType::attribute}, value);
-    }
-    auto properties = object_element.FirstChildElement("properties");
-    if (!properties)
-        return;
-    for (auto & prop : XmlRange{properties, "property"}) {
-        auto * name = prop.Attribute("name");
-        auto * value = prop.Attribute("value");
-        if (!name || !value) continue;
-        f(MapObject::Key{name, FieldType::property}, value);
-    }
-}
+void for_each_object_kv_pair(const TiXmlElement & object_element, Func &&);
 
 } // end of <anonymous> namespace
 
@@ -129,7 +102,6 @@ bool MapObject::CStringEqual::operator ()
     return ::strcmp(lhs, rhs) == 0;
 }
 
-
 // ----------------------------------------------------------------------------
 
 bool MapObject::NameLessThan::operator ()
@@ -141,14 +113,14 @@ bool MapObject::NameLessThan::operator ()
 
 // ----------------------------------------------------------------------------
 
-/* static */ std::vector<MapObject> MapObject::load_objects_from
+/* static */ MapObjectContainer MapObject::load_objects_from
     (View<GroupConstIterator> groups,
-     View<std::vector<const TiXmlElement *>::const_iterator> elements)
+     View<XmlElementConstIterator> elements)
 {
     if (elements.end() - elements.begin() != groups.end() - groups.begin()) {
         throw InvalidArgument{"must be same size (assumed lock stepped)"};
     }
-    std::vector<MapObject> objects;
+    MapObjectContainer objects;
     auto el_itr = elements.begin();
     for (const auto & group : groups) {
         objects = group.load_child_objects(std::move(objects), *(*el_itr++));
@@ -163,20 +135,20 @@ bool MapObject::NameLessThan::operator ()
     int count = 0;
     for_each_object_kv_pair
         (object_element,
-         [&count] (const Key &, const char *) { ++count; });
+         [&count] (FieldType, const char *, const char *) { ++count; });
     ValuesMap map{Key{}};
     map.reserve(count);
     for_each_object_kv_pair
         (object_element,
-         [&map] (const Key & key, const char * value) {
-            map.insert(key, value);
+         [&map] (FieldType field_type, const char * name, const char * value) {
+            map.insert(Key{name, field_type}, value);
          });
     return MapObject{parent_group, std::move(map)};
 }
 
 /* static */ MapObject::NameObjectMap
     MapObject::find_first_visible_named_objects
-    (const std::vector<MapObject> & objects)
+    (const MapObjectContainer & objects)
 {
     NameObjectMap map{nullptr};
     map.reserve(objects.size());
@@ -228,14 +200,6 @@ const MapObject * MapObject::seek_by_object_name
     throw RuntimeError{"objects are expect to always have ids"};
 }
 
-/* private */ MapObject::MapObject
-    (const MapObjectGroup & parent_group,
-     ValuesMap && values,
-     const MapObjectRetrieval & retrieval):
-    m_parent_group(&parent_group),
-    m_values(std::move(values)),
-    m_parent_retrieval(&retrieval) {}
-
 /* private */ const char * MapObject::get_string
     (FieldType type, const char * name) const
 {
@@ -256,3 +220,39 @@ std::size_t MapObject::/* private */ KeyHasher::
 bool MapObject::/* private */ KeyEqual::
     operator () (const Key & lhs, const Key & rhs) const
 { return lhs.type == rhs.type && CStringEqual{}(lhs.name, rhs.name); }
+
+namespace {
+
+std::size_t limited_string_length(const char * str) {
+    std::size_t remaining = k_hash_string_length_limit;
+    while (remaining && *str) {
+        --remaining;
+        ++str;
+    }
+    return k_hash_string_length_limit - remaining;
+}
+
+template <typename Func>
+void for_each_object_kv_pair
+    (const TiXmlElement & object_element,
+     Func && f)
+{
+    using FieldType = MapObject::FieldType;
+    for (auto attr = object_element.FirstAttribute(); attr; attr = attr->Next()) {
+        auto * name = attr->Name();
+        const auto * value = attr->Value();
+        if (!name || !value) continue;
+        f(FieldType::attribute, name, value);
+    }
+    auto properties = object_element.FirstChildElement("properties");
+    if (!properties)
+        return;
+    for (auto & prop : XmlRange{properties, "property"}) {
+        auto * name = prop.Attribute("name");
+        auto * value = prop.Attribute("value");
+        if (!name || !value) continue;
+        f(FieldType::property, name, value);
+    }
+}
+
+} // end of <anonymous> namespace

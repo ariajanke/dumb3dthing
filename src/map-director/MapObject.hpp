@@ -67,23 +67,8 @@ private:
 
 class MapObjectRetrieval {
 public:
-    static const MapObjectRetrieval & null_instance() {
-        class Impl final : public MapObjectRetrieval {
-            const MapObject * seek_object_by_id(int) const final
-                { return nullptr; }
-
-            const MapObjectGroup * seek_group_by_id(int) const final
-                { return nullptr; }
-
-            View<std::vector<const MapObject *>::const_iterator>
-                seek_referrers_by_id(int) const final
-                { return View{m_referrers.end(), m_referrers.end()}; }
-
-            std::vector<const MapObject *> m_referrers;
-        };
-        static Impl impl;
-        return impl;
-    }
+    using MapObjectRefContainer = std::vector<const MapObject *>;
+    using MapObjectRefConstIterator = MapObjectRefContainer::const_iterator;
 
     virtual ~MapObjectRetrieval() {}
 
@@ -91,8 +76,7 @@ public:
 
     virtual const MapObjectGroup * seek_group_by_id(int) const = 0;
 
-    virtual View<std::vector<const MapObject *>::const_iterator>
-        seek_referrers_by_id(int) const = 0;
+    virtual View<MapObjectRefConstIterator> seek_referrers_by_id(int) const = 0;
 };
 
 // ----------------------------------------------------------------------------
@@ -193,6 +177,14 @@ class MapObject final : public MapObjectBase {
 public:
     using GroupContainer = std::vector<MapObjectGroup>;
     using GroupConstIterator = GroupContainer::const_iterator;
+    using MapObjectRefContainer = MapObjectRetrieval::MapObjectRefContainer;
+    using MapObjectRefConstIterator = MapObjectRetrieval::MapObjectRefConstIterator;// MapObjectRefContainer::const_iterator;
+    using XmlElementContainer = std::vector<const TiXmlElement *>;
+    using XmlElementConstIterator = XmlElementContainer::const_iterator;
+    using MapObjectContainer = std::vector<MapObject>;
+    template <typename T>
+    using EnableOptionalNumeric =
+        std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>;
 
     struct CStringHasher final {
         std::size_t operator () (const char *) const;
@@ -202,30 +194,20 @@ public:
         bool operator () (const char *, const char *) const;
     };
 
+    using NameObjectMap = cul::HashMap<const char *, const MapObject *, CStringHasher, CStringEqual>;
+
     struct NameLessThan final {
         bool operator () (const MapObject *, const MapObject *) const;
     };
 
-    struct Key final {
-        Key() {}
-
-        Key(const char * name_, FieldType type_):
-            name(name_), type(type_) {}
-
-        const char * name = "";
-        FieldType type = FieldType::attribute;
-    };
-
-    using NameObjectMap = cul::HashMap<const char *, const MapObject *, CStringHasher, CStringEqual>;
-
     static NameObjectMap find_first_visible_named_objects
-        (const std::vector<MapObject> &);
+        (const MapObjectContainer &);
 
     /// @return objects in BFS group order
     /// will also have to be replace :/
-    static std::vector<MapObject> load_objects_from
+    static MapObjectContainer load_objects_from
         (View<GroupConstIterator> groups,
-         View<std::vector<const TiXmlElement *>::const_iterator> elements);
+         View<XmlElementConstIterator> elements);
 
     static MapObject load_from
         (const TiXmlElement &,
@@ -234,16 +216,16 @@ public:
     MapObject() {}
 
     template <typename T>
-    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+    EnableOptionalNumeric<T>
         get_numeric(FieldType type, const char * name) const;
 
     template <typename T>
-    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+    EnableOptionalNumeric<T>
         get_numeric_property(const char * name) const
         { return get_numeric<T>(FieldType::property, name); }
 
     template <typename T>
-    std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
+    EnableOptionalNumeric<T>
         get_numeric_attribute(const char * name) const
         { return get_numeric<T>(FieldType::attribute, name); }
 
@@ -251,8 +233,7 @@ public:
 
     const MapObject * get_object_property(const char * name) const;
 
-    View<std::vector<const MapObject *>::const_iterator>
-        get_referrers() const
+    View<MapObjectRefConstIterator> get_referrers() const
         { return m_parent_retrieval->seek_referrers_by_id(id()); }
 
     const char * get_string_property(const char * name) const;
@@ -271,6 +252,16 @@ public:
         { m_parent_retrieval = &retrieval; }
 
 private:
+    struct Key final {
+        Key() {}
+
+        Key(const char * name_, FieldType type_):
+            name(name_), type(type_) {}
+
+        const char * name = "";
+        FieldType type = FieldType::attribute;
+    };
+
     struct KeyHasher final {
         std::size_t operator () (const Key & key) const;
     };
@@ -288,12 +279,7 @@ private:
              m_parent_group(&parent_group),
              m_values(std::move(values)) {}
 
-    MapObject(const MapObjectGroup & parent_group,
-              ValuesMap &&,
-              const MapObjectRetrieval &);
-
     const char * get_string(FieldType, const char * name) const;
-
 
     const MapObjectGroup * m_parent_group = nullptr;
     ValuesMap m_values = ValuesMap{Key{}};
