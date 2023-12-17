@@ -21,7 +21,6 @@
 #include "TilesetLoadingTask.hpp"
 #include "MapLoaderTask.hpp"
 
-#include "TiledMapLoader.hpp"
 #include "TilesetBase.hpp"
 
 #include <ariajanke/cul/Either.hpp>

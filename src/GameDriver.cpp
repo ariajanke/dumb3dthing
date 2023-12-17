@@ -357,6 +357,8 @@ void GameDriverComplete::update_(Real seconds) {
     },
     [](TranslationFromParent & trans_from_parent, ModelTranslation & trans) {
         auto pent = Entity{trans_from_parent.parent};
+        if (!pent.has<PpState>())
+            { return; }
         Real s = 1;
         auto & state = pent.get<PpState>();
         if (auto * on_surf = get_if<PpOnSegment>(&state)) {
@@ -370,28 +372,31 @@ void GameDriverComplete::update_(Real seconds) {
     VelocitiesToDisplacement{seconds},
     UpdatePpState{*m_ppdriver},
     CheckJump{},
-    [ppstate = m_player_entities.physical.get<PpState>(),
+    [ppstate = m_player_entities.physical.ptr<PpState>(),
      plyvel  = m_player_entities.physical.ptr<Velocity>()]
         (ModelTranslation & trans, EcsOpt<ModelVisibility> vis)
     {
         using point_and_plane::location_of;
-        if (!vis) return;
+        if (!vis || !ppstate) return;
         Vector vel = plyvel ? plyvel->value*0.4 : Vector{};
-        auto dist = magnitude(location_of(ppstate) + vel - trans.value);
+        auto dist = magnitude(location_of(*ppstate) + vel - trans.value);
         *vis = dist < 12;
     })(m_scene);
 
-    auto player = m_player_entities.physical;
+    auto & player = m_player_entities.physical;
     player.get<PlayerControl>().frame_update();
 
-    auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};
-    auto & cam = player.get<DragCamera>();
-    if (magnitude(cam.position - pos) > cam.max_distance) {
-        cam.position += normalize(pos - cam.position)*(magnitude(cam.position - pos) - cam.max_distance);
-        assert(are_very_close( magnitude( cam.position - pos ), cam.max_distance ));
+    if (auto * ppstate = player.ptr<PpState>()) {
+        auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};
+        auto & cam = player.get<DragCamera>();
+        if (magnitude(cam.position - pos) > cam.max_distance) {
+            cam.position += normalize(pos - cam.position)*(magnitude(cam.position - pos) - cam.max_distance);
+            assert(are_very_close( magnitude( cam.position - pos ), cam.max_distance ));
+        }
+
+        player.get<Camera>().target = location_of(player.get<PpState>());
+        player.get<Camera>().position = cam.position;
     }
-    player.get<Camera>().target = location_of(player.get<PpState>());
-    player.get<Camera>().position = cam.position;
 
     m_time_controller.frame_update();
 }
