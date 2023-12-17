@@ -76,8 +76,8 @@ Tuple<MapObjectGroupBase::GroupContainer, XmlElementContainer>
     MapObjectGroupBase::_initialize_from_element
     (const TiXmlElement & element, int rank)
 {
-    auto name = element.Attribute("name");
-    auto id   = element.IntAttribute("id");
+    auto name = element.Attribute(MapObject::k_name_attribute);
+    auto id   = element.IntAttribute(MapObject::k_id_attribute);
     if (!id)
         { return {}; }
     if (!name)
@@ -208,7 +208,7 @@ Tuple<MapObjectGroupBase::GroupContainer, XmlElementContainer>
         }
         for (auto & object : group.objects()) {
             auto itr = groups_name_map.find(object.name());
-#           if MACRO_DEBUG
+#           ifdef MACRO_DEBUG
             assert(itr != groups_name_map.end());
 #           endif
             itr->second = &object;
@@ -253,7 +253,7 @@ MapObjectContainer MapObjectGroup::load_child_objects
     (MapObjectContainer && objects,
      const TiXmlElement & group_element) const
 {
-    for (auto & obj_el : XmlRange{group_element, "object"}) {
+    for (auto & obj_el : XmlRange{group_element, k_object_tag}) {
         objects.emplace_back(MapObject::load_from(obj_el, *this));
     }
     return std::move(objects);

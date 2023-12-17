@@ -49,7 +49,7 @@ private:
 MapObjectReferrers
     referrers_from
     (const MapObjectRetrieval & object_retrieval,
-               const XmlElementContainer & group_elements);
+     const XmlElementContainer & group_elements);
 
 } // end of <anonymous> namespace
 
@@ -98,7 +98,7 @@ const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
 /* private */ void MapObjectCollection::load
     (GroupContainer && groups,
      MapObjectContainer && objects,
-                                             XmlElementContainer && group_elements)
+     XmlElementContainer && group_elements)
 {
     auto global_names = MapObject::find_first_visible_named_objects(objects);
     m_map_objects = MapObjectGroup::assign_groups_objects
@@ -198,22 +198,25 @@ MapObjectReferrers MapObjectReferrersInserter::finish() && {
 MapObjectReferrers
     referrers_from
     (const MapObjectRetrieval & object_retrieval,
-               const XmlElementContainer & group_elements)
+     const XmlElementContainer & group_elements)
 {
+    static constexpr const auto k_object_tag = MapObjectGroup::k_object_tag;
     MapObjectReferrersInserter inserter;
     for (auto & group_el : group_elements) {
-    for (auto & object_xml : XmlRange{group_el, "object"}) {
-        auto * properties = object_xml.FirstChildElement("properties");
+    for (auto & object_xml : XmlRange{group_el, k_object_tag}) {
+        auto * properties = object_xml.
+            FirstChildElement(MapObject::k_properties_tag);
         auto * object = object_retrieval.seek_object_by_id
-            (object_xml.IntAttribute("id"));
+            (object_xml.IntAttribute(MapObject::k_id_attribute));
         if (!properties || !object)
             { continue; }
-        for (auto & property : XmlRange{properties, "property"}) {
+        for (auto & property : XmlRange{properties, MapObject::k_property_tag}) {
             const char * type = property.Attribute("type");
-            if (type && ::strcmp(type, "object") != 0)
+            if (type && ::strcmp(type, k_object_tag) != 0)
                 { continue; }
             auto target = object_retrieval.
-                seek_object_by_id(property.IntAttribute("value"));
+                seek_object_by_id(property.
+                    IntAttribute(MapObject::k_value_attribute));
             if (!target)
                 { continue; }
             inserter.add(*object, *target);

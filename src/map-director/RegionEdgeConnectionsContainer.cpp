@@ -125,18 +125,19 @@ void RegionEdgeConnectionsRemover::remove_region
     for (auto & res : addresses_and_sides) {
         auto * remover = find_remover(res.address());
         assert(remover);
+        auto & remover_ = *remover;
         triangle_grid.for_each_link_on_side
             (res.side(),
-             [remover]
+             [&remover_]
              (const SharedPtr<TriangleLink> & linkptr)
-             { remover->add(linkptr); });
+             { remover_.add(linkptr); });
     }
 }
 
 RegionEdgeConnectionsContainer RegionEdgeConnectionsRemover::finish() {
     for (auto entry : m_entries) {
         entry.second = std::get_if<RegionAxisLinksRemover>(&entry.second)->
-            finish(entry.first);
+            finish();
     }
     return RegionEdgeConnectionsContainer{std::move(m_entries)};
 }

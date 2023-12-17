@@ -207,7 +207,7 @@ describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::remove_nulls").
     std::vector<Entry> entries;
     entries.emplace_back(make_shared<TriangleLink>());
     entries.emplace_back(nullptr);
-    entries = LinksRemover::remove_nulls(std::move(entries), RegionAxisAddress{});
+    entries = LinksRemover::remove_nulls(std::move(entries));
     mark_it("reduces container to appropriate size", [&] {
         return test_that(entries.size() == 1);
     }).
@@ -263,7 +263,7 @@ describe<RegionAxisLinksContainer>("RegionAxisLinksContainer")([] {
         for (auto & ptr : a_set) {
             remover.add(ptr);
         }
-        container = remover.finish(RegionAxisAddress{});
+        container = remover.finish();
     }).
     mark_it("after removing set a, owner count is one", [&] {
         return test_that(std::all_of(a_set.begin(), a_set.end(), make_owner_count_pred(1)));

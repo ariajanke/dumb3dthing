@@ -78,7 +78,7 @@ public:
         { return _initialize_names_and_parents_for_map(map_element); }
 
     static auto set_groups_and_ranks_for
-            (Tuple<GroupContainer, XmlElementContainer> && containers)
+        (Tuple<GroupContainer, XmlElementContainer> && containers)
         { return _set_groups_and_ranks_for(std::move(containers)); }
 
     static Optional<MapObjectGroup> initialize_from_element
@@ -102,6 +102,8 @@ public:
     static Tuple<GroupContainer, XmlElementContainer>
         initialize_for_map
         (const DocumentOwningNode & map_element);
+
+    static constexpr const auto k_object_tag = "object";
 
     MapObjectGroup() {}
 

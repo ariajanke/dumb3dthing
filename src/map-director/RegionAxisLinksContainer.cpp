@@ -197,7 +197,7 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
 
 /* static */ std::vector<RegionAxisLinkEntry>
     RegionAxisLinksRemover::remove_nulls
-    (std::vector<RegionAxisLinkEntry> && entries, RegionAxisAddress addr)
+    (std::vector<RegionAxisLinkEntry> && entries)
 {
     auto nulls_begin =
         std::remove_if(entries.begin(), entries.end(), Entry::linkless);
@@ -225,9 +225,9 @@ void RegionAxisLinksRemover::add(const SharedPtr<TriangleLink> & link_ptr) {
     m_entries.emplace_back(link_ptr);
 }
 
-RegionAxisLinksContainer RegionAxisLinksRemover::finish(RegionAxisAddress addr) {
+RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
     return RegionAxisLinksContainer
-        {remove_nulls(null_out_dupelicates(std::move(m_entries)), addr), m_axis};
+        {remove_nulls(null_out_dupelicates(std::move(m_entries))), m_axis};
 }
 
 /* private static */ std::vector<RegionAxisLinkEntry>

@@ -178,7 +178,8 @@ public:
     using GroupContainer = std::vector<MapObjectGroup>;
     using GroupConstIterator = GroupContainer::const_iterator;
     using MapObjectRefContainer = MapObjectRetrieval::MapObjectRefContainer;
-    using MapObjectRefConstIterator = MapObjectRetrieval::MapObjectRefConstIterator;// MapObjectRefContainer::const_iterator;
+    using MapObjectRefConstIterator =
+        MapObjectRetrieval::MapObjectRefConstIterator;
     using XmlElementContainer = std::vector<const TiXmlElement *>;
     using XmlElementConstIterator = XmlElementContainer::const_iterator;
     using MapObjectContainer = std::vector<MapObject>;
@@ -204,7 +205,6 @@ public:
         (const MapObjectContainer &);
 
     /// @return objects in BFS group order
-    /// will also have to be replace :/
     static MapObjectContainer load_objects_from
         (View<GroupConstIterator> groups,
          View<XmlElementConstIterator> elements);
@@ -212,6 +212,12 @@ public:
     static MapObject load_from
         (const TiXmlElement &,
          const MapObjectGroup & parent_group);
+
+    static constexpr const auto k_properties_tag = "properties";
+    static constexpr const auto k_property_tag = "property";
+    static constexpr const auto k_name_attribute = "name";
+    static constexpr const auto k_value_attribute = "value";
+    static constexpr const auto k_id_attribute = "id";
 
     MapObject() {}
 

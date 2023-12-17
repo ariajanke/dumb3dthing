@@ -124,7 +124,7 @@ public:
         (std::vector<RegionAxisLinkEntry> &&);
 
     static std::vector<RegionAxisLinkEntry> remove_nulls
-        (std::vector<RegionAxisLinkEntry> &&, RegionAxisAddress);
+        (std::vector<RegionAxisLinkEntry> &&);
 
     RegionAxisLinksRemover() {}
 
@@ -137,7 +137,7 @@ public:
 
     // sort by address (grab raw pointers :S)
     // eliminate on the basis if not unique
-    RegionAxisLinksContainer finish(RegionAxisAddress);
+    RegionAxisLinksContainer finish();
 
 private:
     using Entry = RegionAxisLinkEntry;

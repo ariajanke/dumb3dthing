@@ -20,10 +20,7 @@
 
 #pragma once
 
-#include "Definitions.hpp"
-
 static constexpr const auto k_testmap_filename = "comp-map-demo.tmx";
-static constexpr const Vector k_player_start{2, 12.1, -2};
 static constexpr const bool
     k_region_axis_container_report_maximum_sort_and_sweep = false;
 constexpr const bool k_promised_files_take_at_least_one_frame = true;

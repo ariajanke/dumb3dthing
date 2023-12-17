@@ -147,7 +147,7 @@ Continuation & CompositeTilesetFinisherTask::in_background
         auto ml = std::move(m_map_loader_task);
         return strategy.continue_().wait_on(ml);
     }
-    // mmm what about objects here?
+
     auto res = m_map_retriever->retrieve();
     m_source_map = std::move(res.map_region);
     for (Vector2I r;

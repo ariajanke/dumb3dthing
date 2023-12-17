@@ -256,10 +256,9 @@ Tuple<Entity, Entity>
         <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
          TranslationFromParent>
         () = make_tuple
-        (tx, model, ModelTranslation{k_player_start},
+        (tx, model, ModelTranslation{},
          TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
-    physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
     return make_tuple(model_ent, physics_ent);
@@ -271,9 +270,9 @@ void GameDriverComplete::press_key(KeyControl ky) {
     m_player_entities.physical.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
-        auto recovery_point = m_player_entities.physical.get<PlayerRecovery>();
-        m_player_entities.physical.get<PpState>() =
-            PpInAir{k_player_start, recovery_point.value};
+        auto & physical = m_player_entities.physical;
+        auto recovery_point = physical.get<PlayerRecovery>();
+        physical.get<PpState>() = PpInAir{recovery_point.value, Vector{}};
     }
 }
 

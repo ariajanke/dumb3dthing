@@ -179,11 +179,11 @@ const char * MapObject::get_string_attribute(const char * name) const
     { return get_string(FieldType::attribute, name); }
 
 int MapObject::id() const {
-    return verify_has_id(get_numeric_attribute<int>("id"));
+    return verify_has_id(get_numeric_attribute<int>(k_id_attribute));
 }
 
 const char * MapObject::name() const {
-    auto name_ = get_string_attribute("name");
+    auto name_ = get_string_attribute(k_name_attribute);
     if (name_) return name_;
     return "";
 }
@@ -244,12 +244,13 @@ void for_each_object_kv_pair
         if (!name || !value) continue;
         f(FieldType::attribute, name, value);
     }
-    auto properties = object_element.FirstChildElement("properties");
+    auto properties = object_element.FirstChildElement
+        (MapObject::k_properties_tag);
     if (!properties)
         return;
-    for (auto & prop : XmlRange{properties, "property"}) {
-        auto * name = prop.Attribute("name");
-        auto * value = prop.Attribute("value");
+    for (auto & prop : XmlRange{properties, MapObject::k_property_tag}) {
+        auto * name = prop.Attribute(MapObject::k_name_attribute);
+        auto * value = prop.Attribute(MapObject::k_value_attribute);
         if (!name || !value) continue;
         f(FieldType::property, name, value);
     }

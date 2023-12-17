@@ -134,15 +134,13 @@ Continuation & PlayerMapPreperationTask::in_background
         return strategy.continue_().wait_on(m_map_loader);
     }
 
-    // this seems like the proper place to start handling map objects
-
     auto player_update_task = make_shared<PlayerUpdateTask>
         (m_player_physics.as_reference());
     auto res = m_map_loader->retrieve();
     auto map_director_task = make_shared<MapDirectorTask>
         (m_player_physics, m_ppdriver, std::move(res.map_region));
     auto * player_object = res.map_objects.seek_by_name("player-spawn-point");
-    auto & location = std::get<PpInAir>(m_player_physics.get<PpState>()).location;
+    auto & location = std::get<PpInAir>(m_player_physics.add<PpState>()).location;
     const auto & object_framing = res.object_framing;
     if (player_object) {
         (void)object_framing.
