@@ -35,11 +35,6 @@ static const constexpr std::array k_flat_points = {
     k_tile_top_left - k_north, // sw
     k_tile_top_left - k_north + k_east, // se
     k_tile_top_left + k_east  // ne
-#   if 0
-    Vector{-.5, 0, -.5}, // sw
-    Vector{0.5, 0, -.5}, // se
-    Vector{0.5, 0, 0.5}  // ne
-#   endif
 };
 
 } // end of <anonymous> namespace

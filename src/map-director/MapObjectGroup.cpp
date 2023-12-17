@@ -87,7 +87,7 @@ Tuple<MapObjectGroupBase::GroupContainer, XmlElementContainer>
 
 /* protected static */ void MapObjectGroupBase::emplace_group_children
     (GroupContainer & groups,
-                                                                       XmlElementContainer & elements,
+     XmlElementContainer & elements,
      const TiXmlElement & any_element,
      int current_rank)
 {
@@ -103,7 +103,7 @@ Tuple<MapObjectGroupBase::GroupContainer, XmlElementContainer>
 
 /* protected static */ void MapObjectGroupBase::emplace_groups
     (GroupContainer & groups,
-                                                               XmlElementContainer & elements,
+     XmlElementContainer & elements,
      const TiXmlElement & any_element,
      int current_rank)
 {
@@ -178,7 +178,6 @@ Tuple<MapObjectGroupBase::GroupContainer, XmlElementContainer>
      MapObjectContainer && all_objects,
      View<Iterator> all_groups)
 {
-    // make sure objects are group ordered
 #   ifdef MACRO_DEBUG
     static auto group_order = []
         (const MapObjectGroup & lhs, const MapObjectGroup & rhs)

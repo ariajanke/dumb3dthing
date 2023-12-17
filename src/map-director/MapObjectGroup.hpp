@@ -39,14 +39,13 @@ protected:
     static XmlElementContainer
         _groups_in_bfs_order(const DocumentOwningNode &);
 
-    // names, ranks, returned in BFS order
+    // returned in BFS order
     static Tuple<GroupContainer, XmlElementContainer>
         _initialize_names_and_parents_for_map
         (const DocumentOwningNode & map_element);
 
-    // parent, groups
     static Tuple<GroupContainer, XmlElementContainer>
-    _set_groups_and_ranks_for(Tuple<GroupContainer, XmlElementContainer> &&);
+        _set_groups_and_ranks_for(Tuple<GroupContainer, XmlElementContainer> &&);
 
     static Optional<MapObjectGroup> _initialize_from_element
         (const TiXmlElement &, int rank);
@@ -54,13 +53,13 @@ protected:
 private:
     static void emplace_group_children
         (GroupContainer &,
-                                       XmlElementContainer &,
+         XmlElementContainer &,
          const TiXmlElement & any_element,
          int current_rank);
 
     static void emplace_groups
         (GroupContainer &,
-                               XmlElementContainer &,
+         XmlElementContainer &,
          const TiXmlElement & any_element,
          int current_rank);
 
@@ -92,7 +91,6 @@ class MapObjectGroup final : public MapObjectGroupBase {
 public:
     using ConstIterator = GroupContainer::const_iterator;
 
-    // ordered by (group, name), assigned to groups
     static MapObjectContainer assign_groups_objects
         (const NameObjectMap & globally_visible_named_objects,
          MapObjectContainer && all_objects,

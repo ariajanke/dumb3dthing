@@ -234,7 +234,6 @@ describe<RegionAxisLinksContainer>("RegionAxisLinksContainer")([] {
     };
     std::random_device rnd;
     std::default_random_engine rng(rnd());
-    // std::uniform_int_distribution<> distrib(1, 6);
     std::shuffle(a_set.begin(), a_set.end(), rng);
     std::shuffle(b_set.begin(), b_set.end(), rng);
 
