@@ -35,11 +35,13 @@ public:
 
 protected:
     // names, ranks, returned in BFS order
-    static GroupContainer _initialize_names_and_parents_for_map
+    static Tuple<GroupContainer, std::vector<const TiXmlElement *>>
+        _initialize_names_and_parents_for_map
         (const DocumentOwningNode & map_element);
 
     // parent, groups
-    static GroupContainer _set_groups_and_ranks_for(GroupContainer &&);
+    static Tuple<GroupContainer, std::vector<const TiXmlElement *>>
+        _set_groups_and_ranks_for(Tuple<GroupContainer, std::vector<const TiXmlElement *>> &&);
 
     static Optional<MapObjectGroup> _initialize_from_element
         (const TiXmlElement &, int rank);
@@ -47,29 +49,33 @@ protected:
 private:
     static void emplace_group_children
         (GroupContainer &,
+         std::vector<const TiXmlElement *> &,
          const TiXmlElement & any_element,
          int current_rank);
 
     static void emplace_groups
         (GroupContainer &,
+         std::vector<const TiXmlElement *> &,
          const TiXmlElement & any_element,
          int current_rank);
 
     static void set_groups_and_ranks_for
-        (View<Iterator> groups, int current_rank = 0);
+        (View<Iterator> groups,
+         View<std::vector<const TiXmlElement *>::const_iterator> elements,
+         int current_rank = 0);
 };
 
 // ----------------------------------------------------------------------------
 
 class MapObjectGroupForTests final : public MapObjectGroupBase {
 public:
-    static GroupContainer initialize_names_and_parents_for_map
+    static auto initialize_names_and_parents_for_map
         (const DocumentOwningNode & map_element)
         { return _initialize_names_and_parents_for_map(map_element); }
 
-    static GroupContainer set_groups_and_ranks_for
-        (GroupContainer && groups)
-        { return _set_groups_and_ranks_for(std::move(groups)); }
+    static auto set_groups_and_ranks_for
+        (Tuple<GroupContainer, std::vector<const TiXmlElement *>> && containers)
+        { return _set_groups_and_ranks_for(std::move(containers)); }
 
     static Optional<MapObjectGroup> initialize_from_element
         (const TiXmlElement & el, int rank);
@@ -80,11 +86,9 @@ public:
 class MapObjectGroup final : public MapObjectGroupBase {
 public:
     using ConstIterator = GroupContainer::const_iterator;
+    // "reorder" shouldn't exist
     using ObjectReorderContainer = std::vector<const MapObject *>;
     using ObjectNamesIterator = ObjectReorderContainer::const_iterator;
-
-    static GroupContainer initialize_for_map
-        (const DocumentOwningNode & map_element);
 
     // ordered by (group, name), assigned to groups
     static std::vector<MapObject> assign_groups_objects
@@ -95,10 +99,17 @@ public:
     static bool find_name_predicate
         (const MapObject * obj, const char * object_name);
 
+    // has to be a seperate container, there's no way around it
+    static Tuple<GroupContainer, std::vector<const TiXmlElement *>>
+        initialize_for_map
+        (const DocumentOwningNode & map_element);
+
+    MapObjectGroup() {}
+
     explicit MapObjectGroup(int id): m_id(id) {}
 
     MapObjectGroup
-        (const TiXmlElement & element, const char * name, int id, int rank);
+        (const char * name, int id, int rank);
 
     View<ConstIterator> groups() const { return m_groups; }
 
@@ -106,9 +117,13 @@ public:
 
     int id() const { return m_id; }
 
-    std::vector<MapObject> load_child_objects
+    [[deprecated]] std::vector<MapObject> load_child_objects
         (const MapObjectRetrieval &,
          std::vector<MapObject> &&) const;
+
+    std::vector<MapObject> load_child_objects
+        (std::vector<MapObject> &&,
+         const TiXmlElement &) const;
 
     const char * name() const { return m_name; }
 
@@ -120,7 +135,8 @@ public:
 
     void set_child_objects(View<ObjectIterator> child_objects);
 
-    Iterator set_child_groups(Iterator starting_at, Iterator end);
+    Iterator set_child_groups
+        (const TiXmlElement & group_xml, Iterator starting_at, Iterator end);
 
     void set_object_name_map(NameObjectMap && name_map);
 
@@ -132,8 +148,6 @@ private:
 
     const MapObjectGroup * m_parent = nullptr;
     const char * m_name = "";
-    // v probably shouldn't, or at least null out later
-    const TiXmlElement * m_element = nullptr;
     int m_id = 0;
     int m_rank = 0;
     View<ConstIterator> m_groups = k_empty_group_view;
@@ -155,7 +169,6 @@ public:
     MapObjectCollection(): m_top_level_groups_end(m_groups.end()) {}
 
     void load(const DocumentOwningNode & map_element);
-
 
     const MapObject * seek_object_by_id(int id) const
         { return m_id_maps.seek_object_by_id(id); }

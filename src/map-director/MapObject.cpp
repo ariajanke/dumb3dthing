@@ -142,10 +142,24 @@ bool MapObject::NameLessThan::operator ()
 
 // ----------------------------------------------------------------------------
 
+/* static */ std::vector<MapObject> MapObject::load_objects_from
+    (View<GroupConstIterator> groups,
+     View<std::vector<const TiXmlElement *>::const_iterator> elements)
+{
+    if (elements.end() - elements.begin() != groups.end() - groups.begin()) {
+        throw InvalidArgument{"must be same size (assumed lock stepped)"};
+    }
+    std::vector<MapObject> objects;
+    auto el_itr = elements.begin();
+    for (const auto & group : groups) {
+        objects = group.load_child_objects(std::move(objects), *(*el_itr++));
+    }
+    return objects;
+}
+
 /* static */ MapObject MapObject::load_from
     (const TiXmlElement & object_element,
-     const MapObjectGroup & parent_group,
-     const MapObjectRetrieval & retrieval)
+     const MapObjectGroup & parent_group)
 {
     int count = 0;
     for_each_object_kv_pair
@@ -158,19 +172,7 @@ bool MapObject::NameLessThan::operator ()
          [&map] (const Key & key, const char * value) {
             map.insert(key, value);
          });
-    return MapObject{parent_group, std::move(map), retrieval};
-}
-
-/* static */ std::vector<MapObject>
-    MapObject::load_objects_from
-    (const MapObjectRetrieval & retrieval,
-     View<GroupConstIterator> groups)
-{
-    std::vector<MapObject> objects;
-    for (const auto & group : groups) {
-        objects = group.load_child_objects(retrieval, std::move(objects));
-    }
-    return objects;
+    return MapObject{parent_group, std::move(map)};
 }
 
 /* static */ MapObject::NameObjectMap

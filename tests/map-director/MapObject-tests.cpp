@@ -115,6 +115,7 @@ constexpr const auto k_object_with_properties =
 struct MapObjectFindUpTree final {};
 
 using CStringEqual = MapObject::CStringEqual;
+using GroupContainer = MapObject::GroupContainer;
 
 } // end of <anonymous> namespace
 
@@ -126,17 +127,16 @@ describe("MapObjectGroup")([] {
     auto node = DocumentOwningNode::load_root(k_simple_object_map);
     assert(node);
     auto collection = MapObjectCollection::load_from(*node);
-    auto * group = collection.top_level_group();
-    assert(group);
+    auto & group = *collection.top_level_groups().begin();
     mark_it("can find player by name", [&] {
-        return test_that(group->seek_by_name("player"));
+        return test_that(group.seek_by_name("player"));
     });
 });
 
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
     auto node = DocumentOwningNode::load_root(k_multiple_top_level_groups);
     assert(node);
-    auto groups = MapObjectGroup::initialize_for_map(*node);
+    auto groups = std::get<std::vector<MapObjectGroup>>(MapObjectGroup::initialize_for_map(*node));
     // two groups without a parent is completely valid
     mark_it("loads three groups", [&] {
         return test_that(groups.size() == 3);
@@ -158,7 +158,7 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
     auto node = DocumentOwningNode::load_root(k_groups_for_bfs_example);
     assert(node);
-    auto groups = MapObjectGroupForTests::initialize_names_and_parents_for_map(*node);
+    auto groups = std::get<GroupContainer>(MapObjectGroupForTests::initialize_names_and_parents_for_map(*node));
     mark_it("loads seven groups", [&] {
         return test_that(groups.size() == 7);
     }).
@@ -175,7 +175,7 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
     auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
     assert(node);
-    auto groups = MapObjectGroupForTests::initialize_names_and_parents_for_map(*node);
+    auto groups = std::get<GroupContainer>(MapObjectGroupForTests::initialize_names_and_parents_for_map(*node));
     mark_it("loads three groups", [&] {
         return test_that(groups.size() == 3);
     }).
@@ -200,11 +200,13 @@ describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] 
         return test_that(player_object);
     }).
     mark_it("has a top level group", [&] {
-        return test_that(collection.top_level_group());
+        auto groups = collection.top_level_groups();
+        auto group_count = groups.end() - groups.begin();
+        return test_that(group_count > 0);
     }).
     mark_it("top level group has player object accessible", [&] {
-        auto * group = collection.top_level_group();
-        if (!group)
+        auto group = collection.top_level_groups().begin();
+        if (group == collection.top_level_groups().end())
             { return test_that(false); }
         auto objects = group->objects();
         auto itr = std::find_if(objects.begin(), objects.end(),
@@ -246,7 +248,7 @@ describe<MapObject>("MapObject").depends_on<MapObject::CStringHasher>()([] {
     auto objectgroup = (**node).FirstChildElement("objectgroup");
     auto object_el = objectgroup->FirstChildElement("object");
     MapObjectGroup group{1};
-    auto object = MapObject::load_from(*object_el, group, MapObjectRetrieval::null_instance());
+    auto object = MapObject::load_from(*object_el, group);
     assert(node);
     mark_it("parses object id", [&] {
         return test_that(object.id() == 1);
@@ -303,10 +305,12 @@ describe<MapObject>("MapObject and its properties")([] {
 describe<MapObject>("MapObject::find_first_visible_named_objects")([] {
     auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
     using GroupConstIterator = MapObjectGroup::ConstIterator;
-    auto groups = MapObjectGroup::initialize_for_map(*node);
+    auto containers = MapObjectGroup::initialize_for_map(*node);
+    auto & groups = std::get<GroupContainer>(containers);
+    const auto & elements = std::get<std::vector<const TiXmlElement *>>(containers);
     auto objects = MapObject::load_objects_from
-        (MapObjectRetrieval::null_instance(),
-         View<GroupConstIterator>{groups.begin(), groups.end()});
+        (View<GroupConstIterator>{groups.begin(), groups.end()},
+         View{elements.begin(), elements.end()});
     auto global_names = MapObject::find_first_visible_named_objects(objects);
     mark_it("there are exactly two names visible", [&] {
         return test_that(global_names.size() == 2);

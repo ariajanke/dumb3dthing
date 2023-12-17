@@ -137,7 +137,7 @@ describe<RegionAxisLinksAdder>("RegionAxisLinksAdder::sort_and_sweep").
     auto a = make_view_grid_for_tile(Vector2I{0, 0});
     auto b = make_view_grid_for_tile(Vector2I{0, 1});
     std::vector<RegionAxisLinkEntry> entries;
-    for (auto link : { a.e, a.w, b.e, b.w }) {
+    for (auto & link : { a.e, a.w, b.e, b.w }) {
         entries.emplace_back(RegionAxisLinkEntry::computed_bounds
             (link, RegionAxis::x_ways));
     }
@@ -277,9 +277,6 @@ describe<RegionAxisLinksContainer>("RegionAxisLinksContainer")([] {
         container = adder.finish();
     }).
     mark_it("after add back set a, owner count two again", [&] {
-        auto use_count_0 = a_set[0].use_count();
-        auto use_count_1 = a_set[1].use_count();
-        auto use_count_2 = a_set[2].use_count();
         return test_that(std::all_of(a_set.begin(), a_set.end(), make_owner_count_pred(2)));
     });
 });

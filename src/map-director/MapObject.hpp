@@ -212,15 +212,15 @@ public:
     static NameObjectMap find_first_visible_named_objects
         (const std::vector<MapObject> &);
 
+    /// @return objects in BFS group order
+    /// will also have to be replace :/
+    static std::vector<MapObject> load_objects_from
+        (View<GroupConstIterator> groups,
+         View<std::vector<const TiXmlElement *>::const_iterator> elements);
+
     static MapObject load_from
         (const TiXmlElement &,
-         const MapObjectGroup & parent_group,
-         const MapObjectRetrieval &);
-
-    /// @return objects in BFS group order
-    static std::vector<MapObject> load_objects_from
-        (const MapObjectRetrieval & retrieval,
-         View<GroupConstIterator>);
+         const MapObjectGroup & parent_group);
 
     MapObject() {}
 
@@ -254,6 +254,9 @@ public:
 
     const MapObject * seek_by_object_name(const char * object_name) const;
 
+    void set_by_id_retrieval(const MapObjectRetrieval & retrieval)
+        { m_parent_retrieval = &retrieval; }
+
 private:
     struct KeyHasher final {
         std::size_t operator () (const Key & key) const;
@@ -266,6 +269,11 @@ private:
     using ValuesMap = cul::HashMap<Key, const char *, KeyHasher, KeyEqual>;
 
     static int verify_has_id(Optional<int> maybe_id);
+
+    MapObject(const MapObjectGroup & parent_group,
+              ValuesMap && values):
+             m_parent_group(&parent_group),
+             m_values(std::move(values)) {}
 
     MapObject(const MapObjectGroup & parent_group,
               ValuesMap &&,
