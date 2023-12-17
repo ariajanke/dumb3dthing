@@ -74,6 +74,12 @@ public:
 
             const MapObjectGroup * seek_group_by_id(int) const final
                 { return nullptr; }
+
+            View<std::vector<const MapObject *>::const_iterator>
+                seek_referrers_by_id(int) const final
+                { return View{m_referrers.end(), m_referrers.end()}; }
+
+            std::vector<const MapObject *> m_referrers;
         };
         static Impl impl;
         return impl;
@@ -84,6 +90,9 @@ public:
     virtual const MapObject * seek_object_by_id(int) const = 0;
 
     virtual const MapObjectGroup * seek_group_by_id(int) const = 0;
+
+    virtual View<std::vector<const MapObject *>::const_iterator>
+        seek_referrers_by_id(int) const = 0;
 };
 
 // ----------------------------------------------------------------------------
@@ -241,6 +250,10 @@ public:
     const MapObjectGroup * get_group_property(const char * name) const;
 
     const MapObject * get_object_property(const char * name) const;
+
+    View<std::vector<const MapObject *>::const_iterator>
+        get_referrers() const
+        { return m_parent_retrieval->seek_referrers_by_id(id()); }
 
     const char * get_string_property(const char * name) const;
 

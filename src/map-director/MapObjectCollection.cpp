@@ -34,6 +34,57 @@ MapObjectGroup::ObjectIterator empty_object_container_iterator() {
     return object_container.end();
 }
 
+
+class MapObjectReferrersInserter final {
+public:
+    using ObjectViewMap = MapObjectReferrers::ObjectViewMap;
+
+    void add(const MapObject & referrer, const MapObject & target) {
+        RefPair pair;
+        pair.referrer = &referrer;
+        pair.target = &target;
+        m_object_pairs.push_back(pair);
+    }
+
+    MapObjectReferrers finish() && {
+        if (m_object_pairs.empty())
+            { return MapObjectReferrers{}; }
+
+        std::sort(m_object_pairs.begin(), m_object_pairs.end(), target_order);
+        std::vector<const MapObject *> referrers;
+        referrers.reserve(m_object_pairs.size());
+        for (const auto & pair : m_object_pairs) {
+            referrers.push_back(pair.referrer);
+        }
+
+        ObjectViewMap view_map{0};
+        auto last_referrer_itr = referrers.begin();
+        auto * last_target = m_object_pairs.front().target;
+        for (std::size_t idx = 1; idx != referrers.size(); ++idx) {
+            auto * target = m_object_pairs[idx].target;
+            auto referrer_itr = referrers.begin() + idx;
+            if (target != last_target) {
+                view_map.emplace(last_target->id(), last_referrer_itr, referrer_itr);
+                last_referrer_itr = referrer_itr;
+            }
+            last_target = target;
+        }
+        view_map.emplace(last_target->id(), last_referrer_itr, referrers.end());
+        return MapObjectReferrers{std::move(referrers), std::move(view_map)};
+    }
+
+private:
+    struct RefPair final {
+        const MapObject * referrer = nullptr;
+        const MapObject * target = nullptr;
+    };
+
+    static bool target_order(const RefPair & lhs, const RefPair & rhs)
+        { return lhs.target < rhs.target; }
+
+    std::vector<RefPair> m_object_pairs;
+};
+
 } // end of <anonymous> namespace
 
 /* private static */ const View<MapObjectGroup::ConstIterator>
@@ -281,6 +332,24 @@ void MapObjectGroup::set_parent(const MapObjectGroup & group)
 
 // ----------------------------------------------------------------------------
 
+MapObjectReferrers::MapObjectReferrers
+    (MapObjectContainer && object_refs,
+     ObjectViewMap && view_map):
+    m_object_refs(std::move(object_refs)),
+    m_view_map(std::move(view_map)) {}
+
+View<MapObjectReferrers::MapObjectConstIterator>
+    MapObjectReferrers::get_referrers(int id) const
+{
+    auto itr = m_view_map.find(id);
+    if (itr == m_view_map.end()) {
+        return View{m_object_refs.end(), m_object_refs.end()};
+    }
+    return itr->second;
+}
+
+// ----------------------------------------------------------------------------
+
 /* static */ MapObjectCollection MapObjectCollection::load_from
     (const DocumentOwningNode & map_element)
 {
@@ -295,7 +364,7 @@ void MapObjectCollection::load(const DocumentOwningNode & map_element) {
     auto objects = MapObject::load_objects_from
         (View<GroupConstIterator>{groups.begin(), groups.end()},
          View{elements.cbegin(), elements.cend()});
-
+    // MapObjectReferrersInserter refs_inserter;
     load(std::move(groups), std::move(objects));
 }
 
@@ -309,9 +378,11 @@ const MapObject * MapObjectCollection::seek_by_name(const char * name) const {
 /* private */ void MapObjectCollection::load
     (GroupContainer && groups, std::vector<MapObject> && objects)
 {
+    // MapObjectReferrersInserter refs_inserter;
     auto global_names = MapObject::find_first_visible_named_objects(objects);
     m_map_objects = MapObjectGroup::assign_groups_objects
         (global_names, std::move(objects), View{groups.begin(), groups.end()});
+
     m_groups = std::move(groups);
     m_names_to_objects = std::move(global_names);
     m_id_maps.set_group_id_map(m_groups);

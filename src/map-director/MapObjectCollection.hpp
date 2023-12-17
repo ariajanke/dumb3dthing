@@ -157,6 +157,27 @@ private:
 
 // ----------------------------------------------------------------------------
 
+class MapObjectReferrers final {
+public:
+    using MapObjectContainer = std::vector<const MapObject *>;
+    using MapObjectConstIterator = MapObjectContainer::const_iterator;
+    using ObjectViewMap = cul::HashMap<int, View<MapObjectConstIterator>>;
+
+    MapObjectReferrers() {}
+
+    MapObjectReferrers
+        (MapObjectContainer &&,
+         ObjectViewMap &&);
+
+    View<MapObjectConstIterator> get_referrers(int) const;
+
+private:
+    MapObjectContainer m_object_refs;
+    ObjectViewMap m_view_map{0};
+};
+
+// ----------------------------------------------------------------------------
+
 class MapObjectCollection final {
 public:
     using GroupContainer = MapObject::GroupContainer;
@@ -193,14 +214,21 @@ private:
 
         void set_group_id_map(const GroupContainer &);
 
+        void set_referrers(MapObjectReferrers &&);
+
         const MapObjectGroup * seek_group_by_id(int id) const final;
 
         const MapObject * seek_object_by_id(int id) const final;
+
+        View<std::vector<const MapObject *>::const_iterator>
+            seek_referrers_by_id(int id) const final
+            { return m_referrers.get_referrers(id); }
 
     private:
         template <typename T>
         static T seek_in(const IntHashMap<T> & hash_map, int id);
 
+        MapObjectReferrers m_referrers;
         IntHashMap<const MapObject *> m_id_to_object{0};
         IntHashMap<const MapObjectGroup *> m_id_to_group{0};
     };
