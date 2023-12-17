@@ -28,7 +28,6 @@
 namespace {
 
 using ObjectGroupContainer = MapObjectGroup::GroupContainer;
-using MapObjectReorderContainer = MapObjectGroup::ObjectReorderContainer;
 using MapObjectContainer = MapObjectGroup::ObjectContainer;
 
 static const auto k_size_t_length_empty_string = [] {
