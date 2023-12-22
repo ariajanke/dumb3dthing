@@ -32,6 +32,7 @@
 
 #include <iostream>
 #include <map>
+#include <chrono>
 
 #include <glad/glad.h>
 
@@ -212,6 +213,61 @@ private:
     FilePromiser m_file_promiser;
 };
 
+class Timer final {
+public:
+    Real reset_with_elapsed_time() {
+        auto now_ = now();
+        auto et = std::chrono::duration<double>{now_ - m_last_time}.count();
+        m_last_time = now_;
+        return et;
+    }
+
+private:
+    using TimePoint = std::chrono::steady_clock::time_point;
+
+    static TimePoint now() {
+        return std::chrono::steady_clock::now();
+    }
+
+    TimePoint m_last_time = now();
+};
+
+class FrameLockingStrategy {
+public:
+    static FrameLockingStrategy & unlocked_frames() {
+        class Impl final : public FrameLockingStrategy {
+        public:
+            void prepare() const final
+                { glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_FALSE); }
+
+            void finish_frame(GlfwWindowPtr &) const final
+                { glFlush(); }
+        };
+        static Impl impl;
+        return impl;
+    }
+
+    static FrameLockingStrategy & locked_frame() {
+        class Impl final : public FrameLockingStrategy {
+            void prepare() const final
+                // iT mAKeS yOU lOOk iGNorAnT
+                // explicit code > implicit weird shit*10000
+                { glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE); }
+
+            void finish_frame(GlfwWindowPtr & window) const final
+                { glfwSwapBuffers(&*window); }
+        };
+        static Impl impl;
+        return impl;
+    }
+
+    virtual ~FrameLockingStrategy() {}
+
+    virtual void prepare() const = 0;
+
+    virtual void finish_frame(GlfwWindowPtr &) const = 0;
+};
+
 } // end of <anonymous> namespace
 
 // ----------------------------------------------------------------------------
@@ -223,10 +279,12 @@ int main() {
     GlfwLibraryRAII glfw_raii; (void)glfw_raii;
     auto gamedriver = GameDriver::make_instance();
     EventProcessor events{*gamedriver};
+    static auto & frame_locking_strategy = FrameLockingStrategy::locked_frame();
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    frame_locking_strategy.prepare();
 
 #   ifdef __APPLE__
     // uncomment this statement to fix compilation on OS X
@@ -273,7 +331,7 @@ int main() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthFunc(GL_LESS);
 
-    glfwSetTime(0.);
+    Timer timer;
     while (!glfwWindowShouldClose(&*window)) {
         process_input(&*window);
 
@@ -295,14 +353,13 @@ int main() {
             0.001f, 100.0f));
 
         npcallbacks.progress_file_promises();
-        gamedriver->update(1. / 60., npcallbacks);
-        glfwSetTime(0.);
+        gamedriver->update(timer.reset_with_elapsed_time(), npcallbacks);
 
         // there's a lot of shader specific things that happens
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
 
-        glfwSwapBuffers(&*window);
+        frame_locking_strategy.finish_frame(window);
         glfwPollEvents();
     }
 

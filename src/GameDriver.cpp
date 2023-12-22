@@ -30,6 +30,8 @@
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
 
+#include <iostream>
+
 namespace {
 
 class TimeControl final {
@@ -51,6 +53,29 @@ public:
 private:
     using Kc = KeyControl;
     bool m_paused = false, m_advance_frame = false;
+};
+
+class FpsCounter final {
+public:
+    Optional<int> update(Real seconds) {
+        m_frame_count += 1;
+        m_accumulated_seconds += seconds;
+        if (m_accumulated_seconds < 1)
+            { return {}; }
+
+        auto rem_secs = std::fmod(m_accumulated_seconds, 1);
+        auto n_secs = m_accumulated_seconds - rem_secs;
+        auto frames = m_frame_count*(n_secs / m_accumulated_seconds);
+        auto rem_frames = m_frame_count - frames;
+
+        m_frame_count = rem_frames;
+        m_accumulated_seconds = rem_secs;
+        return static_cast<int>(std::round(frames));
+    }
+
+private:
+    Real m_frame_count = 0;
+    Real m_accumulated_seconds = 0;
 };
 
 class GameDriverComplete final : public GameDriver {
@@ -81,8 +106,10 @@ private:
     Scene m_scene;
     PlayerEntities m_player_entities;
     TasksController m_tasks_controller;
+#   if 0
+    FpsCounter m_frame_counter;
+#   endif
 };
-
 
 } // end of <anonymous> namespace
 

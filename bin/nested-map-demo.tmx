@@ -8,7 +8,7 @@
    <property name="filename" value="nested-comp-parts.tmx"/>
    <property name="type" value="composite-map-tileset"/>
   </properties>
-  <image source="../../../../../../../../home/aria/dev/mapproject/bin/nest-comp-demo.png" width="64" height="64"/>
+  <image source="nest-comp-demo.png" width="64" height="64"/>
  </tileset>
  <layer id="1" name="Tile Layer 1" width="10" height="10">
   <data encoding="csv">
