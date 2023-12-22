@@ -21,12 +21,10 @@
 #include "TilesetLoadingTask.hpp"
 #include "MapLoaderTask.hpp"
 
-#include "TiledMapLoader.hpp"
 #include "TilesetBase.hpp"
 
 #include <ariajanke/cul/Either.hpp>
 
-#include <tinyxml2.h>
 
 namespace {
 
@@ -96,7 +94,7 @@ OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>
         map_left([] (FutureLost &&) {
             return MapLoadingError{k_not_retrieved};
         }).
-        chain(DocumentOwningNode::optionally_load_root).
+        chain(optionally_load_root).
         chain([]
             (DocumentOwningNode && node) ->
                 OptionalEither<MapLoadingError, UnloadedTileSet>
@@ -107,39 +105,11 @@ OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>
         });
 }
 
-// ----------------------------------------------------------------------------
-
-/* static */ Either<MapLoadingError, DocumentOwningNode>
-    DocumentOwningNode::load_root(std::string && file_contents)
+/* private static */ OptionalEither<MapLoadingError, DocumentOwningNode>
+    TilesetLoadingTask::optionally_load_root(std::string && file_contents)
 {
-    using namespace map_loading_messages;
-    struct OwnerImpl final : public Owner {
-        TiXmlDocument document;
-    };
-    // great, guaranteed dynamic allocation
-    // and file_contents is consumed
-    auto owner = make_shared<OwnerImpl>();
-    auto & document = owner->document;
-    if (document.Parse(file_contents.c_str()) != tinyxml2::XML_SUCCESS) {
-        return MapLoadingError{k_tile_map_file_contents_not_retrieved};
-    }
-    return DocumentOwningNode{owner, *document.RootElement()};
+    auto ei = MapLoadingError::failed_load_as_error
+        (DocumentOwningNode::load_root(std::move(file_contents)));
+    if (ei.is_left()) return ei.left();
+    return ei.right();
 }
-
-/* static */ OptionalEither<MapLoadingError, DocumentOwningNode>
-    DocumentOwningNode::optionally_load_root(std::string && file_contents)
-{
-    using Rt = OptionalEither<MapLoadingError, DocumentOwningNode>;
-    auto ei = load_root(std::move(file_contents));
-    if (ei.is_left()) {
-        return Rt{ei.left()};
-    }
-    return Rt{ei.right()};
-}
-
-DocumentOwningNode DocumentOwningNode::make_with_same_owner
-    (const TiXmlElement & same_document_element) const
-{ return DocumentOwningNode{m_owner, same_document_element}; }
-
-const TiXmlElement & DocumentOwningNode::element() const
-    { return *m_element; }

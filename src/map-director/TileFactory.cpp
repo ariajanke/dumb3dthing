@@ -23,7 +23,6 @@
 #include "ProducableGrid.hpp"
 
 #include "../RenderModel.hpp"
-#include "../Components.hpp"
 
 #include <tinyxml2.h>
 
@@ -32,10 +31,10 @@ namespace {
 using Triangle = TriangleSegment;
 
 static const constexpr std::array k_flat_points = {
-    Vector{-.5, 0, 0.5}, // nw
-    Vector{-.5, 0, -.5}, // sw
-    Vector{0.5, 0, -.5}, // se
-    Vector{0.5, 0, 0.5}  // ne
+    k_tile_top_left, // nw
+    k_tile_top_left - k_north, // sw
+    k_tile_top_left - k_north + k_east, // se
+    k_tile_top_left + k_east  // ne
 };
 
 } // end of <anonymous> namespace

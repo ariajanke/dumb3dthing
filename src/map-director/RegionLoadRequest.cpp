@@ -20,9 +20,7 @@
 
 #include "RegionLoadRequest.hpp"
 
-#include "MapDirector.hpp"
-#include "MapRegion.hpp"
-
+#include "../Components.hpp"
 #include "../TriangleSegment.hpp"
 
 #include "../point-and-plane.hpp"
@@ -130,9 +128,13 @@ RegionLoadRequest::RegionLoadRequest
     // grid position 0, 0 -> -0.5, y,  0.5
     //               1, 1 ->  0.5, y, -0.5
     //               2, 2 ->  1.5, y, -1.5
+    // this "flip" doesn't seem right either
+    // there should be a central place for going back and forth
+    // from grid positions to in game positions
     auto flip = [] (const Vector2I & r) { return Vector2{r.x, -r.y}; };
     auto bottom_left =
-        flip(cul::top_left_of(tile_rectangle)) + Vector2{-0.5, 0.5};
+        flip(cul::top_left_of(tile_rectangle)) +
+        Vector2{k_tile_top_left.x, k_tile_top_left.z};
     auto top_left = bottom_left - Vector2{0, tile_rectangle.height};
     auto size = cul::convert_to<cul::Size2<Real>>(cul::size_of(tile_rectangle));
     return cul::Rectangle<Real>{top_left, size};

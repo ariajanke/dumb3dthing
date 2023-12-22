@@ -22,7 +22,6 @@
 #include "ProducablesTileset.hpp"
 
 #include "../../Definitions.hpp"
-#include "../../TasksController.hpp"
 
 namespace {
 
@@ -30,6 +29,7 @@ using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 using Continuation = BackgroundTask::Continuation;
 using TaskContinuation = MapContentLoaderComplete::TaskContinuation;
 using FillerFactoryMap = ProducablesTileset::FillerFactoryMap;
+using Result = MapLoaderTask::Result;
 
 } // end of <anonymous> namespace
 
@@ -50,7 +50,9 @@ Continuation & MapLoaderTask::in_background
     m_content_loader.assign_continuation_strategy(strat);
     m_map_loader.update_progress(m_content_loader).fold<int>(0).
         map([this] (MapLoadingSuccess && res) {
-            m_loaded_region = std::move(res.loaded_region);
+            m_map_result.map_region = std::move(res.loaded_region);
+            m_map_result.map_objects = std::move(res.object_collection);
+            m_map_result.object_framing = std::move(res.object_framing);
             return 0;
         }).
         map_left([] (MapLoadingError &&) {
@@ -61,11 +63,11 @@ Continuation & MapLoaderTask::in_background
     return m_content_loader.task_continuation();
 }
 
-UniquePtr<MapRegion> MapLoaderTask::retrieve() {
-    if (!m_loaded_region) {
+Result MapLoaderTask::retrieve() {
+    if (!m_map_result.map_region) {
         throw RuntimeError{"No loaded region to retrieve"};
     }
-    return std::move(m_loaded_region);
+    return std::move(m_map_result);
 }
 
 // ----------------------------------------------------------------------------

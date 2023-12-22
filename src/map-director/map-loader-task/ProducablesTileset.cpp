@@ -23,7 +23,6 @@
 #include "../TilesetPropertiesGrid.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../twist-loop-filler.hpp"
-#include "../MapRegion.hpp"
 
 #include "TileMapIdToSetMapping.hpp"
 
@@ -198,7 +197,7 @@ MakeFillerGridRt make_filler_grid
     auto & filler_grid = rv.grid;
     auto & filler_instances = rv.unique_fillers;
     filler_grid.set_size(xml_grid.size2(), nullptr);
-    for (auto [factory, locations] : factory_and_locations) {
+    for (auto & [factory, locations] : factory_and_locations) {
         auto filler = (*factory)(xml_grid, platform);
         filler_instances.emplace_back(filler);
         for (auto r : locations) {

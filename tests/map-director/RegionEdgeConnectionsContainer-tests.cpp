@@ -23,8 +23,6 @@
 
 #include "../test-helpers.hpp"
 
-#include <unordered_set>
-
 namespace {
 
 struct Samp final {
@@ -69,8 +67,6 @@ using namespace cul::tree_ts;
 struct Whatevs final {};
 
 describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
-    using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
-
     auto samp_0_0_old = make_view_grid_for_tile(Vector2I{});
     auto samp_1_0     = make_view_grid_for_tile(Vector2I{1, 0});
     auto samp_0_0_new = make_view_grid_for_tile(Vector2I{});
@@ -103,8 +99,6 @@ describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
         cont_first = remover_first.finish();
     }).
     mark_it("then remove one region of links, the container no longer owns the links", [&] {
-        auto a = samp_0_0_old.e.use_count();
-        auto b = samp_1_0    .e.use_count();
         return test_that(samp_0_0_old.e.use_count() - usec00_old == 0 &&
                          samp_1_0    .e.use_count() - usec10     == 4   );
     }).
@@ -119,7 +113,6 @@ describe<Whatevs>("RegionEdgeConnectionsContainer")([] {
                          samp_1_0    .e.use_count() - usec10     == 4 &&
                          samp_0_0_new.e.use_count() - usec00_new == 4);
     });
-
 });
 
 return [] {};

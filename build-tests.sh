@@ -1,4 +1,4 @@
-g++ -O3 -std=c++17 \
+g++ -O3 -Wall -std=c++17 \
   $(find src/platform/test | grep 'cpp\b') $(find src -maxdepth 2 | grep 'cpp\b') \
 	$(find src/map-director/map-loader-task | grep 'cpp\b') \
 	$(find src/map-director/slopes-group-filler | grep 'cpp\b') \
@@ -10,4 +10,6 @@ g++ -O3 -std=c++17 \
   -Wno-unqualified-std-cast-call \
   -o bin/.out-unit-tests
 cd bin
-./.out-unit-tests
+./.out-unit-tests && echo "All tests Pass!"
+cd ..
+

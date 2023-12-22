@@ -19,7 +19,6 @@
 *****************************************************************************/
 
 #include "TiledMapLoader.hpp"
-#include "CompositeTileset.hpp"
 
 #include <ariajanke/cul/Either.hpp>
 
@@ -50,7 +49,8 @@ BaseState::MapLoadResult
     }).
     chain([&] (std::string && contents) {
         using namespace map_loading_messages;
-        return DocumentOwningNode::load_root(std::move(contents)).
+        return MapLoadingError::failed_load_as_error
+            (DocumentOwningNode::load_root(std::move(contents))).
             fold<MapLoadResult>().
             map([&] (DocumentOwningNode && root) {
                 switcher.set_next_state<InitialDocumentReadState>(std::move(root));
@@ -204,7 +204,7 @@ MapLoadResult TileSetLoadState::update_progress
     auto finished_tilesets = finish_tilesets
         (std::move(m_future_tilesets), std::move(m_ready_tilesets));
     state_switcher.set_next_state<MapElementCollectorState>
-        (std::move(m_document_root),
+        (DocumentOwningNode{m_document_root},
          TileMapIdToSetMapping{ std::move(finished_tilesets) },
          std::move(m_layers));
     return {};
@@ -279,21 +279,15 @@ MapLoadResult MapElementCollectorState::update_progress
     res.loaded_region = MapRegionBuilder::
         load_from_elements(std::move(m_id_mapping_set), std::move(m_layers)).
         make_map_region(map_scale());
+    res.object_collection = MapObjectCollection::load_from(m_document_root);
+    res.object_framing = MapObjectFraming::load_from(*m_document_root);
     state_switcher.set_next_state<ExpiredState>();
     return res;
 }
 
 /* private */ ScaleComputation MapElementCollectorState::map_scale() const {
     // there maybe more properties in the future, but for now there's only one
-    auto props = m_document_root->FirstChildElement("properties");
-    for (auto & el : XmlRange{props, "property"}) {
-        if (::strcmp(el.Attribute("name"), "scale") == 0) {
-            auto scale = ScaleComputation::parse(el.Attribute("value"));
-            if (scale)
-                { return *scale; }
-        }
-    }
-    return ScaleComputation{};
+    return ScaleComputation::tile_scale_from_map(*m_document_root);
 }
 
 // ----------------------------------------------------------------------------

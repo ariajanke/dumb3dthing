@@ -101,6 +101,12 @@ struct ModelTranslation final : public VectorLike<ModelTranslation> {
     using LikeBase::operator+=;
 };
 
+struct PlayerRecovery final : public VectorLike<PlayerRecovery> {
+    using LikeBase::LikeBase;
+    using LikeBase::operator=;
+    using LikeBase::operator+=;
+};
+
 struct YRotation final : public ScalarLike<YRotation> {
     using LikeBase::LikeBase;
     using LikeBase::operator=;

@@ -23,12 +23,15 @@
 #include "TileMapIdToSetMapping.hpp"
 #include "StateMachineDriver.hpp"
 
+#include "../MapObjectCollection.hpp"
 #include "../MapRegion.hpp"
 
 class TilesetXmlGrid;
 
 struct MapLoadingSuccess final {
     UniquePtr<MapRegion> loaded_region;
+    MapObjectCollection object_collection;
+    MapObjectFraming object_framing;
     MapLoadingWarnings warnings;
 };
 

@@ -20,15 +20,20 @@
 
 #pragma once
 
-#include "../Definitions.hpp"
-#include "../Components.hpp"
-
+#include "ParseHelpers.hpp"
 #include "ViewGrid.hpp"
 #include "RegionAxisAddressAndSide.hpp"
+
+#include "../Definitions.hpp"
+#include "../Components.hpp"
 
 class ScaleComputation final {
 public:
     static Optional<ScaleComputation> parse(const char *);
+
+    static ScaleComputation tile_scale_from_map(const TiXmlElement & map_root);
+
+    static ScaleComputation pixel_scale_from_map(const TiXmlElement & map_root);
 
     ScaleComputation() {}
 
@@ -48,6 +53,8 @@ public:
         { return Size2I{scale_x(size.width), scale_z(size.height)}; }
 
     RectangleI of(const RectangleI &) const;
+
+    ScaleComputation of(const ScaleComputation &) const;
 
     bool operator == (const ScaleComputation &) const;
 

@@ -22,6 +22,8 @@
 
 #include "../TileFactory.hpp"
 
+#include <map>
+
 class ProducableTileCallbacks;
 
 enum class CardinalDirection {

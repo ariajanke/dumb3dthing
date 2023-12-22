@@ -20,13 +20,23 @@
 
 #pragma once
 
-#include "MapRegionTracker.hpp"
+#include "MapObjectCollection.hpp"
+
+#include "../Tasks.hpp"
+
+class MapRegion;
 
 class MapLoaderTask_ : public BackgroundTask {
 public:
+    struct Result final {
+        UniquePtr<MapRegion> map_region;
+        MapObjectCollection map_objects;
+        MapObjectFraming object_framing;
+    };
+
     static SharedPtr<MapLoaderTask_> make
         (const char * initial_map, Platform & platform);
 
     /// @throws if the task has not finished
-    virtual UniquePtr<MapRegion> retrieve() = 0;
+    virtual Result retrieve() = 0;
 };

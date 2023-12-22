@@ -24,8 +24,6 @@
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
-#include "../RenderModel.hpp"
-#include "../Texture.hpp"
 
 namespace {
 
@@ -138,13 +136,26 @@ Continuation & PlayerMapPreperationTask::in_background
 
     auto player_update_task = make_shared<PlayerUpdateTask>
         (m_player_physics.as_reference());
+    auto res = m_map_loader->retrieve();
     auto map_director_task = make_shared<MapDirectorTask>
-        (m_player_physics, m_ppdriver, m_map_loader->retrieve());
+        (m_player_physics, m_ppdriver, std::move(res.map_region));
+    auto * player_object = res.map_objects.seek_by_name("player-spawn-point");
+    auto & location = std::get<PpInAir>(m_player_physics.add<PpState>()).location;
+    const auto & object_framing = res.object_framing;
+    if (player_object) {
+        (void)object_framing.
+            get_position_from(*player_object).
+            map([&location] (Vector && r) {
+                location = r;
+                return std::monostate{};
+            });
+    }
     m_player_physics.
         add<
-            Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>
+            Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>,
+            PlayerRecovery
             >() = make_tuple
-            (Velocity{}, player_update_task, map_director_task);
+            (Velocity{}, player_update_task, map_director_task, location);
 
     callbacks.add(player_update_task);
     callbacks.add(map_director_task);

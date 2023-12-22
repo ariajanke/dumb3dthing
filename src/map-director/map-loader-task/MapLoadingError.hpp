@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "../../Definitions.hpp"
+
 namespace map_loading_messages {
 
 enum WarningEnum {
@@ -56,8 +58,12 @@ private:
 
 using MapLoadingErrorEnum = map_loading_messages::ErrorEnum;
 
+class DocumentOwningNode;
 class MapLoadingError final {
 public:
+    static Either<MapLoadingError, DocumentOwningNode>
+        failed_load_as_error(Optional<DocumentOwningNode> &&);
+
     explicit MapLoadingError(MapLoadingErrorEnum) {}
 };
 

@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "Components.hpp"
 #include "Tasks.hpp"
 
 namespace point_and_plane {

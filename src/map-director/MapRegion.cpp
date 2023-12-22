@@ -19,7 +19,6 @@
 *****************************************************************************/
 
 #include "MapRegion.hpp"
-#include "MapRegionTracker.hpp"
 
 TiledMapRegion::TiledMapRegion
     (ProducableTileViewGrid && producables_view_grid,

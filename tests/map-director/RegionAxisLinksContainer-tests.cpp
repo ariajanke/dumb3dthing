@@ -24,6 +24,7 @@
 #include "../test-helpers.hpp"
 
 #include <unordered_set>
+#include <random>
 
 namespace {
 
@@ -136,7 +137,7 @@ describe<RegionAxisLinksAdder>("RegionAxisLinksAdder::sort_and_sweep").
     auto a = make_view_grid_for_tile(Vector2I{0, 0});
     auto b = make_view_grid_for_tile(Vector2I{0, 1});
     std::vector<RegionAxisLinkEntry> entries;
-    for (auto link : { a.e, a.w, b.e, b.w }) {
+    for (auto & link : { a.e, a.w, b.e, b.w }) {
         entries.emplace_back(RegionAxisLinkEntry::computed_bounds
             (link, RegionAxis::x_ways));
     }
@@ -212,6 +213,70 @@ describe<RegionAxisLinksRemover>("RegionAxisLinksRemover::remove_nulls").
     }).
     mark_it("remaining entries are not null", [&] {
         return test_that(!!entries[0].link());
+    });
+});
+
+describe<RegionAxisLinksContainer>("RegionAxisLinksContainer")([] {
+    RegionAxisLinksContainer container{std::vector<RegionAxisLinkEntry>{}, RegionAxis::x_ways};
+    // add (sets a, b)
+    // take away a
+    // add back a
+    // all As have an owner counter of two
+    std::vector<SharedPtr<TriangleLink>> a_set = {
+        make_shared<TriangleLink>(),
+        make_shared<TriangleLink>(),
+        make_shared<TriangleLink>(),
+    };
+    std::vector<SharedPtr<TriangleLink>> b_set = {
+        make_shared<TriangleLink>(),
+        make_shared<TriangleLink>(),
+        make_shared<TriangleLink>(),
+    };
+    std::random_device rnd;
+    std::default_random_engine rng(rnd());
+    std::shuffle(a_set.begin(), a_set.end(), rng);
+    std::shuffle(b_set.begin(), b_set.end(), rng);
+
+    {
+    auto adder = container.make_adder();
+    for (auto * cont : { &a_set, &b_set }) {
+        for (const auto & ptr : *cont) {
+            adder.add(ptr);
+        }
+    }
+    container = adder.finish();
+    }
+    auto make_owner_count_pred = [] (int expect_count) {
+        return [expect_count] (const SharedPtr<TriangleLink> & link) {
+            return expect_count == link.use_count();
+        };
+    };
+    mark_it("after adding both sets, owner count of two", [&] {
+        auto all_a_count_2 =
+            std::all_of(a_set.begin(), a_set.end(), make_owner_count_pred(2));
+        auto all_b_count_2 =
+            std::all_of(b_set.begin(), b_set.end(), make_owner_count_pred(2));
+        return test_that(all_a_count_2 && all_b_count_2);
+    }).
+    next([&] {
+        auto remover = container.make_remover();
+        for (auto & ptr : a_set) {
+            remover.add(ptr);
+        }
+        container = remover.finish();
+    }).
+    mark_it("after removing set a, owner count is one", [&] {
+        return test_that(std::all_of(a_set.begin(), a_set.end(), make_owner_count_pred(1)));
+    }).
+    next([&] {
+        auto adder = container.make_adder();
+        for (auto & ptr : a_set) {
+            adder.add(ptr);
+        }
+        container = adder.finish();
+    }).
+    mark_it("after add back set a, owner count two again", [&] {
+        return test_that(std::all_of(a_set.begin(), a_set.end(), make_owner_count_pred(2)));
     });
 });
 

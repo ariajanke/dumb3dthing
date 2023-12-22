@@ -23,6 +23,8 @@
 
 #include "../TriangleSegment.hpp"
 
+#include <tinyxml2.h>
+
 #include <cstring>
 
 namespace {
@@ -32,6 +34,34 @@ constexpr const auto k_whitespace_trimmer =
     make_trim_whitespace<const char *>();
 
 } // end of <anonymous> namespace
+
+/* static */ ScaleComputation ScaleComputation::tile_scale_from_map
+    (const TiXmlElement & map_root)
+{
+    // there maybe more properties in the future, but for now there's only one
+    auto props = map_root.FirstChildElement("properties");
+    for (auto & el : XmlRange{props, "property"}) {
+        if (::strcmp(el.Attribute("name"), "scale") == 0) {
+            auto scale = ScaleComputation::parse(el.Attribute("value"));
+            if (scale)
+                { return *scale; }
+        }
+    }
+    return ScaleComputation{};
+}
+
+/* static */ ScaleComputation ScaleComputation::pixel_scale_from_map
+    (const TiXmlElement & map_root)
+{
+    auto tile_width  = map_root.IntAttribute("tilewidth" );
+    auto tile_height = map_root.IntAttribute("tileheight");
+    if (tile_height < 1 || tile_width < 1) {
+        return ScaleComputation{};
+    }
+    ScaleComputation tile_scale
+        { Real(1.) / Real(tile_width), Real(1.), Real(1.) / Real(tile_height) };
+    return tile_scale_from_map(map_root).of(tile_scale);
+}
 
 /* static */ Optional<ScaleComputation>
     ScaleComputation::parse(const char * string)
@@ -78,6 +108,13 @@ RectangleI ScaleComputation::of(const RectangleI & rect) const {
     return RectangleI
         {scale_x(rect.left ), scale_z(rect.top   ),
          scale_x(rect.width), scale_z(rect.height)};
+}
+
+ScaleComputation ScaleComputation::of(const ScaleComputation & rhs) const {
+    return ScaleComputation
+        { m_factor.x*rhs.m_factor.x,
+          m_factor.y*rhs.m_factor.y,
+          m_factor.z*rhs.m_factor.z };
 }
 
 bool ScaleComputation::operator == (const ScaleComputation & rhs) const

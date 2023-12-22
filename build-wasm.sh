@@ -46,6 +46,6 @@ if [[ ! true ]]; then
 fi
 
 if [[ true ]]; then
-    esbuild --minify src/platform/wasm/jsPlatform.js > $outputpath"/out-jsPlatform.js"
-    esbuild --minify src/platform/wasm/driver.js > $outputpath"/out-driver.js"
+    ./node_modules/.bin/esbuild --minify src/platform/wasm/jsPlatform.js > $outputpath"/out-jsPlatform.js"
+    ./node_modules/.bin/esbuild --minify src/platform/wasm/driver.js > $outputpath"/out-driver.js"
 fi

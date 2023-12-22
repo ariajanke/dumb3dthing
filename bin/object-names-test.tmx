@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="2" height="2" tilewidth="32" tileheight="32" infinite="0" nextlayerid="8" nextobjectid="6">
+ <layer id="1" name="Tile Layer 1" width="2" height="2">
+  <data encoding="csv">
+0,0,
+0,0
+</data>
+ </layer>
+ <objectgroup id="2" name="Object Layer 1">
+  <object id="1" name="aside" x="57.4524" y="48.1434">
+   <point/>
+  </object>
+ </objectgroup>
+ <group id="3" name="top-group">
+  <properties>
+   <property name="import-names-from" value="top-group"/>
+  </properties>
+  <objectgroup id="7" name="top-group">
+   <object id="5" name="lives-in-parent" x="35.0732" y="23.3194">
+    <point/>
+   </object>
+  </objectgroup>
+  <group id="5" name="Group 2">
+   <properties>
+    <property name="import-names-from" value="parent-technically"/>
+   </properties>
+   <objectgroup id="6" name="child-group">
+    <object id="4" name="lives-in-child-layer" x="18.6179" y="55.5717">
+     <point/>
+    </object>
+   </objectgroup>
+   <objectgroup id="4" name="parent-technically">
+    <object id="3" name="lives-in-parent" x="4.79553" y="29.3374">
+     <properties>
+      <property name="where-it-lives" value="in-parent"/>
+     </properties>
+     <point/>
+    </object>
+   </objectgroup>
+  </group>
+ </group>
+</map>

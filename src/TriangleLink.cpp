@@ -22,8 +22,6 @@
 
 #include "geometric-utilities.hpp"
 
-#include <iostream>
-
 namespace {
 
 using Triangle = TriangleLink::Triangle;

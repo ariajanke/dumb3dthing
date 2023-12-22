@@ -8,8 +8,6 @@ This project is currently in a non-demonstrable state. Presently there are no
 plans for it to ever be in a demostrable condition.
 
 ## Planned Features
-- composite maps
-- better camera
 - loop-de-loops
 - water
 - other game entities

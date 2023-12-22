@@ -25,8 +25,6 @@
 #include "../../RenderModel.hpp"
 #include "../../platform.hpp"
 
-#include <bitset>
-
 // want to "cache" graphics
 // graphics are created as needed
 // physical triangles need not be reused

@@ -34,10 +34,6 @@ Real get_x(const Vector & r) { return r.x; }
 
 Real get_z(const Vector & r) { return r.z; }
 
-template <typename ItemType, typename IteratorType, typename ComparisonFunc>
-ItemType * generalize_seek
-    (IteratorType begin, IteratorType end, ComparisonFunc &&);
-
 } // end of <anonymous> namespace
 
 /* static */ bool RegionAxisLinkEntry::bounds_less_than
@@ -137,6 +133,7 @@ RegionAxisLinksAdder RegionAxisLinksContainer::make_adder()
             RegionAxisLinkEntry::attach_matching_points(*itr, *jtr);
         }
     }
+
     if constexpr (k_report_maximum_sort_and_sweep) {
         if (sort_sweep_count > s_sort_sweep_max) {
             auto entries_copy = entries;
@@ -202,9 +199,10 @@ RegionAxisLinksContainer RegionAxisLinksAdder::finish() {
     RegionAxisLinksRemover::remove_nulls
     (std::vector<RegionAxisLinkEntry> && entries)
 {
-    entries.erase
-        (std::remove_if(entries.begin(), entries.end(), Entry::linkless),
-         entries.end());
+    auto nulls_begin =
+        std::remove_if(entries.begin(), entries.end(), Entry::linkless);
+
+    entries.erase(nulls_begin, entries.end());
     return std::move(entries);
 }
 
@@ -222,11 +220,6 @@ RegionAxisLinksRemover::RegionAxisLinksRemover
 
 void RegionAxisLinksRemover::add(const SharedPtr<TriangleLink> & link_ptr) {
     if constexpr (k_verify_removals_exist_in_container) {
-        auto found = generalize_seek<Entry>
-            (m_entries.begin(), m_entries.begin() + m_original_size,
-             [&link_ptr] (const Entry & entry)
-             { return static_cast<int>(link_ptr.get() - entry.link().get()); });
-        if (!found) return;
         verify_in_entries(link_ptr);
     }
     m_entries.emplace_back(link_ptr);
@@ -261,35 +254,13 @@ RegionAxisLinksContainer RegionAxisLinksRemover::finish() {
 /* private */ void RegionAxisLinksRemover::verify_in_entries
     (const SharedPtr<TriangleLink> & link_ptr)
 {
-    if constexpr (k_verify_removals_exist_in_container) {
-        assert(generalize_seek<Entry>
-            (m_entries.begin(), m_entries.begin() + m_original_size,
-             [&link_ptr] (const Entry & entry)
-             { return static_cast<int>(link_ptr.get() - entry.link().get()); }));
+    auto sub_range_end = m_entries.begin() + m_original_size;
+    auto found = std::lower_bound
+        (m_entries.begin(), sub_range_end, link_ptr,
+         [](const Entry & entry, const SharedPtr<TriangleLink> & link_ptr) {
+            return entry.link() < link_ptr;
+         });
+    if (found == sub_range_end || found->link() != link_ptr) {
+        throw RuntimeError{"Attempting to remove a link that's not there"};
     }
 }
-
-namespace {
-
-template <typename ItemType, typename IteratorType, typename ComparisonFunc>
-ItemType * generalize_seek
-    (IteratorType begin, IteratorType end, ComparisonFunc && compare)
-{
-    while (begin != end) {
-        auto mid = begin + (end - begin) / 2;
-        auto res = [compare = std::move(compare), &mid] {
-            const ItemType & mid_item = *mid;
-            return compare(mid_item);
-        } ();
-        if (res == 0) {
-            return &*mid;
-        } else if (res < 0) {
-            end = mid;
-        } else {
-            begin = mid + 1;
-        }
-    }
-    return nullptr;
-}
-
-} // end of <anonymous> namespace

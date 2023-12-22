@@ -27,10 +27,8 @@
 #include "Configuration.hpp"
 
 #include "map-director.hpp"
-#include "PlayerUpdateTask.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
-
 
 #include <iostream>
 
@@ -55,6 +53,29 @@ public:
 private:
     using Kc = KeyControl;
     bool m_paused = false, m_advance_frame = false;
+};
+
+class FpsCounter final {
+public:
+    Optional<int> update(Real seconds) {
+        m_frame_count += 1;
+        m_accumulated_seconds += seconds;
+        if (m_accumulated_seconds < 1)
+            { return {}; }
+
+        auto rem_secs = std::fmod(m_accumulated_seconds, 1);
+        auto n_secs = m_accumulated_seconds - rem_secs;
+        auto frames = m_frame_count*(n_secs / m_accumulated_seconds);
+        auto rem_frames = m_frame_count - frames;
+
+        m_frame_count = rem_frames;
+        m_accumulated_seconds = rem_secs;
+        return static_cast<int>(std::round(frames));
+    }
+
+private:
+    Real m_frame_count = 0;
+    Real m_accumulated_seconds = 0;
 };
 
 class GameDriverComplete final : public GameDriver {
@@ -85,8 +106,10 @@ private:
     Scene m_scene;
     PlayerEntities m_player_entities;
     TasksController m_tasks_controller;
+#   if 0
+    FpsCounter m_frame_counter;
+#   endif
 };
-
 
 } // end of <anonymous> namespace
 
@@ -260,10 +283,9 @@ Tuple<Entity, Entity>
         <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
          TranslationFromParent>
         () = make_tuple
-        (tx, model, ModelTranslation{k_player_start},
+        (tx, model, ModelTranslation{},
          TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
-    physics_ent.add<PpState>(PpInAir{k_player_start, Vector{}});
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
 
     return make_tuple(model_ent, physics_ent);
@@ -275,7 +297,9 @@ void GameDriverComplete::press_key(KeyControl ky) {
     m_player_entities.physical.get<PlayerControl>().press(ky);
     m_time_controller.press(ky);
     if (ky == KeyControl::restart) {
-        m_player_entities.physical.get<PpState>() = PpInAir{k_player_start, Vector{}};
+        auto & physical = m_player_entities.physical;
+        auto recovery_point = physical.get<PlayerRecovery>();
+        physical.get<PpState>() = PpInAir{recovery_point.value, Vector{}};
     }
 }
 
@@ -360,6 +384,8 @@ void GameDriverComplete::update_(Real seconds) {
     },
     [](TranslationFromParent & trans_from_parent, ModelTranslation & trans) {
         auto pent = Entity{trans_from_parent.parent};
+        if (!pent.has<PpState>())
+            { return; }
         Real s = 1;
         auto & state = pent.get<PpState>();
         if (auto * on_surf = get_if<PpOnSegment>(&state)) {
@@ -373,28 +399,31 @@ void GameDriverComplete::update_(Real seconds) {
     VelocitiesToDisplacement{seconds},
     UpdatePpState{*m_ppdriver},
     CheckJump{},
-    [ppstate = m_player_entities.physical.get<PpState>(),
+    [ppstate = m_player_entities.physical.ptr<PpState>(),
      plyvel  = m_player_entities.physical.ptr<Velocity>()]
         (ModelTranslation & trans, EcsOpt<ModelVisibility> vis)
     {
         using point_and_plane::location_of;
-        if (!vis) return;
+        if (!vis || !ppstate) return;
         Vector vel = plyvel ? plyvel->value*0.4 : Vector{};
-        auto dist = magnitude(location_of(ppstate) + vel - trans.value);
+        auto dist = magnitude(location_of(*ppstate) + vel - trans.value);
         *vis = dist < 12;
     })(m_scene);
 
-    auto player = m_player_entities.physical;
+    auto & player = m_player_entities.physical;
     player.get<PlayerControl>().frame_update();
 
-    auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};
-    auto & cam = player.get<DragCamera>();
-    if (magnitude(cam.position - pos) > cam.max_distance) {
-        cam.position += normalize(pos - cam.position)*(magnitude(cam.position - pos) - cam.max_distance);
-        assert(are_very_close( magnitude( cam.position - pos ), cam.max_distance ));
+    if (auto * ppstate = player.ptr<PpState>()) {
+        auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};
+        auto & cam = player.get<DragCamera>();
+        if (magnitude(cam.position - pos) > cam.max_distance) {
+            cam.position += normalize(pos - cam.position)*(magnitude(cam.position - pos) - cam.max_distance);
+            assert(are_very_close( magnitude( cam.position - pos ), cam.max_distance ));
+        }
+
+        player.get<Camera>().target = location_of(player.get<PpState>());
+        player.get<Camera>().position = cam.position;
     }
-    player.get<Camera>().target = location_of(player.get<PpState>());
-    player.get<Camera>().position = cam.position;
 
     m_time_controller.frame_update();
 }
