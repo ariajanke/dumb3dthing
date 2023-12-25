@@ -20,10 +20,13 @@
 
 #pragma once
 
+#ifdef MACRO_USE_OLD_SLOPES
+
 #include "SlopesBasedTileFactory.hpp"
 
 #include "../ProducableGroupFiller.hpp"
 #include "../TilesetPropertiesGrid.hpp"
+
 
 class ProducableSlopeTile final : public ProducableTile {
 public:
@@ -70,3 +73,7 @@ private:
     SlopeFillerExtra m_specials;
     TileFactoryGrid m_tile_factories;
 };
+
+#else
+#   include "SlopeGroupFillerN.hpp"
+#endif

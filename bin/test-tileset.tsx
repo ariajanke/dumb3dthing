@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.8" tiledversion="1.8.0" name="test-tileset" tilewidth="32" tileheight="32" tilecount="90" columns="9">
+<tileset version="1.10" tiledversion="1.10.2" name="test-tileset" tilewidth="32" tileheight="32" tilecount="90" columns="9">
  <image source="sample-tileset.png" width="288" height="320"/>
  <tile id="0" type="in-ramp">
   <properties>
@@ -63,6 +63,7 @@
  </tile>
  <tile id="10" type="flat">
   <properties>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -80,6 +81,7 @@
  </tile>
  <tile id="13" type="flat">
   <properties>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -97,6 +99,7 @@
  </tile>
  <tile id="16" type="flat">
   <properties>
+   <property name="elevation" value="0"/>
    <property name="translation" value="0,0,0"/>
   </properties>
  </tile>
@@ -222,6 +225,7 @@
  </tile>
  <tile id="37" type="flat">
   <properties>
+   <property name="elevation" value="3"/>
    <property name="translation" value="0,3,0"/>
   </properties>
  </tile>

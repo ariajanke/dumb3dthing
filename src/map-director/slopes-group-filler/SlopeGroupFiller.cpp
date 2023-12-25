@@ -18,6 +18,8 @@
 
 *****************************************************************************/
 
+#ifdef MACRO_USE_OLD_SLOPES
+
 #include "SlopeGroupFiller.hpp"
 #include "WallTileFactory.hpp"
 #include "RampTileFactory.hpp"
@@ -196,3 +198,4 @@ void SlopeGroupFiller::load
     } ();
     return s_map;
 }
+#endif

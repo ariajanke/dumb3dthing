@@ -1,0 +1,107 @@
+/******************************************************************************
+
+    GPLv3 License
+    Copyright (c) 2023 Aria Janke
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*****************************************************************************/
+
+#pragma once
+
+#include "SlopesTilesetTileN.hpp"
+#include "../../RenderModel.hpp"
+
+template <typename ... Types>
+class TupleBuilder {
+public:
+    TupleBuilder() {}
+
+    TupleBuilder(Tuple<Types...> && tuple):
+        m_impl(std::move(tuple)) {}
+
+    template <typename T>
+    TupleBuilder<T, Types...> add(T && obj) && {
+        return TupleBuilder<T, Types...>
+            {std::tuple_cat(std::make_tuple(obj), std::move(m_impl))};
+    }
+
+    void add_to_entity(Entity & ent) &&
+        { ent.add<Types...>() = std::move(m_impl); }
+
+
+    Tuple<Types...> finish() &&
+        { return m_impl; }
+
+private:
+    Tuple<Types...> m_impl;
+};
+
+// ----------------------------------------------------------------------------
+
+class FlatTilesetTile final : public SlopesTilesetTile {
+public:
+    using FlatVertexArray = std::array<Vertex, 4>;
+
+    static constexpr const std::array<unsigned, 6> k_elements =
+        {0, 1, 2, 0, 2, 3};
+
+    static const constexpr std::array k_points = {
+        k_tile_top_left, // nw
+        k_tile_top_left - k_north, // sw
+        k_tile_top_left - k_north + k_east, // se
+        k_tile_top_left + k_east  // ne
+    };
+
+    static FlatVertexArray make_vertices
+        (const Vector2I & location_on_tileset,
+         const TilesetXmlGrid & tileset_xml);
+
+    void load
+        (const TilesetXmlGrid &,
+         const Vector2I & location_on_tileset,
+         PlatformAssetsStrategy & platform) final;
+
+    TileCornerElevations corner_elevations() const final;
+
+    void make_producable
+        (const TileCornerElevations & neighboring_elevations,
+         Callbacks & callbacks) const final;
+
+private:
+    Real m_elevation;
+    SharedPtr<const Texture> m_texture_ptr;
+    SharedPtr<const RenderModel> m_render_model;
+};
+
+// ----------------------------------------------------------------------------
+
+class FlatProducableTile final : public ProducableTile {
+public:
+    using FlatVertexArray = FlatTilesetTile::FlatVertexArray;
+
+    FlatProducableTile() {}
+
+    FlatProducableTile
+        (const FlatVertexArray & vertices,
+         const SharedPtr<const Texture> & texture_ptr,
+         const SharedPtr<const RenderModel> & render_model);
+
+    void operator () (ProducableTileCallbacks &) const final;
+
+private:
+    FlatVertexArray m_vertices;
+    SharedPtr<const Texture> m_texture_ptr;
+    SharedPtr<const RenderModel> m_render_model;
+};

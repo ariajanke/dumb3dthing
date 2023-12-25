@@ -64,6 +64,14 @@ public:
         return f(value);
     }
 
+    template <typename KeyType>
+    const std::string * value_of(const KeyType & key) const {
+        auto itr = m_properties.find(key);
+        if (itr == m_properties.end())
+            { return nullptr; }
+        return &itr->second;
+    }
+
 private:
     static constexpr const int k_no_id = -1;
 
