@@ -75,32 +75,12 @@ public:
 
     TileCornerElevations corner_elevations() const final;
 
-    void make_producable
+    void make
         (const TileCornerElevations & neighboring_elevations,
-         Callbacks & callbacks) const final;
+         ProducableTileCallbacks & callbacks) const;
 
 private:
     Real m_elevation;
-    SharedPtr<const Texture> m_texture_ptr;
-    SharedPtr<const RenderModel> m_render_model;
-};
-
-// ----------------------------------------------------------------------------
-
-class FlatProducableTile final : public ProducableTile {
-public:
-    using FlatVertexArray = FlatTilesetTile::FlatVertexArray;
-
-    FlatProducableTile() {}
-
-    FlatProducableTile
-        (const FlatVertexArray & vertices,
-         const SharedPtr<const Texture> & texture_ptr,
-         const SharedPtr<const RenderModel> & render_model);
-
-    void operator () (ProducableTileCallbacks &) const final;
-
-private:
     FlatVertexArray m_vertices;
     SharedPtr<const Texture> m_texture_ptr;
     SharedPtr<const RenderModel> m_render_model;

@@ -26,35 +26,104 @@ namespace {
 
 using TilesetTileMakerMap = SlopeGroupFiller::TilesetTileMakerMap;
 using TilesetTileGridPtr = SlopeGroupFiller::TilesetTileGridPtr;
+using TilesetTileGrid = SlopeGroupFiller::TilesetTileGrid;
+using ProducableGroupCreation = ProducableGroupFiller::ProducableGroupCreation;
+
+class NeighborElevationsComplete final :
+    public TileCornerElevations::NeighborElevations
+{
+public:
+    static Vector2I offset_for(CardinalDirection cd) {
+        using Cd = CardinalDirection;
+        switch (cd) {
+        case Cd::n : return Vector2I{ 0, -1};
+        case Cd::e : return Vector2I{-1,  0};
+        case Cd::s : return Vector2I{ 0,  1};
+        case Cd::w : return Vector2I{ 1,  0};
+        case Cd::ne: return Vector2I{-1, -1};
+        case Cd::nw: return Vector2I{ 1, -1};
+        case Cd::se: return Vector2I{-1,  1};
+        case Cd::sw: return Vector2I{ 1,  1};
+        }
+        throw InvalidArgument{"invalid value for cardinal direction"};
+    }
+
+    NeighborElevationsComplete
+        (const Grid<ProducableSlopesTile> & producables_,
+         const Vector2I & position):
+        m_producables(producables_),
+        m_position(position) {}
+
+    TileCornerElevations elevations_from(CardinalDirection cd) const final {
+        auto r = m_position + offset_for(cd);
+        if (!m_producables.has_position(r))
+            { return TileCornerElevations{}; }
+        return m_producables(r).corner_elevations();
+    }
+
+private:
+    const Grid<ProducableSlopesTile> & m_producables;
+    Vector2I m_position;
+};
 
 class SlopesGroupOwner final : public ProducableGroupOwner {
 public:
+    void set_tileset_tiles(const TilesetTileGridPtr & tileset_tiles) {
+        m_tileset_tiles = tileset_tiles;
+    }
+
     void reserve(std::size_t number_of_members, const Size2I & grid_size) {
-        m_slope_tiles.reserve(number_of_members);
-        m_tileset_to_map_mapping =
-            make_shared<Grid<SlopesBasedTileFactory *>>();
-        m_tileset_to_map_mapping->set_size(grid_size, nullptr);
+        m_tileset_to_map_mapping.set_size(grid_size.width, grid_size.height);
     }
 
     ProducableTile & add_member(const TileLocation & tile_location) {
 #       ifdef MACRO_DEBUG
-        assert(m_slope_tiles.capacity() > m_slope_tiles.size());
+        assert(m_tileset_tiles);
 #       endif
-        m_slope_tiles.emplace_back
-            (ProducableSlopeTile{tile_location.on_map, m_tileset_to_map_mapping});
-        (*m_tileset_to_map_mapping)(tile_location.on_map) =
-            m_tile_factory_grid(tile_location.on_tileset).get();
-        return m_slope_tiles.back();
-    }
-
-    void set_tile_factory_grid(const TileFactoryGrid & grid) {
-        m_tile_factory_grid = grid;
+        if (!m_tileset_tiles->has_position(tile_location.on_tileset) ||
+            !m_tileset_to_map_mapping.has_position(tile_location.on_map))
+        {
+            throw InvalidArgument
+                {"Cannot add member at specified location (grid not setup correctly?)"};
+        }
+        NeighborElevationsComplete neighbor_elevations
+            {m_tileset_to_map_mapping, tile_location.on_map};
+        return m_tileset_to_map_mapping(tile_location.on_map) =
+            ProducableSlopesTile
+            {(*m_tileset_tiles)(tile_location.on_tileset),
+             neighbor_elevations.elevations()};
     }
 
 private:
-    SharedPtr<Grid<SlopesBasedTileFactory *>> m_tileset_to_map_mapping;
-    std::vector<ProducableSlopeTile> m_slope_tiles;
-    TileFactoryGrid m_tile_factory_grid;
+    TilesetTileGridPtr m_tileset_tiles;
+    Grid<ProducableSlopesTile> m_tileset_to_map_mapping;
+};
+
+class SlopesGroupCreator final : public ProducableGroupCreation {
+public:
+    void set_owner(SharedPtr<SlopesGroupOwner> && owner)
+        { m_owner = std::move(owner); }
+
+    void reserve
+        (std::size_t number_of_members, const Size2I & grid_size) final
+        { verify_owner_ptr().reserve(number_of_members, grid_size); }
+
+    ProducableTile & add_member(const TileLocation & tile_location) final
+        { return verify_owner_ptr().add_member(tile_location); }
+
+    SharedPtr<ProducableGroupOwner> finish() final {
+        (void)verify_owner_ptr();
+        return std::move(m_owner);
+    }
+
+private:
+    SlopesGroupOwner & verify_owner_ptr() {
+        if (m_owner)
+            { return *m_owner; }
+        throw RuntimeError{"forgot to set slopes group owner pointer"};
+    }
+
+    SharedPtr<SlopesGroupOwner> m_owner;
 };
 
 } // end of <anonymous> namespace
@@ -73,15 +142,22 @@ void SlopeGroupFiller::load
      PlatformAssetsStrategy & platform,
      const TilesetTileMakerMap & tileset_tile_makers)
 {
+    m_tileset_tiles = make_shared<TilesetTileGrid>();
+    m_tileset_tiles->set_size(xml_grid.size2().width, xml_grid.size2().height);
     for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
         auto & properties = xml_grid(r);
         auto itr = tileset_tile_makers.find(properties.type());
         if (itr == tileset_tile_makers.end())
             { continue; }
-        itr->second();
+        auto & created_tileset_tile = (*m_tileset_tiles)(r) = itr->second();
+        created_tileset_tile->load(xml_grid, r, platform);
     }
 }
 
-void SlopeGroupFiller::make_group(CallbackWithCreator &) const {
-
+void SlopeGroupFiller::make_group(CallbackWithCreator & callback) const {
+    auto owner = make_shared<SlopesGroupOwner>();
+    owner->set_tileset_tiles(m_tileset_tiles);
+    SlopesGroupCreator creator;
+    creator.set_owner(std::move(owner));
+    callback(creator);
 }

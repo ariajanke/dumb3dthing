@@ -20,6 +20,7 @@
 
 #include "slopes-group-filler.hpp"
 #include "slopes-group-filler/SlopeGroupFiller.hpp"
+#include "slopes-group-filler/SlopeGroupFillerN.hpp"
 
 /* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
     (const TilesetXmlGrid & xml_grid, PlatformAssetsStrategy & platform)

@@ -36,15 +36,16 @@ constexpr const std::array<unsigned, 6> k_elements =
      const TilesetXmlGrid & tileset_xml)
 {
     auto tx_size = tileset_xml.texture_size();
-    Vector2 tx_tl{Real(location_on_tileset.x) / Real(tx_size.width ),
-                  Real(location_on_tileset.y) / Real(tx_size.height)};
-    auto tile_width = tileset_xml.tile_size().width;
-    auto tile_height = tileset_xml.tile_size().height;
+    auto tile_size = tileset_xml.tile_size();
+    Vector2 tx_tl{Real(location_on_tileset.x*tile_size.width ) / Real(tx_size.width ),
+                  Real(location_on_tileset.y*tile_size.height) / Real(tx_size.height)};
+    auto tile_width  = tile_size.width  / tx_size.width ;
+    auto tile_height = tile_size.height / tx_size.height;
     return FlatVertexArray
         {Vertex{k_points[0], tx_tl},
-         Vertex{k_points[0], tx_tl + Vector2{0, tile_height}},
-         Vertex{k_points[0], tx_tl + Vector2{tile_width, tile_height}},
-         Vertex{k_points[0], tx_tl + Vector2{tile_width, 0}}};
+         Vertex{k_points[1], tx_tl + Vector2{0, tile_height}},
+         Vertex{k_points[2], tx_tl + Vector2{tile_width, tile_height}},
+         Vertex{k_points[3], tx_tl + Vector2{tile_width, 0}}};
 }
 
 void FlatTilesetTile::load
@@ -64,6 +65,7 @@ void FlatTilesetTile::load
     m_texture_ptr = tileset_xml.texture();
     m_render_model = model;
     m_elevation = elevation;
+    m_vertices = vertices;
 }
 
 TileCornerElevations FlatTilesetTile::corner_elevations() const {
@@ -71,30 +73,15 @@ TileCornerElevations FlatTilesetTile::corner_elevations() const {
         {m_elevation, m_elevation, m_elevation, m_elevation};
 }
 
-void FlatTilesetTile::make_producable
-    (const TileCornerElevations &,
-     Callbacks & callbacks) const
+void FlatTilesetTile::make
+    (const TileCornerElevations & neighboring_elevations,
+     ProducableTileCallbacks & callbacks) const
 {
-    callbacks.place_flat(FlatProducableTile{});
-}
-
-// ----------------------------------------------------------------------------
-
-FlatProducableTile::FlatProducableTile
-    (const FlatVertexArray & vertices,
-     const SharedPtr<const Texture> & texture_ptr,
-     const SharedPtr<const RenderModel> & render_model):
-    m_vertices(vertices),
-    m_texture_ptr(texture_ptr),
-    m_render_model(render_model) {}
-
-void FlatProducableTile::
-    operator () (ProducableTileCallbacks & callbacks) const
-{
-    callbacks.add_entity(TupleBuilder{}.
-        add(SharedPtr<const Texture>{m_texture_ptr}).
-        add(SharedPtr<const RenderModel>{m_render_model}).
-        finish());
+    callbacks.
+        add_entity_from_tuple(TupleBuilder{}.
+            add(SharedPtr<const Texture>{m_texture_ptr}).
+            add(SharedPtr<const RenderModel>{m_render_model}).
+            finish());
     callbacks.add_collidable(TriangleSegment
         {m_vertices[k_elements[0]].position,
          m_vertices[k_elements[1]].position,

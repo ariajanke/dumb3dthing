@@ -32,11 +32,30 @@ enum class CardinalDirection {
 
 class TileCornerElevations final {
 public:
+    class NeighborElevations {
+    public:
+        virtual ~NeighborElevations() {}
+
+        virtual TileCornerElevations elevations_from(CardinalDirection) const = 0;
+
+        TileCornerElevations elevations() const;
+    };
+
     TileCornerElevations() {}
 
     TileCornerElevations
         (Real ne_, Real nw_, Real sw_, Real se_):
         m_nw(nw_), m_ne(ne_), m_sw(sw_), m_se(se_) {}
+
+    TileCornerElevations
+        (Optional<Real> ne_,
+         Optional<Real> nw_,
+         Optional<Real> sw_,
+         Optional<Real> se_):
+        m_nw(nw_.value_or(k_inf)),
+        m_ne(ne_.value_or(k_inf)),
+        m_sw(sw_.value_or(k_inf)),
+        m_se(se_.value_or(k_inf)) {}
 
     bool operator == (const TileCornerElevations & rhs) const noexcept
         { return are_same(rhs); }
@@ -44,38 +63,36 @@ public:
     bool operator != (const TileCornerElevations & rhs) const noexcept
         { return !are_same(rhs); }
 
-    Optional<Real> north_east() const { return m_ne; }
+    Optional<Real> north_east() const { return as_optional(m_ne); }
 
-    Optional<Real> north_west() const { return m_nw; }
+    Optional<Real> north_west() const { return as_optional(m_nw); }
 
-    Optional<Real> south_east() const { return m_se; }
+    Optional<Real> south_east() const { return as_optional(m_se); }
 
-    Optional<Real> south_west() const { return m_sw; }
+    Optional<Real> south_west() const { return as_optional(m_sw); }
 
 private:
+    static Optional<Real> as_optional(Real r) {
+        if (std::equal_to<Real>{}(r, k_inf))
+            { return {}; }
+        return r;
+    }
+
     bool are_same(const TileCornerElevations & rhs) const noexcept {
         using Fe = std::equal_to<Real>;
         return    Fe{}(m_nw, rhs.m_nw) && Fe{}(m_ne, rhs.m_ne)
                && Fe{}(m_sw, rhs.m_sw) && Fe{}(m_se, rhs.m_se);
     }
 
-    Real m_nw, m_ne, m_sw, m_se;
+    Real m_nw = k_inf, m_ne = k_inf, m_sw = k_inf, m_se = k_inf;
 };
-class FlatProducableTile;
 
 class SlopesTilesetTile {
 public:
-    class Callbacks {
-    public:
-        virtual void place_flat(const FlatProducableTile &) = 0;
-    };
-
     static SharedPtr<SlopesTilesetTile> make
         (const TilesetXmlGrid &,
          const Vector2I & location_on_tileset,
          PlatformAssetsStrategy & platform);
-
-    virtual ~SlopesTilesetTile() {}
 
     virtual void load
         (const TilesetXmlGrid &,
@@ -85,7 +102,40 @@ public:
     virtual TileCornerElevations corner_elevations() const = 0;
 
     // can add the optimization that producables are created from a vector
-    virtual void make_producable
+    virtual void make
         (const TileCornerElevations & neighboring_elevations,
-         Callbacks & callbacks) const = 0;
+         ProducableTileCallbacks & callbacks) const = 0;
+};
+
+class ProducableSlopesTile final : public ProducableTile {
+public:
+    ProducableSlopesTile() {}
+
+    ProducableSlopesTile
+        (const SharedPtr<const SlopesTilesetTile> & tileset_tile_ptr,
+         const TileCornerElevations & elevations):
+        m_tileset_tile_ptr(tileset_tile_ptr),
+        m_elevations(elevations) {}
+
+    TileCornerElevations corner_elevations() const {
+        if (m_tileset_tile_ptr)
+            return m_tileset_tile_ptr->corner_elevations();
+        return TileCornerElevations{};
+    }
+
+    void operator () (ProducableTileCallbacks & callbacks) const final {
+        if (m_tileset_tile_ptr)
+            m_tileset_tile_ptr->make(m_elevations, callbacks);
+    }
+
+private:
+    const SlopesTilesetTile & verify_tile_ptr() const {
+        if (m_tileset_tile_ptr)
+            { return *m_tileset_tile_ptr; }
+        throw RuntimeError
+            {"Accessor not available without setting tileset tile pointer"};
+    }
+
+    SharedPtr<const SlopesTilesetTile> m_tileset_tile_ptr;
+    TileCornerElevations m_elevations;
 };
