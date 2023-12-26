@@ -22,8 +22,10 @@
 
 #include "../../Definitions.hpp"
 #include "../ProducableGrid.hpp"
-
+#if 0
 class TilesetXmlGrid;
+#endif
+class MapTilesetTile;
 
 enum class CardinalDirection {
     n, s, e, w,
@@ -71,7 +73,23 @@ public:
 
     Optional<Real> south_west() const { return as_optional(m_sw); }
 
+    TileCornerElevations add(const TileCornerElevations & rhs) const {
+        return TileCornerElevations
+            {add(north_east(), rhs.north_east()),
+             add(north_west(), rhs.north_west()),
+             add(south_west(), rhs.south_west()),
+             add(south_east(), rhs.south_east())};
+    }
+
 private:
+    static Optional<Real> add
+        (const Optional<Real> & lhs, const Optional<Real> & rhs)
+    {
+        if (!lhs && !rhs)
+            { return {}; }
+        return lhs.value_or(0) + rhs.value_or(0);
+    }
+
     static Optional<Real> as_optional(Real r) {
         if (std::equal_to<Real>{}(r, k_inf))
             { return {}; }
@@ -90,12 +108,12 @@ private:
 class SlopesTilesetTile {
 public:
     static SharedPtr<SlopesTilesetTile> make
-        (const TilesetXmlGrid &,
+        (const MapTilesetTile &,
          const Vector2I & location_on_tileset,
          PlatformAssetsStrategy & platform);
 
     virtual void load
-        (const TilesetXmlGrid &,
+        (const MapTilesetTile &,
          const Vector2I & location_on_tileset,
          PlatformAssetsStrategy & platform) = 0;
 

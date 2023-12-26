@@ -20,28 +20,40 @@
 
 #pragma once
 
-#include "TilesetBase.hpp"
+#include "../Definitions.hpp"
+#include "MapElementValuesMap.hpp"
+#include "MapObject.hpp" // just for document owning node
 
-#include "../CompositeMapRegion.hpp"
+class MapTileset;
 
-class CompositeTileset final : public TilesetBase {
+class MapTilesetTile final : public MapElementValuesAggregable {
 public:
-    // loading this: will have to go through steps of promises and so on
-    // in order to load, so it needs to be non-blocking
+    const MapTileset * parent_tileset() const;
 
-    static Grid<const MapSubRegion *> to_layer
-        (const Grid<MapSubRegion> & sub_regions_grid,
-         const TilesetLayerWrapper &);
+    const char * type() const;
 
-    static Optional<Size2I> size_of_tileset(const TiXmlElement &);
+    int id() const;
+};
 
-    Continuation & load(const DocumentOwningNode &, MapContentLoader &) final;
+// ----------------------------------------------------------------------------
 
-    void add_map_elements(TilesetMapElementCollector &, const TilesetLayerWrapper &) const final;
+class MapTileset final : public MapElementValuesAggregable {
+public:
+    void load(const DocumentOwningNode & tileset_el);
+
+    // Vector2 texture_position_at(const Vector2I & tile_location) const;
+
+    const MapTilesetTile * tile_at(const Vector2I &) const;
+
+    Vector2I next(const Vector2I &) const;
+
+    Vector2I end_position() const;
+
+    std::size_t tile_count() const;
+
+    Size2I size2() const;
 
 private:
-    Size2I size2() const final { return m_sub_regions_grid->size2(); }
-
-    SharedPtr<Grid<MapSubRegion>> m_sub_regions_grid;
-    SharedPtr<MapRegion> m_source_map;
+    std::vector<MapTilesetTile> m_tiles;
+    Grid<const MapTilesetTile *> m_tile_grid;
 };

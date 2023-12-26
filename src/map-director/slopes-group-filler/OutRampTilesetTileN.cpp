@@ -18,22 +18,37 @@
 
 *****************************************************************************/
 
-#include "slopes-group-filler.hpp"
-#include "slopes-group-filler/SlopeGroupFiller.hpp"
-#include "slopes-group-filler/SlopeGroupFillerN.hpp"
-#if 0
-/* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
-    (const TilesetXmlGrid & xml_grid, PlatformAssetsStrategy & platform)
+#include "OutRampTilesetTileN.hpp"
+
+/* static */ TileCornerElevations OutRampTilesetTile::elevation_offsets_for
+    (CardinalDirection direction)
 {
-    auto rv = make_shared<SlopeGroupFiller>();
-    rv->load(xml_grid, platform);
-    return rv;
+    using Cd = CardinalDirection;
+    switch (direction) {
+    case Cd::ne: return TileCornerElevations{0, 0, 1, 0};
+    case Cd::nw: return TileCornerElevations{0, 0, 0, 1};
+    case Cd::se: return TileCornerElevations{0, 1, 0, 0};
+    case Cd::sw: return TileCornerElevations{1, 0, 0, 0};
+    default:
+        throw InvalidArgument{"direction bad"};
+    }
 }
-#endif
-/* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
-    (const MapTileset & map_tileset, PlatformAssetsStrategy & platform)
+
+void OutRampTilesetTile::load
+    (const TilesetXmlGrid &,
+     const Vector2I & location_on_tileset,
+     PlatformAssetsStrategy & platform)
 {
-    auto rv = make_shared<SlopeGroupFiller>();
-    rv->load(map_tileset, platform);
-    return rv;
+
+}
+
+TileCornerElevations OutRampTilesetTile::corner_elevations() const {
+
+}
+
+void OutRampTilesetTile::make
+    (const TileCornerElevations & neighboring_elevations,
+     ProducableTileCallbacks & callbacks) const
+{
+
 }

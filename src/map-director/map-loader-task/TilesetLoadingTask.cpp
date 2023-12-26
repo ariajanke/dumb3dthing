@@ -60,7 +60,7 @@ Continuation & TilesetLoadingTask::in_background
         content_loader.assign_continuation_strategy(strategy);
         content_loader.assign_filler_map(*m_filler_factory_map);
         auto & res = m_unloaded.tile_set->load
-            (m_unloaded.xml_content.element(), content_loader);
+            (m_unloaded.xml_content, content_loader);
         m_loaded_tile_set = std::move(m_unloaded.tile_set);
         m_unloaded = UnloadedTileSet{};
         return res;

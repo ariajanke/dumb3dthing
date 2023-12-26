@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tileset version="1.10" tiledversion="1.10.2" name="test-tileset" tilewidth="32" tileheight="32" tilecount="90" columns="9">
+ <properties>
+  <property name="fungle" value="guns"/>
+ </properties>
  <image source="sample-tileset.png" width="288" height="320"/>
  <tile id="0" type="in-ramp">
   <properties>
@@ -10,6 +13,7 @@
  <tile id="1" type="ramp">
   <properties>
    <property name="direction" value="n"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -28,6 +32,7 @@
  <tile id="4" type="ramp">
   <properties>
    <property name="direction" value="n"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -46,6 +51,7 @@
  <tile id="7" type="ramp">
   <properties>
    <property name="direction" value="n"/>
+   <property name="elevation" value="0"/>
    <property name="translation" value="0,0,0"/>
   </properties>
  </tile>
@@ -58,6 +64,7 @@
  <tile id="9" type="ramp">
   <properties>
    <property name="direction" value="w"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -70,12 +77,14 @@
  <tile id="11" type="ramp">
   <properties>
    <property name="direction" value="e"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="12" type="ramp">
   <properties>
    <property name="direction" value="w"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -88,12 +97,14 @@
  <tile id="14" type="ramp">
   <properties>
    <property name="direction" value="e"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="15" type="ramp">
   <properties>
    <property name="direction" value="w"/>
+   <property name="elevation" value="0"/>
    <property name="translation" value="0,0,0"/>
   </properties>
  </tile>
@@ -106,6 +117,7 @@
  <tile id="17" type="ramp">
   <properties>
    <property name="direction" value="e"/>
+   <property name="elevation" value="0"/>
    <property name="translation" value="0,0,0"/>
   </properties>
  </tile>
@@ -118,6 +130,7 @@
  <tile id="19" type="ramp">
   <properties>
    <property name="direction" value="s"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -136,6 +149,7 @@
  <tile id="22" type="ramp">
   <properties>
    <property name="direction" value="s"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -154,6 +168,7 @@
  <tile id="25" type="ramp">
   <properties>
    <property name="direction" value="s"/>
+   <property name="elevation" value="0"/>
    <property name="translation" value="0,0,0"/>
   </properties>
  </tile>

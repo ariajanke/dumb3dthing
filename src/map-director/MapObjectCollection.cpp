@@ -205,18 +205,18 @@ MapObjectReferrers
     for (auto & group_el : group_elements) {
     for (auto & object_xml : XmlRange{group_el, k_object_tag}) {
         auto * properties = object_xml.
-            FirstChildElement(MapObject::k_properties_tag);
+            FirstChildElement(MapElementValuesMap::k_properties_tag);
         auto * object = object_retrieval.seek_object_by_id
             (object_xml.IntAttribute(MapObject::k_id_attribute));
         if (!properties || !object)
             { continue; }
-        for (auto & property : XmlRange{properties, MapObject::k_property_tag}) {
+        for (auto & property : XmlRange{properties, MapElementValuesMap::k_property_tag}) {
             const char * type = property.Attribute("type");
             if (type && ::strcmp(type, k_object_tag) != 0)
                 { continue; }
             auto target = object_retrieval.
                 seek_object_by_id(property.
-                    IntAttribute(MapObject::k_value_attribute));
+                    IntAttribute(MapElementValuesMap::k_value_attribute));
             if (!target)
                 { continue; }
             inserter.add(*object, *target);

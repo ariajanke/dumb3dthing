@@ -18,22 +18,28 @@
 
 *****************************************************************************/
 
-#include "slopes-group-filler.hpp"
-#include "slopes-group-filler/SlopeGroupFiller.hpp"
-#include "slopes-group-filler/SlopeGroupFillerN.hpp"
-#if 0
-/* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
-    (const TilesetXmlGrid & xml_grid, PlatformAssetsStrategy & platform)
-{
-    auto rv = make_shared<SlopeGroupFiller>();
-    rv->load(xml_grid, platform);
-    return rv;
-}
-#endif
-/* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
-    (const MapTileset & map_tileset, PlatformAssetsStrategy & platform)
-{
-    auto rv = make_shared<SlopeGroupFiller>();
-    rv->load(map_tileset, platform);
-    return rv;
-}
+#pragma once
+
+#include "SlopesTilesetTileN.hpp"
+#include "FlatTilesetTileN.hpp"
+
+class RampTileseTile final : public SlopesTilesetTile {
+public:
+    static CardinalDirection read_direction_of(const TileProperties &);
+
+    static TileCornerElevations elevation_offsets_for(CardinalDirection);
+
+    void load
+        (const TilesetXmlGrid &,
+         const Vector2I & location_on_tileset,
+         PlatformAssetsStrategy & platform) final;
+
+    TileCornerElevations corner_elevations() const final;
+
+    void make
+        (const TileCornerElevations & neighboring_elevations,
+         ProducableTileCallbacks & callbacks) const;
+
+private:
+    FlatTilesetTile m_flat_tileset_tile;
+};

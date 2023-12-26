@@ -23,6 +23,8 @@
 #include "SlopesTilesetTileN.hpp"
 #include "../../RenderModel.hpp"
 
+class TileProperties;
+
 template <typename ... Types>
 class TupleBuilder {
 public:
@@ -52,6 +54,11 @@ private:
 
 class FlatTilesetTile final : public SlopesTilesetTile {
 public:
+    static constexpr const std::size_t k_north_west_index = 0;
+    static constexpr const std::size_t k_south_west_index = 1;
+    static constexpr const std::size_t k_south_east_index = 2;
+    static constexpr const std::size_t k_north_east_index = 3;
+
     using FlatVertexArray = std::array<Vertex, 4>;
 
     static constexpr const std::array<unsigned, 6> k_elements =
@@ -64,14 +71,26 @@ public:
         k_tile_top_left + k_east  // ne
     };
 
+    static FlatVertexArray elevate
+        (FlatVertexArray vertices, const TileCornerElevations & elevations);
+
     static FlatVertexArray make_vertices
         (const Vector2I & location_on_tileset,
-         const TilesetXmlGrid & tileset_xml);
+         const MapTilesetTile & tileset_xml);
+
+    static Optional<TileCornerElevations>
+        read_elevation_of(const MapTilesetTile &);
 
     void load
-        (const TilesetXmlGrid &,
+        (const MapTilesetTile &,
          const Vector2I & location_on_tileset,
          PlatformAssetsStrategy & platform) final;
+
+    void setup
+        (const MapTilesetTile & tileset_xml,
+         const Vector2I & location_on_tileset,
+         PlatformAssetsStrategy & platform,
+         const TileCornerElevations & elevations);
 
     TileCornerElevations corner_elevations() const final;
 
@@ -80,7 +99,7 @@ public:
          ProducableTileCallbacks & callbacks) const;
 
 private:
-    Real m_elevation;
+    TileCornerElevations m_corner_elevations;
     FlatVertexArray m_vertices;
     SharedPtr<const Texture> m_texture_ptr;
     SharedPtr<const RenderModel> m_render_model;

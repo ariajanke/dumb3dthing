@@ -20,7 +20,9 @@
 
 #include "SlopeGroupFillerN.hpp"
 #include "FlatTilesetTileN.hpp"
+#include "RampTilesetTileN.hpp"
 #include "../slopes-group-filler.hpp"
+#include "../MapTileset.hpp"
 
 namespace {
 
@@ -132,19 +134,20 @@ private:
     using namespace slopes_group_filler_type_names;
     using Rt = SharedPtr<SlopesTilesetTile>;
     static TilesetTileMakerMap map {
-        { k_flat, [] () -> Rt { return make_shared<FlatTilesetTile>(); } }
+        { k_flat, [] () -> Rt { return make_shared<FlatTilesetTile>(); } },
+        { k_ramp, [] () -> Rt { return make_shared<RampTileseTile>(); } }
     };
     return map;
 }
 
 void SlopeGroupFiller::load
-    (const TilesetXmlGrid & xml_grid,
+    (const MapTileset & map_tileset,
      PlatformAssetsStrategy & platform,
      const TilesetTileMakerMap & tileset_tile_makers)
 {
     m_tileset_tiles = make_shared<TilesetTileGrid>();
-    m_tileset_tiles->set_size(xml_grid.size2().width, xml_grid.size2().height);
-    for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
+    m_tileset_tiles->set_size(map_tileset.size2().width, map_tileset.size2().height);
+    for (Vector2I r; r != map_tileset.end_position(); r = map_tileset.next(r)) {
         auto & properties = xml_grid(r);
         auto itr = tileset_tile_makers.find(properties.type());
         if (itr == tileset_tile_makers.end())

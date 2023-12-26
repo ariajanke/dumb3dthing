@@ -30,7 +30,7 @@ class TileProperties final {
 public:
     using PropertiesMap = std::map<std::string, std::string>;
 
-    TileProperties() {}
+    [[deprecated]] TileProperties() {}
 
     explicit TileProperties(const TiXmlElement & tile_el)
         { load(tile_el); }
@@ -93,7 +93,7 @@ public:
     static Vector2I tid_to_tileset_location(const Grid<T> & grid, int tid)
         { return tid_to_tileset_location(grid.size2(), tid); }
 
-    void load(SharedPtr<Texture> &&, const TiXmlElement &);
+    [[deprecated]] void load(SharedPtr<Texture> &&, const TiXmlElement &);
 
     const TileProperties & operator() (const Vector2I & r) const
         { return m_elements(r); }

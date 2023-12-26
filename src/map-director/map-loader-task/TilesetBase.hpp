@@ -29,13 +29,15 @@
 #include "../../Tasks.hpp"
 
 #include <map>
-
+#if 0
 class TilesetXmlGrid;
+#endif
 class StackableSubRegionGrid;
 class TilesetMappingTile;
 class TilesetLayerWrapper;
 class MapContentLoader;
 class StackableProducableTileGrid;
+class MapTileset;
 
 class TilesetMapElementCollector {
 public:
@@ -55,9 +57,14 @@ public:
 
 class MapContentLoader : public PlatformAssetsStrategy {
 public:
+#   if 0
     using FillerFactory =
         SharedPtr<ProducableGroupFiller>(*)
         (const TilesetXmlGrid &, PlatformAssetsStrategy &);
+#   endif
+    using FillerFactory =
+        SharedPtr<ProducableGroupFiller>(*)
+        (const MapTileset &, PlatformAssetsStrategy &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
     using TaskContinuation = BackgroundTask::Continuation;
 
@@ -91,7 +98,7 @@ public:
     virtual ~TilesetBase() {}
 
     [[nodiscard]] virtual Continuation & load
-        (const TiXmlElement &, MapContentLoader &) = 0;
+        (const DocumentOwningNode &, MapContentLoader &) = 0;
 
     virtual void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const = 0;

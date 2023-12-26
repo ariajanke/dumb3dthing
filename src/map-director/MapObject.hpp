@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "MapElementValuesMap.hpp"
 #include "../Definitions.hpp"
 #include "ParseHelpers.hpp"
 #include "ScaleComputation.hpp"
@@ -27,8 +28,6 @@
 #include <ariajanke/cul/HashMap.hpp>
 #include <ariajanke/cul/StringUtil.hpp>
 #include <ariajanke/cul/Either.hpp>
-
-#include <cstring>
 
 class MapObject;
 class MapObjectGroup;
@@ -81,21 +80,16 @@ public:
 
 // ----------------------------------------------------------------------------
 
-class MapObjectBase {
-public:
-    enum class FieldType { attribute, property };
-
-    struct LoadFailed final {};
-
-protected:
-    constexpr MapObjectBase() {}
-};
+struct MapObjectFramingLoadFailure final {};
 
 // ----------------------------------------------------------------------------
 
 template <Real Vector::*>
-class MapObjectVectorMemberFraming final : public MapObjectBase {
+class MapObjectVectorMemberFraming final {
 public:
+    using LoadFailed = MapObjectFramingLoadFailure;
+    using FieldType = MapElementValuesMap::FieldType;
+
     constexpr MapObjectVectorMemberFraming
         (FieldType field_type, const char * name, bool required):
         m_field_type(field_type), m_name(name), m_required(required) {}
@@ -111,8 +105,11 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class MapObjectVectorFraming final : public MapObjectBase {
+class MapObjectVectorFraming final {
 public:
+    using LoadFailed = MapObjectFramingLoadFailure;
+    using FieldType = MapElementValuesMap::FieldType;
+
     template <Real Vector::* kt_member_pointer>
     using MemberFraming = MapObjectVectorMemberFraming<kt_member_pointer>;
 
@@ -136,10 +133,12 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class MapObjectFraming final : public MapObjectBase {
+class MapObjectFraming final {
 public:
     template <Real Vector::* kt_member_pointer>
     using VectorMemberFraming = MapObjectVectorMemberFraming<kt_member_pointer>;
+    using LoadFailed = MapObjectFramingLoadFailure;
+    using FieldType = MapElementValuesMap::FieldType;
 
     using VectorXFraming = VectorMemberFraming<&Vector::x>;
     using VectorYFraming = VectorMemberFraming<&Vector::y>;
@@ -173,7 +172,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class MapObject final : public MapObjectBase {
+class MapObject final : public MapElementValuesAggregable {
 public:
     using GroupContainer = std::vector<MapObjectGroup>;
     using GroupConstIterator = GroupContainer::const_iterator;
@@ -185,21 +184,17 @@ public:
     using MapObjectContainer = std::vector<MapObject>;
     template <typename T>
     using EnableOptionalNumeric =
-        std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>;
-
-    struct CStringHasher final {
-        std::size_t operator () (const char *) const;
-    };
-
-    struct CStringEqual final {
-        bool operator () (const char *, const char *) const;
-    };
-
+        MapElementValuesMap::EnableOptionalNumeric<T>;
+    using CStringHasher = MapElementValuesMap::CStringHasher;
+    using CStringEqual = MapElementValuesMap::CStringEqual;
+    using FieldType = MapElementValuesMap::FieldType;
     using NameObjectMap = cul::HashMap<const char *, const MapObject *, CStringHasher, CStringEqual>;
-
     struct NameLessThan final {
         bool operator () (const MapObject *, const MapObject *) const;
     };
+
+    static constexpr const auto k_name_attribute = MapElementValuesMap::k_name_attribute;
+    static constexpr const auto k_id_attribute = "id";
 
     static NameObjectMap find_first_visible_named_objects
         (const MapObjectContainer &);
@@ -213,39 +208,34 @@ public:
         (const TiXmlElement &,
          const MapObjectGroup & parent_group);
 
-    static constexpr const auto k_properties_tag = "properties";
-    static constexpr const auto k_property_tag = "property";
-    static constexpr const auto k_name_attribute = "name";
-    static constexpr const auto k_value_attribute = "value";
-    static constexpr const auto k_id_attribute = "id";
-
     MapObject() {}
-
+#   if 0
     template <typename T>
     EnableOptionalNumeric<T>
-        get_numeric(FieldType type, const char * name) const;
+        get_numeric(FieldType type, const char * name) const
+        { return m_values_map.get_numeric<T>(type, name); }
 
     template <typename T>
     EnableOptionalNumeric<T>
         get_numeric_property(const char * name) const
-        { return get_numeric<T>(FieldType::property, name); }
+        { return m_values_map.get_numeric_property<T>(name); }
 
     template <typename T>
     EnableOptionalNumeric<T>
         get_numeric_attribute(const char * name) const
-        { return get_numeric<T>(FieldType::attribute, name); }
-
+        { return m_values_map.get_numeric_attribute<T>(name); }
+#   endif
     const MapObjectGroup * get_group_property(const char * name) const;
 
     const MapObject * get_object_property(const char * name) const;
 
     View<MapObjectRefConstIterator> get_referrers() const
         { return m_parent_retrieval->seek_referrers_by_id(id()); }
-
+#   if 0
     const char * get_string_property(const char * name) const;
 
     const char * get_string_attribute(const char * name) const;
-
+#   endif
     const char * name() const;
 
     int id() const;
@@ -258,44 +248,24 @@ public:
         { m_parent_retrieval = &retrieval; }
 
 private:
-    struct Key final {
-        Key() {}
-
-        Key(const char * name_, FieldType type_):
-            name(name_), type(type_) {}
-
-        const char * name = "";
-        FieldType type = FieldType::attribute;
-    };
-
-    struct KeyHasher final {
-        std::size_t operator () (const Key & key) const;
-    };
-
-    struct KeyEqual final {
-        bool operator () (const Key &, const Key &) const;
-    };
-
-    using ValuesMap = cul::HashMap<Key, const char *, KeyHasher, KeyEqual>;
-
     static int verify_has_id(Optional<int> maybe_id);
 
     MapObject(const MapObjectGroup & parent_group,
-              ValuesMap && values):
-             m_parent_group(&parent_group),
-             m_values(std::move(values)) {}
-
-    const char * get_string(FieldType, const char * name) const;
+              MapElementValuesMap && values):
+             MapElementValuesAggregable(std::move(values)),
+             m_parent_group(&parent_group) {}
 
     const MapObjectGroup * m_parent_group = nullptr;
-    ValuesMap m_values = ValuesMap{Key{}};
+#   if 0
+    MapElementValuesMap m_values_map;
+#   endif
     const MapObjectRetrieval * m_parent_retrieval = nullptr;
 };
 
 // ----------------------------------------------------------------------------
 
 template <Real Vector::* kt_member_pointer>
-Either<MapObjectBase::LoadFailed, Vector>
+Either<MapObjectFramingLoadFailure, Vector>
     MapObjectVectorMemberFraming<kt_member_pointer>::operator ()
     (Either<LoadFailed, Vector> && ei, const MapObject & object) const
 {
@@ -314,20 +284,4 @@ Either<MapObjectBase::LoadFailed, Vector>
         }
         return std::move(r);
     });
-}
-
-// ----------------------------------------------------------------------------
-
-template <typename T>
-std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>
-    MapObject::get_numeric(FieldType type, const char * name) const
-{
-    T i = 0;
-    auto as_str = get_string(type, name);
-    if (!as_str)
-        { return {}; }
-    auto end = as_str + ::strlen(as_str);
-    if (cul::string_to_number(as_str, end, i))
-        return i;
-    return {};
 }

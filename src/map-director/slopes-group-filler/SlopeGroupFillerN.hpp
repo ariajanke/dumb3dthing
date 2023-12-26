@@ -24,6 +24,7 @@
 #include "../TilesetPropertiesGrid.hpp"
 
 class SlopesTilesetTile;
+class MapTileset;
 
 class SlopeGroupFiller final : public ProducableGroupFiller {
 public:
@@ -38,7 +39,7 @@ public:
     void make_group(CallbackWithCreator &) const final;
 
     void load
-        (const TilesetXmlGrid & xml_grid,
+        (const MapTileset & map_tileset,
          PlatformAssetsStrategy & platform,
          const TilesetTileMakerMap & = builtin_makers());
 

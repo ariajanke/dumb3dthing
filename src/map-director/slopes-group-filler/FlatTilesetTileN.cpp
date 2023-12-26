@@ -19,7 +19,10 @@
 *****************************************************************************/
 
 #include "FlatTilesetTileN.hpp"
+#if 0
 #include "../TilesetPropertiesGrid.hpp"
+#endif
+#include "../MapTileset.hpp"
 #include "../../RenderModel.hpp"
 #include "../../TriangleSegment.hpp"
 
@@ -31,9 +34,23 @@ constexpr const std::array<unsigned, 6> k_elements =
 
 } // end of <anonymous> namespace
 
+/* static */ FlatVertexArray FlatTilesetTile::elevate
+    (FlatVertexArray vertices, const TileCornerElevations & elevations)
+{
+    vertices[k_north_east_index].position +=
+        Vector{0, elevations.north_east().value_or(0.), 0};
+    vertices[k_north_west_index].position +=
+        Vector{0, elevations.north_west().value_or(0.), 0};
+    vertices[k_south_east_index].position +=
+        Vector{0, elevations.south_east().value_or(0.), 0};
+    vertices[k_south_west_index].position +=
+        Vector{0, elevations.south_west().value_or(0.), 0};
+    return vertices;
+}
+
 /* static */ FlatVertexArray FlatTilesetTile::make_vertices
     (const Vector2I & location_on_tileset,
-     const TilesetXmlGrid & tileset_xml)
+     const MapTilesetTile & tileset_xml)
 {
     auto tx_size = tileset_xml.texture_size();
     auto tile_size = tileset_xml.tile_size();
@@ -42,35 +59,52 @@ constexpr const std::array<unsigned, 6> k_elements =
     auto tile_width  = tile_size.width  / tx_size.width ;
     auto tile_height = tile_size.height / tx_size.height;
     return FlatVertexArray
-        {Vertex{k_points[0], tx_tl},
-         Vertex{k_points[1], tx_tl + Vector2{0, tile_height}},
-         Vertex{k_points[2], tx_tl + Vector2{tile_width, tile_height}},
-         Vertex{k_points[3], tx_tl + Vector2{tile_width, 0}}};
+        {Vertex{k_points[k_north_west_index], tx_tl},
+         Vertex{k_points[k_south_west_index], tx_tl + Vector2{0, tile_height}},
+         Vertex{k_points[k_south_east_index], tx_tl + Vector2{tile_width, tile_height}},
+         Vertex{k_points[k_north_east_index], tx_tl + Vector2{tile_width, 0}}};
+}
+
+/* static */ Optional<TileCornerElevations> FlatTilesetTile::read_elevation_of
+    (const MapTilesetTile & tile_properties)
+{
+    if (auto elv = tile_properties.get_numeric_property<Real>("elevation")) {
+        return TileCornerElevations{*elv, *elv, *elv, *elv};
+    }
+    return {};
 }
 
 void FlatTilesetTile::load
-    (const TilesetXmlGrid & tileset_xml,
+    (const MapTilesetTile & map_tileset_tile,
      const Vector2I & location_on_tileset,
      PlatformAssetsStrategy & platform)
 {
-    Real elevation;
-    if (auto * elstr = tileset_xml(location_on_tileset).value_of("elevation")) {
-        cul::string_to_number(elstr->begin(), elstr->end(), elevation);
+    auto elevations = read_elevation_of(map_tileset_tile);
+    if (!elevations) {
+        throw RuntimeError("I forgor to handle elevation not being defined");
     }
+    setup(tileset_xml, location_on_tileset, platform, *elevations);
+}
 
+void FlatTilesetTile::setup
+    (const MapTilesetTile & tileset_xml,
+     const Vector2I & location_on_tileset,
+     PlatformAssetsStrategy & platform,
+     const TileCornerElevations & elevations)
+{
     auto model = platform.make_render_model();
-    const auto vertices = make_vertices(location_on_tileset, tileset_xml);
-    model->load(vertices.begin(), vertices.end(), k_elements.begin(), k_elements.end());
+    const auto vertices =
+        elevate(make_vertices(location_on_tileset, tileset_xml), elevations);
 
+    model->load(vertices.begin(), vertices.end(), k_elements.begin(), k_elements.end());
+    m_corner_elevations = elevations;
     m_texture_ptr = tileset_xml.texture();
     m_render_model = model;
-    m_elevation = elevation;
     m_vertices = vertices;
 }
 
 TileCornerElevations FlatTilesetTile::corner_elevations() const {
-    return TileCornerElevations
-        {m_elevation, m_elevation, m_elevation, m_elevation};
+    return m_corner_elevations;
 }
 
 void FlatTilesetTile::make

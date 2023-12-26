@@ -85,10 +85,10 @@ private:
 }
 
 Continuation & CompositeTileset::load
-    (const TiXmlElement & tileset_element, MapContentLoader & content_loader)
+    (const DocumentOwningNode & tileset_element, MapContentLoader & content_loader)
 {
     SharedPtr<MapLoaderTask> map_loader_task;
-    auto properties = tileset_element.FirstChildElement("properties");
+    auto properties = tileset_element->FirstChildElement("properties");
     for (auto & property : XmlRange{properties, "property"}) {
         auto name = property.Attribute("name");
         auto value = property.Attribute("value");
@@ -102,7 +102,7 @@ Continuation & CompositeTileset::load
     }
     m_sub_regions_grid = make_shared<Grid<MapSubRegion>>();
     m_sub_regions_grid->set_size
-        (*size_of_tileset(tileset_element), MapSubRegion{});
+        (*size_of_tileset(*tileset_element), MapSubRegion{});
     auto task_to_wait_on = make_shared<CompositeTilesetFinisherTask>
         (std::move(map_loader_task), m_sub_regions_grid, m_source_map);
     content_loader.wait_on(task_to_wait_on);
