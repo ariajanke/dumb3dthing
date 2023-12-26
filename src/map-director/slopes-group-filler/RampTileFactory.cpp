@@ -52,9 +52,12 @@ void SingleModelSlopedTileFactory::operator ()
      const SlopeFillerExtra & slope_extras,
      const Vector2I & location_on_tileset)
 {
+    throw "";
+#   if 0
     properties.for_value("direction", [this](const auto & val) {
         set_direction(val.c_str());
     });
+#   endif
     SingleModelSlopedTileFactory::setup_
         (properties, platform, slope_extras, location_on_tileset);
 }

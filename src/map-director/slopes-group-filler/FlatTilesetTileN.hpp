@@ -75,22 +75,20 @@ public:
         (FlatVertexArray vertices, const TileCornerElevations & elevations);
 
     static FlatVertexArray make_vertices
-        (const Vector2I & location_on_tileset,
-         const MapTilesetTile & tileset_xml);
+        (const TilesetTileTexture & tileset_xml);
 
     static Optional<TileCornerElevations>
         read_elevation_of(const MapTilesetTile &);
 
     void load
         (const MapTilesetTile &,
-         const Vector2I & location_on_tileset,
+         const TilesetTileTexture &,
          PlatformAssetsStrategy & platform) final;
 
     void setup
-        (const MapTilesetTile & tileset_xml,
-         const Vector2I & location_on_tileset,
-         PlatformAssetsStrategy & platform,
-         const TileCornerElevations & elevations);
+        (const TilesetTileTexture & tileset_tile_texture,
+         const TileCornerElevations & elevations,
+         PlatformAssetsStrategy & platform);
 
     TileCornerElevations corner_elevations() const final;
 

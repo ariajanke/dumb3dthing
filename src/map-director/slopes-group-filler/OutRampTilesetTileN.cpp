@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "OutRampTilesetTileN.hpp"
-
+#if 0
 /* static */ TileCornerElevations OutRampTilesetTile::elevation_offsets_for
     (CardinalDirection direction)
 {
@@ -52,3 +52,4 @@ void OutRampTilesetTile::make
 {
 
 }
+#endif

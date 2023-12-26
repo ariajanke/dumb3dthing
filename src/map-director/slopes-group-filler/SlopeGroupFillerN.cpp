@@ -145,15 +145,20 @@ void SlopeGroupFiller::load
      PlatformAssetsStrategy & platform,
      const TilesetTileMakerMap & tileset_tile_makers)
 {
+    TilesetTileTexture tileset_tile_texture;
+    tileset_tile_texture.load_texture(map_tileset, platform);
     m_tileset_tiles = make_shared<TilesetTileGrid>();
     m_tileset_tiles->set_size(map_tileset.size2().width, map_tileset.size2().height);
     for (Vector2I r; r != map_tileset.end_position(); r = map_tileset.next(r)) {
-        auto & properties = xml_grid(r);
-        auto itr = tileset_tile_makers.find(properties.type());
+        auto * tileset_tile = map_tileset.tile_at(r);
+        if (!tileset_tile)
+            { continue; }
+        auto itr = tileset_tile_makers.find(tileset_tile->type());
         if (itr == tileset_tile_makers.end())
             { continue; }
+        tileset_tile_texture.set_texture_bounds(r);
         auto & created_tileset_tile = (*m_tileset_tiles)(r) = itr->second();
-        created_tileset_tile->load(xml_grid, r, platform);
+        created_tileset_tile->load(*tileset_tile, tileset_tile_texture, platform);
     }
 }
 

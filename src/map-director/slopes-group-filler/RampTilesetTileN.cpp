@@ -21,6 +21,7 @@
 #include "RampTilesetTileN.hpp"
 
 #include "../TilesetPropertiesGrid.hpp"
+#include "../MapTileset.hpp"
 
 #include <cstring>
 
@@ -52,13 +53,13 @@ CardinalDirection cardinal_direction_from(const char * str) {
 } // end of <anonymous> namespace
 
 /* static */ CardinalDirection RampTileseTile::read_direction_of
-    (const TileProperties & tile_properties)
+    (const MapTilesetTile & tile_properties)
 {
-    auto * str = tile_properties.value_of("direction");
+    auto * str = tile_properties.get_string_property("direction");
     if (!str) {
         throw RuntimeError{"I forgor to handle direction not being defined"};
     }
-    return cardinal_direction_from(str->c_str());
+    return cardinal_direction_from(str);
 }
 
 /* static */ TileCornerElevations RampTileseTile::elevation_offsets_for
@@ -74,7 +75,7 @@ CardinalDirection cardinal_direction_from(const char * str) {
         throw InvalidArgument{"direction bad"};
     }
 }
-
+#if 0
 void RampTileseTile::load
     (const TilesetXmlGrid & tileset_xml,
      const Vector2I & location_on_tileset,
@@ -90,6 +91,23 @@ void RampTileseTile::load
     m_flat_tileset_tile.setup
         (tileset_xml, location_on_tileset, platform, adjusted_elevations);
 }
+#endif
+void RampTileseTile::load
+    (const MapTilesetTile & tileset_tile,
+     const TilesetTileTexture & tileset_tile_texture,
+     PlatformAssetsStrategy & platform)
+{
+    // const auto & tile_properties = tileset_xml(location_on_tileset);
+    auto elevations = FlatTilesetTile::read_elevation_of(tileset_tile);
+    if (!elevations) {
+        throw RuntimeError{"I forgor to handle elevation not being defined"};
+    }
+    auto adjusted_elevations =
+        elevation_offsets_for(read_direction_of(tileset_tile)).add(*elevations);
+    m_flat_tileset_tile.setup
+        (tileset_tile_texture, adjusted_elevations, platform);
+}
+
 
 TileCornerElevations RampTileseTile::corner_elevations() const {
     return m_flat_tileset_tile.corner_elevations();

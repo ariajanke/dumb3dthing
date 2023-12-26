@@ -23,6 +23,8 @@
 #include "../ProducableGroupFiller.hpp"
 #include "../TilesetPropertiesGrid.hpp"
 
+#include <map>
+
 class SlopesTilesetTile;
 class MapTileset;
 
@@ -42,13 +44,13 @@ public:
         (const MapTileset & map_tileset,
          PlatformAssetsStrategy & platform,
          const TilesetTileMakerMap & = builtin_makers());
-
+#if 0
 private:
     void load_factories(const TilesetXmlGrid & xml_grid);
 
     void setup_factories
         (const TilesetXmlGrid & xml_grid,
          PlatformAssetsStrategy & platform) const;
-
+#endif
     TilesetTileGridPtr m_tileset_tiles;
 };

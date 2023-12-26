@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #include "TilesetPropertiesGrid.hpp"
 
 #include "../Texture.hpp"
@@ -116,3 +116,4 @@ void TilesetXmlGrid::load
     return make_tuple(tx, Size2
         {image_el.IntAttribute("width"), image_el.IntAttribute("height")});
 }
+#endif

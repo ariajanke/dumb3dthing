@@ -22,6 +22,7 @@
 
 #include "../ProducableGrid.hpp"
 #include "../TilesetPropertiesGrid.hpp"
+#include "../ParseHelpers.hpp"
 
 #include <numeric>
 
@@ -107,10 +108,13 @@ VertexArray map_to_texture(VertexArray arr, const TileTexture & txt) {
      const TileProperties & properties,
      PlatformAssetsStrategy &)
 {
+    throw "";
+#   if 0
     // eugh... having to run through elements at a time
     // not gonna worry about it this iteration
     m_translation = *properties.for_value
         ("translation", Optional<Vector>{}, parse_vector);
+#   endif
 }
 
 // ----------------------------------------------------------------------------
@@ -394,10 +398,11 @@ WallTileFactoryBase::make_wall_graphics
      const Vector2I & location_on_tileset)
 {
     TranslatableTileFactory::setup_(location_on_tileset, properties, platform);
-
+#   if 0
     properties.for_value("direction", [this] (const std::string & str) {
         m_dir = verify_okay_wall_direction(cardinal_direction_from(str));
     });
+#   endif
     specials.for_texture("wall", [this] (TileTexture tx) {
         m_wall_texture_coords = tx;
     });

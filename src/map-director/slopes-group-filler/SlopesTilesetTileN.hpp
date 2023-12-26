@@ -22,9 +22,7 @@
 
 #include "../../Definitions.hpp"
 #include "../ProducableGrid.hpp"
-#if 0
-class TilesetXmlGrid;
-#endif
+
 class MapTilesetTile;
 
 enum class CardinalDirection {
@@ -105,6 +103,8 @@ private:
     Real m_nw = k_inf, m_ne = k_inf, m_sw = k_inf, m_se = k_inf;
 };
 
+class TilesetTileTexture;
+
 class SlopesTilesetTile {
 public:
     static SharedPtr<SlopesTilesetTile> make
@@ -114,7 +114,7 @@ public:
 
     virtual void load
         (const MapTilesetTile &,
-         const Vector2I & location_on_tileset,
+         const TilesetTileTexture &,
          PlatformAssetsStrategy & platform) = 0;
 
     virtual TileCornerElevations corner_elevations() const = 0;
@@ -123,6 +123,32 @@ public:
     virtual void make
         (const TileCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const = 0;
+};
+
+class MapTileset;
+
+class TilesetTileTexture final {
+public:
+    TilesetTileTexture() {}
+
+    void load_texture(const MapTileset &, PlatformAssetsStrategy &);
+
+    void set_texture_bounds(const Vector2I & location_on_tileset);
+
+    Vector2 north_east() const;
+
+    Vector2 north_west() const;
+
+    Vector2 south_east() const;
+
+    Vector2 south_west() const;
+
+    const SharedPtr<const Texture> & texture() const;
+
+private:
+    SharedPtr<const Texture> m_texture;
+    Vector2 m_north_west;
+    Size2 m_tile_size_in_portions;
 };
 
 class ProducableSlopesTile final : public ProducableTile {

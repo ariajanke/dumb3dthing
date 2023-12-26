@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #pragma once
 
 #include "ParseHelpers.hpp"
@@ -131,3 +131,4 @@ private:
     Size2 m_tile_size;
     Size2 m_texture_size;
 };
+#endif

@@ -110,6 +110,8 @@ Real SlopeGroupNeighborhood::neighbor_elevation(CardinalDirection dir) const {
 void SlopeFillerExtra::setup_pure_texture
     (const TilesetXmlGrid & xml_grid, const Vector2I & r)
 {
+    throw RuntimeError{"outmoded"};
+#   if 0
     using cul::convert_to;
     Size2 scale{xml_grid.tile_size().width  / xml_grid.texture_size().width,
                 xml_grid.tile_size().height / xml_grid.texture_size().height};
@@ -118,6 +120,7 @@ void SlopeFillerExtra::setup_pure_texture
     xml_grid(r).for_value("assignment", [this, texture](const auto & value) {
         m_pure_textures[value] = texture;
     });
+#   endif
 }
 
 // ----------------------------------------------------------------------------
@@ -128,10 +131,13 @@ void SlopesBasedTileFactory::setup
      const SlopeFillerExtra & slope_extras,
      const Vector2I & location_on_tileset)
 {
+    throw "";
+#   if 0
     TileFactory::setup(xml_grid, platform, location_on_tileset);
     setup_
         (xml_grid(location_on_tileset), platform, slope_extras,
          location_on_tileset);
+#   endif
 }
 
 // ----------------------------------------------------------------------------

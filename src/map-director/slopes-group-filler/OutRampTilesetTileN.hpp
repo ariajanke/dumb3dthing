@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #pragma once
-
+#if 0
 #include "FlatTilesetTileN.hpp"
 
 class OutRampTilesetTile final : public SlopesTilesetTile {
@@ -37,3 +37,4 @@ public:
         (const TileCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
 };
+#endif

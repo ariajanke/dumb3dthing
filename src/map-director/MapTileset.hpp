@@ -28,11 +28,38 @@ class MapTileset;
 
 class MapTilesetTile final : public MapElementValuesAggregable {
 public:
+    MapTilesetTile() {}
+
+    MapTilesetTile(const TiXmlElement &, const MapTileset & parent);
+
+    void load(const TiXmlElement &, const MapTileset & parent);
+
     const MapTileset * parent_tileset() const;
 
     const char * type() const;
 
     int id() const;
+};
+
+// ----------------------------------------------------------------------------
+
+class MapTilesetImage final {
+public:
+    MapTilesetImage() {}
+
+    explicit MapTilesetImage(const TiXmlElement & tile_el)
+        { load(tile_el); }
+
+    void load(const TiXmlElement &);
+
+    const char * filename() const { return m_filename; }
+
+    Size2 image_size() const { return m_image_size; }
+
+private:
+    Size2 m_image_size;
+
+    const char * m_filename = "";
 };
 
 // ----------------------------------------------------------------------------
@@ -53,7 +80,10 @@ public:
 
     Size2I size2() const;
 
+    MapTilesetImage image() const;
+
 private:
     std::vector<MapTilesetTile> m_tiles;
     Grid<const MapTilesetTile *> m_tile_grid;
+    DocumentOwningNode m_document_owner;
 };

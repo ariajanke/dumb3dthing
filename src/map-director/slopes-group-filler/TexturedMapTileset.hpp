@@ -17,34 +17,27 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #pragma once
 
-#include "SlopesTilesetTileN.hpp"
-#include "FlatTilesetTileN.hpp"
+#include "../MapTileset.hpp"
 
-class RampTileseTile final : public SlopesTilesetTile {
+class TexturedMapTilesetTile final {
 public:
-    static CardinalDirection read_direction_of(const MapTilesetTile &);
+    void load(const MapTilesetTile &, PlatformAssetsStrategy &);
 
-    static TileCornerElevations elevation_offsets_for(CardinalDirection);
-#   if 0
-    void load
-        (const TilesetXmlGrid &,
-         const Vector2I & location_on_tileset,
-         PlatformAssetsStrategy & platform) final;
-#   endif
-    void load
-        (const MapTilesetTile &,
-         const TilesetTileTexture &,
-         PlatformAssetsStrategy & platform) final;
+    Vector2 texture_position() const;
 
-    TileCornerElevations corner_elevations() const final;
+    Size2 texture_size() const;
+};
 
-    void make
-        (const TileCornerElevations & neighboring_elevations,
-         ProducableTileCallbacks & callbacks) const;
+class TexturedMapTileset final {
+public:
+    void load(const MapTileset &, PlatformAssetsStrategy & platform);
+
+    const SharedPtr<const Texture> & texture() const;
 
 private:
-    FlatTilesetTile m_flat_tileset_tile;
+    SharedPtr<const Texture> m_texture;
 };
+#endif

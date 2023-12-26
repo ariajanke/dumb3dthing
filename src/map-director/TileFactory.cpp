@@ -53,10 +53,13 @@ void TileFactory::setup
      PlatformAssetsStrategy & platform,
      const Vector2I & location_on_tileset)
 {
+    throw RuntimeError{"getting yeeted"};
+#   if 0
     m_texture_ptr = xml_grid.texture();
     m_texture_size = xml_grid.texture_size();
     m_tile_size = xml_grid.tile_size();
     setup_(location_on_tileset, xml_grid(location_on_tileset), platform);
+#   endif
 }
 
 /* protected static */ void TileFactory::add_triangles_based_on_model_details
