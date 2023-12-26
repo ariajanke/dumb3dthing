@@ -27,13 +27,11 @@
 
 namespace {
 
-using FlatVertexArray = FlatTilesetTile::FlatVertexArray;
-constexpr const std::array<unsigned, 6> k_elements =
-    FlatTilesetTile::k_elements;
+using FlatVertexArray = QuadBasedTilesetTile::FlatVertexArray;
 
 } // end of <anonymous> namespace
 
-/* static */ FlatVertexArray FlatTilesetTile::elevate
+/* static */ FlatVertexArray QuadBasedTilesetTile::elevate
     (FlatVertexArray vertices, const TileCornerElevations & elevations)
 {
     vertices[k_north_east_index].position +=
@@ -47,7 +45,7 @@ constexpr const std::array<unsigned, 6> k_elements =
     return vertices;
 }
 
-/* static */ FlatVertexArray FlatTilesetTile::make_vertices
+/* static */ FlatVertexArray QuadBasedTilesetTile::make_vertices
     (const TilesetTileTexture & tileset_tile_tx)
 {
     return FlatVertexArray
@@ -56,6 +54,46 @@ constexpr const std::array<unsigned, 6> k_elements =
          Vertex{k_points[k_south_east_index], tileset_tile_tx.south_east()},
          Vertex{k_points[k_north_east_index], tileset_tile_tx.north_east()}};
 }
+
+const TileCornerElevations & QuadBasedTilesetTile::corner_elevations() const
+    { return m_corner_elevations; }
+
+void QuadBasedTilesetTile::make
+    (const TileCornerElevations & neighboring_elevations,
+     ProducableTileCallbacks & callbacks) const
+{
+    callbacks.
+        add_entity_from_tuple(TupleBuilder{}.
+            add(SharedPtr<const Texture>{m_texture_ptr}).
+            add(SharedPtr<const RenderModel>{m_render_model}).
+            finish());
+    callbacks.add_collidable(TriangleSegment
+        {m_vertices[m_elements[0]].position,
+         m_vertices[m_elements[1]].position,
+         m_vertices[m_elements[2]].position});
+    callbacks.add_collidable(TriangleSegment
+        {m_vertices[m_elements[3]].position,
+         m_vertices[m_elements[4]].position,
+         m_vertices[m_elements[5]].position});
+}
+
+void QuadBasedTilesetTile::setup
+    (const TilesetTileTexture & tileset_tile_texture,
+     const TileCornerElevations & elevations,
+     PlatformAssetsStrategy & platform)
+{
+    auto model = platform.make_render_model();
+    const auto vertices = elevate(make_vertices(tileset_tile_texture), elevations);
+
+    model->load
+        (vertices.begin(), vertices.end(), m_elements.begin(), m_elements.end());
+    m_corner_elevations = elevations;
+    m_texture_ptr = tileset_tile_texture.texture();
+    m_render_model = model;
+    m_vertices = vertices;
+}
+
+// ----------------------------------------------------------------------------
 
 /* static */ Optional<TileCornerElevations> FlatTilesetTile::read_elevation_of
     (const MapTilesetTile & tileset_tile)
@@ -75,43 +113,13 @@ void FlatTilesetTile::load
     if (!elevations) {
         throw RuntimeError("I forgor to handle elevation not being defined");
     }
-    setup(tileset_tile_texture, *elevations, platform);
+    m_quad_tileset_tile.setup(tileset_tile_texture, *elevations, platform);
 }
 
-void FlatTilesetTile::setup
-    (const TilesetTileTexture & tileset_tile_texture,
-     const TileCornerElevations & elevations,
-     PlatformAssetsStrategy & platform)
-{
-    auto model = platform.make_render_model();
-    const auto vertices = elevate(make_vertices(tileset_tile_texture), elevations);
-
-    model->load(vertices.begin(), vertices.end(), k_elements.begin(), k_elements.end());
-    m_corner_elevations = elevations;
-    m_texture_ptr = tileset_tile_texture.texture();
-    m_render_model = model;
-    m_vertices = vertices;
-}
-
-TileCornerElevations FlatTilesetTile::corner_elevations() const {
-    return m_corner_elevations;
-}
+TileCornerElevations FlatTilesetTile::corner_elevations() const
+    { return m_quad_tileset_tile.corner_elevations(); }
 
 void FlatTilesetTile::make
     (const TileCornerElevations & neighboring_elevations,
      ProducableTileCallbacks & callbacks) const
-{
-    callbacks.
-        add_entity_from_tuple(TupleBuilder{}.
-            add(SharedPtr<const Texture>{m_texture_ptr}).
-            add(SharedPtr<const RenderModel>{m_render_model}).
-            finish());
-    callbacks.add_collidable(TriangleSegment
-        {m_vertices[k_elements[0]].position,
-         m_vertices[k_elements[1]].position,
-         m_vertices[k_elements[2]].position});
-    callbacks.add_collidable(TriangleSegment
-        {m_vertices[k_elements[3]].position,
-         m_vertices[k_elements[4]].position,
-         m_vertices[k_elements[5]].position});
-}
+{ m_quad_tileset_tile.make(neighboring_elevations, callbacks); }

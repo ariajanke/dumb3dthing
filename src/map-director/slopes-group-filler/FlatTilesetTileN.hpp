@@ -52,17 +52,15 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class FlatTilesetTile final : public SlopesTilesetTile {
+class QuadBasedTilesetTile final {
 public:
+    using FlatVertexArray = std::array<Vertex, 4>;
+    using ElementArray = std::array<unsigned, 6>;
+
     static constexpr const std::size_t k_north_west_index = 0;
     static constexpr const std::size_t k_south_west_index = 1;
     static constexpr const std::size_t k_south_east_index = 2;
     static constexpr const std::size_t k_north_east_index = 3;
-
-    using FlatVertexArray = std::array<Vertex, 4>;
-
-    static constexpr const std::array<unsigned, 6> k_elements =
-        {0, 1, 2, 0, 2, 3};
 
     static const constexpr std::array k_points = {
         k_tile_top_left, // nw
@@ -71,11 +69,49 @@ public:
         k_tile_top_left + k_east  // ne
     };
 
+    static constexpr const ElementArray k_nw_to_se_elements =
+        { 0, 1, 2, 0, 2, 3 };
+
+    static constexpr const ElementArray k_sw_to_ne_elements =
+        { 0, 1, 3, 1, 2, 3 };
+
+    static constexpr const ElementArray k_any_quad_elements = k_nw_to_se_elements;
+
     static FlatVertexArray elevate
         (FlatVertexArray vertices, const TileCornerElevations & elevations);
 
-    static FlatVertexArray make_vertices
-        (const TilesetTileTexture & tileset_xml);
+    static FlatVertexArray make_vertices(const TilesetTileTexture &);
+
+    const TileCornerElevations & corner_elevations() const;
+
+    void make
+        (const TileCornerElevations & neighboring_elevations,
+         ProducableTileCallbacks & callbacks) const;
+
+    void setup
+        (const TilesetTileTexture & tileset_tile_texture,
+         const TileCornerElevations & elevations,
+         PlatformAssetsStrategy & platform);
+
+    void set_diagonal_to_nw_to_se()
+        { m_elements = k_nw_to_se_elements; }
+
+    void set_diagonal_to_sw_to_ne()
+        { m_elements = k_sw_to_ne_elements; }
+
+private:
+    ElementArray m_elements = k_any_quad_elements;
+    TileCornerElevations m_corner_elevations;
+    FlatVertexArray m_vertices;
+    SharedPtr<const Texture> m_texture_ptr;
+    SharedPtr<const RenderModel> m_render_model;
+};
+
+// ----------------------------------------------------------------------------
+
+class FlatTilesetTile final : public SlopesTilesetTile {
+public:
+    FlatTilesetTile() {}
 
     static Optional<TileCornerElevations>
         read_elevation_of(const MapTilesetTile &);
@@ -85,11 +121,6 @@ public:
          const TilesetTileTexture &,
          PlatformAssetsStrategy & platform) final;
 
-    void setup
-        (const TilesetTileTexture & tileset_tile_texture,
-         const TileCornerElevations & elevations,
-         PlatformAssetsStrategy & platform);
-
     TileCornerElevations corner_elevations() const final;
 
     void make
@@ -97,8 +128,5 @@ public:
          ProducableTileCallbacks & callbacks) const;
 
 private:
-    TileCornerElevations m_corner_elevations;
-    FlatVertexArray m_vertices;
-    SharedPtr<const Texture> m_texture_ptr;
-    SharedPtr<const RenderModel> m_render_model;
+    QuadBasedTilesetTile m_quad_tileset_tile;
 };

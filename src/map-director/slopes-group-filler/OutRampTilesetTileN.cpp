@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #include "OutRampTilesetTileN.hpp"
-#if 0
+
 /* static */ TileCornerElevations OutRampTilesetTile::elevation_offsets_for
     (CardinalDirection direction)
 {
@@ -35,8 +35,8 @@
 }
 
 void OutRampTilesetTile::load
-    (const TilesetXmlGrid &,
-     const Vector2I & location_on_tileset,
+    (const MapTilesetTile & map_tileset_tile,
+     const TilesetTileTexture & tileset_texture,
      PlatformAssetsStrategy & platform)
 {
 
@@ -52,4 +52,3 @@ void OutRampTilesetTile::make
 {
 
 }
-#endif

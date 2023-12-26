@@ -75,47 +75,31 @@ CardinalDirection cardinal_direction_from(const char * str) {
         throw InvalidArgument{"direction bad"};
     }
 }
-#if 0
-void RampTileseTile::load
-    (const TilesetXmlGrid & tileset_xml,
-     const Vector2I & location_on_tileset,
-     PlatformAssetsStrategy & platform)
-{
-    const auto & tile_properties = tileset_xml(location_on_tileset);
-    auto elevations = FlatTilesetTile::read_elevation_of(tile_properties);
-    if (!elevations) {
-        throw RuntimeError{"I forgor to handle elevation not being defined"};
-    }
-    auto adjusted_elevations =
-        elevation_offsets_for(read_direction_of(tile_properties)).add(*elevations);
-    m_flat_tileset_tile.setup
-        (tileset_xml, location_on_tileset, platform, adjusted_elevations);
-}
-#endif
+
+RampTileseTile::RampTileseTile() {}
+
 void RampTileseTile::load
     (const MapTilesetTile & tileset_tile,
      const TilesetTileTexture & tileset_tile_texture,
      PlatformAssetsStrategy & platform)
 {
-    // const auto & tile_properties = tileset_xml(location_on_tileset);
     auto elevations = FlatTilesetTile::read_elevation_of(tileset_tile);
     if (!elevations) {
         throw RuntimeError{"I forgor to handle elevation not being defined"};
     }
     auto adjusted_elevations =
         elevation_offsets_for(read_direction_of(tileset_tile)).add(*elevations);
-    m_flat_tileset_tile.setup
+    m_quad_tileset_tile.setup
         (tileset_tile_texture, adjusted_elevations, platform);
 }
 
-
 TileCornerElevations RampTileseTile::corner_elevations() const {
-    return m_flat_tileset_tile.corner_elevations();
+    return m_quad_tileset_tile.corner_elevations();
 }
 
 void RampTileseTile::make
     (const TileCornerElevations & neighboring_elevations,
      ProducableTileCallbacks & callbacks) const
 {
-    m_flat_tileset_tile.make(neighboring_elevations, callbacks);
+    m_quad_tileset_tile.make(neighboring_elevations, callbacks);
 }

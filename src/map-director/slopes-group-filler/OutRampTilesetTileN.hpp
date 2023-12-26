@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #pragma once
-#if 0
+
 #include "FlatTilesetTileN.hpp"
 
 class OutRampTilesetTile final : public SlopesTilesetTile {
@@ -27,8 +27,8 @@ public:
     static TileCornerElevations elevation_offsets_for(CardinalDirection);
 
     void load
-        (const TilesetXmlGrid &,
-         const Vector2I & location_on_tileset,
+        (const MapTilesetTile &,
+         const TilesetTileTexture &,
          PlatformAssetsStrategy & platform) final;
 
     TileCornerElevations corner_elevations() const final;
@@ -36,5 +36,7 @@ public:
     void make
         (const TileCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
+
+private:
+    QuadBasedTilesetTile m_quad_tile;
 };
-#endif

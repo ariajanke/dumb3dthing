@@ -28,12 +28,9 @@ public:
     static CardinalDirection read_direction_of(const MapTilesetTile &);
 
     static TileCornerElevations elevation_offsets_for(CardinalDirection);
-#   if 0
-    void load
-        (const TilesetXmlGrid &,
-         const Vector2I & location_on_tileset,
-         PlatformAssetsStrategy & platform) final;
-#   endif
+
+    RampTileseTile();
+
     void load
         (const MapTilesetTile &,
          const TilesetTileTexture &,
@@ -46,5 +43,5 @@ public:
          ProducableTileCallbacks & callbacks) const;
 
 private:
-    FlatTilesetTile m_flat_tileset_tile;
+    QuadBasedTilesetTile m_quad_tileset_tile;
 };
