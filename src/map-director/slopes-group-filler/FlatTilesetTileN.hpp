@@ -113,8 +113,6 @@ private:
 
 class FlatTilesetTile final : public SlopesTilesetTile {
 public:
-    FlatTilesetTile() {}
-
     static Optional<TileCornerElevations>
         read_elevation_of(const MapTilesetTile &);
 

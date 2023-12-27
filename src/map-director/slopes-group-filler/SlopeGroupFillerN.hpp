@@ -44,13 +44,7 @@ public:
         (const MapTileset & map_tileset,
          PlatformAssetsStrategy & platform,
          const TilesetTileMakerMap & = builtin_makers());
-#if 0
-private:
-    void load_factories(const TilesetXmlGrid & xml_grid);
 
-    void setup_factories
-        (const TilesetXmlGrid & xml_grid,
-         PlatformAssetsStrategy & platform) const;
-#endif
+private:
     TilesetTileGridPtr m_tileset_tiles;
 };

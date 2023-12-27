@@ -19,6 +19,8 @@
 *****************************************************************************/
 
 #include "WallTilesetTileN.hpp"
+#include "FlatTilesetTileN.hpp"
+#include "RampTilesetTileN.hpp"
 
 #include "../../TriangleSegment.hpp"
 
@@ -119,6 +121,10 @@ void LinearStripTriangleCollection::make_strip
 // ----------------------------------------------------------------------------
 
 NorthSouthSplit::NorthSouthSplit
+    (const TileCornerElevations &,
+     Real division_z) {}
+
+NorthSouthSplit::NorthSouthSplit
     (Real north_west_y,
      Real north_east_y,
      Real south_west_y,
@@ -179,11 +185,12 @@ void NorthSouthSplit::make_wall(LinearStripTriangleCollection & collection) cons
 // ----------------------------------------------------------------------------
 
 void WallTilesetTile::load
-    (const MapTilesetTile &,
-     const TilesetTileTexture &,
+    (const MapTilesetTile & map_tileset_tile,
+     const TilesetTileTexture & tile_texture,
      PlatformAssetsStrategy & platform)
 {
-
+    auto elevations = FlatTilesetTile::read_elevation_of(map_tileset_tile);
+    auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
 }
 
 TileCornerElevations WallTilesetTile::corner_elevations() const {
@@ -194,5 +201,6 @@ void WallTilesetTile::make
     (const TileCornerElevations & neighboring_elevations,
      ProducableTileCallbacks & callbacks) const
 {
-
+    NorthSouthSplit split{neighboring_elevations.};
+    // the rest of everything is computed here, from geometry to models
 }

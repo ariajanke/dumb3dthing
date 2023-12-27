@@ -42,6 +42,7 @@ protected:
     virtual Orientation orientation_for(CardinalDirection) const = 0;
 
 private:
+#   if 0
     static Optional<CardinalDirection> cardinal_direction_from
         (const char * nullable_str);
 
@@ -50,7 +51,7 @@ private:
 
     static Optional<CardinalDirection> read_direction_of
         (const MapTilesetTile & tile_properties);
-
+#   endif
     Orientation m_orientation;
     TileCornerElevations m_elevations;
 };
@@ -81,7 +82,8 @@ private:
 
 class RampTileseTile final : public SlopesTilesetTile {
 public:
-    static CardinalDirection read_direction_of(const MapTilesetTile &);
+    static Optional<CardinalDirection> read_direction_of
+        (const MapTilesetTile &);
 
     void load
         (const MapTilesetTile &,

@@ -25,9 +25,29 @@
 
 #include <cstring>
 
+namespace {
+
+Optional<CardinalDirection> cardinal_direction_from(const char * nullable_str) {
+    auto seq = [nullable_str](const char * s) { return !::strcmp(nullable_str, s); };
+    using Cd = CardinalDirection;
+    if (nullable_str) {
+        if (seq("n" )) return Cd::n;
+        if (seq("s" )) return Cd::s;
+        if (seq("e" )) return Cd::e;
+        if (seq("w" )) return Cd::w;
+        if (seq("ne")) return Cd::ne;
+        if (seq("nw")) return Cd::nw;
+        if (seq("se")) return Cd::se;
+        if (seq("sw")) return Cd::sw;
+    }
+    return {};
+}
+
+} // end of <anonymous> namespace
+
 void RampPropertiesLoaderBase::load(const MapTilesetTile & tile) {
-    auto elevations = read_elevation_of(tile);
-    auto direction  = read_direction_of(tile);
+    auto elevations = FlatTilesetTile::read_elevation_of(tile);
+    auto direction  = RampTileseTile ::read_direction_of(tile);
     if (elevations) {
         m_elevations = *elevations;
     } else {
@@ -41,7 +61,7 @@ void RampPropertiesLoaderBase::load(const MapTilesetTile & tile) {
 
 const TileCornerElevations & RampPropertiesLoaderBase::corner_elevations() const
     { return m_elevations; }
-
+#if 0
 /* static */ Optional<CardinalDirection>
     RampPropertiesLoaderBase::cardinal_direction_from(const char * nullable_str)
 {
@@ -77,8 +97,15 @@ const TileCornerElevations & RampPropertiesLoaderBase::corner_elevations() const
     return cardinal_direction_from
         (tile_properties.get_string_property("direction"));
 }
-
+#endif
 // ----------------------------------------------------------------------------
+
+/* static */ Optional<CardinalDirection> RampTileseTile::read_direction_of
+    (const MapTilesetTile & map_tileset_tile)
+{
+    return cardinal_direction_from
+        (map_tileset_tile.get_string_property("direction"));
+}
 
 void RampTileseTile::load
     (const MapTilesetTile & tileset_tile,

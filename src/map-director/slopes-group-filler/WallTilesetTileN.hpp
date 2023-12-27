@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "FlatTilesetTileN.hpp"
+#include "SlopesTilesetTileN.hpp"
 
 class LinearStripTriangleCollection {
 public:
@@ -68,6 +68,44 @@ private:
 
 // ----------------------------------------------------------------------------
 
+class WallGeometryCache final {
+public:
+    static WallGeometryCache & instance();
+
+    enum class WallType { two_way, in, out, none };
+
+    struct WallAndBottomElement final {
+        std::vector<TriangleSegment> collidable_triangles;
+        // may need to utilize texture translation to get correct mapping
+        SharedPtr<RenderModel> model;
+    };
+
+    template <typename Func>
+    const WallAndBottomElement & ensure
+        (WallType,
+         CardinalDirection,
+         const TileCornerElevations &,
+         Func &&);
+
+private:
+    struct Ensurer {
+        virtual ~Ensurer() {}
+
+        virtual WallAndBottomElement operator () () const = 0;
+    };
+
+    struct Key final {
+        WallType type = WallType::none;
+        CardinalDirection direction = CardinalDirection::e;
+        TileCornerElevations elevations;
+    };
+
+    const WallAndBottomElement & ensure(WallType, CardinalDirection, Ensurer &&);
+
+};
+
+// ----------------------------------------------------------------------------
+
 class WallTilesetTile final : public SlopesTilesetTile {
 public:
     void load
@@ -80,4 +118,6 @@ public:
     void make
         (const TileCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
+private:
+
 };
