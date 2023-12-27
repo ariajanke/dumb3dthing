@@ -21,6 +21,8 @@
 #include "SlopeGroupFillerN.hpp"
 #include "FlatTilesetTileN.hpp"
 #include "RampTilesetTileN.hpp"
+#include "OutRampTilesetTileN.hpp"
+#include "InRampTilesetTileN.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../MapTileset.hpp"
 
@@ -134,8 +136,10 @@ private:
     using namespace slopes_group_filler_type_names;
     using Rt = SharedPtr<SlopesTilesetTile>;
     static TilesetTileMakerMap map {
-        { k_flat, [] () -> Rt { return make_shared<FlatTilesetTile>(); } },
-        { k_ramp, [] () -> Rt { return make_shared<RampTileseTile>(); } }
+        { k_flat    , [] () -> Rt { return make_shared<FlatTilesetTile   >(); } },
+        { k_ramp    , [] () -> Rt { return make_shared<RampTileseTile    >(); } },
+        { k_out_ramp, [] () -> Rt { return make_shared<OutRampTilesetTile>(); } },
+        { k_in_ramp , [] () -> Rt { return make_shared<InRampTilesetTile >(); } }
     };
     return map;
 }

@@ -18,23 +18,23 @@
 
 *****************************************************************************/
 
-#include "OutRampTilesetTileN.hpp"
+#include "InRampTilesetTileN.hpp"
 #include "RampTilesetTileN.hpp"
 
 namespace {
 
-using Orientation = OutRampPropertiesLoader::Orientation;
+using Orientation = InRampPropertiesLoader::Orientation;
 
 } // end of <anonymous> namespace
 
-void OutRampTilesetTile::load
+void InRampTilesetTile::load
     (const MapTilesetTile & map_tileset_tile,
      const TilesetTileTexture & tileset_texture,
      PlatformAssetsStrategy & platform)
 {
-    OutRampPropertiesLoader loader;
+    InRampPropertiesLoader loader;
     loader.load(map_tileset_tile);
-    if (loader.elements_orientation() == Orientation::sw_to_ne_elements) {
+    if (loader.elements_orientation() == Orientation::nw_to_se_elements) {
         m_quad_tile.set_diagonal_to_nw_to_se();
     } else {
         m_quad_tile.set_diagonal_to_sw_to_ne();
@@ -42,10 +42,10 @@ void OutRampTilesetTile::load
     m_quad_tile.setup(tileset_texture, loader.corner_elevations(), platform);
 }
 
-TileCornerElevations OutRampTilesetTile::corner_elevations() const
+TileCornerElevations InRampTilesetTile::corner_elevations() const
     { return m_quad_tile.corner_elevations(); }
 
-void OutRampTilesetTile::make
+void InRampTilesetTile::make
     (const TileCornerElevations & neighboring_elevations,
      ProducableTileCallbacks & callbacks) const
 { m_quad_tile.make(neighboring_elevations, callbacks); }

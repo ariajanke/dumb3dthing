@@ -25,72 +25,70 @@
 
 #include <cstring>
 
-namespace {
-
-CardinalDirection cardinal_direction_from(const char * str) {
-    auto seq = [str](const char * s) { return !::strcmp(str, s); };
-    using Cd = CardinalDirection;
-    if (!str) {
-        throw InvalidArgument
-            {"cardinal_direction_from: cannot convert nullptr to a cardinal "
-             "direction"                                                     };
+void RampPropertiesLoaderBase::load(const MapTilesetTile & tile) {
+    auto elevations = read_elevation_of(tile);
+    auto direction  = read_direction_of(tile);
+    if (elevations) {
+        m_elevations = *elevations;
+    } else {
+        m_elevations = TileCornerElevations{};
     }
-    if (seq("n" )) return Cd::n;
-    if (seq("s" )) return Cd::s;
-    if (seq("e" )) return Cd::e;
-    if (seq("w" )) return Cd::w;
-#   if 0
-    if (seq("ne")) return Cd::ne;
-    if (seq("nw")) return Cd::nw;
-    if (seq("se")) return Cd::se;
-    if (seq("sw")) return Cd::sw;
-#   endif
-    throw InvalidArgument
-        {"cardinal_direction_from: cannot convert \"" + std::string{str} +
-         "\" to a cardinal direction"};
+    if (direction) {
+        m_elevations = m_elevations.add(elevation_offsets_for(*direction));
+        m_orientation = orientation_for(*direction);
+    }
 }
 
-} // end of <anonymous> namespace
+const TileCornerElevations & RampPropertiesLoaderBase::corner_elevations() const
+    { return m_elevations; }
 
-/* static */ CardinalDirection RampTileseTile::read_direction_of
+/* static */ Optional<CardinalDirection>
+    RampPropertiesLoaderBase::cardinal_direction_from(const char * nullable_str)
+{
+    auto seq = [nullable_str](const char * s) { return !::strcmp(nullable_str, s); };
+    using Cd = CardinalDirection;
+    if (nullable_str) {
+        if (seq("n" )) return Cd::n;
+        if (seq("s" )) return Cd::s;
+        if (seq("e" )) return Cd::e;
+        if (seq("w" )) return Cd::w;
+        if (seq("ne")) return Cd::ne;
+        if (seq("nw")) return Cd::nw;
+        if (seq("se")) return Cd::se;
+        if (seq("sw")) return Cd::sw;
+    }
+    return {};
+}
+
+/* static */ Optional<TileCornerElevations>
+    RampPropertiesLoaderBase::read_elevation_of
+    (const MapTilesetTile & tileset_tile)
+{
+    if (auto elv = tileset_tile.get_numeric_property<Real>("elevation")) {
+        return TileCornerElevations{*elv, *elv, *elv, *elv};
+    }
+    return {};
+}
+
+/* static */ Optional<CardinalDirection>
+    RampPropertiesLoaderBase::read_direction_of
     (const MapTilesetTile & tile_properties)
 {
-    auto * str = tile_properties.get_string_property("direction");
-    if (!str) {
-        throw RuntimeError{"I forgor to handle direction not being defined"};
-    }
-    return cardinal_direction_from(str);
+    return cardinal_direction_from
+        (tile_properties.get_string_property("direction"));
 }
 
-/* static */ TileCornerElevations RampTileseTile::elevation_offsets_for
-    (CardinalDirection direction)
-{
-    using Cd = CardinalDirection;
-    switch (direction) {
-    case Cd::n: return TileCornerElevations{1, 1, 0, 0};
-    case Cd::e: return TileCornerElevations{1, 0, 0, 1};
-    case Cd::s: return TileCornerElevations{0, 0, 1, 1};
-    case Cd::w: return TileCornerElevations{0, 1, 1, 0};
-    default:
-        throw InvalidArgument{"direction bad"};
-    }
-}
-
-RampTileseTile::RampTileseTile() {}
+// ----------------------------------------------------------------------------
 
 void RampTileseTile::load
     (const MapTilesetTile & tileset_tile,
      const TilesetTileTexture & tileset_tile_texture,
      PlatformAssetsStrategy & platform)
 {
-    auto elevations = FlatTilesetTile::read_elevation_of(tileset_tile);
-    if (!elevations) {
-        throw RuntimeError{"I forgor to handle elevation not being defined"};
-    }
-    auto adjusted_elevations =
-        elevation_offsets_for(read_direction_of(tileset_tile)).add(*elevations);
-    m_quad_tileset_tile.setup
-        (tileset_tile_texture, adjusted_elevations, platform);
+    RampPropertiesLoader loader;
+    loader.load(tileset_tile);
+    m_quad_tileset_tile.
+        setup(tileset_tile_texture, loader.corner_elevations(), platform);
 }
 
 TileCornerElevations RampTileseTile::corner_elevations() const {

@@ -22,17 +22,17 @@
 
 #include "RampTilesetTileN.hpp"
 
-class OutRampPropertiesLoader final : public RampPropertiesLoaderBase {
+class InRampPropertiesLoader final : public RampPropertiesLoaderBase {
 private:
     TileCornerElevations elevation_offsets_for
         (CardinalDirection direction) const final
     {
         using Cd = CardinalDirection;
         switch (direction) {
-        case Cd::ne: return TileCornerElevations{0, 0, 1, 0};
-        case Cd::nw: return TileCornerElevations{0, 0, 0, 1};
-        case Cd::se: return TileCornerElevations{0, 1, 0, 0};
-        case Cd::sw: return TileCornerElevations{1, 0, 0, 0};
+        case Cd::ne: return TileCornerElevations{1, 1, 0, 1};
+        case Cd::nw: return TileCornerElevations{1, 1, 1, 0};
+        case Cd::se: return TileCornerElevations{1, 0, 1, 1};
+        case Cd::sw: return TileCornerElevations{0, 1, 1, 1};
         default:
             throw InvalidArgument{"direction bad"};
         }
@@ -53,7 +53,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class OutRampTilesetTile final : public SlopesTilesetTile {
+class InRampTilesetTile final : public SlopesTilesetTile {
 public:
     void load
         (const MapTilesetTile &,

@@ -23,13 +23,65 @@
 #include "SlopesTilesetTileN.hpp"
 #include "FlatTilesetTileN.hpp"
 
+class RampPropertiesLoaderBase {
+public:
+    enum class Orientation { nw_to_se_elements, sw_to_ne_elements, any_elements };
+
+    virtual ~RampPropertiesLoaderBase() {}
+
+    void load(const MapTilesetTile & tile);
+
+    Orientation elements_orientation() const { return m_orientation; }
+
+    const TileCornerElevations & corner_elevations() const;
+
+protected:
+    virtual TileCornerElevations elevation_offsets_for
+        (CardinalDirection direction) const = 0;
+
+    virtual Orientation orientation_for(CardinalDirection) const = 0;
+
+private:
+    static Optional<CardinalDirection> cardinal_direction_from
+        (const char * nullable_str);
+
+    static Optional<TileCornerElevations> read_elevation_of
+        (const MapTilesetTile & tileset_tile);
+
+    static Optional<CardinalDirection> read_direction_of
+        (const MapTilesetTile & tile_properties);
+
+    Orientation m_orientation;
+    TileCornerElevations m_elevations;
+};
+
+// ----------------------------------------------------------------------------
+
+class RampPropertiesLoader final : public RampPropertiesLoaderBase {
+private:
+    TileCornerElevations elevation_offsets_for
+        (CardinalDirection direction) const final
+    {
+        using Cd = CardinalDirection;
+        switch (direction) {
+        case Cd::n: return TileCornerElevations{1, 1, 0, 0};
+        case Cd::e: return TileCornerElevations{1, 0, 0, 1};
+        case Cd::s: return TileCornerElevations{0, 0, 1, 1};
+        case Cd::w: return TileCornerElevations{0, 1, 1, 0};
+        default:
+            throw InvalidArgument{"direction bad"};
+        }
+    }
+
+    Orientation orientation_for(CardinalDirection) const final
+        { return Orientation::any_elements; }
+};
+
+// ----------------------------------------------------------------------------
+
 class RampTileseTile final : public SlopesTilesetTile {
 public:
     static CardinalDirection read_direction_of(const MapTilesetTile &);
-
-    static TileCornerElevations elevation_offsets_for(CardinalDirection);
-
-    RampTileseTile();
 
     void load
         (const MapTilesetTile &,
