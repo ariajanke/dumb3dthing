@@ -34,7 +34,7 @@ void OutRampTilesetTile::load
 {
     OutRampPropertiesLoader loader;
     loader.load(map_tileset_tile);
-    if (loader.elements_orientation() == Orientation::sw_to_ne_elements) {
+    if (loader.elements_orientation() == Orientation::nw_to_se_elements) {
         m_quad_tile.set_diagonal_to_nw_to_se();
     } else {
         m_quad_tile.set_diagonal_to_sw_to_ne();

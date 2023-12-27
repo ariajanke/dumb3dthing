@@ -20,40 +20,55 @@
 
 #pragma once
 
-#include "RampTilesetTileN.hpp"
+#include "FlatTilesetTileN.hpp"
 
-class OutRampPropertiesLoader final : public RampPropertiesLoaderBase {
-private:
-    TileCornerElevations elevation_offsets_for
-        (CardinalDirection direction) const final
-    {
-        using Cd = CardinalDirection;
-        switch (direction) {
-        case Cd::ne: return TileCornerElevations{0, 0, 1, 0};
-        case Cd::nw: return TileCornerElevations{0, 0, 0, 1};
-        case Cd::se: return TileCornerElevations{0, 1, 0, 0};
-        case Cd::sw: return TileCornerElevations{1, 0, 0, 0};
-        default:
-            throw InvalidArgument{"direction bad"};
-        }
-    }
+class LinearStripTriangleCollection {
+public:
+    void make_strip
+        (const Vector & a_start, const Vector & a_last,
+         const Vector & b_start, const Vector & b_last,
+         int steps_count);
 
-    Orientation orientation_for(CardinalDirection direction) const final {
-        using Cd = CardinalDirection;
-        switch (direction) {
-        case Cd::ne: case Cd::sw:
-            return Orientation::nw_to_se_elements;
-        case Cd::nw: case Cd::se:
-            return Orientation::sw_to_ne_elements;
-        default:
-            throw InvalidArgument{"direction bad"};
-        }
-    }
+    virtual void add_triangle(const TriangleSegment &) = 0;
 };
 
 // ----------------------------------------------------------------------------
 
-class OutRampTilesetTile final : public SlopesTilesetTile {
+class NorthSouthSplit final {
+public:
+    NorthSouthSplit
+        (Real north_west_y,
+         Real north_east_y,
+         Real south_west_y,
+         Real south_east_y,
+         Real division_z);
+
+    void make_top(LinearStripTriangleCollection &) const;
+
+    void make_bottom(LinearStripTriangleCollection &) const;
+
+    void make_wall(LinearStripTriangleCollection &) const;
+
+private:
+    void check_non_top_assumptions() const;
+
+    Real south_west_y() const { return m_div_sw.y; }
+
+    Real south_east_y() const { return m_div_se.y; }
+
+    Real north_west_y() const { return m_div_nw.y; }
+
+    Real north_east_y() const { return m_div_ne.y; }
+
+    Vector m_div_nw;
+    Vector m_div_sw;
+    Vector m_div_ne;
+    Vector m_div_se;
+};
+
+// ----------------------------------------------------------------------------
+
+class WallTilesetTile final : public SlopesTilesetTile {
 public:
     void load
         (const MapTilesetTile &,
@@ -65,7 +80,4 @@ public:
     void make
         (const TileCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
-
-private:
-    QuadBasedTilesetTile m_quad_tile;
 };
