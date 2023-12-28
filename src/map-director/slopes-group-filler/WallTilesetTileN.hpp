@@ -24,6 +24,9 @@
 
 class LinearStripTriangleCollection {
 public:
+    virtual ~LinearStripTriangleCollection() {}
+
+    // point c will be the closet to last
     void make_strip
         (const Vector & a_start, const Vector & a_last,
          const Vector & b_start, const Vector & b_last,
@@ -36,6 +39,10 @@ public:
 
 class NorthSouthSplit final {
 public:
+    NorthSouthSplit
+        (const TileCornerElevations &,
+         Real division_z);
+
     NorthSouthSplit
         (Real north_west_y,
          Real north_east_y,
@@ -119,5 +126,7 @@ public:
         (const TileCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
 private:
-
+    SharedPtr<const RenderModel> m_top_model;
+    SharedPtr<const Texture> m_texture_ptr;
+    TileCornerElevations m_elevations;
 };

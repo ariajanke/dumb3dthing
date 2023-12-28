@@ -23,6 +23,7 @@
 #include "RampTilesetTileN.hpp"
 #include "OutRampTilesetTileN.hpp"
 #include "InRampTilesetTileN.hpp"
+#include "WallTilesetTileN.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../MapTileset.hpp"
 
@@ -130,16 +131,24 @@ private:
     SharedPtr<SlopesGroupOwner> m_owner;
 };
 
+using SlopesCreationFunction = SharedPtr<SlopesTilesetTile>(*)();
+
+template <typename T>
+SlopesCreationFunction make_slopes_creator() {
+    return [] () -> SharedPtr<SlopesTilesetTile> { return make_shared<T>(); };
+}
+
 } // end of <anonymous> namespace
 
 /* static */ const TilesetTileMakerMap & SlopeGroupFiller::builtin_makers() {
     using namespace slopes_group_filler_type_names;
     using Rt = SharedPtr<SlopesTilesetTile>;
     static TilesetTileMakerMap map {
-        { k_flat    , [] () -> Rt { return make_shared<FlatTilesetTile   >(); } },
-        { k_ramp    , [] () -> Rt { return make_shared<RampTileseTile    >(); } },
-        { k_out_ramp, [] () -> Rt { return make_shared<OutRampTilesetTile>(); } },
-        { k_in_ramp , [] () -> Rt { return make_shared<InRampTilesetTile >(); } }
+        { k_flat    , make_slopes_creator<FlatTilesetTile   >() },
+        { k_ramp    , make_slopes_creator<RampTileseTile    >() },
+        { k_out_ramp, make_slopes_creator<OutRampTilesetTile>() },
+        { k_in_ramp , make_slopes_creator<InRampTilesetTile >() },
+        { k_wall    , make_slopes_creator<WallTilesetTile   >() }
     };
     return map;
 }
