@@ -86,9 +86,7 @@ public:
 
     const TileCornerElevations & corner_elevations() const;
 
-    void make
-        (const TileCornerElevations & neighboring_elevations,
-         ProducableTileCallbacks & callbacks) const;
+    void make(ProducableTileCallbacks & callbacks) const;
 
     void setup
         (const TilesetTileTexture & tileset_tile_texture,
@@ -124,7 +122,7 @@ public:
     TileCornerElevations corner_elevations() const final;
 
     void make
-        (const TileCornerElevations & neighboring_elevations,
+        (const NeighborCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
 
 private:

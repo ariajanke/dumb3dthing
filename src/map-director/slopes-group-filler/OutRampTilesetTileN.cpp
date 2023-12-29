@@ -46,6 +46,5 @@ TileCornerElevations OutRampTilesetTile::corner_elevations() const
     { return m_quad_tile.corner_elevations(); }
 
 void OutRampTilesetTile::make
-    (const TileCornerElevations & neighboring_elevations,
-     ProducableTileCallbacks & callbacks) const
-{ m_quad_tile.make(neighboring_elevations, callbacks); }
+    (const NeighborCornerElevations &, ProducableTileCallbacks & callbacks) const
+{ m_quad_tile.make(callbacks); }

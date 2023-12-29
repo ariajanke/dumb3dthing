@@ -23,22 +23,42 @@
 #include "../TilesetPropertiesGrid.hpp"
 #include "../MapTileset.hpp"
 
+#include <map>
+
 #include <cstring>
 
 namespace {
 
 Optional<CardinalDirection> cardinal_direction_from(const char * nullable_str) {
+    static const auto k_strings_as_directions = [] {
+        using Cd = CardinalDirection;
+        std::map<std::string, CardinalDirection> rv {
+            { "n"         , Cd::north      },
+            { "s"         , Cd::south      },
+            { "e"         , Cd::east       },
+            { "w"         , Cd::west       },
+            { "ne"        , Cd::north_east },
+            { "nw"        , Cd::north_west },
+            { "se"        , Cd::south_east },
+            { "sw"        , Cd::south_west },
+            { "north"     , Cd::north      },
+            { "south"     , Cd::south      },
+            { "east"      , Cd::east       },
+            { "west"      , Cd::west       },
+            { "north-east", Cd::north_east },
+            { "north-west", Cd::north_west },
+            { "south-east", Cd::south_east },
+            { "south-west", Cd::south_west },
+        };
+        return rv;
+    } ();
     auto seq = [nullable_str](const char * s) { return !::strcmp(nullable_str, s); };
     using Cd = CardinalDirection;
     if (nullable_str) {
-        if (seq("n" )) return Cd::n;
-        if (seq("s" )) return Cd::s;
-        if (seq("e" )) return Cd::e;
-        if (seq("w" )) return Cd::w;
-        if (seq("ne")) return Cd::ne;
-        if (seq("nw")) return Cd::nw;
-        if (seq("se")) return Cd::se;
-        if (seq("sw")) return Cd::sw;
+        auto itr = k_strings_as_directions.find(nullable_str);
+        if (itr != k_strings_as_directions.end()) {
+            return itr->second;
+        }
     }
     return {};
 }
@@ -123,8 +143,5 @@ TileCornerElevations RampTileseTile::corner_elevations() const {
 }
 
 void RampTileseTile::make
-    (const TileCornerElevations & neighboring_elevations,
-     ProducableTileCallbacks & callbacks) const
-{
-    m_quad_tileset_tile.make(neighboring_elevations, callbacks);
-}
+    (const NeighborCornerElevations &, ProducableTileCallbacks & callbacks) const
+{ m_quad_tileset_tile.make(callbacks); }

@@ -35,40 +35,42 @@ using TilesetTileGrid = SlopeGroupFiller::TilesetTileGrid;
 using ProducableGroupCreation = ProducableGroupFiller::ProducableGroupCreation;
 
 class NeighborElevationsComplete final :
-    public TileCornerElevations::NeighborElevations
+    public NeighborCornerElevations::NeighborElevations
 {
 public:
     static Vector2I offset_for(CardinalDirection cd) {
         using Cd = CardinalDirection;
         switch (cd) {
-        case Cd::n : return Vector2I{ 0, -1};
-        case Cd::e : return Vector2I{-1,  0};
-        case Cd::s : return Vector2I{ 0,  1};
-        case Cd::w : return Vector2I{ 1,  0};
-        case Cd::ne: return Vector2I{-1, -1};
-        case Cd::nw: return Vector2I{ 1, -1};
-        case Cd::se: return Vector2I{-1,  1};
-        case Cd::sw: return Vector2I{ 1,  1};
+        case Cd::north     : return Vector2I{ 0, -1};
+        case Cd::east      : return Vector2I{ 1,  0};
+        case Cd::south     : return Vector2I{ 0,  1};
+        case Cd::west      : return Vector2I{-1,  0};
+        case Cd::north_east: return Vector2I{ 1, -1};
+        case Cd::north_west: return Vector2I{-1, -1};
+        case Cd::south_east: return Vector2I{ 1,  1};
+        case Cd::south_west: return Vector2I{-1,  1};
         }
         throw InvalidArgument{"invalid value for cardinal direction"};
     }
 
-    NeighborElevationsComplete
-        (const Grid<ProducableSlopesTile> & producables_,
-         const Vector2I & position):
-        m_producables(producables_),
-        m_position(position) {}
+    NeighborElevationsComplete() {}
 
-    TileCornerElevations elevations_from(CardinalDirection cd) const final {
-        auto r = m_position + offset_for(cd);
-        if (!m_producables.has_position(r))
+    explicit NeighborElevationsComplete
+        (const Grid<TileCornerElevations> & producables_):
+        m_producables(&producables_) {}
+
+    TileCornerElevations elevations_from
+        (const Vector2I & location_on_map, CardinalDirection cd) const final
+    {
+        auto r = location_on_map + offset_for(cd);
+        if (!m_producables->has_position(r))
             { return TileCornerElevations{}; }
-        return m_producables(r).corner_elevations();
+        return (*m_producables)(r);
     }
 
+
 private:
-    const Grid<ProducableSlopesTile> & m_producables;
-    Vector2I m_position;
+    const Grid<TileCornerElevations> * m_producables = nullptr;
 };
 
 class SlopesGroupOwner final : public ProducableGroupOwner {
@@ -79,6 +81,18 @@ public:
 
     void reserve(std::size_t number_of_members, const Size2I & grid_size) {
         m_tileset_to_map_mapping.set_size(grid_size.width, grid_size.height);
+        m_elevations_grid.set_size(grid_size.width, grid_size.height);
+    }
+
+    // yuck, this class should not be "multi-step" it means this class has more
+    // than one responsibility
+    void setup_elevations() {
+        m_neighbor_elevations = NeighborElevationsComplete{m_elevations_grid};
+        for (Vector2I r; r != m_elevations_grid.end_position(); r = m_elevations_grid.next(r)) {
+            NeighborCornerElevations elvs;
+            elvs.set_neighbors(r, m_neighbor_elevations);
+            m_tileset_to_map_mapping(r).set_neighboring_elevations(elvs);
+        }
     }
 
     ProducableTile & add_member(const TileLocation & tile_location) {
@@ -91,17 +105,20 @@ public:
             throw InvalidArgument
                 {"Cannot add member at specified location (grid not setup correctly?)"};
         }
-        NeighborElevationsComplete neighbor_elevations
-            {m_tileset_to_map_mapping, tile_location.on_map};
+        auto tileset_tile = (*m_tileset_tiles)(tile_location.on_tileset);
+        if (tileset_tile) {
+            m_elevations_grid(tile_location.on_map) =
+                tileset_tile->corner_elevations();
+        }
         return m_tileset_to_map_mapping(tile_location.on_map) =
-            ProducableSlopesTile
-            {(*m_tileset_tiles)(tile_location.on_tileset),
-             neighbor_elevations.elevations()};
+            ProducableSlopesTile{tileset_tile};
     }
 
 private:
     TilesetTileGridPtr m_tileset_tiles;
     Grid<ProducableSlopesTile> m_tileset_to_map_mapping;
+    Grid<TileCornerElevations> m_elevations_grid;
+    NeighborElevationsComplete m_neighbor_elevations;
 };
 
 class SlopesGroupCreator final : public ProducableGroupCreation {
@@ -118,6 +135,7 @@ public:
 
     SharedPtr<ProducableGroupOwner> finish() final {
         (void)verify_owner_ptr();
+        m_owner->setup_elevations();
         return std::move(m_owner);
     }
 

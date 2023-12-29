@@ -65,10 +65,10 @@ private:
     {
         using Cd = CardinalDirection;
         switch (direction) {
-        case Cd::n: return TileCornerElevations{1, 1, 0, 0};
-        case Cd::e: return TileCornerElevations{1, 0, 0, 1};
-        case Cd::s: return TileCornerElevations{0, 0, 1, 1};
-        case Cd::w: return TileCornerElevations{0, 1, 1, 0};
+        case Cd::north: return TileCornerElevations{1, 1, 0, 0};
+        case Cd::east : return TileCornerElevations{1, 0, 0, 1};
+        case Cd::south: return TileCornerElevations{0, 0, 1, 1};
+        case Cd::west : return TileCornerElevations{0, 1, 1, 0};
         default:
             throw InvalidArgument{"direction bad"};
         }
@@ -93,7 +93,7 @@ public:
     TileCornerElevations corner_elevations() const final;
 
     void make
-        (const TileCornerElevations & neighboring_elevations,
+        (const NeighborCornerElevations &,
          ProducableTileCallbacks & callbacks) const;
 
 private:

@@ -350,6 +350,21 @@ void NorthSouthSplit::make_wall(LinearStripTriangleCollection & collection) cons
     }
 }
 
+template <std::size_t kt_triangle_count>
+SharedPtr<const RenderModel> make_model
+    (LimitedLinearStripCollection<kt_triangle_count> & linear_strip,
+     SharedPtr<RenderModel> && new_model)
+{
+    ElementsCollection<2> elements_col;
+    elements_col.populate(linear_strip.model_vertices());
+    new_model->load
+        (linear_strip.model_vertices().begin(),
+         linear_strip.model_vertices().end(),
+         elements_col.elements().begin(),
+         elements_col.elements().end());
+    return new_model;
+}
+
 // ----------------------------------------------------------------------------
 
 void WallTilesetTile::load
@@ -357,23 +372,21 @@ void WallTilesetTile::load
      const TilesetTileTexture & tile_texture,
      PlatformAssetsStrategy & platform)
 {
-    auto elevations = FlatTilesetTile::read_elevation_of(map_tileset_tile);
-#   if 0 // keep for later (?)
+    auto elevations = FlatTilesetTile::read_elevation_of(map_tileset_tile)->
+        add(TileCornerElevations{1, 1, 1, 1});
     auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
-#   endif
+    m_direction = *direction;
+    if (m_direction != CardinalDirection::north)
+        { return; }
     LimitedLinearStripCollection<2> col;
     col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
     NorthSouthSplit
-        {k_inf, k_inf, *elevations->south_east(), *elevations->south_west(), 0.25}.
+        {k_inf, k_inf, *elevations.south_east(), *elevations.south_west(), 0.25}.
         make_top(col);
-    ElementsCollection<2> elements_col;
-    elements_col.populate(col.model_vertices());
-    auto model = platform.make_render_model();
-    model->load(col.model_vertices().begin(), col.model_vertices().end(),
-                elements_col.elements().begin(), elements_col.elements().end());
+    auto model = make_model(col, platform.make_render_model());
     m_top_model = model;
     m_texture_ptr = tile_texture.texture();
-    m_elevations = TileCornerElevations{{}, {}, elevations->south_east(), elevations->south_west()};
+    m_elevations = TileCornerElevations{{}, {}, elevations.south_east(), elevations.south_west()};
 }
 
 TileCornerElevations WallTilesetTile::corner_elevations() const {
@@ -381,13 +394,32 @@ TileCornerElevations WallTilesetTile::corner_elevations() const {
 }
 
 void WallTilesetTile::make
-    (const TileCornerElevations & neighboring_elevations,
+    (const NeighborCornerElevations & neighboring_elevations,
      ProducableTileCallbacks & callbacks) const
 {
+    if (m_direction != CardinalDirection::north)
+        { return; }
+
     callbacks.
         add_entity_from_tuple(TupleBuilder{}.
             add(SharedPtr<const Texture>{m_texture_ptr}).
             add(SharedPtr<const RenderModel>{m_top_model}).
             finish());
     // the rest of everything is computed here, from geometry to models
+    auto computed_elevations = m_elevations.value_or(neighboring_elevations);
+    NorthSouthSplit splitter
+        {*computed_elevations.north_west(),
+         *computed_elevations.north_east(),
+         *computed_elevations.south_east(),
+         *computed_elevations.south_west(),
+         0.25};
+    LimitedLinearStripCollection<2> col;
+    col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
+    splitter.make_bottom(col);
+    auto model = make_model(col, callbacks.make_render_model());
+    callbacks.
+        add_entity_from_tuple(TupleBuilder{}.
+            add(SharedPtr<const RenderModel>{model}).
+            add(SharedPtr<const Texture>{m_texture_ptr}).
+            finish());
 }

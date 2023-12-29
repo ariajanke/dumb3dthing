@@ -102,8 +102,9 @@ private:
     };
 
     struct Key final {
+        static constexpr const auto k_any_direction = CardinalDirection::east;
         WallType type = WallType::none;
-        CardinalDirection direction = CardinalDirection::e;
+        CardinalDirection direction = k_any_direction;
         TileCornerElevations elevations;
     };
 
@@ -123,10 +124,11 @@ public:
     TileCornerElevations corner_elevations() const final;
 
     void make
-        (const TileCornerElevations & neighboring_elevations,
+        (const NeighborCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
 private:
     SharedPtr<const RenderModel> m_top_model;
     SharedPtr<const Texture> m_texture_ptr;
     TileCornerElevations m_elevations;
+    CardinalDirection m_direction;
 };

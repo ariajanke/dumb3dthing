@@ -181,36 +181,42 @@
  <tile id="27" type="out-wall">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="28" type="wall">
   <properties>
    <property name="direction" value="n"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="29" type="out-wall">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="30" type="out-wall">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="31" type="wall">
   <properties>
    <property name="direction" value="n"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="32" type="out-wall">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -235,6 +241,7 @@
  <tile id="36" type="wall">
   <properties>
    <property name="direction" value="w"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -247,18 +254,21 @@
  <tile id="38" type="wall">
   <properties>
    <property name="direction" value="e"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="39" type="wall">
   <properties>
    <property name="direction" value="w"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="41" type="wall">
   <properties>
    <property name="direction" value="e"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -277,36 +287,42 @@
  <tile id="45" type="out-wall">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="46" type="wall">
   <properties>
    <property name="direction" value="s"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="47" type="out-wall">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="48" type="out-wall">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="49" type="wall">
   <properties>
    <property name="direction" value="s"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="50" type="out-wall">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -413,12 +429,14 @@
  <tile id="72" type="in-wall">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="73" type="in-wall">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -430,12 +448,14 @@
  <tile id="75" type="in-wall">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="76" type="in-wall">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -454,12 +474,14 @@
  <tile id="81" type="in-wall">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="82" type="in-wall">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -471,12 +493,14 @@
  <tile id="84" type="in-wall">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="85" type="in-wall">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>

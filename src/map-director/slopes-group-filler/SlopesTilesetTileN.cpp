@@ -33,32 +33,41 @@ Optional<Real> first_of(Optional<Real> a, Optional<Real> b, Optional<Real> c) {
 
 } // end of <anonymous> namespace
 
-TileCornerElevations TileCornerElevations::NeighborElevations::elevations() const {
+Optional<Real> NeighborCornerElevations::north_east() const {
     using Cd = CardinalDirection;
-    const auto & northern_tile = elevations_from(Cd::n);
-    const auto & southern_tile = elevations_from(Cd::s);
-    const auto & eastern_tile = elevations_from(Cd::e);
-    const auto & western_tile = elevations_from(Cd::w);
-
-    auto north_west = first_of
-        (northern_tile.south_west(),
-         elevations_from(Cd::nw).south_east(),
-         western_tile.north_east());
-    auto south_west = first_of
-        (western_tile.south_east(),
-         elevations_from(Cd::sw).north_east(),
-         southern_tile.north_west());
-    auto south_east = first_of
-        (southern_tile.north_east(),
-         elevations_from(Cd::se).north_west(),
-         eastern_tile.south_west());
-    auto north_east = first_of
-        (eastern_tile.north_west(),
-         elevations_from(Cd::ne).south_west(),
-         northern_tile.south_east());
-    return TileCornerElevations
-        {north_east, north_west, south_west, south_east};
+    return first_of
+        (elevations_from(Cd::north     ).south_east(),
+         elevations_from(Cd::east      ).north_west(),
+         elevations_from(Cd::north_east).south_west());
 }
+
+Optional<Real> NeighborCornerElevations::north_west() const {
+    using Cd = CardinalDirection;
+    return first_of
+        (elevations_from(Cd::north     ).south_west(),
+         elevations_from(Cd::west      ).north_east(),
+         elevations_from(Cd::north_west).south_east());
+}
+
+Optional<Real> NeighborCornerElevations::south_east() const {
+    using Cd = CardinalDirection;
+    return first_of
+        (elevations_from(Cd::south     ).north_east(),
+         elevations_from(Cd::east      ).south_west(),
+         elevations_from(Cd::south_east).north_west());
+}
+
+Optional<Real> NeighborCornerElevations::south_west() const {
+    using Cd = CardinalDirection;
+    return first_of
+        (elevations_from(Cd::south     ).north_west(),
+         elevations_from(Cd::west      ).south_east(),
+         elevations_from(Cd::south_west).north_east());
+}
+
+/* private */ TileCornerElevations NeighborCornerElevations::elevations_from
+    (CardinalDirection cd) const
+{ return m_neighbors->elevations_from(m_location, cd); }
 
 void TilesetTileTexture::load_texture
     (const MapTileset & map_tileset, PlatformAssetsStrategy & platform)

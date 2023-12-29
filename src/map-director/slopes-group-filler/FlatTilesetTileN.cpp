@@ -58,10 +58,7 @@ using FlatVertexArray = QuadBasedTilesetTile::FlatVertexArray;
 const TileCornerElevations & QuadBasedTilesetTile::corner_elevations() const
     { return m_corner_elevations; }
 
-void QuadBasedTilesetTile::make
-    (const TileCornerElevations & neighboring_elevations,
-     ProducableTileCallbacks & callbacks) const
-{
+void QuadBasedTilesetTile::make(ProducableTileCallbacks & callbacks) const {
     callbacks.
         add_entity_from_tuple(TupleBuilder{}.
             add(SharedPtr<const Texture>{m_texture_ptr}).
@@ -120,6 +117,6 @@ TileCornerElevations FlatTilesetTile::corner_elevations() const
     { return m_quad_tileset_tile.corner_elevations(); }
 
 void FlatTilesetTile::make
-    (const TileCornerElevations & neighboring_elevations,
+    (const NeighborCornerElevations &,
      ProducableTileCallbacks & callbacks) const
-{ m_quad_tileset_tile.make(neighboring_elevations, callbacks); }
+{ m_quad_tileset_tile.make(callbacks); }

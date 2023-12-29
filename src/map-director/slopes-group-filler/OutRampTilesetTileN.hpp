@@ -29,10 +29,10 @@ private:
     {
         using Cd = CardinalDirection;
         switch (direction) {
-        case Cd::ne: return TileCornerElevations{0, 0, 1, 0};
-        case Cd::nw: return TileCornerElevations{0, 0, 0, 1};
-        case Cd::se: return TileCornerElevations{0, 1, 0, 0};
-        case Cd::sw: return TileCornerElevations{1, 0, 0, 0};
+        case Cd::north_east: return TileCornerElevations{0, 0, 1, 0};
+        case Cd::north_west: return TileCornerElevations{0, 0, 0, 1};
+        case Cd::south_east: return TileCornerElevations{0, 1, 0, 0};
+        case Cd::south_west: return TileCornerElevations{1, 0, 0, 0};
         default:
             throw InvalidArgument{"direction bad"};
         }
@@ -41,9 +41,9 @@ private:
     Orientation orientation_for(CardinalDirection direction) const final {
         using Cd = CardinalDirection;
         switch (direction) {
-        case Cd::ne: case Cd::sw:
+        case Cd::north_east: case Cd::south_west:
             return Orientation::nw_to_se_elements;
-        case Cd::nw: case Cd::se:
+        case Cd::north_west: case Cd::south_east:
             return Orientation::sw_to_ne_elements;
         default:
             throw InvalidArgument{"direction bad"};
@@ -63,7 +63,7 @@ public:
     TileCornerElevations corner_elevations() const final;
 
     void make
-        (const TileCornerElevations & neighboring_elevations,
+        (const NeighborCornerElevations &,
          ProducableTileCallbacks & callbacks) const;
 
 private:
