@@ -37,7 +37,38 @@ public:
 
 // ----------------------------------------------------------------------------
 
-class NorthSouthSplit final {
+class TwoWaySplitBase {
+public:
+    virtual ~TwoWaySplitBase() {}
+
+    virtual void make_top(LinearStripTriangleCollection &) const = 0;
+
+    virtual void make_bottom(LinearStripTriangleCollection &) const = 0;
+
+    virtual void make_wall(LinearStripTriangleCollection &) const = 0;
+};
+
+// ----------------------------------------------------------------------------
+
+class TwoWayNullSplit final : public TwoWaySplitBase {
+public:
+    void make_top(LinearStripTriangleCollection &) const final
+        { handle_make_on_null(); }
+
+    void make_bottom(LinearStripTriangleCollection &) const final
+        { handle_make_on_null(); }
+
+    void make_wall(LinearStripTriangleCollection &) const final
+        { handle_make_on_null(); }
+
+private:
+    void handle_make_on_null() const
+        { throw RuntimeError{"Direction must be set first"}; }
+};
+
+// ----------------------------------------------------------------------------
+
+class NorthSouthSplit final : public TwoWaySplitBase {
 public:
     NorthSouthSplit
         (const TileCornerElevations &,
@@ -71,6 +102,43 @@ private:
     Vector m_div_sw;
     Vector m_div_ne;
     Vector m_div_se;
+};
+
+// ----------------------------------------------------------------------------
+
+class TwoWaySplit final {
+public:
+    static TwoWaySplit make_north_south_split
+        (const TileCornerElevations & elevations,
+         Real division_z)
+    {
+        return TwoWaySplit
+            {NorthSouthSplit{elevations, division_z}, cul::TypeTag<NorthSouthSplit>{}};
+    }
+
+    TwoWaySplit():
+        TwoWaySplit(TwoWayNullSplit{}, cul::TypeTag<TwoWayNullSplit>{}) {}
+
+    void make_top(LinearStripTriangleCollection & col) const
+        { m_base_ptr->make_top(col); }
+
+    void make_bottom(LinearStripTriangleCollection & col) const
+        { m_base_ptr->make_bottom(col); }
+
+    void make_wall(LinearStripTriangleCollection & col) const
+        { m_base_ptr->make_wall(col); }
+
+private:
+    using VariantSplitStore = Variant<TwoWayNullSplit, NorthSouthSplit>;
+
+    template <typename T>
+    TwoWaySplit(VariantSplitStore && var_,
+                cul::TypeTag<T>):
+        m_store(std::move(var_)),
+        m_base_ptr(&std::get<T>(m_store)) {}
+
+    VariantSplitStore m_store;
+    TwoWaySplitBase * m_base_ptr = nullptr;
 };
 
 // ----------------------------------------------------------------------------

@@ -289,8 +289,14 @@ void LinearStripTriangleCollection::make_strip
 // ----------------------------------------------------------------------------
 
 NorthSouthSplit::NorthSouthSplit
-    (const TileCornerElevations &,
-     Real division_z) {}
+    (const TileCornerElevations & elevations,
+     Real division_z):
+    NorthSouthSplit
+        (elevations.north_west().value_or(k_inf),
+         elevations.north_east().value_or(k_inf),
+         elevations.south_west().value_or(k_inf),
+         elevations.south_east().value_or(k_inf),
+         division_z) {}
 
 NorthSouthSplit::NorthSouthSplit
     (Real north_west_y,
@@ -355,7 +361,7 @@ SharedPtr<const RenderModel> make_model
     (LimitedLinearStripCollection<kt_triangle_count> & linear_strip,
      SharedPtr<RenderModel> && new_model)
 {
-    ElementsCollection<2> elements_col;
+    ElementsCollection<kt_triangle_count> elements_col;
     elements_col.populate(linear_strip.model_vertices());
     new_model->load
         (linear_strip.model_vertices().begin(),
@@ -381,7 +387,7 @@ void WallTilesetTile::load
     LimitedLinearStripCollection<2> col;
     col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
     NorthSouthSplit
-        {k_inf, k_inf, *elevations.south_east(), *elevations.south_west(), 0.25}.
+        {elevations, 0.25}.
         make_top(col);
     auto model = make_model(col, platform.make_render_model());
     m_top_model = model;
@@ -407,14 +413,11 @@ void WallTilesetTile::make
             finish());
     // the rest of everything is computed here, from geometry to models
     auto computed_elevations = m_elevations.value_or(neighboring_elevations);
-    NorthSouthSplit splitter
-        {*computed_elevations.north_west(),
-         *computed_elevations.north_east(),
-         *computed_elevations.south_east(),
-         *computed_elevations.south_west(),
-         0.25};
-    LimitedLinearStripCollection<2> col;
+    NorthSouthSplit splitter{computed_elevations, 0.25};
+    LimitedLinearStripCollection<4> col;
     col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
+    splitter.make_wall(col);
+    col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
     splitter.make_bottom(col);
     auto model = make_model(col, callbacks.make_render_model());
     callbacks.
