@@ -114,3 +114,13 @@ Vector2 TilesetTileTexture::south_west() const {
 const SharedPtr<const Texture> & TilesetTileTexture::texture() const {
     return m_texture;
 }
+
+Vertex TilesetTileTexture::interpolate(Vertex vtx) const {
+    // x is west-east
+    // y is north-south
+    auto & tx = vtx.texture_position.x;
+    auto & ty = vtx.texture_position.y;
+    tx = m_north_west.x + tx*m_tile_size_in_portions.width;
+    ty = m_north_west.y + ty*m_tile_size_in_portions.height;
+    return vtx;
+}

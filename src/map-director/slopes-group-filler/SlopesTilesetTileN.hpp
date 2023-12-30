@@ -21,6 +21,7 @@
 #pragma once
 
 #include "../../Definitions.hpp"
+#include "../../RenderModel.hpp"
 #include "../ProducableGrid.hpp"
 
 class MapTilesetTile;
@@ -209,6 +210,8 @@ public:
     Vector2 south_west() const;
 
     const SharedPtr<const Texture> & texture() const;
+
+    Vertex interpolate(Vertex) const;
 
 private:
     SharedPtr<const Texture> m_texture;

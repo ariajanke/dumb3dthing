@@ -33,6 +33,10 @@ public:
     using VertexTriangle = std::array<Vertex, 3>;
     using StrategyFunction = VertexTriangle(*)(const TriangleSegment &);
 
+    static VertexTriangle all_zeroed(const TriangleSegment & triangle) {
+        return spacial_position_populated_vertices(triangle);
+    }
+
     static VertexTriangle lie_on_y_plane(const TriangleSegment & triangle) {
         return texture_positioned_vertices_from_spacial<get_x, get_z>
             (spacial_position_populated_vertices(triangle));
@@ -87,7 +91,7 @@ private:
 
     private:
         static Real interpolate_to_texture(Real t)
-            { return std::fmod(magnitude(t - 0.5), 1) + 0.5; }
+            { return std::fmod(t + 0.5, 1); }
 
         static Real interpolate_for_last(Real t) {
             t = interpolate_to_texture(t);
@@ -133,11 +137,18 @@ public:
     View<const Vertex *> model_vertices() const
         { return View{&m_array[0], &m_array[0] + (m_end - m_array.begin())}; }
 
+    // need something better than this...
+    void fit_to_texture(const TilesetTileTexture & tileset_tile_texture) {
+        for (auto itr = m_array.begin(); itr != m_end; ++itr) {
+            *itr = tileset_tile_texture.interpolate(*itr);
+        }
+    }
+
 private:
     using VertexArray = std::array<Vertex, kt_capacity_in_triangles*3>;
     using VertexArrayIterator = typename VertexArray::iterator;
 
-    TextureMappingStrategyFunction m_mapper_f = nullptr;
+    TextureMappingStrategyFunction m_mapper_f = TriangleToVertexStrategies::all_zeroed;
     VertexArray m_array;
     VertexArrayIterator m_end = m_array.begin();
 };
@@ -162,32 +173,6 @@ private:
     std::size_t m_count = 0;
 };
 
-template <std::size_t kt_capacity_in_triangles>
-class CollidablesCollection final {
-public:
-    void populate(const View<const Vertex *> & vertices) {
-        auto count = vertices.end() - vertices.begin();
-        if (count % 3 != 0) {
-            throw RuntimeError{"number of vertices must be divisble by three"};
-        } else if (count*3 > kt_capacity_in_triangles) {
-            throw RuntimeError{"capacity exceeded"};
-        }
-        for (auto itr = vertices.begin(); itr != vertices.end(); itr += 3) {
-            auto & a = *itr;
-            auto & b = *(itr + 1);
-            auto & c = *(itr + 2);
-            m_elements[m_count++] =
-                TriangleSegment{a.position, b.position, c.position};
-        }
-    }
-
-    View<const TriangleSegment *> collidables() const
-        { return View{&m_elements[0], &m_elements[0] + m_count}; }
-
-private:
-    std::array<TriangleSegment, kt_capacity_in_triangles> m_elements;
-    std::size_t m_count = 0;
-};
 
 
 /* <! auto breaks BFS ordering !> */ auto
@@ -215,6 +200,23 @@ private:
 }
 
 } // end of <anonymous> namespace
+
+/* static */ void TwoWaySplitBase::choose_on_direction_
+    (CardinalDirection direction,
+     const TileCornerElevations & elevations,
+     Real division_z,
+     const WithTwoWaySplit & with_split_callback)
+{
+    switch (direction) {
+    case CardinalDirection::north: {
+        NorthSouthSplit nss{elevations, division_z};
+        with_split_callback(nss);
+        }
+        break;
+    default:
+        break;
+    }
+}
 
 void LinearStripTriangleCollection::make_strip
     (const Vector & a_start, const Vector & a_last,
@@ -382,16 +384,25 @@ void WallTilesetTile::load
         add(TileCornerElevations{1, 1, 1, 1});
     auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
     m_direction = *direction;
+#   if 1
     if (m_direction != CardinalDirection::north)
         { return; }
+#   endif
     LimitedLinearStripCollection<2> col;
-    col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
-    NorthSouthSplit
-        {elevations, 0.25}.
-        make_top(col);
+    choose_on_direction
+        (elevations,
+         -0.25,
+         [&col] (const TwoWaySplitBase & two_way_split) {
+             col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
+             two_way_split.make_top(col);
+         });
+    col.fit_to_texture(tile_texture);
+    // and you can inject a strategy
+    // cost is like a couple of virtual calls
+    // benefits: less code/overhead and probably easier to test too!
     auto model = make_model(col, platform.make_render_model());
     m_top_model = model;
-    m_texture_ptr = tile_texture.texture();
+    m_tileset_tile_texture = tile_texture;
     m_elevations = TileCornerElevations{{}, {}, elevations.south_east(), elevations.south_west()};
 }
 
@@ -408,21 +419,33 @@ void WallTilesetTile::make
 
     callbacks.
         add_entity_from_tuple(TupleBuilder{}.
-            add(SharedPtr<const Texture>{m_texture_ptr}).
+            add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
             add(SharedPtr<const RenderModel>{m_top_model}).
             finish());
     // the rest of everything is computed here, from geometry to models
     auto computed_elevations = m_elevations.value_or(neighboring_elevations);
-    NorthSouthSplit splitter{computed_elevations, 0.25};
+    CollidablesCollection<6> col_col;
     LimitedLinearStripCollection<4> col;
-    col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
-    splitter.make_wall(col);
-    col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
-    splitter.make_bottom(col);
+    choose_on_direction
+        (computed_elevations,
+         -0.25,
+         [&col, &col_col] (const TwoWaySplitBase & splitter) {
+             col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
+             splitter.make_wall(col);
+             splitter.make_wall(col_col);
+             col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
+             splitter.make_bottom(col);
+             splitter.make_bottom(col_col);
+             splitter.make_top(col_col);
+         });
+    for (auto & tri : col_col.collidables()) {
+        callbacks.add_collidable(tri);
+    }
+    col.fit_to_texture(m_tileset_tile_texture);
     auto model = make_model(col, callbacks.make_render_model());
     callbacks.
         add_entity_from_tuple(TupleBuilder{}.
             add(SharedPtr<const RenderModel>{model}).
-            add(SharedPtr<const Texture>{m_texture_ptr}).
+            add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
             finish());
 }
