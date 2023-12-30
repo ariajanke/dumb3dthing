@@ -91,28 +91,63 @@ private:
 
     private:
         static Real interpolate_to_texture(Real t)
-            { return std::fmod(t + 0.5, 1); }
+            { return std::min(std::max(t + 0.5, 0.), 1.); }
 
         static Real interpolate_for_last(Real t) {
-            t = interpolate_to_texture(t);
-            return std::equal_to<Real>{}(t, 0) ? Real(1) : t;
+            return interpolate_to_texture(t);
         }
 
         static Vertex on_first_and_mid(Vertex vtx) {
             vtx.texture_position.x = interpolate_to_texture( kt_get_tx_x(vtx.position) );
-            vtx.texture_position.y = interpolate_to_texture( kt_get_tx_y(vtx.position) );
+            vtx.texture_position.y = 1 - interpolate_to_texture( kt_get_tx_y(vtx.position) );
             return vtx;
         }
 
         static Vertex on_last(Vertex vtx) {
             vtx.texture_position.x = interpolate_for_last( kt_get_tx_x(vtx.position) );
-            vtx.texture_position.y = interpolate_for_last( kt_get_tx_y(vtx.position) );
+            vtx.texture_position.y = 1 - interpolate_for_last( kt_get_tx_y(vtx.position) );
             return vtx;
         }
     };
 
 private:
     TriangleToVertexStrategies() {}
+};
+
+template <std::size_t kt_capacity_in_triangles>
+class CollidablesCollection final : public LinearStripTriangleCollection {
+public:
+    void append(const View<const Vertex *> & vertices) {
+        auto count = vertices.end() - vertices.begin();
+        if (count % 3 != 0) {
+            throw RuntimeError{"number of vertices must be divisble by three"};
+        }
+        for (auto itr = vertices.begin(); itr != vertices.end(); itr += 3) {
+            auto & a = *itr;
+            auto & b = *(itr + 1);
+            auto & c = *(itr + 2);
+            verify_capacity_for_another();
+            m_elements[m_count++] =
+                TriangleSegment{a.position, b.position, c.position};
+        }
+    }
+
+    void add_triangle(const TriangleSegment & triangle) final {
+        verify_capacity_for_another();
+        m_elements[m_count++] = triangle;
+    }
+
+    View<const TriangleSegment *> collidables() const
+        { return View{&m_elements[0], &m_elements[0] + m_count}; }
+
+private:
+    void verify_capacity_for_another() const {
+        if (m_count + 1 > kt_capacity_in_triangles*3) {
+            throw RuntimeError{"capacity exceeded"};
+        }
+    }
+    std::array<TriangleSegment, kt_capacity_in_triangles> m_elements;
+    std::size_t m_count = 0;
 };
 
 // I need vertices, and collidable triangles
@@ -173,191 +208,6 @@ private:
     std::size_t m_count = 0;
 };
 
-
-
-/* <! auto breaks BFS ordering !> */ auto
-    make_get_next_for_dir_split_v
-    (Vector end, Vector step)
-{
-    return [end, step] (Vector east_itr) {
-        auto cand_next = east_itr + step;
-        if (are_very_close(cand_next, end)) return cand_next;
-
-        if (are_very_close(normalize(end - east_itr ),
-                           normalize(end - cand_next)))
-        { return cand_next; }
-        return end;
-    };
-}
-
-/* <! auto breaks BFS ordering !> */ auto make_step_factory(int step_count) {
-    return [step_count](const Vector & start, const Vector & last) {
-        auto diff = last - start;
-        auto step = magnitude(diff) / Real(step_count);
-        if (are_very_close(diff, Vector{})) return Vector{};
-        return step*normalize(diff);
-    };
-}
-
-} // end of <anonymous> namespace
-
-/* static */ void TwoWaySplitBase::choose_on_direction_
-    (CardinalDirection direction,
-     const TileCornerElevations & elevations,
-     Real division_z,
-     const WithTwoWaySplit & with_split_callback)
-{
-    switch (direction) {
-    case CardinalDirection::north: {
-        NorthSouthSplit nss{elevations, division_z};
-        with_split_callback(nss);
-        }
-        break;
-    default:
-        break;
-    }
-}
-
-void LinearStripTriangleCollection::make_strip
-    (const Vector & a_start, const Vector & a_last,
-     const Vector & b_start, const Vector & b_last,
-     int steps_count)
-{
-    using Triangle = TriangleSegment;
-    if (   are_very_close(a_start, a_last)
-        && are_very_close(b_start, b_last))
-    { return; }
-
-    const auto make_step = make_step_factory(steps_count);
-
-    auto itr_a = a_start;
-    const auto next_a = make_get_next_for_dir_split_v(
-        a_last, make_step(a_start, a_last));
-
-    auto itr_b = b_start;
-    const auto next_b = make_get_next_for_dir_split_v(
-        b_last, make_step(b_start, b_last));
-
-    while (   !are_very_close(itr_a, a_last)
-           && !are_very_close(itr_b, b_last))
-    {
-        const auto new_a = next_a(itr_a);
-        const auto new_b = next_b(itr_b);
-        if (!are_very_close(itr_a, itr_b))
-            add_triangle(Triangle{itr_a, itr_b, new_a});
-        if (!are_very_close(new_a, new_b))
-            add_triangle(Triangle{itr_b, new_a, new_b});
-        itr_a = new_a;
-        itr_b = new_b;
-    }
-
-    // at this point we are going to generate at most one triangle
-    if (are_very_close(b_last, a_last)) {
-        // here we're down to three points
-        // there is only one possible triangle
-        if (   are_very_close(itr_a, a_last)
-            || are_very_close(itr_a, itr_b))
-        {
-            // take either being true:
-            // in the best case: a line, so nothing
-            return;
-        }
-
-        add_triangle(Triangle{itr_a, itr_b, a_last});
-        return;
-    }
-    // a reminder from above
-    assert(   are_very_close(itr_a, a_last)
-           || are_very_close(itr_b, b_last));
-
-    // here we still haven't ruled any points out
-    if (   are_very_close(itr_a, itr_b)
-        || (   are_very_close(itr_a, a_last)
-            && are_very_close(itr_b, b_last)))
-    {
-        // either are okay, as they are "the same" pt
-        return;
-    } else if (!are_very_close(itr_a, a_last)) {
-        // must exclude itr_b
-        add_triangle(Triangle{itr_a, b_last, a_last});
-        return;
-    } else if (!are_very_close(itr_b, b_last)) {
-        // must exclude itr_a
-        add_triangle(Triangle{itr_b, a_last, b_last});
-        return;
-    }
-}
-
-// ----------------------------------------------------------------------------
-
-NorthSouthSplit::NorthSouthSplit
-    (const TileCornerElevations & elevations,
-     Real division_z):
-    NorthSouthSplit
-        (elevations.north_west().value_or(k_inf),
-         elevations.north_east().value_or(k_inf),
-         elevations.south_west().value_or(k_inf),
-         elevations.south_east().value_or(k_inf),
-         division_z) {}
-
-NorthSouthSplit::NorthSouthSplit
-    (Real north_west_y,
-     Real north_east_y,
-     Real south_west_y,
-     Real south_east_y,
-     Real division_z):
-    m_div_nw(-0.5, north_west_y, -division_z),
-    m_div_sw(-0.5, south_west_y, -division_z),
-    m_div_ne( 0.5, north_east_y, -division_z),
-    m_div_se( 0.5, south_east_y, -division_z)
-{
-    using cul::is_real;
-    if (!is_real(south_west_y) || !is_real(south_east_y)) {
-        throw InvalidArgument
-            {"north_south_split: Southern elevations must be real numbers in "
-             "all cases"};
-    } else if (division_z < -0.5 || division_z > 0.5) {
-        throw InvalidArgument
-            {"north_south_split: division must be in [-0.5 0.5]"};
-    }
-}
-
-void NorthSouthSplit::make_top(LinearStripTriangleCollection & collection) const {
-    Vector sw{-0.5, south_west_y(), -0.5};
-    Vector se{ 0.5, south_east_y(), -0.5};
-    collection.make_strip(m_div_sw, sw, m_div_se, se, 1);
-}
-
-void NorthSouthSplit::make_bottom(LinearStripTriangleCollection & collection) const {
-    check_non_top_assumptions();
-
-    Vector nw{-0.5, north_west_y(), 0.5};
-    Vector ne{ 0.5, north_east_y(), 0.5};
-    collection.make_strip(nw, m_div_nw, ne, m_div_ne, 1);
-}
-
-void NorthSouthSplit::make_wall(LinearStripTriangleCollection & collection) const {
-    check_non_top_assumptions();
-
-    // both sets of y values' directions must be the same
-    assert((north_east_y() - north_west_y())*
-           (south_east_y() - south_west_y()) >= 0);
-    collection.make_strip(m_div_nw, m_div_sw, m_div_ne, m_div_se, 1);
-}
-
-/* private */ void NorthSouthSplit::check_non_top_assumptions() const {
-    using cul::is_real;
-    if ((!is_real(north_west_y()) || !is_real(north_east_y()))) {
-        throw InvalidArgument
-            {"north_south_split: Northern elevations must be real numbers in "
-             "top cases"};
-    }
-    if (south_west_y() < north_west_y() || south_east_y() < north_east_y()) {
-        throw InvalidArgument
-            {"north_south_split: method was designed assuming south is the top"};
-    }
-}
-
 template <std::size_t kt_triangle_count>
 SharedPtr<const RenderModel> make_model
     (LimitedLinearStripCollection<kt_triangle_count> & linear_strip,
@@ -373,6 +223,45 @@ SharedPtr<const RenderModel> make_model
     return new_model;
 }
 
+TileCornerElevations expose_only_known_corners_for
+    (TileCornerElevations, CardinalDirection);
+
+TileCornerElevations expose_only_known_corners_for
+    (TileCornerElevations elevations, CardinalDirection direction)
+{
+    using Cd = CardinalDirection;
+    switch (direction) {
+    case Cd::north:
+        return TileCornerElevations
+            {{},
+             {},
+             elevations.south_west(),
+             elevations.south_east()};
+    case Cd::south:
+        return TileCornerElevations
+            {elevations.north_east(),
+             elevations.north_west(),
+             {},
+             {}};
+    case Cd::east :
+        return TileCornerElevations
+            {{},
+             elevations.north_west(),
+             elevations.south_west(),
+             {}};
+    case Cd::west :
+        return TileCornerElevations
+            {elevations.north_east(),
+             {},
+             {},
+             elevations.south_east()};
+    default: break;
+    }
+    throw InvalidArgument{"unsupported direction"};
+}
+
+} // end of <anonymous> namespace
+
 // ----------------------------------------------------------------------------
 
 void WallTilesetTile::load
@@ -383,16 +272,13 @@ void WallTilesetTile::load
     auto elevations = FlatTilesetTile::read_elevation_of(map_tileset_tile)->
         add(TileCornerElevations{1, 1, 1, 1});
     auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
-    m_direction = *direction;
-#   if 1
-    if (m_direction != CardinalDirection::north)
-        { return; }
-#   endif
+    m_direction = *filter_to_handled_directions(direction);
+
     LimitedLinearStripCollection<2> col;
     choose_on_direction
         (elevations,
          -0.25,
-         [&col] (const TwoWaySplitBase & two_way_split) {
+         [&col] (const TwoWaySplit & two_way_split) {
              col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
              two_way_split.make_top(col);
          });
@@ -403,7 +289,7 @@ void WallTilesetTile::load
     auto model = make_model(col, platform.make_render_model());
     m_top_model = model;
     m_tileset_tile_texture = tile_texture;
-    m_elevations = TileCornerElevations{{}, {}, elevations.south_east(), elevations.south_west()};
+    m_elevations = expose_only_known_corners_for(elevations, m_direction);
 }
 
 TileCornerElevations WallTilesetTile::corner_elevations() const {
@@ -414,9 +300,6 @@ void WallTilesetTile::make
     (const NeighborCornerElevations & neighboring_elevations,
      ProducableTileCallbacks & callbacks) const
 {
-    if (m_direction != CardinalDirection::north)
-        { return; }
-
     callbacks.
         add_entity_from_tuple(TupleBuilder{}.
             add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
@@ -429,7 +312,7 @@ void WallTilesetTile::make
     choose_on_direction
         (computed_elevations,
          -0.25,
-         [&col, &col_col] (const TwoWaySplitBase & splitter) {
+         [&col, &col_col] (const TwoWaySplit & splitter) {
              col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
              splitter.make_wall(col);
              splitter.make_wall(col_col);
@@ -448,4 +331,20 @@ void WallTilesetTile::make
             add(SharedPtr<const RenderModel>{model}).
             add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
             finish());
+}
+
+/* private static */ Optional<CardinalDirection>
+    WallTilesetTile::filter_to_handled_directions
+    (Optional<CardinalDirection> direction)
+{
+    using Cd = CardinalDirection;
+    if (direction) {
+        switch (*direction) {
+        case Cd::north: case Cd::south: case Cd::east: case Cd::west:
+            break;
+        default:
+            return {};
+        }
+    }
+    return direction;
 }
