@@ -60,6 +60,9 @@ private:
 
 // ----------------------------------------------------------------------------
 
+// needs renaming
+// something along the lines of generating wall tile geometry
+// needs to be clear that it's for computing triangles and nothing else
 class TwoWaySplit {
 public:
     // my take on "virtual constructor"
