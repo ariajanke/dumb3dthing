@@ -223,43 +223,6 @@ SharedPtr<const RenderModel> make_model
     return new_model;
 }
 
-TileCornerElevations expose_only_known_corners_for
-    (TileCornerElevations, CardinalDirection);
-
-TileCornerElevations expose_only_known_corners_for
-    (TileCornerElevations elevations, CardinalDirection direction)
-{
-    using Cd = CardinalDirection;
-    switch (direction) {
-    case Cd::north:
-        return TileCornerElevations
-            {{},
-             {},
-             elevations.south_west(),
-             elevations.south_east()};
-    case Cd::south:
-        return TileCornerElevations
-            {elevations.north_east(),
-             elevations.north_west(),
-             {},
-             {}};
-    case Cd::east :
-        return TileCornerElevations
-            {{},
-             elevations.north_west(),
-             elevations.south_west(),
-             {}};
-    case Cd::west :
-        return TileCornerElevations
-            {elevations.north_east(),
-             {},
-             {},
-             elevations.south_east()};
-    default: break;
-    }
-    throw InvalidArgument{"unsupported direction"};
-}
-
 } // end of <anonymous> namespace
 
 // ----------------------------------------------------------------------------
@@ -272,7 +235,7 @@ void WallTilesetTile::load
     auto elevations = FlatTilesetTile::read_elevation_of(map_tileset_tile)->
         add(TileCornerElevations{1, 1, 1, 1});
     auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
-    m_direction = *filter_to_handled_directions(direction);
+    m_startegy = &m_strategy_source(*direction);
 
     LimitedLinearStripCollection<2> col;
     choose_on_direction
@@ -289,7 +252,7 @@ void WallTilesetTile::load
     auto model = make_model(col, platform.make_render_model());
     m_top_model = model;
     m_tileset_tile_texture = tile_texture;
-    m_elevations = expose_only_known_corners_for(elevations, m_direction);
+    m_elevations = m_startegy->filter_to_known_corners(elevations);
 }
 
 TileCornerElevations WallTilesetTile::corner_elevations() const {
@@ -313,6 +276,8 @@ void WallTilesetTile::make
         (computed_elevations,
          -0.25,
          [&col, &col_col] (const TwoWaySplit & splitter) {
+             // how do I set texture strategies here?
+             // how would I go about generating stuff for corner walls?
              col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
              splitter.make_wall(col);
              splitter.make_wall(col_col);
@@ -324,6 +289,8 @@ void WallTilesetTile::make
     for (auto & tri : col_col.collidables()) {
         callbacks.add_collidable(tri);
     }
+    // this is not good enough, don't we want to texture the wall parts
+    // differently?
     col.fit_to_texture(m_tileset_tile_texture);
     auto model = make_model(col, callbacks.make_render_model());
     callbacks.
@@ -331,20 +298,4 @@ void WallTilesetTile::make
             add(SharedPtr<const RenderModel>{model}).
             add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
             finish());
-}
-
-/* private static */ Optional<CardinalDirection>
-    WallTilesetTile::filter_to_handled_directions
-    (Optional<CardinalDirection> direction)
-{
-    using Cd = CardinalDirection;
-    if (direction) {
-        switch (*direction) {
-        case Cd::north: case Cd::south: case Cd::east: case Cd::west:
-            break;
-        default:
-            return {};
-        }
-    }
-    return direction;
 }

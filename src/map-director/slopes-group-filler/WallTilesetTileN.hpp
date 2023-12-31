@@ -64,7 +64,8 @@ private:
 
 class WallTilesetTile final : public SlopesTilesetTile {
 public:
-    using TwoWaySplitStrategy = TwoWaySplit::TwoWaySplitStrategy;
+    using GeometryGenerationStrategySource =
+        TwoWaySplit::GeometryGenerationStrategySource;
 
     void load
         (const MapTilesetTile &,
@@ -77,12 +78,8 @@ public:
         (const NeighborCornerElevations & neighboring_elevations,
          ProducableTileCallbacks & callbacks) const;
 
-    void set_split_strategy(TwoWaySplitStrategy strat_f)
-        { m_split_strategy = strat_f; }
-
 private:
-    static Optional<CardinalDirection>
-        filter_to_handled_directions(Optional<CardinalDirection>);
+    using GeometryGenerationStrategy = TwoWaySplit::GeometryGenerationStrategy;
 
     template <typename Func>
     void choose_on_direction
@@ -93,8 +90,10 @@ private:
     SharedPtr<const RenderModel> m_top_model;
     TilesetTileTexture m_tileset_tile_texture;
     TileCornerElevations m_elevations;
-    CardinalDirection m_direction;
-    TwoWaySplitStrategy m_split_strategy = TwoWaySplit::choose_on_direction_;
+
+    GeometryGenerationStrategySource m_strategy_source =
+        TwoWaySplit::choose_geometry_strategy;
+    GeometryGenerationStrategy * m_startegy = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -117,5 +116,5 @@ template <typename Func>
         Func m_f;
     };
     Impl impl{std::move(f)};
-    m_split_strategy(m_direction, elvs, division_z, impl);
+    m_startegy->with_splitter_do(elvs, division_z, impl);
 }

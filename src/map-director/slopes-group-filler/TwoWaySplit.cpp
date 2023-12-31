@@ -48,6 +48,102 @@ namespace {
     };
 }
 
+class NorthGenerationStrategy final :
+    public TwoWaySplit::GeometryGenerationStrategy
+{
+public:
+    void with_splitter_do
+        (const TileCornerElevations & elevations,
+         Real division_z,
+         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+    {
+        NorthSouthSplit nss{elevations, division_z};
+        with_split_callback(nss);
+    }
+
+    TileCornerElevations filter_to_known_corners
+        (TileCornerElevations elevations) const final
+    {
+        return TileCornerElevations
+            {{},
+             {},
+             elevations.south_west(),
+             elevations.south_east()};
+    }
+};
+
+class SouthGenerationStrategy final :
+    public TwoWaySplit::GeometryGenerationStrategy
+{
+public:
+    void with_splitter_do
+        (const TileCornerElevations & elevations,
+         Real division_z,
+         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+    {
+        SouthNorthSplit sns{elevations, division_z};
+        with_split_callback(sns);
+    }
+
+    TileCornerElevations filter_to_known_corners
+        (TileCornerElevations elevations) const final
+    {
+        return TileCornerElevations
+            {elevations.north_east(),
+             elevations.north_west(),
+             {},
+             {}};
+    }
+};
+
+class EastGenerationStrategy final :
+    public TwoWaySplit::GeometryGenerationStrategy
+{
+public:
+    void with_splitter_do
+        (const TileCornerElevations & elevations,
+         Real division_z,
+         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+    {
+        EastWestSplit ews{elevations, division_z};
+        with_split_callback(ews);
+    }
+
+    TileCornerElevations filter_to_known_corners
+        (TileCornerElevations elevations) const final
+    {
+        return TileCornerElevations
+            {{},
+             elevations.north_west(),
+             elevations.south_west(),
+             {}};
+    }
+};
+
+class WestGenerationStrategy final :
+    public TwoWaySplit::GeometryGenerationStrategy
+{
+public:
+    void with_splitter_do
+        (const TileCornerElevations & elevations,
+         Real division_z,
+         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+    {
+        WestEastSplit wes{elevations, division_z};
+        with_split_callback(wes);
+    }
+
+    TileCornerElevations filter_to_known_corners
+        (TileCornerElevations elevations) const final
+    {
+        return TileCornerElevations
+            {elevations.north_east(),
+             {},
+             {},
+             elevations.south_east()};
+    }
+};
+
 } // end of <anonymous> namespace
 
 void LinearStripTriangleCollection::make_strip
@@ -122,35 +218,23 @@ void LinearStripTriangleCollection::make_strip
 
 // ----------------------------------------------------------------------------
 
-/* static */ void TwoWaySplit::choose_on_direction_
-    (CardinalDirection direction,
-     const TileCornerElevations & elevations,
-     Real division_z,
-     const WithTwoWaySplit & with_split_callback)
+/* static */ TwoWaySplit::GeometryGenerationStrategy &
+    TwoWaySplit::choose_geometry_strategy
+    (CardinalDirection direction)
 {
+    static NorthGenerationStrategy north_gen_strat;
+    static SouthGenerationStrategy south_gen_strat;
+    static EastGenerationStrategy  east_gen_strat;
+    static WestGenerationStrategy  west_gen_strat;
     switch (direction) {
-    case CardinalDirection::north: {
-        NorthSouthSplit nss{elevations, division_z};
-        with_split_callback(nss);
-        }
-        return;
-    case CardinalDirection::south: {
-        SouthNorthSplit sns{elevations, division_z};
-        with_split_callback(sns);
-        }
-        return;
-    case CardinalDirection::east: {
-        EastWestSplit ews{elevations, division_z};
-        with_split_callback(ews);
-        }
-        return;
-    case CardinalDirection::west: {
-        WestEastSplit wes{elevations, division_z};
-        with_split_callback(wes);
-        }
-        return;
+    case CardinalDirection::north: return north_gen_strat;
+    case CardinalDirection::south: return south_gen_strat;
+    case CardinalDirection::east : return east_gen_strat ;
+    case CardinalDirection::west : return west_gen_strat ;
     default: break;
     }
+    // should probably return nullptr or something
+    // (as this is based on user data)
     throw InvalidArgument{"bad direction"};
 }
 

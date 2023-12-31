@@ -75,11 +75,21 @@ public:
         virtual void operator () (const TwoWaySplit &) const = 0;
     };
 
-    using TwoWaySplitStrategy = void(*)
-        (CardinalDirection,
-         const TileCornerElevations &,
-         Real division_z,
-         const WithTwoWaySplit &);
+    class GeometryGenerationStrategy {
+    public:
+        virtual ~GeometryGenerationStrategy() {}
+
+        virtual void with_splitter_do
+            (const TileCornerElevations &,
+             Real division_z,
+             const WithTwoWaySplit &) const = 0;
+
+        virtual TileCornerElevations filter_to_known_corners
+            (TileCornerElevations) const = 0;
+    };
+
+    using GeometryGenerationStrategySource =
+        GeometryGenerationStrategy &(*)(CardinalDirection);
 
     static Vector invert_z(const Vector & r) { return Vector{r.x, r.y, -r.z}; }
 
@@ -91,11 +101,8 @@ public:
     static Vector invert_x_swap_xz(const Vector & r)
         { return invert_x(xz_swap_roles(r)); }
 
-    static void choose_on_direction_
-        (CardinalDirection,
-         const TileCornerElevations &,
-         Real division_z,
-         const WithTwoWaySplit &);
+    static GeometryGenerationStrategy &
+        choose_geometry_strategy(CardinalDirection);
 
     virtual ~TwoWaySplit() {}
 
