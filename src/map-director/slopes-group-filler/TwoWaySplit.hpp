@@ -24,17 +24,82 @@
 
 #include "../../TriangleSegment.hpp"
 
+// semantically different from a model vertex
+struct StripVertex final {
+    enum class StripSide { a, b, both };
+
+    StripVertex() {}
+
+    StripVertex
+        (const Vector & pt, Real position_, StripSide side_):
+        point(pt),
+        strip_position(position_),
+        strip_side(side_) {}
+
+    Vector point;
+    Real strip_position = 0;
+    // but strip side can also be a Real?
+    StripSide strip_side = StripSide::both;
+};
+
+// ----------------------------------------------------------------------------
+
+class StripTriangle final {
+public:
+    StripTriangle() {}
+
+    StripTriangle
+        (const StripVertex & a,
+         const StripVertex & b,
+         const StripVertex & c);
+
+    TriangleSegment to_triangle_segment() const;
+
+    StripVertex vertex_a() const;
+
+    StripVertex vertex_b() const;
+
+    StripVertex vertex_c() const;
+
+    template <Vector(*kt_transform_vector_f)(const Vector &)>
+    StripTriangle transform_points() const {
+        auto new_vertex = [](const StripVertex & vtx) {
+            return StripVertex
+                {kt_transform_vector_f(vtx.point),
+                 vtx.strip_position,
+                 vtx.strip_side};
+        };
+        return StripTriangle{new_vertex(m_a), new_vertex(m_b), new_vertex(m_c)};
+    }
+
+    // something returning individual vertices
+private:
+    StripVertex m_a, m_b, m_c;
+};
+
+// ----------------------------------------------------------------------------
+
 class LinearStripTriangleCollection {
 public:
+    using ToPlanePositionFunction = Vector2(*)(const Vector &);
+
     virtual ~LinearStripTriangleCollection() {}
 
-    // point c will be the closet to last
+    // may, or may not be rectangluar, it may end on a point
     void make_strip
         (const Vector & a_start, const Vector & a_last,
          const Vector & b_start, const Vector & b_last,
          int steps_count);
+#   if 1 // what if regular triangles had to be supported as well?
+         // it depends on how I want to handle texture coord mapping
+         // maybe each override says something about texture mapping
+         // but not all that much
 
-    virtual void add_triangle(const TriangleSegment &) = 0;
+    virtual void add_triangle
+        (const TriangleSegment &, ToPlanePositionFunction) = 0;
+
+#   endif
+    virtual void add_triangle(const StripTriangle &) = 0;
 };
 
 // ----------------------------------------------------------------------------
@@ -46,13 +111,21 @@ public:
         (LinearStripTriangleCollection & original):
         m_original(original) {}
 
-    void add_triangle(const TriangleSegment & triangle) final {
-        TriangleSegment transformed
+    void add_triangle(const StripTriangle & triangle) final {
+        m_original.add_triangle
+            (triangle.transform_points<kt_transform_vector_f>());
+    }
+
+    void add_triangle
+        (const TriangleSegment & triangle, ToPlanePositionFunction f) final
+    {
+        TriangleSegment transformed_triangle
             {kt_transform_vector_f(triangle.point_a()),
              kt_transform_vector_f(triangle.point_b()),
              kt_transform_vector_f(triangle.point_c())};
-        m_original.add_triangle(transformed);
+        m_original.add_triangle(transformed_triangle, f);
     }
+
 
 private:
     LinearStripTriangleCollection & m_original;
@@ -100,6 +173,9 @@ public:
 
     static Vector invert_x_swap_xz(const Vector & r)
         { return invert_x(xz_swap_roles(r)); }
+
+    static Vector2 cut_y(const Vector & r)
+        { return Vector2{r.x + 0.5, r.z + 0.5}; }
 
     static GeometryGenerationStrategy &
         choose_geometry_strategy(CardinalDirection);

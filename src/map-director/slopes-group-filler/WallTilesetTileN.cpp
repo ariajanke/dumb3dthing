@@ -22,6 +22,8 @@
 #include "FlatTilesetTileN.hpp"
 #include "RampTilesetTileN.hpp"
 
+#include "../MapTileset.hpp"
+
 #include "../../TriangleSegment.hpp"
 
 #include <numeric>
@@ -132,10 +134,12 @@ public:
         }
     }
 
-    void add_triangle(const TriangleSegment & triangle) final {
-        verify_capacity_for_another();
-        m_elements[m_count++] = triangle;
-    }
+    void add_triangle(const StripTriangle & triangle) final
+        { add_triangle_(triangle.to_triangle_segment()); }
+
+    void add_triangle
+        (const TriangleSegment & triangle, ToPlanePositionFunction) final
+    { add_triangle_(triangle); }
 
     View<const TriangleSegment *> collidables() const
         { return View{&m_elements[0], &m_elements[0] + m_count}; }
@@ -146,6 +150,14 @@ private:
             throw RuntimeError{"capacity exceeded"};
         }
     }
+
+    void add_triangle_
+        (const TriangleSegment & triangle)
+    {
+        verify_capacity_for_another();
+        m_elements[m_count++] = triangle;
+    }
+
     std::array<TriangleSegment, kt_capacity_in_triangles> m_elements;
     std::size_t m_count = 0;
 };
@@ -156,16 +168,38 @@ class LimitedLinearStripCollection final : public LinearStripTriangleCollection 
 public:
     using VertexTriangle = TriangleToVertexStrategies::VertexTriangle;
     using TextureMappingStrategyFunction = TriangleToVertexStrategies::StrategyFunction;
-
+#   if 0
     void set_texture_mapping_strategy(TextureMappingStrategyFunction f)
         { m_mapper_f = f; }
-
-    void add_triangle(const TriangleSegment & triangle) final {
-        if (m_array.end() - m_end < 3) {
-            throw RuntimeError{"capacity exceeded"};
+#   endif
+    void add_triangle(const StripTriangle & triangle) final {
+        verify_space_for_three_additional();
+        for (const auto & vtx : { triangle.vertex_a(), triangle.vertex_b(), triangle.vertex_c() }) {
+            Real t = [vtx] {
+                switch (vtx.strip_side) {
+                case StripVertex::StripSide::a   : return 0.;
+                case StripVertex::StripSide::b   : return 1.;
+                case StripVertex::StripSide::both: return 0.5;
+                }
+                throw RuntimeError{""};
+            } ();
+            *m_end++ = Vertex{vtx.point, Vector2{t, vtx.strip_position}};
         }
+#       if 0
         for (const Vertex & vtx : m_mapper_f(triangle)) {
             *m_end++ = vtx;
+        }
+#       endif
+    }
+
+    void add_triangle
+        (const TriangleSegment & triangle, ToPlanePositionFunction f) final
+    {
+        verify_space_for_three_additional();
+        for (auto pt : { triangle.point_a(), triangle.point_b(), triangle.point_c() }) {
+            auto tv = f(pt);
+            tv.y = 1 - tv.y;
+            *m_end++ = Vertex{pt, tv};
         }
     }
 
@@ -182,6 +216,12 @@ public:
 private:
     using VertexArray = std::array<Vertex, kt_capacity_in_triangles*3>;
     using VertexArrayIterator = typename VertexArray::iterator;
+
+    void verify_space_for_three_additional() const {
+        if (m_array.end() - m_end < 3) {
+            throw RuntimeError{"capacity exceeded"};
+        }
+    }
 
     TextureMappingStrategyFunction m_mapper_f = TriangleToVertexStrategies::all_zeroed;
     VertexArray m_array;
@@ -237,12 +277,15 @@ void WallTilesetTile::load
     auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
     m_startegy = &m_strategy_source(*direction);
 
+
+    map_tileset_tile.get_numeric_property<int>("wall-texture");
+
     LimitedLinearStripCollection<2> col;
     choose_on_direction
         (elevations,
          -0.25,
          [&col] (const TwoWaySplit & two_way_split) {
-             col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
+             // col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
              two_way_split.make_top(col);
          });
     col.fit_to_texture(tile_texture);
@@ -278,10 +321,10 @@ void WallTilesetTile::make
          [&col, &col_col] (const TwoWaySplit & splitter) {
              // how do I set texture strategies here?
              // how would I go about generating stuff for corner walls?
-             col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
+             // col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
              splitter.make_wall(col);
              splitter.make_wall(col_col);
-             col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
+             // col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
              splitter.make_bottom(col);
              splitter.make_bottom(col_col);
              splitter.make_top(col_col);

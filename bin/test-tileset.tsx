@@ -183,6 +183,7 @@
    <property name="direction" value="nw"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="28" type="wall">
@@ -190,6 +191,7 @@
    <property name="direction" value="n"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="29" type="out-wall">
@@ -197,6 +199,7 @@
    <property name="direction" value="ne"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="30" type="out-wall">
@@ -204,6 +207,7 @@
    <property name="direction" value="nw"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="31" type="wall">
@@ -211,6 +215,7 @@
    <property name="direction" value="n"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="32" type="out-wall">
@@ -218,24 +223,28 @@
    <property name="direction" value="ne"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="33" type="out-wall">
   <properties>
    <property name="direction" value="nw"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="34" type="wall">
   <properties>
    <property name="direction" value="n"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="35" type="out-wall">
   <properties>
    <property name="direction" value="ne"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="36" type="wall">
@@ -243,6 +252,7 @@
    <property name="direction" value="w"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="37" type="flat">
@@ -256,6 +266,7 @@
    <property name="direction" value="e"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="39" type="wall">
@@ -263,6 +274,7 @@
    <property name="direction" value="w"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="41" type="wall">
@@ -270,18 +282,21 @@
    <property name="direction" value="e"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="42" type="wall">
   <properties>
    <property name="direction" value="w"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="44" type="wall">
   <properties>
    <property name="direction" value="e"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="45" type="out-wall">
@@ -289,6 +304,7 @@
    <property name="direction" value="sw"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="46" type="wall">
@@ -296,6 +312,7 @@
    <property name="direction" value="s"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="47" type="out-wall">
@@ -303,6 +320,7 @@
    <property name="direction" value="se"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="48" type="out-wall">
@@ -310,6 +328,7 @@
    <property name="direction" value="sw"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="49" type="wall">
@@ -317,6 +336,7 @@
    <property name="direction" value="s"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="50" type="out-wall">
@@ -324,24 +344,28 @@
    <property name="direction" value="se"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="51" type="out-wall">
   <properties>
    <property name="direction" value="sw"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="52" type="wall">
   <properties>
    <property name="direction" value="s"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="53" type="out-wall">
   <properties>
    <property name="direction" value="se"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="54" type="out-ramp">
@@ -431,6 +455,7 @@
    <property name="direction" value="se"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="73" type="in-wall">
@@ -438,6 +463,7 @@
    <property name="direction" value="sw"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="74" type="ns-twist-loop">
@@ -450,6 +476,7 @@
    <property name="direction" value="se"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="76" type="in-wall">
@@ -457,18 +484,21 @@
    <property name="direction" value="sw"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="78" type="in-wall">
   <properties>
    <property name="direction" value="se"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="79" type="in-wall">
   <properties>
    <property name="direction" value="sw"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="81" type="in-wall">
@@ -476,6 +506,7 @@
    <property name="direction" value="ne"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="82" type="in-wall">
@@ -483,6 +514,7 @@
    <property name="direction" value="nw"/>
    <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="83" type="ns-twist-loop">
@@ -495,6 +527,7 @@
    <property name="direction" value="ne"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="85" type="in-wall">
@@ -502,18 +535,21 @@
    <property name="direction" value="nw"/>
    <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="87" type="in-wall">
   <properties>
    <property name="direction" value="ne"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
  <tile id="88" type="in-wall">
   <properties>
    <property name="direction" value="nw"/>
    <property name="translation" value="0,0,0"/>
+   <property name="wall-texture" value="56"/>
   </properties>
  </tile>
 </tileset>

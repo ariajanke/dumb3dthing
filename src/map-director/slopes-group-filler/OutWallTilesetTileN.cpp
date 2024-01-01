@@ -24,6 +24,8 @@ namespace {
 
 using Triangle = TriangleSegment;
 
+
+
 } // end of <anonymous> namespace
 
 NorthWestOutCornerSplit::NorthWestOutCornerSplit
@@ -38,8 +40,10 @@ void NorthWestOutCornerSplit::make_top
     if (are_very_close(m_division_xz, 0.5)) return;
     auto se     = south_east();
     auto nw_top = north_west_top();
-    col.add_triangle(Triangle{nw_top, north_east_top(), se});
-    col.add_triangle(Triangle{nw_top, south_west_top(), se});
+    // these are strips... they're like cut outs of flats
+    // but how do I handle this?
+    col.add_triangle(Triangle{nw_top, north_east_top(), se}, cut_y);
+    col.add_triangle(Triangle{nw_top, south_west_top(), se}, cut_y);
 }
 
 void NorthWestOutCornerSplit::make_bottom
@@ -50,13 +54,13 @@ void NorthWestOutCornerSplit::make_bottom
     auto nw_corner = north_west_corner();
     auto ne_floor = north_east_floor();
     auto sw_floor = south_west_floor();
-    col.add_triangle(Triangle{nw_corner, north_east_corner(), ne_floor});
+    col.add_triangle(Triangle{nw_corner, north_east_corner(), ne_floor}, cut_y);
     if (!are_very_close(m_division_xz, 0.5)) {
         auto nw_floor = north_west_floor();
-        col.add_triangle(Triangle{nw_corner, nw_floor , ne_floor});
-        col.add_triangle(Triangle{nw_corner, nw_floor , sw_floor});
+        col.add_triangle(Triangle{nw_corner, nw_floor , ne_floor}, cut_y);
+        col.add_triangle(Triangle{nw_corner, nw_floor , sw_floor}, cut_y);
     }
-    col.add_triangle(Triangle{nw_corner, south_west_corner(), sw_floor});
+    col.add_triangle(Triangle{nw_corner, south_west_corner(), sw_floor}, cut_y);
 }
 
 void NorthWestOutCornerSplit::make_wall

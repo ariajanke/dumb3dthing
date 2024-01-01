@@ -23,7 +23,7 @@
 #include "../../TriangleSegment.hpp"
 
 namespace {
-
+#if 0
 /* <! auto breaks BFS ordering !> */ auto
     make_get_next_for_dir_split_v
     (Vector end, Vector step)
@@ -47,6 +47,8 @@ namespace {
         return step*normalize(diff);
     };
 }
+#endif
+using Triangle = TriangleSegment;
 
 class NorthGenerationStrategy final :
     public TwoWaySplit::GeometryGenerationStrategy
@@ -145,7 +147,7 @@ public:
 };
 
 } // end of <anonymous> namespace
-
+#if 0
 void LinearStripTriangleCollection::make_strip
     (const Vector & a_start, const Vector & a_last,
      const Vector & b_start, const Vector & b_last,
@@ -213,6 +215,101 @@ void LinearStripTriangleCollection::make_strip
         // must exclude itr_a
         add_triangle(Triangle{itr_b, a_last, b_last});
         return;
+    }
+}
+#endif
+
+StripTriangle::StripTriangle
+    (const StripVertex & a,
+     const StripVertex & b,
+     const StripVertex & c):
+    m_a(a),
+    m_b(b),
+    m_c(c) {}
+
+TriangleSegment StripTriangle::to_triangle_segment() const {
+    return TriangleSegment{m_a.point, m_b.point, m_c.point};
+}
+
+StripVertex StripTriangle::vertex_a() const { return m_a; }
+
+StripVertex StripTriangle::vertex_b() const { return m_b; }
+
+StripVertex StripTriangle::vertex_c() const { return m_c; }
+
+void LinearStripTriangleCollection::make_strip
+    (const Vector & a_start, const Vector & a_last,
+     const Vector & b_start, const Vector & b_last,
+     int steps_count)
+{
+    using StripSide = StripVertex::StripSide;
+    using Triangle = TriangleSegment;
+    if (   are_very_close(a_start, a_last)
+        && are_very_close(b_start, b_last))
+    { return; }
+    // atempting to generate a one dimensional line
+    if (   are_very_close(a_start, b_start)
+        && are_very_close(a_last , b_last ))
+    { return; }
+    if (steps_count < 0) {
+        throw InvalidArgument{"steps_count must be a non-negative integer"};
+    }
+    if (steps_count == 0)
+        { return; }
+
+    auto a_side_pt = [a_start, a_last] (Real t)
+        { return a_start*(1 - t) + a_last*t; };
+    auto b_side_pt = [b_start, b_last] (Real t)
+        { return b_start*(1 - t) + b_last*t; };
+    auto normal_step = [this, &a_side_pt, &b_side_pt] (Real last, Real next) {
+        add_triangle(StripTriangle
+            {StripVertex{a_side_pt(last), last, StripSide::a},
+             StripVertex{b_side_pt(last), last, StripSide::b},
+             StripVertex{b_side_pt(next), next, StripSide::b}});
+        add_triangle(StripTriangle
+            {StripVertex{a_side_pt(last), last, StripSide::a},
+             StripVertex{a_side_pt(next), next, StripSide::a},
+             StripVertex{b_side_pt(next), next, StripSide::b}});
+    };
+    auto first_step =
+        [this, &a_side_pt, &b_side_pt, &a_start, &b_start]
+        (Real next)
+    {
+        assert(are_very_close(a_start, b_start));
+        add_triangle(StripTriangle
+            {StripVertex{a_start, 0, StripSide::both},
+             StripVertex{a_side_pt(next), next, StripSide::a},
+             StripVertex{b_side_pt(next), next, StripSide::b}});
+    };
+    int step = 0;
+    Real step_size = 1 / Real(steps_count);
+    auto get_last = [step_size, step] { return step*step_size; };
+    auto get_next = [step_size, step] { return (step + 1)*step_size; };
+
+    if (step == 0 && steps_count > 1) {
+        if (are_very_close(a_start, b_start)) {
+            first_step(get_next());
+        } else {
+            // normal first step
+            normal_step(get_last(), get_next());
+        }
+        ++step;
+    }
+
+    for (; step < steps_count - 1; ++step) {
+        normal_step(get_last(), get_next());
+    }
+
+    if (step == 0 && are_very_close(a_start, b_start)) {
+        first_step(get_next());
+    } else if (are_very_close(a_last, b_last)) {
+        auto last = get_last();
+        add_triangle(StripTriangle
+            {StripVertex{a_side_pt(last), last, StripSide::a},
+             StripVertex{b_side_pt(last), last, StripSide::b},
+             StripVertex{a_last, 1, StripSide::both}});
+    } else {
+        normal_step(get_last(), get_next());
     }
 }
 
@@ -285,7 +382,9 @@ NorthSouthSplit::NorthSouthSplit
 void NorthSouthSplit::make_top(LinearStripTriangleCollection & collection) const {
     Vector sw{-0.5, south_west_y(), -0.5};
     Vector se{ 0.5, south_east_y(), -0.5};
-    collection.make_strip(m_div_sw, sw, m_div_se, se, 1);
+    collection.add_triangle(Triangle{sw      , se, m_div_sw}, cut_y);
+    collection.add_triangle(Triangle{m_div_sw, se, m_div_se}, cut_y);
+    // collection.make_strip(m_div_sw, sw, m_div_se, se, 1);
 }
 
 void NorthSouthSplit::make_bottom(LinearStripTriangleCollection & collection) const {
@@ -293,7 +392,9 @@ void NorthSouthSplit::make_bottom(LinearStripTriangleCollection & collection) co
 
     Vector nw{-0.5, north_west_y(), 0.5};
     Vector ne{ 0.5, north_east_y(), 0.5};
-    collection.make_strip(nw, m_div_nw, ne, m_div_ne, 1);
+    collection.add_triangle(Triangle{m_div_nw, m_div_ne, nw}, cut_y);
+    collection.add_triangle(Triangle{      nw, m_div_ne, ne}, cut_y);
+    // collection.make_strip(nw, m_div_nw, ne, m_div_ne, 1);
 }
 
 void NorthSouthSplit::make_wall(LinearStripTriangleCollection & collection) const {
