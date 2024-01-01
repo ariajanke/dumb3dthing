@@ -19,35 +19,12 @@
 *****************************************************************************/
 
 #include "TwoWaySplit.hpp"
+#include "OutWallTilesetTileN.hpp"
 
 #include "../../TriangleSegment.hpp"
 
 namespace {
-#if 0
-/* <! auto breaks BFS ordering !> */ auto
-    make_get_next_for_dir_split_v
-    (Vector end, Vector step)
-{
-    return [end, step] (Vector east_itr) {
-        auto cand_next = east_itr + step;
-        if (are_very_close(cand_next, end)) return cand_next;
 
-        if (are_very_close(normalize(end - east_itr ),
-                           normalize(end - cand_next)))
-        { return cand_next; }
-        return end;
-    };
-}
-
-/* <! auto breaks BFS ordering !> */ auto make_step_factory(int step_count) {
-    return [step_count](const Vector & start, const Vector & last) {
-        auto diff = last - start;
-        auto step = magnitude(diff) / Real(step_count);
-        if (are_very_close(diff, Vector{})) return Vector{};
-        return step*normalize(diff);
-    };
-}
-#endif
 using Triangle = TriangleSegment;
 
 class NorthGenerationStrategy final :
@@ -237,6 +214,13 @@ StripVertex StripTriangle::vertex_b() const { return m_b; }
 
 StripVertex StripTriangle::vertex_c() const { return m_c; }
 
+class StripIteration final {
+public:
+    StripIteration(const Vector & start, const Vector & last, int steps_count);
+
+    bool at_last() const;
+};
+
 void LinearStripTriangleCollection::make_strip
     (const Vector & a_start, const Vector & a_last,
      const Vector & b_start, const Vector & b_last,
@@ -254,6 +238,13 @@ void LinearStripTriangleCollection::make_strip
     if (steps_count < 0) {
         throw InvalidArgument{"steps_count must be a non-negative integer"};
     }
+    if (   are_very_close(a_start, a_last)
+        || are_very_close(b_start, b_last))
+    {
+        // well... in such cases how should the strip positions be mapped?
+        throw InvalidArgument{"Unsupported arrangement"};
+    }
+
     if (steps_count == 0)
         { return; }
 
@@ -277,7 +268,7 @@ void LinearStripTriangleCollection::make_strip
     {
         assert(are_very_close(a_start, b_start));
         add_triangle(StripTriangle
-            {StripVertex{a_start, 0, StripSide::both},
+            {StripVertex{a_start, 0, {}},
              StripVertex{a_side_pt(next), next, StripSide::a},
              StripVertex{b_side_pt(next), next, StripSide::b}});
     };
@@ -335,6 +326,22 @@ void LinearStripTriangleCollection::make_strip
     throw InvalidArgument{"bad direction"};
 }
 
+/* static */ TwoWaySplit::GeometryGenerationStrategy &
+    TwoWaySplit::choose_out_wall_strategy(CardinalDirection direction)
+{
+    static NorthWestOutWallGenerationStrategy nw_out_strat;
+    static SouthEastOutWallGenerationStrategy se_out_strat;
+    static NullGeometryGenerationStrategy null_strat;
+    switch (direction) {
+    case CardinalDirection::north_west: return nw_out_strat;
+    case CardinalDirection::north_east: return null_strat;
+    case CardinalDirection::south_west: return null_strat;
+    case CardinalDirection::south_east: return se_out_strat;
+    default: break;
+    }
+    throw InvalidArgument{"bad direction"};
+}
+
 // ----------------------------------------------------------------------------
 
 NorthSouthSplit::NorthSouthSplit
@@ -384,7 +391,6 @@ void NorthSouthSplit::make_top(LinearStripTriangleCollection & collection) const
     Vector se{ 0.5, south_east_y(), -0.5};
     collection.add_triangle(Triangle{sw      , se, m_div_sw}, cut_y);
     collection.add_triangle(Triangle{m_div_sw, se, m_div_se}, cut_y);
-    // collection.make_strip(m_div_sw, sw, m_div_se, se, 1);
 }
 
 void NorthSouthSplit::make_bottom(LinearStripTriangleCollection & collection) const {
@@ -394,7 +400,6 @@ void NorthSouthSplit::make_bottom(LinearStripTriangleCollection & collection) co
     Vector ne{ 0.5, north_east_y(), 0.5};
     collection.add_triangle(Triangle{m_div_nw, m_div_ne, nw}, cut_y);
     collection.add_triangle(Triangle{      nw, m_div_ne, ne}, cut_y);
-    // collection.make_strip(nw, m_div_nw, ne, m_div_ne, 1);
 }
 
 void NorthSouthSplit::make_wall(LinearStripTriangleCollection & collection) const {
@@ -424,33 +429,33 @@ void NorthSouthSplit::make_wall(LinearStripTriangleCollection & collection) cons
 SouthNorthSplit::SouthNorthSplit
     (const TileCornerElevations & elevations,
      Real division_z):
-    TransformedNorthSouthSplit<TwoWaySplit::invert_z>(NorthSouthSplit{
+    m_ns_split(
         elevations.south_west(),
         elevations.south_east(),
         *elevations.north_west(),
         *elevations.north_east(),
-        division_z}) {}
+        division_z) {}
 
 // ----------------------------------------------------------------------------
 
 WestEastSplit::WestEastSplit
     (const TileCornerElevations & elevations,
      Real division_z):
-    TransformedNorthSouthSplit<TwoWaySplit::invert_x_swap_xz>(NorthSouthSplit{
+    m_ns_split(
+        elevations.north_west(),
         elevations.south_west(),
-        elevations.south_east(),
-        *elevations.north_west(),
         *elevations.north_east(),
-        division_z}) {}
+        *elevations.south_east(),
+        division_z) {}
 
 // ----------------------------------------------------------------------------
 
 EastWestSplit::EastWestSplit
     (const TileCornerElevations & elevations,
      Real division_z):
-     TransformedNorthSouthSplit<TwoWaySplit::xz_swap_roles>(NorthSouthSplit{
+     m_ns_split(
       elevations.south_east(),
       elevations.north_east(),
       *elevations.south_west(),
       *elevations.north_west(),
-      division_z}) {}
+      division_z) {}

@@ -31,15 +31,25 @@ struct StripVertex final {
     StripVertex() {}
 
     StripVertex
-        (const Vector & pt, Real position_, StripSide side_):
+        (const Vector & pt,
+         Optional<Real> position_,
+         StripSide side_):
         point(pt),
         strip_position(position_),
         strip_side(side_) {}
 
     Vector point;
-    Real strip_position = 0;
+    // [0 1]
+    // absent -> indicates the one and only point on that side
+    Optional<Real> strip_position;
     // but strip side can also be a Real?
-    StripSide strip_side = StripSide::both;
+    // StripSide strip_side = StripSide::both;
+
+    // [0 1]
+    // 0 -> a side
+    // 1 -> b side
+    // absent -> "neither" or "both"
+    StripSide strip_side;
 };
 
 // ----------------------------------------------------------------------------
@@ -168,6 +178,8 @@ public:
 
     static Vector invert_x(const Vector & r) { return Vector{-r.x, r.y, r.z}; }
 
+    static Vector invert_xz(const Vector & r) { return Vector{-r.x, r.y, -r.z}; }
+
     static Vector xz_swap_roles(const Vector & r)
         { return Vector{r.z, r.y, r.x}; };
 
@@ -179,6 +191,9 @@ public:
 
     static GeometryGenerationStrategy &
         choose_geometry_strategy(CardinalDirection);
+
+    static GeometryGenerationStrategy &
+        choose_out_wall_strategy(CardinalDirection);
 
     virtual ~TwoWaySplit() {}
 
@@ -230,6 +245,37 @@ private:
 // ----------------------------------------------------------------------------
 
 template <Vector(*kt_transform_vector_f)(const Vector &)>
+class TransformedTwoWaySplit : public TwoWaySplit {
+    // commentary:
+    // An intermediate class in an inheritance hierarchy.
+    // I think it's worth it. It'll cover the other corner cases as well.
+public:
+    void make_top(LinearStripTriangleCollection & col) const final {
+        TransformedTriangleStripType impl{col};
+        original_split().make_top(col);
+    }
+
+    void make_bottom(LinearStripTriangleCollection & col) const final {
+        TransformedTriangleStripType impl{col};
+        original_split().make_bottom(col);
+    }
+
+    void make_wall(LinearStripTriangleCollection & col) const final {
+        TransformedTriangleStripType impl{col};
+        original_split().make_wall(col);
+    }
+
+protected:
+    virtual const TwoWaySplit & original_split() const = 0;
+
+private:
+    using TransformedTriangleStripType =
+        TransformedTriangleStrip<kt_transform_vector_f>;
+};
+#if 0
+// ----------------------------------------------------------------------------
+
+template <Vector(*kt_transform_vector_f)(const Vector &)>
 class TransformedNorthSouthSplit : public TwoWaySplit {
 public:
     // commentary:
@@ -254,40 +300,58 @@ private:
 
     NorthSouthSplit m_ns_split;
 };
-
+#endif
 // ----------------------------------------------------------------------------
 
 class SouthNorthSplit final :
-    public TransformedNorthSouthSplit<TwoWaySplit::invert_z>
+    public TransformedTwoWaySplit<TwoWaySplit::invert_z>
 {
 public:
     SouthNorthSplit
         (const TileCornerElevations &,
          Real division_z);
+
+private:
+    const TwoWaySplit & original_split() const final
+        { return m_ns_split; }
+
+    NorthSouthSplit m_ns_split;
 };
 
 // ----------------------------------------------------------------------------
 
 class WestEastSplit final :
-    public TransformedNorthSouthSplit<TwoWaySplit::invert_x_swap_xz>
+    public TransformedTwoWaySplit<TwoWaySplit::invert_x_swap_xz>
 {
 public:
     WestEastSplit
         (const TileCornerElevations &,
          Real division_z);
+
+private:
+    const TwoWaySplit & original_split() const final
+        { return m_ns_split; }
+
+    NorthSouthSplit m_ns_split;
 };
 
 // ----------------------------------------------------------------------------
 
 class EastWestSplit final :
-    public TransformedNorthSouthSplit<TwoWaySplit::xz_swap_roles>
+    public TransformedTwoWaySplit<TwoWaySplit::xz_swap_roles>
 {
 public:
     EastWestSplit
         (const TileCornerElevations &,
          Real division_z);
-};
 
+private:
+    const TwoWaySplit & original_split() const final
+        { return m_ns_split; }
+
+    NorthSouthSplit m_ns_split;
+};
+#if 0
 // ----------------------------------------------------------------------------
 
 template <Vector(*kt_transform_vector_f)(const Vector &)>
@@ -319,3 +383,4 @@ template <Vector(*kt_transform_vector_f)(const Vector &)>
     TransformedNorthSouthSplit
     (NorthSouthSplit && ns_split_):
     m_ns_split(std::move(ns_split_)) {}
+#endif

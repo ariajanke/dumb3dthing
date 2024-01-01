@@ -32,10 +32,11 @@ void MapTilesetTile::load
     MapElementValuesMap map;
     map.load(tile_el);
     set_map_element_values_map(std::move(map));
+    m_parent = &parent;
 }
 
 const MapTileset * MapTilesetTile::parent_tileset() const {
-    return nullptr;
+    return m_parent;
 }
 
 const char * MapTilesetTile::type() const {
@@ -73,6 +74,7 @@ void MapTileset::load(const DocumentOwningNode & tileset_el) {
     m_tile_grid.set_size(*columns, *tilecount / *columns, nullptr);
     for (auto & tile_el : XmlRange{*tileset_el, "tile"}) {
         m_tiles.emplace_back(tile_el, *this);
+
     }
     for (const auto & tile : m_tiles) {
         auto id = tile.id();
@@ -87,6 +89,23 @@ void MapTileset::load(const DocumentOwningNode & tileset_el) {
 
 const MapTilesetTile * MapTileset::tile_at(const Vector2I & r) const {
     return m_tile_grid(r);
+}
+
+const MapTilesetTile * MapTileset::seek_by_id(int id) const {
+    if (auto r = id_to_tile_location(id)) {
+        return m_tile_grid(*r);
+    }
+    return nullptr;
+}
+
+Optional<Vector2I> MapTileset::id_to_tile_location(int id) const {
+    if (id < 0) {
+        throw RuntimeError{""};
+    }
+    Vector2I r{id % m_tile_grid.width(), id / m_tile_grid.width()};
+    if (m_tile_grid.has_position(r))
+        { return r; }
+    return {};
 }
 
 Vector2I MapTileset::next(const Vector2I & r) const {
@@ -112,3 +131,4 @@ MapTilesetImage MapTileset::image() const {
     }
     return rv;
 }
+

@@ -67,6 +67,10 @@ public:
     using GeometryGenerationStrategySource =
         TwoWaySplit::GeometryGenerationStrategySource;
 
+    WallTilesetTile() {}
+
+    explicit WallTilesetTile(GeometryGenerationStrategySource);
+
     void load
         (const MapTilesetTile &,
          const TilesetTileTexture &,
@@ -84,12 +88,12 @@ private:
     template <typename Func>
     void choose_on_direction
         (const TileCornerElevations & elvs,
-         Real division_z,
          Func && f) const;
 
     SharedPtr<const RenderModel> m_top_model;
     TilesetTileTexture m_tileset_tile_texture;
     TileCornerElevations m_elevations;
+    Vector2I m_wall_texture_location;
 
     GeometryGenerationStrategySource m_strategy_source =
         TwoWaySplit::choose_geometry_strategy;
@@ -101,7 +105,6 @@ private:
 template <typename Func>
 /* private */ void WallTilesetTile::choose_on_direction
     (const TileCornerElevations & elvs,
-     Real division_z,
      Func && f) const
 {
     class Impl final : public TwoWaySplit::WithTwoWaySplit {
@@ -116,5 +119,5 @@ template <typename Func>
         Func m_f;
     };
     Impl impl{std::move(f)};
-    m_startegy->with_splitter_do(elvs, division_z, impl);
+    m_startegy->with_splitter_do(elvs, -0.25, impl);
 }

@@ -72,6 +72,88 @@ private:
     Real m_division_xz;
 };
 
+// ----------------------------------------------------------------------------
+
+class SouthEastOutCornerSplit final :
+    public TransformedTwoWaySplit<TwoWaySplit::invert_xz>
+{
+public:
+    SouthEastOutCornerSplit
+        (const TileCornerElevations &,
+         Real division_z);
+
+private:
+    const TwoWaySplit & original_split() const final
+        { return m_nw_split; }
+
+    NorthWestOutCornerSplit m_nw_split;
+};
+
+class NorthWestOutWallGenerationStrategy final :
+    public TwoWaySplit::GeometryGenerationStrategy
+{
+public:
+    void with_splitter_do
+        (const TileCornerElevations & elevations,
+         Real division_z,
+         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+    {
+        NorthWestOutCornerSplit nwocs{elevations, division_z};
+        with_split_callback(nwocs);
+    }
+
+    TileCornerElevations filter_to_known_corners
+        (TileCornerElevations elevations) const final
+    {
+        return TileCornerElevations
+            {{},
+             {},
+             {},
+             elevations.south_east()};
+    }
+};
+
+class SouthEastOutWallGenerationStrategy final :
+    public TwoWaySplit::GeometryGenerationStrategy
+{
+public:
+    void with_splitter_do
+        (const TileCornerElevations & elevations,
+         Real division_z,
+         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+    {
+        SouthEastOutCornerSplit seocs{elevations, division_z};
+        with_split_callback(seocs);
+    }
+
+    TileCornerElevations filter_to_known_corners
+        (TileCornerElevations elevations) const final
+    {
+        return TileCornerElevations
+            {{},
+             elevations.north_west(),
+             {},
+             {}};
+    }
+};
+
+class NullGeometryGenerationStrategy final :
+    public TwoWaySplit::GeometryGenerationStrategy
+{
+    void with_splitter_do
+        (const TileCornerElevations &,
+         Real,
+         const TwoWaySplit::WithTwoWaySplit &) const final
+    {}
+
+    TileCornerElevations filter_to_known_corners
+        (TileCornerElevations elevations) const final
+    {
+        return TileCornerElevations{};
+    }
+};
+
+
 class OutWallTilesetTile final : public SlopesTilesetTile {
 public:
     void load

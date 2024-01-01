@@ -30,6 +30,7 @@
 
 namespace {
 
+// may or may not keep?
 class TriangleToVertexStrategies {
 public:
     using VertexTriangle = std::array<Vertex, 3>;
@@ -116,50 +117,20 @@ private:
     TriangleToVertexStrategies() {}
 };
 
-template <std::size_t kt_capacity_in_triangles>
-class CollidablesCollection final : public LinearStripTriangleCollection {
+class LinearStripCollidablesAdapter final : public LinearStripTriangleCollection {
 public:
-    void append(const View<const Vertex *> & vertices) {
-        auto count = vertices.end() - vertices.begin();
-        if (count % 3 != 0) {
-            throw RuntimeError{"number of vertices must be divisble by three"};
-        }
-        for (auto itr = vertices.begin(); itr != vertices.end(); itr += 3) {
-            auto & a = *itr;
-            auto & b = *(itr + 1);
-            auto & c = *(itr + 2);
-            verify_capacity_for_another();
-            m_elements[m_count++] =
-                TriangleSegment{a.position, b.position, c.position};
-        }
-    }
+    explicit LinearStripCollidablesAdapter(ProducableTileCallbacks & callbacks_):
+        m_callbacks(callbacks_) {}
 
     void add_triangle(const StripTriangle & triangle) final
-        { add_triangle_(triangle.to_triangle_segment()); }
+        { m_callbacks.add_collidable(triangle.to_triangle_segment()); }
 
     void add_triangle
         (const TriangleSegment & triangle, ToPlanePositionFunction) final
-    { add_triangle_(triangle); }
-
-    View<const TriangleSegment *> collidables() const
-        { return View{&m_elements[0], &m_elements[0] + m_count}; }
+    { m_callbacks.add_collidable(triangle); }
 
 private:
-    void verify_capacity_for_another() const {
-        if (m_count + 1 > kt_capacity_in_triangles*3) {
-            throw RuntimeError{"capacity exceeded"};
-        }
-    }
-
-    void add_triangle_
-        (const TriangleSegment & triangle)
-    {
-        verify_capacity_for_another();
-        m_elements[m_count++] = triangle;
-    }
-
-    std::array<TriangleSegment, kt_capacity_in_triangles> m_elements;
-    std::size_t m_count = 0;
+    ProducableTileCallbacks & m_callbacks;
 };
 
 // I need vertices, and collidable triangles
@@ -168,10 +139,7 @@ class LimitedLinearStripCollection final : public LinearStripTriangleCollection 
 public:
     using VertexTriangle = TriangleToVertexStrategies::VertexTriangle;
     using TextureMappingStrategyFunction = TriangleToVertexStrategies::StrategyFunction;
-#   if 0
-    void set_texture_mapping_strategy(TextureMappingStrategyFunction f)
-        { m_mapper_f = f; }
-#   endif
+
     void add_triangle(const StripTriangle & triangle) final {
         verify_space_for_three_additional();
         for (const auto & vtx : { triangle.vertex_a(), triangle.vertex_b(), triangle.vertex_c() }) {
@@ -183,13 +151,8 @@ public:
                 }
                 throw RuntimeError{""};
             } ();
-            *m_end++ = Vertex{vtx.point, Vector2{t, vtx.strip_position}};
+            append_vertex(vtx.point, Vector2{t, vtx.strip_position});
         }
-#       if 0
-        for (const Vertex & vtx : m_mapper_f(triangle)) {
-            *m_end++ = vtx;
-        }
-#       endif
     }
 
     void add_triangle
@@ -199,19 +162,15 @@ public:
         for (auto pt : { triangle.point_a(), triangle.point_b(), triangle.point_c() }) {
             auto tv = f(pt);
             tv.y = 1 - tv.y;
-            *m_end++ = Vertex{pt, tv};
+            append_vertex(pt, tv);
         }
     }
 
     View<const Vertex *> model_vertices() const
         { return View{&m_array[0], &m_array[0] + (m_end - m_array.begin())}; }
 
-    // need something better than this...
-    void fit_to_texture(const TilesetTileTexture & tileset_tile_texture) {
-        for (auto itr = m_array.begin(); itr != m_end; ++itr) {
-            *itr = tileset_tile_texture.interpolate(*itr);
-        }
-    }
+    void set_texture(const TilesetTileTexture & tileset_tile_texture)
+        { m_tile_texture = tileset_tile_texture; }
 
 private:
     using VertexArray = std::array<Vertex, kt_capacity_in_triangles*3>;
@@ -223,9 +182,13 @@ private:
         }
     }
 
-    TextureMappingStrategyFunction m_mapper_f = TriangleToVertexStrategies::all_zeroed;
+    void append_vertex(const Vector & r, const Vector2 & txr) {
+        *m_end++ = m_tile_texture.interpolate(Vertex{r, txr});
+    }
+
     VertexArray m_array;
     VertexArrayIterator m_end = m_array.begin();
+    TilesetTileTexture m_tile_texture;
 };
 
 template <std::size_t kt_capacity_in_triangles>
@@ -267,6 +230,9 @@ SharedPtr<const RenderModel> make_model
 
 // ----------------------------------------------------------------------------
 
+WallTilesetTile::WallTilesetTile(GeometryGenerationStrategySource strat_source):
+    m_strategy_source(strat_source) {}
+
 void WallTilesetTile::load
     (const MapTilesetTile & map_tileset_tile,
      const TilesetTileTexture & tile_texture,
@@ -277,18 +243,20 @@ void WallTilesetTile::load
     auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
     m_startegy = &m_strategy_source(*direction);
 
-
-    map_tileset_tile.get_numeric_property<int>("wall-texture");
+    if (auto wid = map_tileset_tile.get_numeric_property<int>("wall-texture")) {
+        m_wall_texture_location = *map_tileset_tile.
+            parent_tileset()-> // LoD
+            id_to_tile_location(*wid);
+    }
 
     LimitedLinearStripCollection<2> col;
+    col.set_texture(tile_texture);
     choose_on_direction
         (elevations,
-         -0.25,
          [&col] (const TwoWaySplit & two_way_split) {
-             // col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
              two_way_split.make_top(col);
          });
-    col.fit_to_texture(tile_texture);
+
     // and you can inject a strategy
     // cost is like a couple of virtual calls
     // benefits: less code/overhead and probably easier to test too!
@@ -313,28 +281,29 @@ void WallTilesetTile::make
             finish());
     // the rest of everything is computed here, from geometry to models
     auto computed_elevations = m_elevations.value_or(neighboring_elevations);
-    CollidablesCollection<6> col_col;
-    LimitedLinearStripCollection<4> col;
+    LinearStripCollidablesAdapter col_col{callbacks};
+    LimitedLinearStripCollection<4*2> col;
+    auto tx = m_tileset_tile_texture;
+    tx.set_texture_bounds(m_wall_texture_location);
+    col.set_texture(tx);
     choose_on_direction
         (computed_elevations,
-         -0.25,
          [&col, &col_col] (const TwoWaySplit & splitter) {
              // how do I set texture strategies here?
              // how would I go about generating stuff for corner walls?
-             // col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_z_plane);
+
              splitter.make_wall(col);
              splitter.make_wall(col_col);
-             // col.set_texture_mapping_strategy(TriangleToVertexStrategies::lie_on_y_plane);
+        });
+    col.set_texture(m_tileset_tile_texture);
+    choose_on_direction
+        (computed_elevations,
+         [&col, &col_col] (const TwoWaySplit & splitter) {
              splitter.make_bottom(col);
              splitter.make_bottom(col_col);
              splitter.make_top(col_col);
          });
-    for (auto & tri : col_col.collidables()) {
-        callbacks.add_collidable(tri);
-    }
-    // this is not good enough, don't we want to texture the wall parts
-    // differently?
-    col.fit_to_texture(m_tileset_tile_texture);
+
     auto model = make_model(col, callbacks.make_render_model());
     callbacks.
         add_entity_from_tuple(TupleBuilder{}.

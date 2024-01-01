@@ -39,6 +39,9 @@ public:
     const char * type() const;
 
     int id() const;
+
+private:
+    const MapTileset * m_parent = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -68,9 +71,11 @@ class MapTileset final : public MapElementValuesAggregable {
 public:
     void load(const DocumentOwningNode & tileset_el);
 
-    // Vector2 texture_position_at(const Vector2I & tile_location) const;
-
     const MapTilesetTile * tile_at(const Vector2I &) const;
+
+    const MapTilesetTile * seek_by_id(int id) const;
+
+    Optional<Vector2I> id_to_tile_location(int id) const;
 
     Vector2I next(const Vector2I &) const;
 

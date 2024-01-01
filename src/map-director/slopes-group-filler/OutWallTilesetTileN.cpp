@@ -68,8 +68,8 @@ void NorthWestOutCornerSplit::make_wall
 {
     auto nw_top = north_west_top();
     auto nw_floor = north_west_floor();
-    col.make_strip(nw_top, nw_floor, north_east_top(), north_east_floor(), 1);
-    col.make_strip(nw_top, nw_floor, south_west_top(), south_west_floor(), 1);
+    col.make_strip(north_east_top(), north_east_floor(), nw_top, nw_floor, 1);
+    col.make_strip(south_west_top(), south_west_floor(), nw_top, nw_floor, 1);
 }
 
 /* private */ Vector NorthWestOutCornerSplit::north_west_corner() const
@@ -114,3 +114,14 @@ void NorthWestOutCornerSplit::make_wall
 /* private */ Real NorthWestOutCornerSplit::south_east_y() const
     { return *m_corner_elevations.south_east(); }
 
+// ----------------------------------------------------------------------------
+
+SouthEastOutCornerSplit::SouthEastOutCornerSplit
+    (const TileCornerElevations & elevations,
+     Real division_z):
+    m_nw_split(TileCornerElevations{
+        elevations.north_west(),
+        elevations.south_west(),
+        elevations.north_east(),
+        *elevations.south_east()},
+        division_z) {}
