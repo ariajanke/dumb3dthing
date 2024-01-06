@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "RampTilesetTileN.hpp"
+#include "RampTilesetTile.hpp"
 
 class OutRampPropertiesLoader final : public RampPropertiesLoaderBase {
 private:

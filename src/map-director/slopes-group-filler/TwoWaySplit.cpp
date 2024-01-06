@@ -19,7 +19,8 @@
 *****************************************************************************/
 
 #include "TwoWaySplit.hpp"
-#include "OutWallTilesetTileN.hpp"
+#include "OutWallTilesetTile.hpp"
+#include "InWallCornerSplits.hpp"
 
 #include "../../TriangleSegment.hpp"
 
@@ -134,77 +135,6 @@ StripVertex::StripSide other_side_of(StripVertex::StripSide side) {
 }
 
 } // end of <anonymous> namespace
-#if 0
-void LinearStripTriangleCollection::make_strip
-    (const Vector & a_start, const Vector & a_last,
-     const Vector & b_start, const Vector & b_last,
-     int steps_count)
-{
-    using Triangle = TriangleSegment;
-    if (   are_very_close(a_start, a_last)
-        && are_very_close(b_start, b_last))
-    { return; }
-
-    const auto make_step = make_step_factory(steps_count);
-
-    auto itr_a = a_start;
-    const auto next_a = make_get_next_for_dir_split_v(
-        a_last, make_step(a_start, a_last));
-
-    auto itr_b = b_start;
-    const auto next_b = make_get_next_for_dir_split_v(
-        b_last, make_step(b_start, b_last));
-
-    while (   !are_very_close(itr_a, a_last)
-           && !are_very_close(itr_b, b_last))
-    {
-        const auto new_a = next_a(itr_a);
-        const auto new_b = next_b(itr_b);
-        if (!are_very_close(itr_a, itr_b))
-            add_triangle(Triangle{itr_a, itr_b, new_a});
-        if (!are_very_close(new_a, new_b))
-            add_triangle(Triangle{itr_b, new_a, new_b});
-        itr_a = new_a;
-        itr_b = new_b;
-    }
-
-    // at this point we are going to generate at most one triangle
-    if (are_very_close(b_last, a_last)) {
-        // here we're down to three points
-        // there is only one possible triangle
-        if (   are_very_close(itr_a, a_last)
-            || are_very_close(itr_a, itr_b))
-        {
-            // take either being true:
-            // in the best case: a line, so nothing
-            return;
-        }
-
-        add_triangle(Triangle{itr_a, itr_b, a_last});
-        return;
-    }
-    // a reminder from above
-    assert(   are_very_close(itr_a, a_last)
-           || are_very_close(itr_b, b_last));
-
-    // here we still haven't ruled any points out
-    if (   are_very_close(itr_a, itr_b)
-        || (   are_very_close(itr_a, a_last)
-            && are_very_close(itr_b, b_last)))
-    {
-        // either are okay, as they are "the same" pt
-        return;
-    } else if (!are_very_close(itr_a, a_last)) {
-        // must exclude itr_b
-        add_triangle(Triangle{itr_a, b_last, a_last});
-        return;
-    } else if (!are_very_close(itr_b, b_last)) {
-        // must exclude itr_a
-        add_triangle(Triangle{itr_b, a_last, b_last});
-        return;
-    }
-}
-#endif
 
 StripTriangle::StripTriangle
     (const StripVertex & a,
@@ -223,91 +153,6 @@ StripVertex StripTriangle::vertex_a() const { return m_a; }
 StripVertex StripTriangle::vertex_b() const { return m_b; }
 
 StripVertex StripTriangle::vertex_c() const { return m_c; }
-#if 0
-class StripIteration final {
-public:
-    using StripSide = StripVertex::StripSide;
-
-    StripIteration
-        (const Vector & start,
-         const Vector & last,
-         int steps_count,
-         StripSide side,
-         int current_step = 0):
-        m_steps_count(are_very_close(start, last) ? Optional<int>{} : steps_count),
-        m_current_step(current_step),
-        m_start(start),
-        m_last(last),
-        m_side(side) {}
-
-    StripTriangle triangle_with_next(const StripVertex & vtx) const {
-        if (!m_steps_count) {
-            throw RuntimeError{"has only one point"};
-        }
-        return StripTriangle{vertex(), vtx, next_vertex()};
-    }
-
-    StripVertex vertex() const
-        { return vertex_at(m_current_step); }
-
-    StripVertex vertex_with(StripSide side) const
-        { return vertex_at_with_side(m_current_step, side); }
-
-    StripVertex next_vertex() const
-        { return vertex_at(m_current_step + 1); }
-
-    StripIteration next() const {
-        return StripIteration
-            {m_current_step + 1, m_steps_count, m_start, m_last, m_side};
-    }
-
-private:
-    StripIteration
-        (int current_step,
-         Optional<int> steps_count,
-         const Vector & start,
-         const Vector & last,
-         StripSide side):
-        m_steps_count(steps_count),
-        m_current_step(current_step),
-        m_start(start),
-        m_last(last),
-        m_side(side) {}
-
-    Optional<Real> strip_position() const
-        { return strip_position_at(m_current_step); }
-
-    Optional<Real> strip_position_at(int step) const {
-        if (m_steps_count)
-            return Real(step) / Real(*m_steps_count);
-        return {};
-    }
-
-    StripVertex vertex_at(int step) const {
-        return vertex_at_with_side(step, m_side);
-    }
-
-    StripVertex vertex_at_with_side(int step, StripSide side) const {
-        return StripVertex
-            {point_at(step),
-             strip_position_at(step),
-             side};
-    }
-
-    Vector point_at(int step) const {
-        if (auto t = strip_position_at(step)) {
-            return m_start*(1 - *t) + m_last*(*t);
-        }
-        return m_start;
-    }
-
-    Optional<int> m_steps_count = 1;
-    int m_current_step = 0;
-    Vector m_start;
-    Vector m_last;
-    StripSide m_side;
-};
-#endif
 
 /* private */ void LinearStripTriangleCollection::triangle_strip
     (const Vector & a_point,
@@ -332,7 +177,6 @@ private:
     }
 }
 
-#if 1
 void LinearStripTriangleCollection::make_strip
     (const Vector & a_start, const Vector & a_last,
      const Vector & b_start, const Vector & b_last,
@@ -418,50 +262,6 @@ void LinearStripTriangleCollection::make_strip
         normal_step(get_last(), get_next());
     }
 }
-#else
-void LinearStripTriangleCollection::make_strip
-    (const Vector & a_start, const Vector & a_last,
-     const Vector & b_start, const Vector & b_last,
-     int steps_count)
-{
-    using StripSide = StripVertex::StripSide;
-    using Triangle = TriangleSegment;
-    if (   are_very_close(a_start, a_last)
-        && are_very_close(b_start, b_last))
-    { return; }
-    // atempting to generate a one dimensional line
-    if (   are_very_close(a_start, b_start)
-        && are_very_close(a_last , b_last ))
-    { return; }
-    if (steps_count < 0) {
-        throw InvalidArgument{"steps_count must be a non-negative integer"};
-    }
-
-    StripIteration a_side{a_start, a_last, steps_count, StripSide::a};
-    StripIteration b_side{b_start, b_last, steps_count, StripSide::b};
-
-    if (are_very_close(a_start, b_start)) {
-        add_triangle(StripTriangle
-            {a_side.vertex_with(StripSide::both),
-             b_side.next_vertex(),
-             a_side.next_vertex()});
-        a_side = a_side.next();
-        b_side = b_side.next();
-    }
-
-    while (true /* until both side at last? */) {
-        assert(false);
-        // do sides
-    }
-
-    if (are_very_close(a_last, b_last)) {
-        add_triangle(StripTriangle
-            {a_side.vertex_with(StripSide::both),
-             b_side.next_vertex(),
-             a_side.next_vertex()});
-    }
-}
-#endif
 
 // ----------------------------------------------------------------------------
 
@@ -542,21 +342,6 @@ NorthSouthSplit::NorthSouthSplit
     m_div_ne( 0.5, north_east_y.value_or(k_inf), -division_z),
     m_div_se( 0.5, south_east_y, -division_z)
 {
-    using cul::is_real;
-#   if 0
-    if (!is_real(*south_west_y) || !is_real(*south_east_y)) {
-        throw InvalidArgument
-            {"north_south_split: Southern elevations must be real numbers in "
-             "all cases"};
-    } else
-#   endif
-#   if 0
-    if (!south_west_y || !south_east_y) {
-        throw InvalidArgument
-            {"north_south_split: Southern elevations must be real numbers in "
-             "all cases"};
-    }
-#   endif
     if (division_z < -0.5 || division_z > 0.5) {
         throw InvalidArgument
             {"north_south_split: division must be in [-0.5 0.5]"};

@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 
-#include "SlopesTilesetTileN.hpp"
+#include "SlopesTilesetTile.hpp"
 #include "../MapTileset.hpp"
 #include "../../Texture.hpp"
 

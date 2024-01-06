@@ -20,60 +20,31 @@
 
 #pragma once
 
-#ifdef MACRO_USE_OLD_SLOPES
-
-#include "SlopesBasedTileFactory.hpp"
-
 #include "../ProducableGroupFiller.hpp"
 #include "../TilesetPropertiesGrid.hpp"
 
+#include <map>
 
-class ProducableSlopeTile final : public ProducableTile {
-public:
-    using TileFactoryGridPtr = SharedPtr<Grid<SlopesBasedTileFactory *>>;
-
-    ProducableSlopeTile
-        (const Vector2I & map_position,
-         const TileFactoryGridPtr & factory_map_layer);
-
-    void operator () (ProducableTileCallbacks & callbacks) const final;
-
-private:
-    Vector2I m_map_position;
-
-    TileFactoryGridPtr m_factory_map_layer;
-};
-
-// ----------------------------------------------------------------------------
+class SlopesTilesetTile;
+class MapTileset;
 
 class SlopeGroupFiller final : public ProducableGroupFiller {
 public:
-    using RampGroupFactoryMakeFunc = UniquePtr<SlopesBasedTileFactory>(*)();
-    using RampGroupFactoryMap = std::map<std::string, RampGroupFactoryMakeFunc>;
-    using TileFactoryGrid = Grid<SharedPtr<SlopesBasedTileFactory>>;
+    using TilesetTilePtr = SharedPtr<SlopesTilesetTile>;
+    using TilesetTileMakerFunction = TilesetTilePtr(*)();
+    using TilesetTileMakerMap = std::map<std::string, TilesetTileMakerFunction>;
+    using TilesetTileGrid = Grid<TilesetTilePtr>;
+    using TilesetTileGridPtr = SharedPtr<TilesetTileGrid>;
+
+    static const TilesetTileMakerMap & builtin_makers();
 
     void make_group(CallbackWithCreator &) const final;
 
     void load
-        (const TilesetXmlGrid & xml_grid,
+        (const MapTileset & map_tileset,
          PlatformAssetsStrategy & platform,
-         const RampGroupFactoryMap & factory_type_map = builtin_tile_factory_maker_map());
-
-    static const RampGroupFactoryMap & builtin_tile_factory_maker_map();
+         const TilesetTileMakerMap & = builtin_makers());
 
 private:
-    void load_factories(const TilesetXmlGrid & xml_grid,
-                        const RampGroupFactoryMap & factory_type_map);
-
-    void setup_factories
-        (const TilesetXmlGrid & xml_grid,
-         PlatformAssetsStrategy & platform,
-         TileFactoryGrid &) const;
-
-    SlopeFillerExtra m_specials;
-    TileFactoryGrid m_tile_factories;
+    TilesetTileGridPtr m_tileset_tiles;
 };
-
-#else
-#   include "SlopeGroupFillerN.hpp"
-#endif

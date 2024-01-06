@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "SlopesTilesetTileN.hpp"
+#include "SlopesTilesetTile.hpp"
 #include "../../RenderModel.hpp"
 
 class TileProperties;

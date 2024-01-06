@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2023 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,9 +20,8 @@
 
 #pragma once
 
-#include "SlopesTilesetTileN.hpp"
+#include "SlopesTilesetTile.hpp"
 #include "TwoWaySplit.hpp"
-#include "InWallCornerSplits.hpp"
 
 class NorthWestOutCornerSplit final : public TwoWaySplit {
 public:
@@ -225,33 +224,7 @@ public:
              {}};
     }
 };
-#if 0
-// ----------------------------------------------------------------------------
 
-class NorthWestInWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
-{
-public:
-    void with_splitter_do
-        (const TileCornerElevations & elevations,
-         Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
-    {
-        NorthWestInCornerSplit nwocs{elevations, division_z};
-        with_split_callback(nwocs);
-    }
-
-    TileCornerElevations filter_to_known_corners
-        (TileCornerElevations elevations) const final
-    {
-        return TileCornerElevations
-            {{},
-             {},
-             {},
-             elevations.south_east()};
-    }
-};
-#endif
 // ----------------------------------------------------------------------------
 
 class NullGeometryGenerationStrategy final :
@@ -269,20 +242,3 @@ class NullGeometryGenerationStrategy final :
         return TileCornerElevations{};
     }
 };
-#if 0
-// ----------------------------------------------------------------------------
-
-class OutWallTilesetTile final : public SlopesTilesetTile {
-public:
-    void load
-        (const MapTilesetTile &,
-         const TilesetTileTexture &,
-         PlatformAssetsStrategy & platform) final;
-
-    TileCornerElevations corner_elevations() const final;
-
-    void make
-        (const NeighborCornerElevations & neighboring_elevations,
-         ProducableTileCallbacks & callbacks) const;
-};
-#endif

@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "SlopesTilesetTileN.hpp"
-#include "FlatTilesetTileN.hpp"
+#include "SlopesTilesetTile.hpp"
+#include "FlatTilesetTile.hpp"
 
 class RampPropertiesLoaderBase {
 public:
@@ -42,16 +42,6 @@ protected:
     virtual Orientation orientation_for(CardinalDirection) const = 0;
 
 private:
-#   if 0
-    static Optional<CardinalDirection> cardinal_direction_from
-        (const char * nullable_str);
-
-    static Optional<TileCornerElevations> read_elevation_of
-        (const MapTilesetTile & tileset_tile);
-
-    static Optional<CardinalDirection> read_direction_of
-        (const MapTilesetTile & tile_properties);
-#   endif
     Orientation m_orientation;
     TileCornerElevations m_elevations;
 };

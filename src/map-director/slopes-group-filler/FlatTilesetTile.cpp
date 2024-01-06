@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "FlatTilesetTileN.hpp"
+#include "FlatTilesetTile.hpp"
 
 #include "../MapTileset.hpp"
 

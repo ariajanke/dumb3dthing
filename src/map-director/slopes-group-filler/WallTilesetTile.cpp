@@ -18,9 +18,9 @@
 
 *****************************************************************************/
 
-#include "WallTilesetTileN.hpp"
-#include "FlatTilesetTileN.hpp"
-#include "RampTilesetTileN.hpp"
+#include "WallTilesetTile.hpp"
+#include "FlatTilesetTile.hpp"
+#include "RampTilesetTile.hpp"
 
 #include "../MapTileset.hpp"
 

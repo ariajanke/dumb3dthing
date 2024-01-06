@@ -18,8 +18,8 @@
 
 *****************************************************************************/
 
-#include "InRampTilesetTileN.hpp"
-#include "RampTilesetTileN.hpp"
+#include "InRampTilesetTile.hpp"
+#include "RampTilesetTile.hpp"
 
 namespace {
 

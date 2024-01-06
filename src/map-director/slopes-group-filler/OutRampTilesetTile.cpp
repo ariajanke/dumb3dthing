@@ -18,8 +18,8 @@
 
 *****************************************************************************/
 
-#include "OutRampTilesetTileN.hpp"
-#include "RampTilesetTileN.hpp"
+#include "OutRampTilesetTile.hpp"
+#include "RampTilesetTile.hpp"
 
 namespace {
 
