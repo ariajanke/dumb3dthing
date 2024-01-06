@@ -98,7 +98,7 @@ Continuation & CompositeTileset::load
         }
     }
     if (!map_loader_task) {
-        throw RuntimeError{"Unhandled: composite tileset without a name"};
+        throw RuntimeError{"Unhandled: composite tileset without a filename"};
     }
     m_sub_regions_grid = make_shared<Grid<MapSubRegion>>();
     m_sub_regions_grid->set_size

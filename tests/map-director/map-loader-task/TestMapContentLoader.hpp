@@ -113,7 +113,7 @@ public:
         static FillerFactoryMap map = [] {
             FillerFactoryMap map;
             map["test-tile-type"] = []
-                (const TilesetXmlGrid &, PlatformAssetsStrategy &)
+                (const MapTileset &, PlatformAssetsStrategy &)
                     -> SharedPtr<ProducableGroupFiller>
                 { return TestProducableGroupFiller::instance_ptr(); };
             return map;

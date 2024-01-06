@@ -20,7 +20,7 @@
 
 #include "../../../src/map-director/map-loader-task/CompositeTileset.hpp"
 #include "../../../src/TasksController.hpp"
-#include "../../../src/map-director/map-loader-task/TiledMapLoader.hpp"
+#include "../../../src/map-director/MapObject.hpp"
 
 #include "../../test-helpers.hpp"
 
@@ -158,11 +158,10 @@ public:
 
 describe("CompositeTileset")([] {
     CompositeTileset tileset;
-    TiXmlDocument doc;
-    doc.Parse(k_test_tileset_contents);
     auto & continuation = TestMapContentLoader::instance().continuation;
     TaskStrategy strategy{continuation};
-    (void)tileset.load(*doc.RootElement(), TestMapContentLoader::instance());
+    auto doc = *DocumentOwningNode::load_root(k_test_map_parts_contents);
+    (void)tileset.load(doc, TestMapContentLoader::instance());
     std::vector<NewTaskEntry> new_tasks;
     ReturnToTasksCollection col;
     mark_it("waits on a map loading task", [&] {
