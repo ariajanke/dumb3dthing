@@ -26,6 +26,9 @@
 #include "WallTilesetTile.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../MapTileset.hpp"
+#include "TwoWayWallSplits.hpp"
+#include "InWallCornerSplits.hpp"
+#include "OutWallCornerSplits.hpp"
 
 namespace {
 
@@ -156,6 +159,21 @@ SlopesCreationFunction make_slopes_creator() {
     return [] () -> SharedPtr<SlopesTilesetTile> { return make_shared<T>(); };
 }
 
+SharedPtr<SlopesTilesetTile> make_two_way_wall() {
+    return make_shared<WallTilesetTile>
+        (NorthSouthSplit::choose_geometry_strategy);
+}
+
+SharedPtr<SlopesTilesetTile> make_out_corner_wall() {
+    return make_shared<WallTilesetTile>
+        (NorthWestOutCornerSplit::choose_out_wall_strategy);
+}
+
+SharedPtr<SlopesTilesetTile> make_in_corner_wall() {
+    return make_shared<WallTilesetTile>
+        (NorthWestInCornerSplit::choose_in_wall_strategy);
+}
+
 } // end of <anonymous> namespace
 
 /* static */ const TilesetTileMakerMap & SlopeGroupFiller::builtin_makers() {
@@ -166,9 +184,9 @@ SlopesCreationFunction make_slopes_creator() {
         { k_ramp    , make_slopes_creator<RampTileseTile    >() },
         { k_out_ramp, make_slopes_creator<OutRampTilesetTile>() },
         { k_in_ramp , make_slopes_creator<InRampTilesetTile >() },
-        { k_wall    , make_slopes_creator<WallTilesetTile   >() },
-        { k_out_wall, [] () -> Rt { return make_shared<WallTilesetTile>(TwoWaySplit::choose_out_wall_strategy); } },
-        { k_in_wall, [] () -> Rt { return make_shared<WallTilesetTile>(TwoWaySplit::choose_in_wall_strategy); } }
+        { k_wall    , make_two_way_wall },
+        { k_out_wall, make_out_corner_wall },
+        { k_in_wall , make_in_corner_wall }
     };
     return map;
 }

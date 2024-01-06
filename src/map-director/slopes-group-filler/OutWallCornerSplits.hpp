@@ -21,10 +21,13 @@
 #pragma once
 
 #include "SlopesTilesetTile.hpp"
-#include "TwoWaySplit.hpp"
+#include "SplitWallGeometry.hpp"
 
-class NorthWestOutCornerSplit final : public TwoWaySplit {
+class NorthWestOutCornerSplit final : public SplitWallGeometry {
 public:
+    static GeometryGenerationStrategy &
+        choose_out_wall_strategy(CardinalDirection);
+
     NorthWestOutCornerSplit
         (const TileCornerElevations &,
          Real division_xz);
@@ -73,7 +76,7 @@ private:
 // ----------------------------------------------------------------------------
 
 class SouthWestOutCornerSplit final :
-    public TransformedTwoWaySplit<TwoWaySplit::invert_z>
+    public TransformedSplitWallGeometry<SplitWallGeometry::invert_z>
 {
 public:
     SouthWestOutCornerSplit
@@ -81,7 +84,7 @@ public:
          Real division_z);
 
 private:
-    const TwoWaySplit & original_split() const final
+    const SplitWallGeometry & original_split() const final
         { return m_nw_split; }
 
     NorthWestOutCornerSplit m_nw_split;
@@ -90,7 +93,7 @@ private:
 // ----------------------------------------------------------------------------
 
 class NorthEastOutCornerSplit final :
-    public TransformedTwoWaySplit<TwoWaySplit::invert_x>
+    public TransformedSplitWallGeometry<SplitWallGeometry::invert_x>
 {
 public:
     NorthEastOutCornerSplit
@@ -98,7 +101,7 @@ public:
          Real division_z);
 
 private:
-    const TwoWaySplit & original_split() const final
+    const SplitWallGeometry & original_split() const final
         { return m_nw_split; }
 
     NorthWestOutCornerSplit m_nw_split;
@@ -107,7 +110,7 @@ private:
 // ----------------------------------------------------------------------------
 
 class SouthEastOutCornerSplit final :
-    public TransformedTwoWaySplit<TwoWaySplit::invert_xz>
+    public TransformedSplitWallGeometry<SplitWallGeometry::invert_xz>
 {
 public:
     SouthEastOutCornerSplit
@@ -115,7 +118,7 @@ public:
          Real division_z);
 
 private:
-    const TwoWaySplit & original_split() const final
+    const SplitWallGeometry & original_split() const final
         { return m_nw_split; }
 
     NorthWestOutCornerSplit m_nw_split;
@@ -124,13 +127,13 @@ private:
 // ----------------------------------------------------------------------------
 
 class NorthWestOutWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final
     {
         NorthWestOutCornerSplit nwocs{elevations, division_z};
         with_split_callback(nwocs);
@@ -150,13 +153,13 @@ public:
 // ----------------------------------------------------------------------------
 
 class SouthEastOutWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final
     {
         SouthEastOutCornerSplit seocs{elevations, division_z};
         with_split_callback(seocs);
@@ -176,13 +179,13 @@ public:
 // ----------------------------------------------------------------------------
 
 class NorthEastOutWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final
     {
         NorthEastOutCornerSplit neocs{elevations, division_z};
         with_split_callback(neocs);
@@ -202,13 +205,13 @@ public:
 // ----------------------------------------------------------------------------
 
 class SouthWestOutWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final
     {
         SouthWestOutCornerSplit swocs{elevations, division_z};
         with_split_callback(swocs);
@@ -224,16 +227,16 @@ public:
              {}};
     }
 };
-
+#if 0
 // ----------------------------------------------------------------------------
 
 class NullGeometryGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
     void with_splitter_do
         (const TileCornerElevations &,
          Real,
-         const TwoWaySplit::WithTwoWaySplit &) const final
+         const SplitWallGeometry::WithSplitWallGeometry &) const final
     {}
 
     TileCornerElevations filter_to_known_corners
@@ -242,3 +245,4 @@ class NullGeometryGenerationStrategy final :
         return TileCornerElevations{};
     }
 };
+#endif

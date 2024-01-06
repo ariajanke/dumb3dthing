@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "TwoWaySplit.hpp"
+#include "SplitWallGeometry.hpp"
 
 #if 0
 class WallGeometryCache final {
@@ -65,7 +65,7 @@ private:
 class WallTilesetTile final : public SlopesTilesetTile {
 public:
     using GeometryGenerationStrategySource =
-        TwoWaySplit::GeometryGenerationStrategySource;
+        SplitWallGeometry::GeometryGenerationStrategySource;
 
     WallTilesetTile() {}
 
@@ -83,7 +83,7 @@ public:
          ProducableTileCallbacks & callbacks) const;
 
 private:
-    using GeometryGenerationStrategy = TwoWaySplit::GeometryGenerationStrategy;
+    using GeometryGenerationStrategy = SplitWallGeometry::GeometryGenerationStrategy;
 
     template <typename Func>
     void choose_on_direction
@@ -96,7 +96,7 @@ private:
     Vector2I m_wall_texture_location;
 
     GeometryGenerationStrategySource m_strategy_source =
-        TwoWaySplit::choose_geometry_strategy;
+        SplitWallGeometry::null_generation_strategy;
     GeometryGenerationStrategy * m_startegy = nullptr;
 };
 
@@ -107,12 +107,12 @@ template <typename Func>
     (const TileCornerElevations & elvs,
      Func && f) const
 {
-    class Impl final : public TwoWaySplit::WithTwoWaySplit {
+    class Impl final : public SplitWallGeometry::WithSplitWallGeometry {
     public:
         explicit Impl(Func && f_):
             m_f(std::move(f_)) {}
 
-        void operator () (const TwoWaySplit & two_way_split) const final
+        void operator () (const SplitWallGeometry & two_way_split) const final
             { m_f(two_way_split); }
 
     private:

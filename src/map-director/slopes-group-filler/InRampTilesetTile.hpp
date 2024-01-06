@@ -25,30 +25,9 @@
 class InRampPropertiesLoader final : public RampPropertiesLoaderBase {
 private:
     TileCornerElevations elevation_offsets_for
-        (CardinalDirection direction) const final
-    {
-        using Cd = CardinalDirection;
-        switch (direction) {
-        case Cd::north_east: return TileCornerElevations{1, 1, 0, 1};
-        case Cd::north_west: return TileCornerElevations{1, 1, 1, 0};
-        case Cd::south_east: return TileCornerElevations{1, 0, 1, 1};
-        case Cd::south_west: return TileCornerElevations{0, 1, 1, 1};
-        default:
-            throw InvalidArgument{"direction bad"};
-        }
-    }
+        (CardinalDirection direction) const final;
 
-    Orientation orientation_for(CardinalDirection direction) const final {
-        using Cd = CardinalDirection;
-        switch (direction) {
-        case Cd::north_east: case Cd::south_west:
-            return Orientation::sw_to_ne_elements;
-        case Cd::north_west: case Cd::south_east:
-            return Orientation::nw_to_se_elements;
-        default:
-            throw InvalidArgument{"direction bad"};
-        }
-    }
+    Orientation orientation_for(CardinalDirection direction) const final;
 };
 
 // ----------------------------------------------------------------------------

@@ -27,6 +27,36 @@ using Orientation = OutRampPropertiesLoader::Orientation;
 
 } // end of <anonymous> namespace
 
+TileCornerElevations OutRampPropertiesLoader::elevation_offsets_for
+    (CardinalDirection direction) const
+{
+    using Cd = CardinalDirection;
+    switch (direction) {
+    case Cd::north_east: return TileCornerElevations{0, 0, 1, 0};
+    case Cd::north_west: return TileCornerElevations{0, 0, 0, 1};
+    case Cd::south_east: return TileCornerElevations{0, 1, 0, 0};
+    case Cd::south_west: return TileCornerElevations{1, 0, 0, 0};
+    default:
+        throw InvalidArgument{"direction bad"};
+    }
+}
+
+Orientation OutRampPropertiesLoader::orientation_for
+    (CardinalDirection direction) const
+{
+    using Cd = CardinalDirection;
+    switch (direction) {
+    case Cd::north_east: case Cd::south_west:
+        return Orientation::nw_to_se_elements;
+    case Cd::north_west: case Cd::south_east:
+        return Orientation::sw_to_ne_elements;
+    default:
+        throw InvalidArgument{"direction bad"};
+    }
+}
+
+// ----------------------------------------------------------------------------
+
 void OutRampTilesetTile::load
     (const MapTilesetTile & map_tileset_tile,
      const TilesetTileTexture & tileset_texture,

@@ -21,10 +21,13 @@
 #pragma once
 
 #include "SlopesTilesetTile.hpp"
-#include "TwoWaySplit.hpp"
+#include "SplitWallGeometry.hpp"
 
-class NorthWestInCornerSplit final : public TwoWaySplit {
+class NorthWestInCornerSplit final : public SplitWallGeometry {
 public:
+    static GeometryGenerationStrategy &
+        choose_in_wall_strategy(CardinalDirection direction);
+
     NorthWestInCornerSplit
         (const TileCornerElevations &,
          Real division_xz);
@@ -75,7 +78,7 @@ private:
 // ----------------------------------------------------------------------------
 
 class SouthWestInCornerSplit final :
-    public TransformedTwoWaySplit<TwoWaySplit::invert_z>
+    public TransformedSplitWallGeometry<SplitWallGeometry::invert_z>
 {
 public:
     SouthWestInCornerSplit
@@ -83,7 +86,7 @@ public:
          Real division_z);
 
 private:
-    const TwoWaySplit & original_split() const final
+    const SplitWallGeometry & original_split() const final
         { return m_nw_split; }
 
     NorthWestInCornerSplit m_nw_split;
@@ -92,7 +95,7 @@ private:
 // ----------------------------------------------------------------------------
 
 class NorthEastInCornerSplit final :
-    public TransformedTwoWaySplit<TwoWaySplit::invert_x>
+    public TransformedSplitWallGeometry<SplitWallGeometry::invert_x>
 {
 public:
     NorthEastInCornerSplit
@@ -100,7 +103,7 @@ public:
          Real division_z);
 
 private:
-    const TwoWaySplit & original_split() const final
+    const SplitWallGeometry & original_split() const final
         { return m_nw_split; }
 
     NorthWestInCornerSplit m_nw_split;
@@ -109,7 +112,7 @@ private:
 // ----------------------------------------------------------------------------
 
 class SouthEastInCornerSplit final :
-    public TransformedTwoWaySplit<TwoWaySplit::invert_xz>
+    public TransformedSplitWallGeometry<SplitWallGeometry::invert_xz>
 {
 public:
     SouthEastInCornerSplit
@@ -117,7 +120,7 @@ public:
          Real division_z);
 
 private:
-    const TwoWaySplit & original_split() const final
+    const SplitWallGeometry & original_split() const final
         { return m_nw_split; }
 
     NorthWestInCornerSplit m_nw_split;
@@ -126,103 +129,59 @@ private:
 // ----------------------------------------------------------------------------
 
 class NorthEastInWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
-    {
-        NorthEastInCornerSplit neics{elevations, division_z};
-        with_split_callback(neics);
-    }
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final;
 
     TileCornerElevations filter_to_known_corners
-        (TileCornerElevations elevations) const final
-    {
-        return TileCornerElevations
-            {{},
-             elevations.north_west(),
-             elevations.south_west(),
-             elevations.south_east()};
-    }
+        (TileCornerElevations elevations) const final;
 };
 
 // ----------------------------------------------------------------------------
 
 class SouthWestInWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
-    {
-        SouthWestInCornerSplit swics{elevations, division_z};
-        with_split_callback(swics);
-    }
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final;
 
     TileCornerElevations filter_to_known_corners
-        (TileCornerElevations elevations) const final
-    {
-        return TileCornerElevations
-            {elevations.north_east(),
-             elevations.north_west(),
-             {},
-             elevations.south_east()};
-    }
+        (TileCornerElevations elevations) const final;
 };
 
 // ----------------------------------------------------------------------------
 
 class NorthWestInWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
-    {
-        NorthWestInCornerSplit nwocs{elevations, division_z};
-        with_split_callback(nwocs);
-    }
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final;
 
     TileCornerElevations filter_to_known_corners
-        (TileCornerElevations elevations) const final
-    {
-        return TileCornerElevations
-            {elevations.north_east(),
-             {},
-             elevations.south_west(),
-             elevations.south_east()};
-    }
+        (TileCornerElevations elevations) const final;
 };
 
 // ----------------------------------------------------------------------------
 
 class SouthEastInWallGenerationStrategy final :
-    public TwoWaySplit::GeometryGenerationStrategy
+    public SplitWallGeometry::GeometryGenerationStrategy
 {
 public:
     void with_splitter_do
         (const TileCornerElevations & elevations,
          Real division_z,
-         const TwoWaySplit::WithTwoWaySplit & with_split_callback) const final
-    {
-        SouthEastInCornerSplit seics{elevations, division_z};
-        with_split_callback(seics);
-    }
+         const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const final;
 
     TileCornerElevations filter_to_known_corners
-        (TileCornerElevations elevations) const final
-    {
-        return TileCornerElevations
-            {elevations.north_east(),
-             elevations.north_west(),
-             elevations.south_west(),
-             {}};
-    }
+        (TileCornerElevations elevations) const final;
 };

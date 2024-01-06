@@ -26,6 +26,23 @@ using Triangle = TriangleSegment;
 
 } // end of <anonymous> namespace
 
+/* static */ SplitWallGeometry::GeometryGenerationStrategy &
+    NorthWestInCornerSplit::choose_in_wall_strategy(CardinalDirection direction)
+{
+    static NorthWestInWallGenerationStrategy nw_in_strat;
+    static NorthEastInWallGenerationStrategy ne_in_strat;
+    static SouthWestInWallGenerationStrategy sw_in_strat;
+    static SouthEastInWallGenerationStrategy se_in_strat;
+    switch (direction) {
+    case CardinalDirection::north_west: return nw_in_strat;
+    case CardinalDirection::north_east: return ne_in_strat;
+    case CardinalDirection::south_west: return sw_in_strat;
+    case CardinalDirection::south_east: return se_in_strat;
+    default: break;
+    }
+    throw InvalidArgument{"bad direction"};
+}
+
 NorthWestInCornerSplit::NorthWestInCornerSplit
     (const TileCornerElevations & elevations,
      Real division_xz):
@@ -157,3 +174,91 @@ SouthEastInCornerSplit::SouthEastInCornerSplit
         *elevations.north_east(),
         *elevations.north_west()},
         division_z) {}
+
+// ----------------------------------------------------------------------------
+
+void NorthEastInWallGenerationStrategy::with_splitter_do
+    (const TileCornerElevations & elevations,
+     Real division_z,
+     const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const
+{
+    NorthEastInCornerSplit neics{elevations, division_z};
+    with_split_callback(neics);
+}
+
+TileCornerElevations
+    NorthEastInWallGenerationStrategy::filter_to_known_corners
+    (TileCornerElevations elevations) const
+{
+    return TileCornerElevations
+        {{},
+         elevations.north_west(),
+         elevations.south_west(),
+         elevations.south_east()};
+}
+
+// ----------------------------------------------------------------------------
+
+void SouthWestInWallGenerationStrategy::with_splitter_do
+    (const TileCornerElevations & elevations,
+     Real division_z,
+     const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const
+{
+    SouthWestInCornerSplit swics{elevations, division_z};
+    with_split_callback(swics);
+}
+
+TileCornerElevations
+    SouthWestInWallGenerationStrategy::filter_to_known_corners
+    (TileCornerElevations elevations) const
+{
+    return TileCornerElevations
+        {elevations.north_east(),
+         elevations.north_west(),
+         {},
+         elevations.south_east()};
+}
+
+// ----------------------------------------------------------------------------
+
+void NorthWestInWallGenerationStrategy::with_splitter_do
+    (const TileCornerElevations & elevations,
+     Real division_z,
+     const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const
+{
+    NorthWestInCornerSplit nwocs{elevations, division_z};
+    with_split_callback(nwocs);
+}
+
+TileCornerElevations
+    NorthWestInWallGenerationStrategy::filter_to_known_corners
+    (TileCornerElevations elevations) const
+{
+    return TileCornerElevations
+        {elevations.north_east(),
+         {},
+         elevations.south_west(),
+         elevations.south_east()};
+}
+
+// ----------------------------------------------------------------------------
+
+void SouthEastInWallGenerationStrategy::with_splitter_do
+    (const TileCornerElevations & elevations,
+     Real division_z,
+     const SplitWallGeometry::WithSplitWallGeometry & with_split_callback) const
+{
+    SouthEastInCornerSplit seics{elevations, division_z};
+    with_split_callback(seics);
+}
+
+TileCornerElevations
+    SouthEastInWallGenerationStrategy::filter_to_known_corners
+    (TileCornerElevations elevations) const
+{
+    return TileCornerElevations
+        {elevations.north_east(),
+         elevations.north_west(),
+         elevations.south_west(),
+         {}};
+}

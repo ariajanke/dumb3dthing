@@ -18,13 +18,31 @@
 
 *****************************************************************************/
 
-#include "OutWallTilesetTile.hpp"
+#include "OutWallCornerSplits.hpp"
 
 namespace {
 
 using Triangle = TriangleSegment;
 
 } // end of <anonymous> namespace
+
+/* static */ SplitWallGeometry::GeometryGenerationStrategy &
+    NorthWestOutCornerSplit::choose_out_wall_strategy
+    (CardinalDirection direction)
+{
+    static NorthWestOutWallGenerationStrategy nw_out_strat;
+    static NorthEastOutWallGenerationStrategy ne_out_strat;
+    static SouthWestOutWallGenerationStrategy sw_out_strat;
+    static SouthEastOutWallGenerationStrategy se_out_strat;
+    switch (direction) {
+    case CardinalDirection::north_west: return nw_out_strat;
+    case CardinalDirection::north_east: return ne_out_strat;
+    case CardinalDirection::south_west: return sw_out_strat;
+    case CardinalDirection::south_east: return se_out_strat;
+    default: break;
+    }
+    throw InvalidArgument{"bad direction"};
+}
 
 NorthWestOutCornerSplit::NorthWestOutCornerSplit
     (const TileCornerElevations & elevations,

@@ -253,7 +253,7 @@ void WallTilesetTile::load
     col.set_texture(tile_texture);
     choose_on_direction
         (elevations,
-         [&col] (const TwoWaySplit & two_way_split) {
+         [&col] (const SplitWallGeometry & two_way_split) {
              two_way_split.make_top(col);
          });
 
@@ -288,7 +288,7 @@ void WallTilesetTile::make
     col.set_texture(tx);
     choose_on_direction
         (computed_elevations,
-         [&col, &col_col] (const TwoWaySplit & splitter) {
+         [&col, &col_col] (const SplitWallGeometry & splitter) {
              // how do I set texture strategies here?
              // how would I go about generating stuff for corner walls?
 
@@ -298,7 +298,7 @@ void WallTilesetTile::make
     col.set_texture(m_tileset_tile_texture);
     choose_on_direction
         (computed_elevations,
-         [&col, &col_col] (const TwoWaySplit & splitter) {
+         [&col, &col_col] (const SplitWallGeometry & splitter) {
              splitter.make_bottom(col);
              splitter.make_bottom(col_col);
              splitter.make_top(col_col);
