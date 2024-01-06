@@ -492,12 +492,28 @@ void LinearStripTriangleCollection::make_strip
     static NorthEastOutWallGenerationStrategy ne_out_strat;
     static SouthWestOutWallGenerationStrategy sw_out_strat;
     static SouthEastOutWallGenerationStrategy se_out_strat;
-    static NullGeometryGenerationStrategy null_strat;
     switch (direction) {
     case CardinalDirection::north_west: return nw_out_strat;
     case CardinalDirection::north_east: return ne_out_strat;
     case CardinalDirection::south_west: return sw_out_strat;
     case CardinalDirection::south_east: return se_out_strat;
+    default: break;
+    }
+    throw InvalidArgument{"bad direction"};
+}
+
+/* static */ TwoWaySplit::GeometryGenerationStrategy &
+    TwoWaySplit::choose_in_wall_strategy(CardinalDirection direction)
+{
+    static NorthWestInWallGenerationStrategy nw_in_strat;
+    static NorthEastInWallGenerationStrategy ne_in_strat;
+    static SouthWestInWallGenerationStrategy sw_in_strat;
+    static SouthEastInWallGenerationStrategy se_in_strat;
+    switch (direction) {
+    case CardinalDirection::north_west: return nw_in_strat;
+    case CardinalDirection::north_east: return ne_in_strat;
+    case CardinalDirection::south_west: return sw_in_strat;
+    case CardinalDirection::south_east: return se_in_strat;
     default: break;
     }
     throw InvalidArgument{"bad direction"};

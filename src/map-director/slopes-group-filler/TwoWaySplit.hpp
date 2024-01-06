@@ -203,6 +203,9 @@ public:
     static GeometryGenerationStrategy &
         choose_out_wall_strategy(CardinalDirection);
 
+    static GeometryGenerationStrategy &
+        choose_in_wall_strategy(CardinalDirection);
+
     virtual ~TwoWaySplit() {}
 
     virtual void make_top(LinearStripTriangleCollection &) const = 0;

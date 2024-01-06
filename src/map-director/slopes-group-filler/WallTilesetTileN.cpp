@@ -249,7 +249,7 @@ void WallTilesetTile::load
             id_to_tile_location(*wid);
     }
 
-    LimitedLinearStripCollection<2> col;
+    LimitedLinearStripCollection<4> col;
     col.set_texture(tile_texture);
     choose_on_direction
         (elevations,

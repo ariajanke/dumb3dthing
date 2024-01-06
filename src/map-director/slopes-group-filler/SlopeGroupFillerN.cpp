@@ -167,7 +167,8 @@ SlopesCreationFunction make_slopes_creator() {
         { k_out_ramp, make_slopes_creator<OutRampTilesetTile>() },
         { k_in_ramp , make_slopes_creator<InRampTilesetTile >() },
         { k_wall    , make_slopes_creator<WallTilesetTile   >() },
-        { k_out_wall, [] () -> Rt { return make_shared<WallTilesetTile>(TwoWaySplit::choose_out_wall_strategy); } }
+        { k_out_wall, [] () -> Rt { return make_shared<WallTilesetTile>(TwoWaySplit::choose_out_wall_strategy); } },
+        { k_in_wall, [] () -> Rt { return make_shared<WallTilesetTile>(TwoWaySplit::choose_in_wall_strategy); } }
     };
     return map;
 }

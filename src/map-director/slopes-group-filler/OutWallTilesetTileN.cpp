@@ -124,6 +124,8 @@ SouthWestOutCornerSplit::SouthWestOutCornerSplit
         *elevations.north_east()},
         division_z) {}
 
+// ----------------------------------------------------------------------------
+
 NorthEastOutCornerSplit::NorthEastOutCornerSplit
     (const TileCornerElevations & elevations,
      Real division_z):
@@ -133,6 +135,8 @@ NorthEastOutCornerSplit::NorthEastOutCornerSplit
         elevations.south_east(),
         *elevations.south_west()},
         division_z) {}
+
+// ----------------------------------------------------------------------------
 
 SouthEastOutCornerSplit::SouthEastOutCornerSplit
     (const TileCornerElevations & elevations,
