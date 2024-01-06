@@ -24,8 +24,6 @@ namespace {
 
 using Triangle = TriangleSegment;
 
-
-
 } // end of <anonymous> namespace
 
 NorthWestOutCornerSplit::NorthWestOutCornerSplit
@@ -68,8 +66,8 @@ void NorthWestOutCornerSplit::make_wall
 {
     auto nw_top = north_west_top();
     auto nw_floor = north_west_floor();
-    col.make_strip(north_east_top(), north_east_floor(), nw_top, nw_floor, 1);
-    col.make_strip(south_west_top(), south_west_floor(), nw_top, nw_floor, 1);
+    col.make_strip(north_east_floor(), north_east_top(), nw_floor, nw_top, 1);
+    col.make_strip(south_west_floor(), south_west_top(), nw_floor, nw_top, 1);
 }
 
 /* private */ Vector NorthWestOutCornerSplit::north_west_corner() const
@@ -116,12 +114,32 @@ void NorthWestOutCornerSplit::make_wall
 
 // ----------------------------------------------------------------------------
 
-SouthEastOutCornerSplit::SouthEastOutCornerSplit
+SouthWestOutCornerSplit::SouthWestOutCornerSplit
+    (const TileCornerElevations & elevations,
+     Real division_z):
+    m_nw_split(TileCornerElevations{
+        elevations.south_east(),
+        elevations.south_west(),
+        elevations.north_west(),
+        *elevations.north_east()},
+        division_z) {}
+
+NorthEastOutCornerSplit::NorthEastOutCornerSplit
     (const TileCornerElevations & elevations,
      Real division_z):
     m_nw_split(TileCornerElevations{
         elevations.north_west(),
-        elevations.south_west(),
         elevations.north_east(),
-        *elevations.south_east()},
+        elevations.south_east(),
+        *elevations.south_west()},
+        division_z) {}
+
+SouthEastOutCornerSplit::SouthEastOutCornerSplit
+    (const TileCornerElevations & elevations,
+     Real division_z):
+    m_nw_split(TileCornerElevations{
+        elevations.south_west(),
+        *elevations.south_east(),
+        elevations.north_east(),
+        elevations.north_west()},
         division_z) {}

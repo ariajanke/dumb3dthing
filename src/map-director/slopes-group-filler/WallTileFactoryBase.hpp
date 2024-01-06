@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #pragma once
-
+#if 0
 #include "SlopesBasedTileFactory.hpp"
 
 #include "../../RenderModel.hpp"
@@ -265,3 +265,4 @@ private:
     static GraphicMap s_bottom_graphics_cache;
     static const TileTexture s_default_texture;
 };
+#endif

@@ -151,7 +151,7 @@ public:
                 }
                 throw RuntimeError{""};
             } ();
-            append_vertex(vtx.point, Vector2{t, vtx.strip_position});
+            append_vertex(vtx.point, Vector2{t, vtx.strip_position.value_or(0)});
         }
     }
 

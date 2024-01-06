@@ -110,6 +110,14 @@ public:
 
 #   endif
     virtual void add_triangle(const StripTriangle &) = 0;
+
+private:
+    void triangle_strip
+        (const Vector & a_point,
+         const Vector & b_start,
+         const Vector & b_last,
+         StripVertex::StripSide a_side,
+         int steps_count);
 };
 
 // ----------------------------------------------------------------------------
@@ -252,17 +260,17 @@ class TransformedTwoWaySplit : public TwoWaySplit {
 public:
     void make_top(LinearStripTriangleCollection & col) const final {
         TransformedTriangleStripType impl{col};
-        original_split().make_top(col);
+        original_split().make_top(impl);
     }
 
     void make_bottom(LinearStripTriangleCollection & col) const final {
         TransformedTriangleStripType impl{col};
-        original_split().make_bottom(col);
+        original_split().make_bottom(impl);
     }
 
     void make_wall(LinearStripTriangleCollection & col) const final {
         TransformedTriangleStripType impl{col};
-        original_split().make_wall(col);
+        original_split().make_wall(impl);
     }
 
 protected:

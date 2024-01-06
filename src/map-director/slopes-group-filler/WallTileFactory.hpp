@@ -19,7 +19,7 @@
 *****************************************************************************/
 
 #pragma once
-
+#if 0
 #include "WallTileFactoryBase.hpp"
 
 class TwoWayWallTileFactory final : public WallTileFactoryBase {
@@ -63,3 +63,4 @@ class OutWallTileFactory final : public CornerWallTileFactory {
 
     void make_triangles(const Slopes &, Real thershold, SplitOpt, const TriangleAdder &) const final;
 };
+#endif

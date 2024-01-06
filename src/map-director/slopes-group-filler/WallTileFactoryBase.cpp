@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #include "WallTileFactoryBase.hpp"
 
 #include "../ProducableGrid.hpp"
@@ -413,3 +413,4 @@ WallTileFactoryBase::make_wall_graphics
 
 /* protected */ TileTexture WallTileFactoryBase::wall_texture() const
     { return m_wall_texture_coords; }
+#endif

@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #include "RampTileFactory.hpp"
 
 #include "../ProducableGrid.hpp"
@@ -94,3 +94,4 @@ void SingleModelSlopedTileFactory::operator ()
     } ();
     m_slopes = half_pi_rotations(k_non_rotated_slopes, n);
 }
+#endif

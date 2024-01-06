@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #pragma once
 
 #include "SlopesBasedTileFactory.hpp"
@@ -124,3 +124,4 @@ template <typename T>
     s_positions = std::vector<Vector>{pts.begin(), pts.end()};
     return get_model_positions_and_elements_<T>(slopes);
 }
+#endif

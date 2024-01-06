@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #include "WallTileFactory.hpp"
 
 namespace {
@@ -658,3 +658,4 @@ void make_linear_triangle_strip
 }
 
 } // end of <anonymous> namespace
+#endif

@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #pragma once
 
 #include "../TileFactory.hpp"
@@ -162,3 +162,4 @@ CardinalDirection cardinal_direction_from(const std::string & str);
 CardinalDirection cardinal_direction_from(const std::string * str);
 
 CardinalDirection cardinal_direction_from(const char * str);
+#endif

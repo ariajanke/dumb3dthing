@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
-
+#if 0
 #include "SlopesBasedTileFactory.hpp"
 #include "../TilesetPropertiesGrid.hpp"
 
@@ -170,3 +170,4 @@ CardinalDirection cardinal_direction_from(const char * str) {
          "\" to a cardinal direction"};
 }
 
+#endif
