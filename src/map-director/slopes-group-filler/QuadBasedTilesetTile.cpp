@@ -18,16 +18,20 @@
 
 *****************************************************************************/
 
-#include "FlatTilesetTile.hpp"
+#include "QuadBasedTilesetTile.hpp"
 
 #include "../MapTileset.hpp"
 
 #include "../../RenderModel.hpp"
 #include "../../TriangleSegment.hpp"
 
+#include <map>
+
 namespace {
 
 using FlatVertexArray = QuadBasedTilesetTile::FlatVertexArray;
+
+Optional<CardinalDirection> cardinal_direction_from(const char * nullable_str);
 
 } // end of <anonymous> namespace
 
@@ -55,7 +59,16 @@ using FlatVertexArray = QuadBasedTilesetTile::FlatVertexArray;
          Vertex{k_points[k_north_east_index], tileset_tile_tx.north_east()}};
 }
 
-const TileCornerElevations & QuadBasedTilesetTile::corner_elevations() const
+/* static */ void QuadBasedTilesetTile::default_ramp_properties_loader_strategy
+    (const WithPropertiesLoader &)
+{
+    throw RuntimeError{"properties loader strategy not set"};
+}
+
+QuadBasedTilesetTile::QuadBasedTilesetTile(RampPropertiesLoaderStrategy strat):
+    m_properties_loader_strategy(strat) {}
+
+TileCornerElevations QuadBasedTilesetTile::corner_elevations() const
     { return m_corner_elevations; }
 
 void QuadBasedTilesetTile::make(ProducableTileCallbacks & callbacks) const {
@@ -74,6 +87,11 @@ void QuadBasedTilesetTile::make(ProducableTileCallbacks & callbacks) const {
          m_vertices[m_elements[5]].position});
 }
 
+void QuadBasedTilesetTile::make
+    (const NeighborCornerElevations &,
+     ProducableTileCallbacks & callbacks) const
+{ make(callbacks); }
+
 void QuadBasedTilesetTile::setup
     (const TilesetTileTexture & tileset_tile_texture,
      const TileCornerElevations & elevations,
@@ -83,19 +101,23 @@ void QuadBasedTilesetTile::setup
     const auto vertices = elevate(make_vertices(tileset_tile_texture), elevations);
 
     model->load
-        (vertices.begin(), vertices.end(), m_elements.begin(), m_elements.end());
+        (vertices.begin(), vertices.end(), m_elements.cbegin(), m_elements.cend());
     m_corner_elevations = elevations;
     m_texture_ptr = tileset_tile_texture.texture();
     m_render_model = model;
     m_vertices = vertices;
 }
 
-void QuadBasedTilesetTile::setup
-    (const TilesetTileTexture & tileset_tile_texture,
-     const RampPropertiesLoaderBase & ramp_properties,
+void QuadBasedTilesetTile::load
+    (const MapTilesetTile & tileset_tile,
+     const TilesetTileTexture & tile_texture,
      PlatformAssetsStrategy & platform)
 {
-
+    with_loader([&, this](RampPropertiesLoaderBase & loader) {
+        loader.load(tileset_tile);
+        set_orientation(loader.elements_orientation());
+        setup(tile_texture, loader.corner_elevations(), platform);
+    });
 }
 
 void QuadBasedTilesetTile::set_orientation(Orientation orientation) {
@@ -110,9 +132,27 @@ void QuadBasedTilesetTile::set_orientation(Orientation orientation) {
     }
 }
 
+template <typename Func>
+/* private */ void QuadBasedTilesetTile::with_loader(Func && f) const {
+    class Impl final : public WithPropertiesLoader {
+    public:
+        explicit Impl(Func && f_): m_f(std::move(f_)) {}
+
+        void operator() (RampPropertiesLoaderBase & base) const final
+            { m_f(base); }
+
+    private:
+        Func m_f;
+    };
+
+    Impl impl{std::move(f)};
+    m_properties_loader_strategy(impl);
+}
+
 // ----------------------------------------------------------------------------
 
-/* static */ Optional<TileCornerElevations> FlatTilesetTile::read_elevation_of
+/* static */ Optional<TileCornerElevations>
+    RampPropertiesLoaderBase::read_elevation_of
     (const MapTilesetTile & tileset_tile)
 {
     if (auto elv = tileset_tile.get_numeric_property<Real>("elevation")) {
@@ -121,22 +161,63 @@ void QuadBasedTilesetTile::set_orientation(Orientation orientation) {
     return {};
 }
 
-void FlatTilesetTile::load
-    (const MapTilesetTile & tileset_tile,
-     const TilesetTileTexture & tileset_tile_texture,
-     PlatformAssetsStrategy & platform)
+/* static */ Optional<CardinalDirection>
+    RampPropertiesLoaderBase::read_direction_of
+    (const MapTilesetTile & tileset_tile)
 {
-    auto elevations = read_elevation_of(tileset_tile);
-    if (!elevations) {
-        throw RuntimeError("I forgor to handle elevation not being defined");
-    }
-    m_quad_tileset_tile.setup(tileset_tile_texture, *elevations, platform);
+    return cardinal_direction_from
+        (tileset_tile.get_string_property("direction"));
 }
 
-TileCornerElevations FlatTilesetTile::corner_elevations() const
-    { return m_quad_tileset_tile.corner_elevations(); }
+void RampPropertiesLoaderBase::load(const MapTilesetTile & tile) {
+    auto elevations = read_elevation_of(tile);
+    auto direction  = read_direction_of(tile);
+    if (elevations) {
+        m_elevations = *elevations;
+    } else {
+        m_elevations = TileCornerElevations{};
+    }
+    if (direction) {
+        m_elevations = m_elevations.add(elevation_offsets_for(*direction));
+        m_orientation = orientation_for(*direction);
+    }
+}
 
-void FlatTilesetTile::make
-    (const NeighborCornerElevations &,
-     ProducableTileCallbacks & callbacks) const
-{ m_quad_tileset_tile.make(callbacks); }
+const TileCornerElevations & RampPropertiesLoaderBase::corner_elevations() const
+    { return m_elevations; }
+
+namespace {
+
+Optional<CardinalDirection> cardinal_direction_from(const char * nullable_str) {
+    static const auto k_strings_as_directions = [] {
+        using Cd = CardinalDirection;
+        std::map<std::string, CardinalDirection> rv {
+            { "n"         , Cd::north      },
+            { "s"         , Cd::south      },
+            { "e"         , Cd::east       },
+            { "w"         , Cd::west       },
+            { "ne"        , Cd::north_east },
+            { "nw"        , Cd::north_west },
+            { "se"        , Cd::south_east },
+            { "sw"        , Cd::south_west },
+            { "north"     , Cd::north      },
+            { "south"     , Cd::south      },
+            { "east"      , Cd::east       },
+            { "west"      , Cd::west       },
+            { "north-east", Cd::north_east },
+            { "north-west", Cd::north_west },
+            { "south-east", Cd::south_east },
+            { "south-west", Cd::south_west },
+        };
+        return rv;
+    } ();
+    if (nullable_str) {
+        auto itr = k_strings_as_directions.find(nullable_str);
+        if (itr != k_strings_as_directions.end()) {
+            return itr->second;
+        }
+    }
+    return {};
+}
+
+} // end of <anonymous> namespace

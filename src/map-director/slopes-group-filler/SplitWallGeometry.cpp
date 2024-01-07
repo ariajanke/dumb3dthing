@@ -103,7 +103,6 @@ void LinearStripTriangleCollection::make_strip
     auto b_side_pt = [b_start, b_last] (Real t)
         { return b_start*(1 - t) + b_last*t; };
     auto normal_step = [this, &a_side_pt, &b_side_pt] (Real last, Real next) {
-
         add_triangle(StripTriangle
             {StripVertex{a_side_pt(last), last, StripSide::a},
              StripVertex{b_side_pt(last), last, StripSide::b},

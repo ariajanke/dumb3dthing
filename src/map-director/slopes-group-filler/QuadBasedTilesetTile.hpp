@@ -53,13 +53,18 @@ private:
 
 // ----------------------------------------------------------------------------
 
-// ----------------------------------------------------------------------------
-
-class QuadBasedTilesetTile final {
+class QuadBasedTilesetTile final : public SlopesTilesetTile {
 public:
     using FlatVertexArray = std::array<Vertex, 4>;
     using ElementArray = std::array<unsigned, 6>;
     enum class Orientation { nw_to_se_elements, sw_to_ne_elements, any_elements };
+    class WithPropertiesLoader {
+    public:
+        virtual ~WithPropertiesLoader() {}
+
+        virtual void operator() (RampPropertiesLoaderBase &) const = 0;
+    };
+    using RampPropertiesLoaderStrategy = void(*)(const WithPropertiesLoader &);
 
     static constexpr const std::size_t k_north_west_index = 0;
     static constexpr const std::size_t k_south_west_index = 1;
@@ -86,23 +91,38 @@ public:
 
     static FlatVertexArray make_vertices(const TilesetTileTexture &);
 
-    const TileCornerElevations & corner_elevations() const;
+    static void default_ramp_properties_loader_strategy(const WithPropertiesLoader &);
+
+    QuadBasedTilesetTile() {}
+
+    QuadBasedTilesetTile(RampPropertiesLoaderStrategy);
+
+    TileCornerElevations corner_elevations() const final;
 
     void make(ProducableTileCallbacks & callbacks) const;
+
+    void make
+        (const NeighborCornerElevations &,
+         ProducableTileCallbacks & callbacks) const final;
+
+    void load
+        (const MapTilesetTile &,
+         const TilesetTileTexture &,
+         PlatformAssetsStrategy & platform) final;
 
     void setup
         (const TilesetTileTexture & tileset_tile_texture,
          const TileCornerElevations & elevations,
          PlatformAssetsStrategy & platform);
 
-    void setup
-        (const TilesetTileTexture & tileset_tile_texture,
-         const RampPropertiesLoaderBase & ramp_properties,
-         PlatformAssetsStrategy & platform);
-
     void set_orientation(Orientation);
 
 private:
+    template <typename Func>
+    void with_loader(Func && f) const;
+
+    RampPropertiesLoaderStrategy m_properties_loader_strategy =
+        default_ramp_properties_loader_strategy;
     ElementArray m_elements = k_any_quad_elements;
     TileCornerElevations m_corner_elevations;
     FlatVertexArray m_vertices;
@@ -112,22 +132,49 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class FlatTilesetTile final : public SlopesTilesetTile {
+class RampPropertiesLoaderBase {
 public:
+    using WithPropertiesLoader = QuadBasedTilesetTile::WithPropertiesLoader;
+    using Orientation = QuadBasedTilesetTile::Orientation;
+
     static Optional<TileCornerElevations>
         read_elevation_of(const MapTilesetTile &);
 
-    void load
-        (const MapTilesetTile &,
-         const TilesetTileTexture &,
-         PlatformAssetsStrategy & platform) final;
+    static Optional<CardinalDirection> read_direction_of
+        (const MapTilesetTile &);
 
-    TileCornerElevations corner_elevations() const final;
+    virtual ~RampPropertiesLoaderBase() {}
 
-    void make
-        (const NeighborCornerElevations & neighboring_elevations,
-         ProducableTileCallbacks & callbacks) const;
+    void load(const MapTilesetTile & tile);
+
+    Orientation elements_orientation() const { return m_orientation; }
+
+    const TileCornerElevations & corner_elevations() const;
+
+protected:
+    virtual TileCornerElevations elevation_offsets_for
+        (CardinalDirection direction) const = 0;
+
+    virtual Orientation orientation_for(CardinalDirection) const = 0;
 
 private:
-    QuadBasedTilesetTile m_quad_tileset_tile;
+    Orientation m_orientation = Orientation::any_elements;
+    TileCornerElevations m_elevations;
+};
+
+// ----------------------------------------------------------------------------
+
+class FlatPropertiesLoader final : public RampPropertiesLoaderBase {
+public:
+    static void instantiate_for(const WithPropertiesLoader & with_loader) {
+        FlatPropertiesLoader loader;
+        with_loader(loader);
+    }
+
+    TileCornerElevations elevation_offsets_for
+        (CardinalDirection) const final
+    { return TileCornerElevations{0, 0, 0, 0}; }
+
+    Orientation orientation_for(CardinalDirection) const final
+        { return Orientation::any_elements; }
 };

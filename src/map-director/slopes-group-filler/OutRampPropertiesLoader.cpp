@@ -18,8 +18,7 @@
 
 *****************************************************************************/
 
-#include "OutRampTilesetTile.hpp"
-#include "RampTilesetTile.hpp"
+#include "OutRampPropertiesLoader.hpp"
 
 namespace {
 
@@ -54,23 +53,3 @@ Orientation OutRampPropertiesLoader::orientation_for
         throw InvalidArgument{"direction bad"};
     }
 }
-
-// ----------------------------------------------------------------------------
-
-void OutRampTilesetTile::load
-    (const MapTilesetTile & map_tileset_tile,
-     const TilesetTileTexture & tileset_texture,
-     PlatformAssetsStrategy & platform)
-{
-    OutRampPropertiesLoader loader;
-    loader.load(map_tileset_tile);
-    m_quad_tile.set_orientation(loader.elements_orientation());
-    m_quad_tile.setup(tileset_texture, loader.corner_elevations(), platform);
-}
-
-TileCornerElevations OutRampTilesetTile::corner_elevations() const
-    { return m_quad_tile.corner_elevations(); }
-
-void OutRampTilesetTile::make
-    (const NeighborCornerElevations &, ProducableTileCallbacks & callbacks) const
-{ m_quad_tile.make(callbacks); }

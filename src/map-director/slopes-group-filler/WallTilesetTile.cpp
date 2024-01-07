@@ -19,8 +19,7 @@
 *****************************************************************************/
 
 #include "WallTilesetTile.hpp"
-#include "FlatTilesetTile.hpp"
-#include "RampTilesetTile.hpp"
+#include "QuadBasedTilesetTile.hpp"
 
 #include "../MapTileset.hpp"
 
@@ -148,9 +147,9 @@ void WallTilesetTile::load
      const TilesetTileTexture & tile_texture,
      PlatformAssetsStrategy & platform)
 {
-    auto elevations = FlatTilesetTile::read_elevation_of(map_tileset_tile)->
+    auto elevations = RampPropertiesLoaderBase::read_elevation_of(map_tileset_tile)->
         add(TileCornerElevations{1, 1, 1, 1});
-    auto direction  = RampTileseTile ::read_direction_of(map_tileset_tile);
+    auto direction  = RampPropertiesLoaderBase::read_direction_of(map_tileset_tile);
     m_startegy = &m_strategy_source(*direction);
 
     if (auto wid = map_tileset_tile.get_numeric_property<int>("wall-texture")) {

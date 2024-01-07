@@ -19,10 +19,10 @@
 *****************************************************************************/
 
 #include "SlopeGroupFiller.hpp"
-#include "FlatTilesetTile.hpp"
-#include "RampTilesetTile.hpp"
-#include "OutRampTilesetTile.hpp"
-#include "InRampTilesetTile.hpp"
+#include "QuadBasedTilesetTile.hpp"
+#include "RampPropertiesLoader.hpp"
+#include "OutRampPropertiesLoader.hpp"
+#include "InRampPropertiesLoader.hpp"
 #include "WallTilesetTile.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../MapTileset.hpp"
@@ -70,7 +70,6 @@ public:
             { return TileCornerElevations{}; }
         return (*m_producables)(r);
     }
-
 
 private:
     const Grid<TileCornerElevations> * m_producables = nullptr;
@@ -174,16 +173,21 @@ SharedPtr<SlopesTilesetTile> make_in_corner_wall() {
         (NorthWestInCornerSplit::choose_in_wall_strategy);
 }
 
+template <QuadBasedTilesetTile::RampPropertiesLoaderStrategy kt_strat>
+SharedPtr<SlopesTilesetTile> make_ramp() {
+    return make_shared<QuadBasedTilesetTile>(kt_strat);
+}
+
 } // end of <anonymous> namespace
 
 /* static */ const TilesetTileMakerMap & SlopeGroupFiller::builtin_makers() {
     using namespace slopes_group_filler_type_names;
     using Rt = SharedPtr<SlopesTilesetTile>;
     static TilesetTileMakerMap map {
-        { k_flat    , make_slopes_creator<FlatTilesetTile   >() },
-        { k_ramp    , make_slopes_creator<RampTileseTile    >() },
-        { k_out_ramp, make_slopes_creator<OutRampTilesetTile>() },
-        { k_in_ramp , make_slopes_creator<InRampTilesetTile >() },
+        { k_flat    , make_ramp<FlatPropertiesLoader::instantiate_for> },
+        { k_ramp    , make_ramp<RampPropertiesLoader::instantiate_for> },
+        { k_out_ramp, make_ramp<OutRampPropertiesLoader::instantiate_for> },
+        { k_in_ramp , make_ramp<InRampPropertiesLoader::instantiate_for> },
         { k_wall    , make_two_way_wall },
         { k_out_wall, make_out_corner_wall },
         { k_in_wall , make_in_corner_wall }

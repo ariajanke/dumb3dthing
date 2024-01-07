@@ -20,30 +20,17 @@
 
 #pragma once
 
-#include "RampTilesetTile.hpp"
+#include "QuadBasedTilesetTile.hpp"
 
-class OutRampPropertiesLoader final : public RampPropertiesLoaderBase {
-private:
-    TileCornerElevations elevation_offsets_for(CardinalDirection) const final;
-
-    Orientation orientation_for(CardinalDirection) const final;
-};
-
-// ----------------------------------------------------------------------------
-
-class OutRampTilesetTile final : public SlopesTilesetTile {
+class InRampPropertiesLoader final : public RampPropertiesLoaderBase {
 public:
-    void load
-        (const MapTilesetTile &,
-         const TilesetTileTexture &,
-         PlatformAssetsStrategy & platform) final;
+    static void instantiate_for(const WithPropertiesLoader & with_loader) {
+        InRampPropertiesLoader loader;
+        with_loader(loader);
+    }
 
-    TileCornerElevations corner_elevations() const final;
+    TileCornerElevations elevation_offsets_for
+        (CardinalDirection direction) const final;
 
-    void make
-        (const NeighborCornerElevations &,
-         ProducableTileCallbacks & callbacks) const;
-
-private:
-    QuadBasedTilesetTile m_quad_tile;
+    Orientation orientation_for(CardinalDirection direction) const final;
 };
