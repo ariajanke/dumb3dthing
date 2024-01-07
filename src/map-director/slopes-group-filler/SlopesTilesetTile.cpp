@@ -32,6 +32,18 @@ Optional<Real> first_of(Optional<Real> a, Optional<Real> b, Optional<Real> c) {
 
 } // end of <anonymous> namespace
 
+/* static */ NeighborCornerElevations::NeighborElevations &
+    NeighborCornerElevations::NeighborElevations::null_instance()
+{
+    class Impl final : public NeighborElevations {
+        TileCornerElevations elevations_from
+            (const Vector2I &, CardinalDirection) const final
+        { throw RuntimeError{""}; }
+    };
+    static Impl impl;
+    return impl;
+}
+
 Optional<Real> NeighborCornerElevations::north_east() const {
     using Cd = CardinalDirection;
     return first_of
@@ -67,6 +79,83 @@ Optional<Real> NeighborCornerElevations::south_west() const {
 /* private */ TileCornerElevations NeighborCornerElevations::elevations_from
     (CardinalDirection cd) const
 { return m_neighbors->elevations_from(m_location, cd); }
+
+// ----------------------------------------------------------------------------
+
+TileCornerElevations::TileCornerElevations
+    (Optional<Real> ne_,
+     Optional<Real> nw_,
+     Optional<Real> sw_,
+     Optional<Real> se_):
+    m_nw(nw_.value_or(k_inf)),
+    m_ne(ne_.value_or(k_inf)),
+    m_sw(sw_.value_or(k_inf)),
+    m_se(se_.value_or(k_inf)) {}
+
+bool TileCornerElevations::operator == (const TileCornerElevations & rhs) const noexcept
+    { return are_same(rhs); }
+
+bool TileCornerElevations::operator != (const TileCornerElevations & rhs) const noexcept
+    { return !are_same(rhs); }
+
+TileCornerElevations TileCornerElevations::add
+    (const TileCornerElevations & rhs) const
+{
+    return TileCornerElevations
+        {add(north_east(), rhs.north_east()),
+         add(north_west(), rhs.north_west()),
+         add(south_west(), rhs.south_west()),
+         add(south_east(), rhs.south_east())};
+}
+
+TileCornerElevations TileCornerElevations::value_or
+    (const NeighborCornerElevations & rhs) const
+{
+    using Nce = NeighborCornerElevations;
+    return TileCornerElevations
+        {value_or<&Nce::north_east>(north_east(), rhs),
+         value_or<&Nce::north_west>(north_west(), rhs),
+         value_or<&Nce::south_west>(south_west(), rhs),
+         value_or<&Nce::south_east>(south_east(), rhs)};
+}
+
+/* private static */ Optional<Real> TileCornerElevations::add
+    (const Optional<Real> & lhs, const Optional<Real> & rhs)
+{
+    if (!lhs && !rhs)
+        { return {}; }
+    return lhs.value_or(0) + rhs.value_or(0);
+}
+
+/* private static */ Optional<Real> TileCornerElevations::value_or
+    (const Optional<Real> & lhs, const Optional<Real> & rhs)
+{ return lhs ? lhs : rhs; }
+
+template <Optional<Real>(NeighborCornerElevations::*kt_corner_f)() const>
+/* private static */ Optional<Real> TileCornerElevations::value_or
+    (const Optional<Real> & lhs, const NeighborCornerElevations & rhs)
+{
+    if (lhs) {
+        return lhs;
+    }
+    return (rhs.*kt_corner_f)();
+}
+
+/* private static */ Optional<Real> TileCornerElevations::as_optional(Real r) {
+    if (std::equal_to<Real>{}(r, k_inf))
+        { return {}; }
+    return r;
+}
+
+/* private */ bool TileCornerElevations::are_same
+    (const TileCornerElevations & rhs) const noexcept
+{
+    using Fe = std::equal_to<Real>;
+    return    Fe{}(m_nw, rhs.m_nw) && Fe{}(m_ne, rhs.m_ne)
+           && Fe{}(m_sw, rhs.m_sw) && Fe{}(m_se, rhs.m_se);
+}
+
+// ----------------------------------------------------------------------------
 
 void TilesetTileTexture::load_texture
     (const MapTileset & map_tileset, PlatformAssetsStrategy & platform)

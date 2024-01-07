@@ -20,7 +20,6 @@
 
 #include "RampTilesetTile.hpp"
 
-#include "../TilesetPropertiesGrid.hpp"
 #include "../MapTileset.hpp"
 
 #include <map>
@@ -98,6 +97,7 @@ void RampTileseTile::load
 {
     RampPropertiesLoader loader;
     loader.load(tileset_tile);
+    m_quad_tileset_tile.set_orientation(loader.elements_orientation());
     m_quad_tileset_tile.
         setup(tileset_tile_texture, loader.corner_elevations(), platform);
 }

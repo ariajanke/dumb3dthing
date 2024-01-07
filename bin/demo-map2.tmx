@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="40" height="40" tilewidth="32" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="1">
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="40" height="40" tilewidth="32" tileheight="32" infinite="0" nextlayerid="4" nextobjectid="2">
  <properties>
   <property name="loader:east" value="whole:test-map2.tmx"/>
   <property name="loader:north" value="whole:test-map2.tmx"/>
@@ -52,6 +52,16 @@
 38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38
 </data>
  </layer>
+ <objectgroup id="3" name="Object Layer 1">
+  <object id="1" name="player-spawn-point" type="player-spawn-point" x="333.019" y="338.116">
+   <properties>
+    <property name="elevation" value="8"/>
+    <property name="wave" type="int" value="5"/>
+    <property name="will-fight" value="property:enemy-of"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
  <layer id="2" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

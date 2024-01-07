@@ -21,7 +21,6 @@
 #include "ProducablesTileset.hpp"
 #include "../MapTileset.hpp"
 
-#include "../TilesetPropertiesGrid.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../twist-loop-filler.hpp"
 
@@ -37,11 +36,7 @@ struct MakeFillerGridRt final {
     Grid<SharedPtr<ProducableGroupFiller>> grid;
     std::vector<SharedPtr<const ProducableGroupFiller>> unique_fillers;
 };
-#if 0
-std::vector<Tuple<Vector2I, FillerFactory>>
-    make_factory_grid_positions
-    (const TilesetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories);
-#endif
+
 std::vector<Tuple<Vector2I, FillerFactory>>
     make_factory_grid_positions
     (const MapTileset & map_tileset, const FillerFactoryMap & filler_factories);
@@ -49,12 +44,7 @@ std::vector<Tuple<Vector2I, FillerFactory>>
 std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
     find_unique_factories_and_positions
     (std::vector<Tuple<Vector2I, FillerFactory>> && factory_grid_positions);
-#if 0
-MakeFillerGridRt make_filler_grid
-    (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TilesetXmlGrid & xml_grid,
-     MapContentLoader & platform);
-#endif
+
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
      const MapTileset &,
@@ -86,17 +76,8 @@ Continuation & ProducablesTileset::load
 {
     MapTileset map_tileset;
     map_tileset.load(tileset_el);
-#   if 0
-    TilesetXmlGrid xml_grid;
-    xml_grid.load(content_loader.make_texture(), *tileset_el);
-    auto factory_and_locations = find_unique_factories_and_positions
-        (make_factory_grid_positions(xml_grid, content_loader.map_fillers()));
-#   endif
     auto factory_and_locations = find_unique_factories_and_positions
         (make_factory_grid_positions(map_tileset, content_loader.map_fillers()));
-#   if 0
-    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, content_loader);
-#   endif
     auto filler_things = make_filler_grid
         (factory_and_locations, map_tileset, content_loader);
     m_filler_grid = std::move(filler_things.grid);
@@ -184,31 +165,6 @@ std::vector<Tuple<Vector2I, FillerFactory>>
     }
     return factory_grid_positions;
 }
-#if 0
-std::vector<Tuple<Vector2I, FillerFactory>>
-    make_factory_grid_positions
-    (const TilesetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories)
-{
-    std::vector<Tuple<Vector2I, FillerFactory>> factory_grid_positions;
-    factory_grid_positions.reserve(xml_grid.size());
-    for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
-        const auto & el = xml_grid(r);
-        if (el.is_empty()) continue;
-        auto & type = el.type();
-        auto itr = filler_factories.find(type);
-        if (itr == filler_factories.end()) {
-            // warn maybe, but don't error
-            continue;
-        }
-        if (!itr->second) {
-            throw InvalidArgument
-                {"TileSet::load: no filler factory maybe nullptr"};
-        }
-        factory_grid_positions.emplace_back(r, itr->second);
-    }
-    return factory_grid_positions;
-}
-#endif
 
 std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
     find_unique_factories_and_positions
@@ -233,26 +189,7 @@ std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
     }
     return factory_and_locations;
 }
-#if 0
-MakeFillerGridRt make_filler_grid
-    (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TilesetXmlGrid & xml_grid,
-     MapContentLoader & platform)
-{
-    MakeFillerGridRt rv;
-    auto & filler_grid = rv.grid;
-    auto & filler_instances = rv.unique_fillers;
-    filler_grid.set_size(xml_grid.size2(), nullptr);
-    for (auto & [factory, locations] : factory_and_locations) {
-        auto filler = (*factory)(xml_grid, platform);
-        filler_instances.emplace_back(filler);
-        for (auto r : locations) {
-            filler_grid(r) = filler;
-        }
-    }
-    return rv;
-}
-#endif
+
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
      const MapTileset & map_tileset,

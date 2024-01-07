@@ -227,22 +227,3 @@ public:
              {}};
     }
 };
-#if 0
-// ----------------------------------------------------------------------------
-
-class NullGeometryGenerationStrategy final :
-    public SplitWallGeometry::GeometryGenerationStrategy
-{
-    void with_splitter_do
-        (const TileCornerElevations &,
-         Real,
-         const SplitWallGeometry::WithSplitWallGeometry &) const final
-    {}
-
-    TileCornerElevations filter_to_known_corners
-        (TileCornerElevations elevations) const final
-    {
-        return TileCornerElevations{};
-    }
-};
-#endif

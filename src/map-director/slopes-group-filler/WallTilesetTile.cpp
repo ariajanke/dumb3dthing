@@ -30,93 +30,6 @@
 
 namespace {
 
-// may or may not keep?
-class TriangleToVertexStrategies {
-public:
-    using VertexTriangle = std::array<Vertex, 3>;
-    using StrategyFunction = VertexTriangle(*)(const TriangleSegment &);
-
-    static VertexTriangle all_zeroed(const TriangleSegment & triangle) {
-        return spacial_position_populated_vertices(triangle);
-    }
-
-    static VertexTriangle lie_on_y_plane(const TriangleSegment & triangle) {
-        return texture_positioned_vertices_from_spacial<get_x, get_z>
-            (spacial_position_populated_vertices(triangle));
-    }
-
-    static VertexTriangle lie_on_x_plane(const TriangleSegment & triangle) {
-        return texture_positioned_vertices_from_spacial<get_y, get_z>
-            (spacial_position_populated_vertices(triangle));
-    }
-
-    static VertexTriangle lie_on_z_plane(const TriangleSegment & triangle) {
-        return texture_positioned_vertices_from_spacial<get_x, get_y>
-            (spacial_position_populated_vertices(triangle));
-    }
-
-    static VertexTriangle spacial_position_populated_vertices
-        (const TriangleSegment & triangle)
-    {
-        VertexTriangle rv;
-        rv[0].position = triangle.point_a();
-        rv[1].position = triangle.point_b();
-        rv[2].position = triangle.point_c();
-        return rv;
-    }
-
-    template <Real(*kt_get_tx_x)(const Vector &), Real(*kt_get_tx_y)(const Vector &)>
-    static VertexTriangle texture_positioned_vertices_from_spacial
-        (VertexTriangle triangle)
-    {
-        return TexturePositioner<kt_get_tx_x, kt_get_tx_y>::
-            texture_positioned_vertices_from_spacial(triangle);
-    }
-
-private:
-    static Real get_x(const Vector & r) { return r.x; }
-
-    static Real get_y(const Vector & r) { return r.y; }
-
-    static Real get_z(const Vector & r) { return r.z; }
-
-    template <Real(*kt_get_tx_x)(const Vector &), Real(*kt_get_tx_y)(const Vector &)>
-    class TexturePositioner final {
-    public:
-        static VertexTriangle texture_positioned_vertices_from_spacial
-            (VertexTriangle triangle)
-        {
-            triangle[0] = on_first_and_mid(triangle[0]);
-            triangle[1] = on_first_and_mid(triangle[1]);
-            triangle[2] = on_last(triangle[2]);
-            return triangle;
-        }
-
-    private:
-        static Real interpolate_to_texture(Real t)
-            { return std::min(std::max(t + 0.5, 0.), 1.); }
-
-        static Real interpolate_for_last(Real t) {
-            return interpolate_to_texture(t);
-        }
-
-        static Vertex on_first_and_mid(Vertex vtx) {
-            vtx.texture_position.x = interpolate_to_texture( kt_get_tx_x(vtx.position) );
-            vtx.texture_position.y = 1 - interpolate_to_texture( kt_get_tx_y(vtx.position) );
-            return vtx;
-        }
-
-        static Vertex on_last(Vertex vtx) {
-            vtx.texture_position.x = interpolate_for_last( kt_get_tx_x(vtx.position) );
-            vtx.texture_position.y = 1 - interpolate_for_last( kt_get_tx_y(vtx.position) );
-            return vtx;
-        }
-    };
-
-private:
-    TriangleToVertexStrategies() {}
-};
-
 class LinearStripCollidablesAdapter final : public LinearStripTriangleCollection {
 public:
     explicit LinearStripCollidablesAdapter(ProducableTileCallbacks & callbacks_):
@@ -137,9 +50,6 @@ private:
 template <std::size_t kt_capacity_in_triangles>
 class LimitedLinearStripCollection final : public LinearStripTriangleCollection {
 public:
-    using VertexTriangle = TriangleToVertexStrategies::VertexTriangle;
-    using TextureMappingStrategyFunction = TriangleToVertexStrategies::StrategyFunction;
-
     void add_triangle(const StripTriangle & triangle) final {
         verify_space_for_three_additional();
         for (const auto & vtx : { triangle.vertex_a(), triangle.vertex_b(), triangle.vertex_c() }) {

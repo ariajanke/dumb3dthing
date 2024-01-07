@@ -21,12 +21,43 @@
 #pragma once
 
 #include "../ProducableGroupFiller.hpp"
-#include "../TilesetPropertiesGrid.hpp"
+#include "SlopesTilesetTile.hpp"
 
 #include <map>
 
 class SlopesTilesetTile;
 class MapTileset;
+
+class ProducableSlopesTile final : public ProducableTile {
+public:
+    ProducableSlopesTile() {}
+
+    explicit ProducableSlopesTile
+        (const SharedPtr<const SlopesTilesetTile> & tileset_tile_ptr):
+        m_tileset_tile_ptr(tileset_tile_ptr) {}
+
+    void set_neighboring_elevations(const NeighborCornerElevations & elvs) {
+        m_elevations = elvs;
+    }
+
+    void operator () (ProducableTileCallbacks & callbacks) const final {
+        if (m_tileset_tile_ptr)
+            m_tileset_tile_ptr->make(m_elevations, callbacks);
+    }
+
+private:
+    const SlopesTilesetTile & verify_tile_ptr() const {
+        if (m_tileset_tile_ptr)
+            { return *m_tileset_tile_ptr; }
+        throw RuntimeError
+            {"Accessor not available without setting tileset tile pointer"};
+    }
+
+    SharedPtr<const SlopesTilesetTile> m_tileset_tile_ptr;
+    NeighborCornerElevations m_elevations;
+};
+
+// ----------------------------------------------------------------------------
 
 class SlopeGroupFiller final : public ProducableGroupFiller {
 public:

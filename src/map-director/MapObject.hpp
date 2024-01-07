@@ -209,33 +209,14 @@ public:
          const MapObjectGroup & parent_group);
 
     MapObject() {}
-#   if 0
-    template <typename T>
-    EnableOptionalNumeric<T>
-        get_numeric(FieldType type, const char * name) const
-        { return m_values_map.get_numeric<T>(type, name); }
 
-    template <typename T>
-    EnableOptionalNumeric<T>
-        get_numeric_property(const char * name) const
-        { return m_values_map.get_numeric_property<T>(name); }
-
-    template <typename T>
-    EnableOptionalNumeric<T>
-        get_numeric_attribute(const char * name) const
-        { return m_values_map.get_numeric_attribute<T>(name); }
-#   endif
     const MapObjectGroup * get_group_property(const char * name) const;
 
     const MapObject * get_object_property(const char * name) const;
 
     View<MapObjectRefConstIterator> get_referrers() const
         { return m_parent_retrieval->seek_referrers_by_id(id()); }
-#   if 0
-    const char * get_string_property(const char * name) const;
 
-    const char * get_string_attribute(const char * name) const;
-#   endif
     const char * name() const;
 
     int id() const;
@@ -256,9 +237,6 @@ private:
              m_parent_group(&parent_group) {}
 
     const MapObjectGroup * m_parent_group = nullptr;
-#   if 0
-    MapElementValuesMap m_values_map;
-#   endif
     const MapObjectRetrieval * m_parent_retrieval = nullptr;
 };
 

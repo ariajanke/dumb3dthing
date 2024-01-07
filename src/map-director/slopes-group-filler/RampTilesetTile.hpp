@@ -25,7 +25,7 @@
 
 class RampPropertiesLoaderBase {
 public:
-    enum class Orientation { nw_to_se_elements, sw_to_ne_elements, any_elements };
+    using Orientation = QuadBasedTilesetTile::Orientation;
 
     virtual ~RampPropertiesLoaderBase() {}
 
@@ -42,7 +42,7 @@ protected:
     virtual Orientation orientation_for(CardinalDirection) const = 0;
 
 private:
-    Orientation m_orientation;
+    Orientation m_orientation = Orientation::any_elements;
     TileCornerElevations m_elevations;
 };
 

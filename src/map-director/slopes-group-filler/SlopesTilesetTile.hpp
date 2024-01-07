@@ -25,6 +25,11 @@
 #include "../ProducableGrid.hpp"
 
 class MapTilesetTile;
+class TileCornerElevations;
+class TilesetTileTexture;
+class MapTileset;
+
+// ----------------------------------------------------------------------------
 
 enum class CardinalDirection {
     north,
@@ -37,7 +42,7 @@ enum class CardinalDirection {
     north_east
 };
 
-class TileCornerElevations;
+// ----------------------------------------------------------------------------
 
 class NeighborCornerElevations final {
 public:
@@ -73,30 +78,21 @@ private:
     const NeighborElevations * m_neighbors = &NeighborElevations::null_instance();
 };
 
+// ----------------------------------------------------------------------------
 
 class TileCornerElevations final {
 public:
     TileCornerElevations() {}
 
     TileCornerElevations
-        (Real ne_, Real nw_, Real sw_, Real se_):
-        m_nw(nw_), m_ne(ne_), m_sw(sw_), m_se(se_) {}
-
-    TileCornerElevations
         (Optional<Real> ne_,
          Optional<Real> nw_,
          Optional<Real> sw_,
-         Optional<Real> se_):
-        m_nw(nw_.value_or(k_inf)),
-        m_ne(ne_.value_or(k_inf)),
-        m_sw(sw_.value_or(k_inf)),
-        m_se(se_.value_or(k_inf)) {}
+         Optional<Real> se_);
 
-    bool operator == (const TileCornerElevations & rhs) const noexcept
-        { return are_same(rhs); }
+    bool operator == (const TileCornerElevations & rhs) const noexcept;
 
-    bool operator != (const TileCornerElevations & rhs) const noexcept
-        { return !are_same(rhs); }
+    bool operator != (const TileCornerElevations & rhs) const noexcept;
 
     Optional<Real> north_east() const { return as_optional(m_ne); }
 
@@ -106,75 +102,29 @@ public:
 
     Optional<Real> south_west() const { return as_optional(m_sw); }
 
-    TileCornerElevations add(const TileCornerElevations & rhs) const {
-        return TileCornerElevations
-            {add(north_east(), rhs.north_east()),
-             add(north_west(), rhs.north_west()),
-             add(south_west(), rhs.south_west()),
-             add(south_east(), rhs.south_east())};
-    }
+    TileCornerElevations add(const TileCornerElevations &) const;
 
-    TileCornerElevations value_or(const NeighborCornerElevations & rhs) const {
-        using Nce = NeighborCornerElevations;
-        return TileCornerElevations
-            {value_or<&Nce::north_east>(north_east(), rhs),
-             value_or<&Nce::north_west>(north_west(), rhs),
-             value_or<&Nce::south_west>(south_west(), rhs),
-             value_or<&Nce::south_east>(south_east(), rhs)};
-    }
+    TileCornerElevations value_or(const NeighborCornerElevations &) const;
 
 private:
     static Optional<Real> add
-        (const Optional<Real> & lhs, const Optional<Real> & rhs)
-    {
-        if (!lhs && !rhs)
-            { return {}; }
-        return lhs.value_or(0) + rhs.value_or(0);
-    }
+        (const Optional<Real> & lhs, const Optional<Real> & rhs);
 
     static Optional<Real> value_or
-        (const Optional<Real> & lhs, const Optional<Real> & rhs)
-    { return lhs ? lhs : rhs; }
+        (const Optional<Real> & lhs, const Optional<Real> & rhs);
 
     template <Optional<Real>(NeighborCornerElevations::*kt_corner_f)() const>
     static Optional<Real> value_or
-        (const Optional<Real> & lhs, const NeighborCornerElevations & rhs)
-    {
-        if (lhs) {
-            return lhs;
-        }
-        return (rhs.*kt_corner_f)();
-    }
+        (const Optional<Real> & lhs, const NeighborCornerElevations & rhs);
 
+    static Optional<Real> as_optional(Real);
 
-    static Optional<Real> as_optional(Real r) {
-        if (std::equal_to<Real>{}(r, k_inf))
-            { return {}; }
-        return r;
-    }
-
-    bool are_same(const TileCornerElevations & rhs) const noexcept {
-        using Fe = std::equal_to<Real>;
-        return    Fe{}(m_nw, rhs.m_nw) && Fe{}(m_ne, rhs.m_ne)
-               && Fe{}(m_sw, rhs.m_sw) && Fe{}(m_se, rhs.m_se);
-    }
+    bool are_same(const TileCornerElevations &) const noexcept;
 
     Real m_nw = k_inf, m_ne = k_inf, m_sw = k_inf, m_se = k_inf;
 };
 
-/* static */ inline NeighborCornerElevations::NeighborElevations &
-    NeighborCornerElevations::NeighborElevations::null_instance()
-{
-    class Impl final : public NeighborElevations {
-        TileCornerElevations elevations_from
-            (const Vector2I &, CardinalDirection) const final
-        { throw RuntimeError{""}; }
-    };
-    static Impl impl;
-    return impl;
-}
-
-class TilesetTileTexture;
+// ----------------------------------------------------------------------------
 
 class SlopesTilesetTile {
 public:
@@ -191,7 +141,7 @@ public:
          ProducableTileCallbacks & callbacks) const = 0;
 };
 
-class MapTileset;
+// ----------------------------------------------------------------------------
 
 class TilesetTileTexture final {
 public:
@@ -217,33 +167,4 @@ private:
     SharedPtr<const Texture> m_texture;
     Vector2 m_north_west;
     Size2 m_tile_size_in_portions;
-};
-
-class ProducableSlopesTile final : public ProducableTile {
-public:
-    ProducableSlopesTile() {}
-
-    explicit ProducableSlopesTile
-        (const SharedPtr<const SlopesTilesetTile> & tileset_tile_ptr):
-        m_tileset_tile_ptr(tileset_tile_ptr) {}
-
-    void set_neighboring_elevations(const NeighborCornerElevations & elvs) {
-        m_elevations = elvs;
-    }
-
-    void operator () (ProducableTileCallbacks & callbacks) const final {
-        if (m_tileset_tile_ptr)
-            m_tileset_tile_ptr->make(m_elevations, callbacks);
-    }
-
-private:
-    const SlopesTilesetTile & verify_tile_ptr() const {
-        if (m_tileset_tile_ptr)
-            { return *m_tileset_tile_ptr; }
-        throw RuntimeError
-            {"Accessor not available without setting tileset tile pointer"};
-    }
-
-    SharedPtr<const SlopesTilesetTile> m_tileset_tile_ptr;
-    NeighborCornerElevations m_elevations;
 };

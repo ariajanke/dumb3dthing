@@ -24,6 +24,7 @@
 #include "../../RenderModel.hpp"
 
 class TileProperties;
+class RampPropertiesLoaderBase;
 
 template <typename ... Types>
 class TupleBuilder {
@@ -58,6 +59,7 @@ class QuadBasedTilesetTile final {
 public:
     using FlatVertexArray = std::array<Vertex, 4>;
     using ElementArray = std::array<unsigned, 6>;
+    enum class Orientation { nw_to_se_elements, sw_to_ne_elements, any_elements };
 
     static constexpr const std::size_t k_north_west_index = 0;
     static constexpr const std::size_t k_south_west_index = 1;
@@ -93,11 +95,12 @@ public:
          const TileCornerElevations & elevations,
          PlatformAssetsStrategy & platform);
 
-    void set_diagonal_to_nw_to_se()
-        { m_elements = k_nw_to_se_elements; }
+    void setup
+        (const TilesetTileTexture & tileset_tile_texture,
+         const RampPropertiesLoaderBase & ramp_properties,
+         PlatformAssetsStrategy & platform);
 
-    void set_diagonal_to_sw_to_ne()
-        { m_elements = k_sw_to_ne_elements; }
+    void set_orientation(Orientation);
 
 private:
     ElementArray m_elements = k_any_quad_elements;

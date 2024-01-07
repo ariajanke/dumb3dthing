@@ -7,6 +7,7 @@
  <tile id="0" type="in-ramp">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -20,12 +21,14 @@
  <tile id="2" type="in-ramp">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="3" type="in-ramp">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -39,6 +42,7 @@
  <tile id="5" type="in-ramp">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -124,6 +128,7 @@
  <tile id="18" type="in-ramp">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -137,12 +142,14 @@
  <tile id="20" type="in-ramp">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="21" type="in-ramp">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -156,6 +163,7 @@
  <tile id="23" type="in-ramp">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -371,12 +379,14 @@
  <tile id="54" type="out-ramp">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="55" type="out-ramp">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -388,12 +398,14 @@
  <tile id="57" type="out-ramp">
   <properties>
    <property name="direction" value="nw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="58" type="out-ramp">
   <properties>
    <property name="direction" value="ne"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
@@ -412,12 +424,14 @@
  <tile id="63" type="out-ramp">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
  <tile id="64" type="out-ramp">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="2"/>
    <property name="translation" value="0,2,0"/>
   </properties>
  </tile>
@@ -429,12 +443,14 @@
  <tile id="66" type="out-ramp">
   <properties>
    <property name="direction" value="sw"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>
  <tile id="67" type="out-ramp">
   <properties>
    <property name="direction" value="se"/>
+   <property name="elevation" value="1"/>
    <property name="translation" value="0,1,0"/>
   </properties>
  </tile>

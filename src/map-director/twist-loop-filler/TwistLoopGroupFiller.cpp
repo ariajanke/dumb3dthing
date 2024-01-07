@@ -20,8 +20,6 @@
 
 #include "TwistLoopGroupFiller.hpp"
 
-#include "../TileFactory.hpp"
-#include "../TilesetPropertiesGrid.hpp"
 #include "../twist-loop-filler.hpp"
 
 #include "../../Components.hpp"

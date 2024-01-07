@@ -64,11 +64,7 @@ void InRampTilesetTile::load
 {
     InRampPropertiesLoader loader;
     loader.load(map_tileset_tile);
-    if (loader.elements_orientation() == Orientation::nw_to_se_elements) {
-        m_quad_tile.set_diagonal_to_nw_to_se();
-    } else {
-        m_quad_tile.set_diagonal_to_sw_to_ne();
-    }
+    m_quad_tile.set_orientation(loader.elements_orientation());
     m_quad_tile.setup(tileset_texture, loader.corner_elevations(), platform);
 }
 

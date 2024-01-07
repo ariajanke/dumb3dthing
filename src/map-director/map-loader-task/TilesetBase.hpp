@@ -29,9 +29,7 @@
 #include "../../Tasks.hpp"
 
 #include <map>
-#if 0
-class TilesetXmlGrid;
-#endif
+
 class StackableSubRegionGrid;
 class TilesetMappingTile;
 class TilesetLayerWrapper;
@@ -57,11 +55,6 @@ public:
 
 class MapContentLoader : public PlatformAssetsStrategy {
 public:
-#   if 0
-    using FillerFactory =
-        SharedPtr<ProducableGroupFiller>(*)
-        (const TilesetXmlGrid &, PlatformAssetsStrategy &);
-#   endif
     using FillerFactory =
         SharedPtr<ProducableGroupFiller>(*)
         (const MapTileset &, PlatformAssetsStrategy &);

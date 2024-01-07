@@ -90,6 +90,26 @@ void QuadBasedTilesetTile::setup
     m_vertices = vertices;
 }
 
+void QuadBasedTilesetTile::setup
+    (const TilesetTileTexture & tileset_tile_texture,
+     const RampPropertiesLoaderBase & ramp_properties,
+     PlatformAssetsStrategy & platform)
+{
+
+}
+
+void QuadBasedTilesetTile::set_orientation(Orientation orientation) {
+    using O = Orientation;
+    switch (orientation) {
+    case O::any_elements: case O::nw_to_se_elements:
+        m_elements = k_nw_to_se_elements;
+        break;
+    case O::sw_to_ne_elements:
+        m_elements = k_sw_to_ne_elements;
+        break;
+    }
+}
+
 // ----------------------------------------------------------------------------
 
 /* static */ Optional<TileCornerElevations> FlatTilesetTile::read_elevation_of
