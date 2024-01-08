@@ -22,11 +22,51 @@
 #include "point-and-plane.hpp"
 #include "Components.hpp"
 
-void PlayerUpdateTask::on_every_frame(Callbacks &, Real) {
+#include "geometric-utilities.hpp"
+
+/* static */ void PlayerUpdateTask::rotate_camera(Entity & e, Real seconds) {
+    const auto * pcontrol = e.ptr<PlayerControl>();
+    auto * camera = e.ptr<Camera>();
+    auto * drag_camera = e.ptr<DragCamera>();
+    if (!camera || !pcontrol || !drag_camera)
+        { return; }
+    auto dir = pcontrol->camera_rotation_direction();
+    if (dir == 0)
+        { return; }
+    auto diff = camera->position - camera->target;
+    auto rotated = VectorRotater{camera->up}
+        (diff, k_camera_rotation_speed*seconds*dir);
+    drag_camera->position = rotated + camera->target;
+}
+
+/* static */ void PlayerUpdateTask::drag_camera(Entity & player) {
+    auto * ppstate = player.ptr<PpState>();
+    if (!ppstate)
+        { return; }
+
+    auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};
+    auto & cam = player.get<DragCamera>();
+    if (magnitude(cam.position - pos) > cam.max_distance) {
+        cam.position +=
+            normalize(pos - cam.position)*
+            (magnitude(cam.position - pos) - cam.max_distance);
+        assert(are_very_close( magnitude( cam.position - pos ), cam.max_distance ));
+    }
+
+    player.get<Camera>().target = location_of(player.get<PpState>());
+    player.get<Camera>().position = cam.position;
+}
+
+void PlayerUpdateTask::on_every_frame(Callbacks &, Real seconds) {
     if (!m_physics_ent)
         { throw RuntimeError{"Player entity deleted before its update task"}; }
     Entity physics_ent{m_physics_ent};
+    if (auto * pc = physics_ent.ptr<PlayerControl>()) {
+        pc->frame_update();
+    }
     check_fall_below(physics_ent);
+    rotate_camera(physics_ent, seconds);
+    drag_camera(physics_ent);
 }
 
 /* private static */ void PlayerUpdateTask::check_fall_below(Entity & ent) {

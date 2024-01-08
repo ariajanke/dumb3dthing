@@ -403,7 +403,10 @@ void EventProcessor::process_input(GLFWwindow * window) {
         std::make_pair(GLFW_KEY_O, KeyControl::advance   ),
         std::make_pair(GLFW_KEY_I, KeyControl::print_info),
 
-        std::make_pair(GLFW_KEY_F5, KeyControl::restart)
+        std::make_pair(GLFW_KEY_F5, KeyControl::restart  ),
+
+        std::make_pair(GLFW_KEY_Q , KeyControl::camera_left ),
+        std::make_pair(GLFW_KEY_E , KeyControl::camera_right),
     };
 
     for (const auto & [glfw_key, driver_key] : k_key_control_map) {
