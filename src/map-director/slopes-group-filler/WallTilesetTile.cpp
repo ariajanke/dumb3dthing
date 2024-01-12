@@ -175,9 +175,8 @@ void WallTilesetTile::load
     m_elevations = m_startegy->filter_to_known_corners(elevations);
 }
 
-TileCornerElevations WallTilesetTile::corner_elevations() const {
-    return m_elevations;
-}
+const TileCornerElevations & WallTilesetTile::corner_elevations() const
+    { return m_elevations; }
 
 void WallTilesetTile::make
     (const NeighborCornerElevations & neighboring_elevations,

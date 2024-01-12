@@ -97,7 +97,7 @@ public:
 
     QuadBasedTilesetTile(RampPropertiesLoaderStrategy);
 
-    TileCornerElevations corner_elevations() const final;
+    const TileCornerElevations & corner_elevations() const final;
 
     void make(ProducableTileCallbacks & callbacks) const;
 

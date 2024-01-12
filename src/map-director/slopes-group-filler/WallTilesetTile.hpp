@@ -76,7 +76,7 @@ public:
          const TilesetTileTexture &,
          PlatformAssetsStrategy & platform) final;
 
-    TileCornerElevations corner_elevations() const final;
+    const TileCornerElevations & corner_elevations() const final;
 
     void make
         (const NeighborCornerElevations & neighboring_elevations,

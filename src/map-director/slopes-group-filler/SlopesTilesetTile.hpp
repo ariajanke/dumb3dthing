@@ -133,7 +133,7 @@ public:
          const TilesetTileTexture &,
          PlatformAssetsStrategy & platform) = 0;
 
-    virtual TileCornerElevations corner_elevations() const = 0;
+    virtual const TileCornerElevations & corner_elevations() const = 0;
 
     // can add the optimization that producables are created from a vector
     virtual void make

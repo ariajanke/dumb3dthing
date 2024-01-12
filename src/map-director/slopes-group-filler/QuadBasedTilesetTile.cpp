@@ -68,7 +68,7 @@ Optional<CardinalDirection> cardinal_direction_from(const char * nullable_str);
 QuadBasedTilesetTile::QuadBasedTilesetTile(RampPropertiesLoaderStrategy strat):
     m_properties_loader_strategy(strat) {}
 
-TileCornerElevations QuadBasedTilesetTile::corner_elevations() const
+const TileCornerElevations & QuadBasedTilesetTile::corner_elevations() const
     { return m_corner_elevations; }
 
 void QuadBasedTilesetTile::make(ProducableTileCallbacks & callbacks) const {
