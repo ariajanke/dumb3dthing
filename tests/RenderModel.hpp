@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2023 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,28 +20,20 @@
 
 #pragma once
 
-#include "TilesetBase.hpp"
+#include "../src/RenderModel.hpp"
 
-#include "../CompositeMapRegion.hpp"
-
-class CompositeTileset final : public TilesetBase {
+class TestRenderModel final : public RenderModel {
 public:
-    // loading this: will have to go through steps of promises and so on
-    // in order to load, so it needs to be non-blocking
+    void render() const final {}
 
-    static Grid<const MapSubRegion *> to_layer
-        (const Grid<MapSubRegion> & sub_regions_grid,
-         const TilesetLayerWrapper &);
-
-    static Optional<Size2I> size_of_tileset(const TiXmlElement &);
-
-    Continuation & load(const DocumentOwningXmlElement &, MapContentLoader &) final;
-
-    void add_map_elements(TilesetMapElementCollector &, const TilesetLayerWrapper &) const final;
+    bool is_loaded() const noexcept final { return m_loaded; }
 
 private:
-    Size2I size2() const final { return m_sub_regions_grid->size2(); }
+    void load_(const Vertex   *, const Vertex   *,
+               const unsigned *, const unsigned *) final
+    {
+        m_loaded = true;
+    }
 
-    SharedPtr<Grid<MapSubRegion>> m_sub_regions_grid;
-    SharedPtr<MapRegion> m_source_map;
+    bool m_loaded = false;
 };

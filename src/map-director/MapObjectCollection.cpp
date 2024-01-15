@@ -72,14 +72,14 @@ View<MapObjectReferrers::MapObjectConstIterator>
 // ----------------------------------------------------------------------------
 
 /* static */ MapObjectCollection MapObjectCollection::load_from
-    (const DocumentOwningNode & map_element)
+    (const DocumentOwningXmlElement & map_element)
 {
     MapObjectCollection collection;
     collection.load(map_element);
     return collection;
 }
 
-void MapObjectCollection::load(const DocumentOwningNode & map_element) {
+void MapObjectCollection::load(const DocumentOwningXmlElement & map_element) {
     using GroupConstIterator = MapObjectGroup::ConstIterator;
     auto [groups, elements] = MapObjectGroup::initialize_for_map(map_element);
     auto objects = MapObject::load_objects_from

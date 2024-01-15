@@ -187,7 +187,7 @@ void WallTilesetTile::make
             add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
             add(SharedPtr<const RenderModel>{m_top_model}).
             finish());
-    // the rest of everything is computed here, from geometry to models
+
     auto computed_elevations = m_elevations.value_or(neighboring_elevations);
     LinearStripCollidablesAdapter col_col{callbacks};
     LimitedLinearStripCollection<4*2> col;
@@ -197,9 +197,6 @@ void WallTilesetTile::make
     choose_on_direction
         (computed_elevations,
          [&col, &col_col] (const SplitWallGeometry & splitter) {
-             // how do I set texture strategies here?
-             // how would I go about generating stuff for corner walls?
-
              splitter.make_wall(col);
              splitter.make_wall(col_col);
         });

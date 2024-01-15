@@ -32,10 +32,14 @@ struct Vertex final {
     Vector2 texture_position = Vector2{0, 0};
 };
 
+// ----------------------------------------------------------------------------
+
 struct RenderModelData final {
     std::vector<Vertex  > vertices;
     std::vector<unsigned> elements;
 };
+
+// ----------------------------------------------------------------------------
 
 class RenderModel {
 public:

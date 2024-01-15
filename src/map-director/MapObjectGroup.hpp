@@ -21,6 +21,7 @@
 #pragma once
 
 #include "MapObject.hpp"
+#include "DocumentOwningXmlElement.hpp"
 
 class MapObjectGroupBase {
 public:
@@ -37,12 +38,12 @@ public:
 
 protected:
     static XmlElementContainer
-        _groups_in_bfs_order(const DocumentOwningNode &);
+        _groups_in_bfs_order(const DocumentOwningXmlElement &);
 
     // returned in BFS order
     static Tuple<GroupContainer, XmlElementContainer>
         _initialize_names_and_parents_for_map
-        (const DocumentOwningNode & map_element);
+        (const DocumentOwningXmlElement & map_element);
 
     static Tuple<GroupContainer, XmlElementContainer>
         _set_groups_and_ranks_for(Tuple<GroupContainer, XmlElementContainer> &&);
@@ -74,7 +75,7 @@ private:
 class MapObjectGroupForTests final : public MapObjectGroupBase {
 public:
     static auto initialize_names_and_parents_for_map
-        (const DocumentOwningNode & map_element)
+        (const DocumentOwningXmlElement & map_element)
         { return _initialize_names_and_parents_for_map(map_element); }
 
     static auto set_groups_and_ranks_for
@@ -101,7 +102,7 @@ public:
 
     static Tuple<GroupContainer, XmlElementContainer>
         initialize_for_map
-        (const DocumentOwningNode & map_element);
+        (const DocumentOwningXmlElement & map_element);
 
     static constexpr const auto k_object_tag = "object";
 

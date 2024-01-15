@@ -41,7 +41,8 @@ using Continuation = BackgroundTask::Continuation;
 }
 
 /* static */ TilesetLoadingTask TilesetLoadingTask::begin_loading
-    (DocumentOwningNode && tileset_xml, MapContentLoader & content_provider)
+    (DocumentOwningXmlElement && tileset_xml,
+     MapContentLoader & content_provider)
 {
     const auto & el = tileset_xml.element();
     return TilesetLoadingTask
@@ -96,7 +97,7 @@ OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>
         }).
         chain(optionally_load_root).
         chain([]
-            (DocumentOwningNode && node) ->
+            (DocumentOwningXmlElement && node) ->
                 OptionalEither<MapLoadingError, UnloadedTileSet>
         {
             auto ts = TilesetBase::make(node.element());
@@ -105,11 +106,11 @@ OptionalEither<MapLoadingError, SharedPtr<TilesetBase>>
         });
 }
 
-/* private static */ OptionalEither<MapLoadingError, DocumentOwningNode>
+/* private static */ OptionalEither<MapLoadingError, DocumentOwningXmlElement>
     TilesetLoadingTask::optionally_load_root(std::string && file_contents)
 {
     auto ei = MapLoadingError::failed_load_as_error
-        (DocumentOwningNode::load_root(std::move(file_contents)));
+        (DocumentOwningXmlElement::load_from_contents(std::move(file_contents)));
     if (ei.is_left()) return ei.left();
     return ei.right();
 }

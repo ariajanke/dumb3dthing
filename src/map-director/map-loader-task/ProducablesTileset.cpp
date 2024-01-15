@@ -72,7 +72,7 @@ MakeFillerGridRt make_filler_grid
 
 // four params, ouch!
 Continuation & ProducablesTileset::load
-    (const DocumentOwningNode & tileset_el, MapContentLoader & content_loader)
+    (const DocumentOwningXmlElement & tileset_el, MapContentLoader & content_loader)
 {
     MapTileset map_tileset;
     map_tileset.load(tileset_el);

@@ -85,7 +85,7 @@ private:
 }
 
 Continuation & CompositeTileset::load
-    (const DocumentOwningNode & tileset_element, MapContentLoader & content_loader)
+    (const DocumentOwningXmlElement & tileset_element, MapContentLoader & content_loader)
 {
     SharedPtr<MapLoaderTask> map_loader_task;
     auto properties = tileset_element->FirstChildElement("properties");

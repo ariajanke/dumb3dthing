@@ -31,7 +31,7 @@
 
 class MapObject;
 class MapObjectGroup;
-
+#if 0
 class DocumentOwningNode final {
 public:
     static Optional<DocumentOwningNode> load_root(std::string && file_contents);
@@ -63,7 +63,7 @@ private:
 };
 
 // ----------------------------------------------------------------------------
-
+#endif
 class MapObjectRetrieval {
 public:
     using MapObjectRefContainer = std::vector<const MapObject *>;

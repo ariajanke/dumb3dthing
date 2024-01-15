@@ -91,7 +91,7 @@ public:
     virtual ~TilesetBase() {}
 
     [[nodiscard]] virtual Continuation & load
-        (const DocumentOwningNode &, MapContentLoader &) = 0;
+        (const DocumentOwningXmlElement &, MapContentLoader &) = 0;
 
     virtual void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const = 0;

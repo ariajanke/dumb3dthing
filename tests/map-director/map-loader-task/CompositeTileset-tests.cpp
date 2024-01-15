@@ -160,7 +160,7 @@ describe("CompositeTileset")([] {
     CompositeTileset tileset;
     auto & continuation = TestMapContentLoader::instance().continuation;
     TaskStrategy strategy{continuation};
-    auto doc = *DocumentOwningNode::load_root(k_test_tileset_contents);
+    auto doc = *DocumentOwningXmlElement::load_from_contents(k_test_tileset_contents);
     (void)tileset.load(doc, TestMapContentLoader::instance());
     std::vector<NewTaskEntry> new_tasks;
     ReturnToTasksCollection col;

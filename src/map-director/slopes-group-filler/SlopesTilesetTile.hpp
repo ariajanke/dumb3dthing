@@ -147,6 +147,11 @@ class TilesetTileTexture final {
 public:
     TilesetTileTexture() {}
 
+    TilesetTileTexture
+        (const SharedPtr<const Texture> & texture_ptr,
+         const Vector2 & north_west,
+         const Size2 & tile_size_in_portions);
+
     void load_texture(const MapTileset &, PlatformAssetsStrategy &);
 
     void set_texture_bounds(const Vector2I & location_on_tileset);

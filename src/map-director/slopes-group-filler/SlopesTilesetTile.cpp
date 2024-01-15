@@ -157,6 +157,14 @@ template <Optional<Real>(NeighborCornerElevations::*kt_corner_f)() const>
 
 // ----------------------------------------------------------------------------
 
+TilesetTileTexture::TilesetTileTexture
+    (const SharedPtr<const Texture> & texture_ptr,
+     const Vector2 & north_west,
+     const Size2 & tile_size_in_portions):
+    m_texture(texture_ptr),
+    m_north_west(north_west),
+    m_tile_size_in_portions(tile_size_in_portions) {}
+
 void TilesetTileTexture::load_texture
     (const MapTileset & map_tileset, PlatformAssetsStrategy & platform)
 {

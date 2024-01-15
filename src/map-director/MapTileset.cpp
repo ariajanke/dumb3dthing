@@ -28,12 +28,10 @@ MapTilesetTile::MapTilesetTile
 
 void MapTilesetTile::load
     (const TiXmlElement & tile_el, const MapTileset & parent)
-{
-    MapElementValuesMap map;
-    map.load(tile_el);
-    set_map_element_values_map(std::move(map));
-    m_parent = &parent;
-}
+{ load(tile_el, &parent); }
+
+void MapTilesetTile::load(const TiXmlElement & tile_el)
+    { load(tile_el, nullptr); }
 
 const MapTileset * MapTilesetTile::parent_tileset() const {
     return m_parent;
@@ -47,6 +45,15 @@ int MapTilesetTile::id() const {
     return *get_numeric_attribute<int>("id");
 }
 
+/* private */ void MapTilesetTile::load
+    (const TiXmlElement & tile_el, const MapTileset * parent)
+{
+    MapElementValuesMap map;
+    map.load(tile_el);
+    set_map_element_values_map(std::move(map));
+    m_parent = parent;
+}
+
 // ----------------------------------------------------------------------------
 
 void MapTilesetImage::load(const TiXmlElement & image_el) {
@@ -58,7 +65,7 @@ void MapTilesetImage::load(const TiXmlElement & image_el) {
 
 // ----------------------------------------------------------------------------
 
-void MapTileset::load(const DocumentOwningNode & tileset_el) {
+void MapTileset::load(const DocumentOwningXmlElement & tileset_el) {
     MapElementValuesMap map;
     map.load(*tileset_el);
     set_map_element_values_map(std::move(map));

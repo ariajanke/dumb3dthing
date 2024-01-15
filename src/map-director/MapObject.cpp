@@ -29,7 +29,7 @@ using ObjectGroupContainer = MapObjectGroup::GroupContainer;
 using MapObjectContainer = MapObjectGroup::MapObjectContainer;
 
 } // end of <anonymous> namespace
-
+#if 0
 /* static */ Optional<DocumentOwningNode>
     DocumentOwningNode::load_root(std::string && file_contents)
 {
@@ -50,7 +50,7 @@ DocumentOwningNode DocumentOwningNode::make_with_same_owner
 
 const TiXmlElement & DocumentOwningNode::element() const
     { return *m_element; }
-
+#endif
 // ----------------------------------------------------------------------------
 
 /* static */ MapObjectFraming MapObjectFraming::load_from

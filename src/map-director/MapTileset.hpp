@@ -21,8 +21,9 @@
 #pragma once
 
 #include "../Definitions.hpp"
+
 #include "MapElementValuesMap.hpp"
-#include "MapObject.hpp" // just for document owning node
+#include "DocumentOwningXmlElement.hpp"
 
 class MapTileset;
 
@@ -34,6 +35,8 @@ public:
 
     void load(const TiXmlElement &, const MapTileset & parent);
 
+    void load(const TiXmlElement &);
+
     const MapTileset * parent_tileset() const;
 
     const char * type() const;
@@ -41,6 +44,8 @@ public:
     int id() const;
 
 private:
+    void load(const TiXmlElement &, const MapTileset * parent);
+
     const MapTileset * m_parent = nullptr;
 };
 
@@ -69,7 +74,7 @@ private:
 
 class MapTileset final : public MapElementValuesAggregable {
 public:
-    void load(const DocumentOwningNode & tileset_el);
+    void load(const DocumentOwningXmlElement & tileset_el);
 
     const MapTilesetTile * tile_at(const Vector2I &) const;
 
@@ -90,5 +95,5 @@ public:
 private:
     std::vector<MapTilesetTile> m_tiles;
     Grid<const MapTilesetTile *> m_tile_grid;
-    DocumentOwningNode m_document_owner;
+    DocumentOwningXmlElement m_document_owner;
 };
