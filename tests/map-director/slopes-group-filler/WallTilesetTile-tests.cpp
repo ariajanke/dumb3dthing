@@ -149,6 +149,7 @@ private:
 auto x = [] {
 
 describe("WallTilesetTile#load")([] {
+    TestGeometryGenerationStrategy::reset();
     auto & geo_strat =
         TestGeometryGenerationStrategy::instance() =
         TestGeometryGenerationStrategy{};

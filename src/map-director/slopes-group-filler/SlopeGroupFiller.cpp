@@ -26,7 +26,7 @@
 #include "WallTilesetTile.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../MapTileset.hpp"
-#include "TwoWayWallSplits.hpp"
+#include "NorthSouthSplit.hpp"
 #include "InWallCornerSplits.hpp"
 #include "OutWallCornerSplits.hpp"
 

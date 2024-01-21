@@ -18,7 +18,7 @@
 
 *****************************************************************************/
 
-#include "TwoWayWallSplits.hpp"
+#include "NorthSouthSplit.hpp"
 
 #include "../../TriangleSegment.hpp"
 
