@@ -186,6 +186,7 @@ public:
         using Kc = KeyControl;
         switch (ky) {
         case Kc::forward: case Kc::backward: case Kc::left: case Kc::right:
+        case Kc::camera_left: case Kc::camera_right:
             m_dir[to_index(ky)] = true;
             break;
         case Kc::jump:
@@ -199,6 +200,7 @@ public:
         using Kc = KeyControl;
         switch (ky) {
         case Kc::forward: case Kc::backward: case Kc::left: case Kc::right:
+        case Kc::camera_left: case Kc::camera_right:
             m_dir[to_index(ky)] = false;
             break;
         case Kc::jump:
@@ -233,17 +235,32 @@ public:
     bool is_ending_jump() const
         { return m_jump_pressed_before && !m_jump_this_frame; }
 
+    Real camera_rotation_direction() const {
+        using Kc = KeyControl;
+        return to_direction
+            (m_dir[to_index(Kc::camera_left )],
+             m_dir[to_index(Kc::camera_right)]);
+    }
+
 private:
     static int to_index(KeyControl ky) {
         using Kc = KeyControl;
         switch (ky) {
         case Kc::forward : return 0; case Kc::backward: return 1;
         case Kc::left    : return 2; case Kc::right   : return 3;
+        case Kc::camera_left: return 4; case Kc::camera_right: return 5;
         default: break;
         }
         throw std::runtime_error{""};
     }
-    std::array<bool, 4> m_dir = std::array<bool, 4>{};
+
+    static Real to_direction(bool neg, bool pos) {
+        bool i_ways = neg ^ pos;
+        return static_cast<Real>(i_ways)*
+            ( static_cast<int>(pos) - static_cast<int>(neg) )*1.;
+    }
+
+    std::array<bool, 6> m_dir = std::array<bool, 6>{};
     bool m_jump_pressed_before = false;
     bool m_jump_this_frame = false;
 };

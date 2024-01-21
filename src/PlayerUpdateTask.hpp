@@ -27,6 +27,12 @@
 /// stuffing it in here, until there's a proper living place for this class
 class PlayerUpdateTask final : public EveryFrameTask {
 public:
+    static constexpr const Real k_camera_rotation_speed = 0.25*2*k_pi;
+
+    static void rotate_camera(Entity & e, Real et);
+
+    static void drag_camera(Entity & e);
+
     explicit PlayerUpdateTask
         (const EntityRef & physics_ent):
         m_physics_ent(physics_ent) {}

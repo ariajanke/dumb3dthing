@@ -19,8 +19,8 @@
 *****************************************************************************/
 
 #include "ProducablesTileset.hpp"
+#include "../MapTileset.hpp"
 
-#include "../TilesetPropertiesGrid.hpp"
 #include "../slopes-group-filler.hpp"
 #include "../twist-loop-filler.hpp"
 
@@ -39,7 +39,7 @@ struct MakeFillerGridRt final {
 
 std::vector<Tuple<Vector2I, FillerFactory>>
     make_factory_grid_positions
-    (const TilesetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories);
+    (const MapTileset & map_tileset, const FillerFactoryMap & filler_factories);
 
 std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
     find_unique_factories_and_positions
@@ -47,7 +47,7 @@ std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
 
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TilesetXmlGrid & xml_grid,
+     const MapTileset &,
      MapContentLoader & platform);
 
 } // end of <anonymous> namespace
@@ -72,14 +72,14 @@ MakeFillerGridRt make_filler_grid
 
 // four params, ouch!
 Continuation & ProducablesTileset::load
-    (const TiXmlElement & tileset_el, MapContentLoader & content_loader)
+    (const DocumentOwningXmlElement & tileset_el, MapContentLoader & content_loader)
 {
-    TilesetXmlGrid xml_grid;
-    xml_grid.load(content_loader.make_texture(), tileset_el);
+    MapTileset map_tileset;
+    map_tileset.load(tileset_el);
     auto factory_and_locations = find_unique_factories_and_positions
-        (make_factory_grid_positions(xml_grid, content_loader.map_fillers()));
-
-    auto filler_things = make_filler_grid(factory_and_locations, xml_grid, content_loader);
+        (make_factory_grid_positions(map_tileset, content_loader.map_fillers()));
+    auto filler_things = make_filler_grid
+        (factory_and_locations, map_tileset, content_loader);
     m_filler_grid = std::move(filler_things.grid);
     m_unique_fillers = std::move(filler_things.unique_fillers);
 
@@ -140,16 +140,18 @@ void ProducablesTileset::add_map_elements
 
 namespace {
 
+
 std::vector<Tuple<Vector2I, FillerFactory>>
     make_factory_grid_positions
-    (const TilesetXmlGrid & xml_grid, const FillerFactoryMap & filler_factories)
+    (const MapTileset & map_tileset, const FillerFactoryMap & filler_factories)
 {
     std::vector<Tuple<Vector2I, FillerFactory>> factory_grid_positions;
-    factory_grid_positions.reserve(xml_grid.size());
-    for (Vector2I r; r != xml_grid.end_position(); r = xml_grid.next(r)) {
-        const auto & el = xml_grid(r);
-        if (el.is_empty()) continue;
-        auto & type = el.type();
+    factory_grid_positions.reserve(map_tileset.tile_count());
+    for (Vector2I r; r != map_tileset.end_position(); r = map_tileset.next(r)) {
+        const auto * el = map_tileset.tile_at(r);
+        if (!el)
+            { continue; }
+        const auto * type = el->type();
         auto itr = filler_factories.find(type);
         if (itr == filler_factories.end()) {
             // warn maybe, but don't error
@@ -190,15 +192,15 @@ std::vector<Tuple<FillerFactory, std::vector<Vector2I>>>
 
 MakeFillerGridRt make_filler_grid
     (const std::vector<Tuple<FillerFactory, std::vector<Vector2I>>> & factory_and_locations,
-     const TilesetXmlGrid & xml_grid,
+     const MapTileset & map_tileset,
      MapContentLoader & platform)
 {
     MakeFillerGridRt rv;
     auto & filler_grid = rv.grid;
     auto & filler_instances = rv.unique_fillers;
-    filler_grid.set_size(xml_grid.size2(), nullptr);
+    filler_grid.set_size(map_tileset.size2(), nullptr);
     for (auto & [factory, locations] : factory_and_locations) {
-        auto filler = (*factory)(xml_grid, platform);
+        auto filler = (*factory)(map_tileset, platform);
         filler_instances.emplace_back(filler);
         for (auto r : locations) {
             filler_grid(r) = filler;

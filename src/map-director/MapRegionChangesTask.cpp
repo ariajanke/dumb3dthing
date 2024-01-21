@@ -19,8 +19,8 @@
 *****************************************************************************/
 
 #include "MapRegionChangesTask.hpp"
-#include "TileFactory.hpp"
 #include "RegionEdgeConnectionsContainer.hpp"
+#include "../TriangleLink.hpp"
 
 namespace {
 

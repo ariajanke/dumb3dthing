@@ -410,21 +410,6 @@ void GameDriverComplete::update_(Real seconds) {
         *vis = dist < 12;
     })(m_scene);
 
-    auto & player = m_player_entities.physical;
-    player.get<PlayerControl>().frame_update();
-
-    if (auto * ppstate = player.ptr<PpState>()) {
-        auto pos = location_of(player.get<PpState>()) + Vector{0, 3, 0};
-        auto & cam = player.get<DragCamera>();
-        if (magnitude(cam.position - pos) > cam.max_distance) {
-            cam.position += normalize(pos - cam.position)*(magnitude(cam.position - pos) - cam.max_distance);
-            assert(are_very_close( magnitude( cam.position - pos ), cam.max_distance ));
-        }
-
-        player.get<Camera>().target = location_of(player.get<PpState>());
-        player.get<Camera>().position = cam.position;
-    }
-
     m_time_controller.frame_update();
 }
 

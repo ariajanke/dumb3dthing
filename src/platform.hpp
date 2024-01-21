@@ -38,7 +38,9 @@ enum class KeyControl {
     pause,
     advance,
     print_info,
-    restart
+    restart,
+    camera_left,
+    camera_right
 };
 
 template <typename T>

@@ -23,28 +23,13 @@
 
 #include <tinyxml2.h>
 
-#include <cstring>
-
 namespace {
 
 using ObjectGroupContainer = MapObjectGroup::GroupContainer;
 using MapObjectContainer = MapObjectGroup::MapObjectContainer;
 
-static const auto k_size_t_length_empty_string = [] {
-    std::array<char, sizeof(std::size_t)> buf;
-    std::fill(buf.begin(), buf.end(), 0);
-    return buf;
-} ();
-
-static constexpr const std::size_t k_hash_string_length_limit = 3;
-
-std::size_t limited_string_length(const char *);
-
-template <typename Func>
-void for_each_object_kv_pair(const TiXmlElement & object_element, Func &&);
-
 } // end of <anonymous> namespace
-
+#if 0
 /* static */ Optional<DocumentOwningNode>
     DocumentOwningNode::load_root(std::string && file_contents)
 {
@@ -65,42 +50,12 @@ DocumentOwningNode DocumentOwningNode::make_with_same_owner
 
 const TiXmlElement & DocumentOwningNode::element() const
     { return *m_element; }
-
-// ----------------------------------------------------------------------------
-
-std::size_t MapObject::CStringHasher::operator () (const char * cstr) const {
-    std::size_t temp = 0;
-    auto left = limited_string_length(cstr);
-    while (left >= sizeof(std::size_t)) {
-        temp ^= *reinterpret_cast<const std::size_t *>(cstr);
-        cstr += sizeof(std::size_t);
-        left -= sizeof(std::size_t);
-    }
-
-    assert(left < sizeof(std::size_t));
-    auto buf = k_size_t_length_empty_string;
-    for (; left; --left) {
-        buf[left] = cstr[left - 1];
-    }
-    return temp ^ *reinterpret_cast<const std::size_t *>(&buf.front());
-}
-
+#endif
 // ----------------------------------------------------------------------------
 
 /* static */ MapObjectFraming MapObjectFraming::load_from
     (const TiXmlElement & map_element)
 { return MapObjectFraming{ScaleComputation::pixel_scale_from_map(map_element)}; }
-
-// ----------------------------------------------------------------------------
-
-bool MapObject::CStringEqual::operator ()
-    (const char * lhs, const char * rhs) const
-{
-    if (!lhs || !rhs) {
-        return lhs == rhs;
-    }
-    return ::strcmp(lhs, rhs) == 0;
-}
 
 // ----------------------------------------------------------------------------
 
@@ -132,18 +87,9 @@ bool MapObject::NameLessThan::operator ()
     (const TiXmlElement & object_element,
      const MapObjectGroup & parent_group)
 {
-    int count = 0;
-    for_each_object_kv_pair
-        (object_element,
-         [&count] (FieldType, const char *, const char *) { ++count; });
-    ValuesMap map{Key{}};
-    map.reserve(count);
-    for_each_object_kv_pair
-        (object_element,
-         [&map] (FieldType field_type, const char * name, const char * value) {
-            map.insert(Key{name, field_type}, value);
-         });
-    return MapObject{parent_group, std::move(map)};
+    MapElementValuesMap values_map;
+    values_map.load(object_element);
+    return MapObject{parent_group, std::move(values_map)};
 }
 
 /* static */ MapObject::NameObjectMap
@@ -171,13 +117,13 @@ const MapObject * MapObject::get_object_property(const char * name) const {
         { return nullptr; }
     return m_parent_retrieval->seek_object_by_id(*maybe_id);
 }
-
+#if 0
 const char * MapObject::get_string_property(const char * name) const
-    { return get_string(FieldType::property, name); }
+    { return m_values_map.get_string_property(name); }
 
 const char * MapObject::get_string_attribute(const char * name) const
-    { return get_string(FieldType::attribute, name); }
-
+    { return m_values_map.get_string_attribute(name); }
+#endif
 int MapObject::id() const {
     return verify_has_id(get_numeric_attribute<int>(k_id_attribute));
 }
@@ -199,61 +145,3 @@ const MapObject * MapObject::seek_by_object_name
     if (maybe_id) return *maybe_id;
     throw RuntimeError{"objects are expect to always have ids"};
 }
-
-/* private */ const char * MapObject::get_string
-    (FieldType type, const char * name) const
-{
-    auto itr = m_values.find(Key{name, type});
-    if (itr == m_values.end()) return nullptr;
-    return itr->second;
-}
-
-// ----------------------------------------------------------------------------
-
-std::size_t MapObject::/* private */ KeyHasher::
-    operator () (const Key & key) const
-{
-    std::size_t temp = key.type == FieldType::attribute ? 0 : ~0;
-    return temp ^ CStringHasher{}(key.name);
-}
-
-bool MapObject::/* private */ KeyEqual::
-    operator () (const Key & lhs, const Key & rhs) const
-{ return lhs.type == rhs.type && CStringEqual{}(lhs.name, rhs.name); }
-
-namespace {
-
-std::size_t limited_string_length(const char * str) {
-    std::size_t remaining = k_hash_string_length_limit;
-    while (remaining && *str) {
-        --remaining;
-        ++str;
-    }
-    return k_hash_string_length_limit - remaining;
-}
-
-template <typename Func>
-void for_each_object_kv_pair
-    (const TiXmlElement & object_element,
-     Func && f)
-{
-    using FieldType = MapObject::FieldType;
-    for (auto attr = object_element.FirstAttribute(); attr; attr = attr->Next()) {
-        auto * name = attr->Name();
-        const auto * value = attr->Value();
-        if (!name || !value) continue;
-        f(FieldType::attribute, name, value);
-    }
-    auto properties = object_element.FirstChildElement
-        (MapObject::k_properties_tag);
-    if (!properties)
-        return;
-    for (auto & prop : XmlRange{properties, MapObject::k_property_tag}) {
-        auto * name = prop.Attribute(MapObject::k_name_attribute);
-        auto * value = prop.Attribute(MapObject::k_value_attribute);
-        if (!name || !value) continue;
-        f(FieldType::property, name, value);
-    }
-}
-
-} // end of <anonymous> namespace

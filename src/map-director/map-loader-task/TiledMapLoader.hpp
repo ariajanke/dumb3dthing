@@ -84,14 +84,14 @@ public:
 
     static std::vector<TilesetLoadersWithStartGid>
         load_future_tilesets
-        (const DocumentOwningNode & document_root, MapContentLoader &);
+        (const DocumentOwningXmlElement & document_root, MapContentLoader &);
 
     static TileSetLoadSplit
         split_tileset_load(std::vector<TilesetLoadersWithStartGid> &&,
                            MapContentLoader & content_loader);
 
     explicit InitialDocumentReadState
-        (DocumentOwningNode && root_node):
+        (DocumentOwningXmlElement && root_node):
         m_document_root(std::move(root_node)) {}
 
     InitialDocumentReadState(const InitialDocumentReadState &) = delete;
@@ -101,7 +101,7 @@ public:
     MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
 
 private:
-    DocumentOwningNode m_document_root;
+    DocumentOwningXmlElement m_document_root;
 };
 
 class TileSetLoadState final : public BaseState {
@@ -114,7 +114,7 @@ public:
          std::vector<TilesetWithStartGid> && ready_tilesets);
 
     TileSetLoadState
-        (DocumentOwningNode && document_root_,
+        (DocumentOwningXmlElement && document_root_,
          std::vector<Grid<int>> && layers_,
          std::vector<TilesetProviderWithStartGid> && future_tilesets_,
          std::vector<TilesetWithStartGid> && ready_tilesets_);
@@ -122,7 +122,7 @@ public:
     MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
 
 private:
-    DocumentOwningNode m_document_root;
+    DocumentOwningXmlElement m_document_root;
     std::vector<Grid<int>> m_layers;
     std::vector<TilesetProviderWithStartGid> m_future_tilesets;
     std::vector<TilesetWithStartGid> m_ready_tilesets;
@@ -131,7 +131,7 @@ private:
 class MapElementCollectorState final : public BaseState {
 public:
     MapElementCollectorState
-        (DocumentOwningNode &&,
+        (DocumentOwningXmlElement &&,
          TileMapIdToSetMapping &&,
          std::vector<Grid<int>> &&);
 
@@ -140,7 +140,7 @@ public:
 private:
     ScaleComputation map_scale() const;
 
-    DocumentOwningNode m_document_root;
+    DocumentOwningXmlElement m_document_root;
     TileMapIdToSetMapping m_id_mapping_set;
     std::vector<Grid<int>> m_layers;
 };

@@ -149,7 +149,7 @@ using GroupContainer = MapObject::GroupContainer;
 using namespace cul::tree_ts;
 
 describe("MapObjectGroup")([] {
-    auto node = DocumentOwningNode::load_root(k_simple_object_map);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_simple_object_map);
     assert(node);
     auto collection = MapObjectCollection::load_from(*node);
     auto & group = *collection.top_level_groups().begin();
@@ -159,7 +159,7 @@ describe("MapObjectGroup")([] {
 });
 
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
-    auto node = DocumentOwningNode::load_root(k_multiple_top_level_groups);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_multiple_top_level_groups);
     assert(node);
     auto groups = std::get<std::vector<MapObjectGroup>>(MapObjectGroup::initialize_for_map(*node));
     // two groups without a parent is completely valid
@@ -181,7 +181,7 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
 });
 
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
-    auto node = DocumentOwningNode::load_root(k_groups_for_bfs_example);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_groups_for_bfs_example);
     assert(node);
     auto groups = std::get<GroupContainer>(MapObjectGroupForTests::initialize_names_and_parents_for_map(*node));
     mark_it("loads seven groups", [&] {
@@ -198,7 +198,7 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
 });
 
 describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
-    auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_object_up_tree_example);
     assert(node);
     auto groups = std::get<GroupContainer>(MapObjectGroupForTests::initialize_names_and_parents_for_map(*node));
     mark_it("loads three groups", [&] {
@@ -215,7 +215,7 @@ describe("MapObjectGroup::initialize_names_and_parents_for_map")([] {
 });
 
 describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] {
-    auto node = DocumentOwningNode::load_root(k_simple_object_map);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_simple_object_map);
     assert(node);
     auto collection = MapObjectCollection::load_from(*node);
 
@@ -246,7 +246,7 @@ describe<MapObjectCollection>("MapObjectCollection").depends_on<MapObject>()([] 
 describe<MapObjectFindUpTree>("MapObject#seek_by_object_name").
     depends_on<MapObjectCollection>()([]
 {
-    auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_object_up_tree_example);
     assert(node);
     auto collection = MapObjectCollection::load_from(*node);
     auto * object = collection.seek_object_by_id(3);
@@ -269,7 +269,7 @@ describe<MapObjectFindUpTree>("MapObject#seek_by_object_name").
 });
 
 describe("MapObject#get_referrers")([] {
-    auto node = DocumentOwningNode::load_root(k_referrers_map);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_referrers_map);
     assert(node);
     auto collection = MapObjectCollection::load_from(*node);
     auto * object1 = collection.seek_object_by_id(1);
@@ -307,7 +307,7 @@ describe("MapObject#get_referrers")([] {
 });
 
 describe<MapObject>("MapObject")([] {
-    auto node = DocumentOwningNode::load_root(k_simple_object_map);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_simple_object_map);
     auto objectgroup = (**node).FirstChildElement("objectgroup");
     auto object_el = objectgroup->FirstChildElement("object");
     MapObjectGroup group{1};
@@ -326,7 +326,7 @@ describe<MapObject>("MapObject")([] {
 });
 
 describe<MapObject>("MapObject and its properties")([] {
-    auto node = DocumentOwningNode::load_root(k_object_with_properties);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_object_with_properties);
     assert(node);
     auto collection = MapObjectCollection::load_from(*node);
     auto * object = collection.seek_object_by_id(1);
@@ -366,7 +366,7 @@ describe<MapObject>("MapObject and its properties")([] {
 });
 
 describe<MapObject>("MapObject::find_first_visible_named_objects")([] {
-    auto node = DocumentOwningNode::load_root(k_object_up_tree_example);
+    auto node = DocumentOwningXmlElement::load_from_contents(k_object_up_tree_example);
     using GroupConstIterator = MapObjectGroup::ConstIterator;
     auto containers = MapObjectGroup::initialize_for_map(*node);
     auto & groups = std::get<GroupContainer>(containers);

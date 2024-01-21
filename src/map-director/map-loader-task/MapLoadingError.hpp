@@ -22,6 +22,8 @@
 
 #include "../../Definitions.hpp"
 
+#include "../DocumentOwningXmlElement.hpp"
+
 namespace map_loading_messages {
 
 enum WarningEnum {
@@ -37,6 +39,8 @@ enum ErrorEnum {
 } // end of map_loading_messages namespace
 
 class MapLoadingWarnings final {};
+
+using MapLoadingErrorEnum = map_loading_messages::ErrorEnum;
 
 using MapLoadingWarningEnum = map_loading_messages::WarningEnum;
 
@@ -56,13 +60,11 @@ public:
 private:
 };
 
-using MapLoadingErrorEnum = map_loading_messages::ErrorEnum;
 
-class DocumentOwningNode;
 class MapLoadingError final {
 public:
-    static Either<MapLoadingError, DocumentOwningNode>
-        failed_load_as_error(Optional<DocumentOwningNode> &&);
+    static Either<MapLoadingError, DocumentOwningXmlElement>
+        failed_load_as_error(Optional<DocumentOwningXmlElement> &&);
 
     explicit MapLoadingError(MapLoadingErrorEnum) {}
 };

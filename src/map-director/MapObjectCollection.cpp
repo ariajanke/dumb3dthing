@@ -72,14 +72,14 @@ View<MapObjectReferrers::MapObjectConstIterator>
 // ----------------------------------------------------------------------------
 
 /* static */ MapObjectCollection MapObjectCollection::load_from
-    (const DocumentOwningNode & map_element)
+    (const DocumentOwningXmlElement & map_element)
 {
     MapObjectCollection collection;
     collection.load(map_element);
     return collection;
 }
 
-void MapObjectCollection::load(const DocumentOwningNode & map_element) {
+void MapObjectCollection::load(const DocumentOwningXmlElement & map_element) {
     using GroupConstIterator = MapObjectGroup::ConstIterator;
     auto [groups, elements] = MapObjectGroup::initialize_for_map(map_element);
     auto objects = MapObject::load_objects_from
@@ -205,18 +205,18 @@ MapObjectReferrers
     for (auto & group_el : group_elements) {
     for (auto & object_xml : XmlRange{group_el, k_object_tag}) {
         auto * properties = object_xml.
-            FirstChildElement(MapObject::k_properties_tag);
+            FirstChildElement(MapElementValuesMap::k_properties_tag);
         auto * object = object_retrieval.seek_object_by_id
             (object_xml.IntAttribute(MapObject::k_id_attribute));
         if (!properties || !object)
             { continue; }
-        for (auto & property : XmlRange{properties, MapObject::k_property_tag}) {
+        for (auto & property : XmlRange{properties, MapElementValuesMap::k_property_tag}) {
             const char * type = property.Attribute("type");
             if (type && ::strcmp(type, k_object_tag) != 0)
                 { continue; }
             auto target = object_retrieval.
                 seek_object_by_id(property.
-                    IntAttribute(MapObject::k_value_attribute));
+                    IntAttribute(MapElementValuesMap::k_value_attribute));
             if (!target)
                 { continue; }
             inserter.add(*object, *target);

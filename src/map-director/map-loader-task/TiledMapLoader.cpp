@@ -50,9 +50,9 @@ BaseState::MapLoadResult
     chain([&] (std::string && contents) {
         using namespace map_loading_messages;
         return MapLoadingError::failed_load_as_error
-            (DocumentOwningNode::load_root(std::move(contents))).
+            (DocumentOwningXmlElement::load_from_contents(std::move(contents))).
             fold<MapLoadResult>().
-            map([&] (DocumentOwningNode && root) {
+            map([&] (DocumentOwningXmlElement && root) {
                 switcher.set_next_state<InitialDocumentReadState>(std::move(root));
                 return MapLoadResult{};
             }).
@@ -67,7 +67,7 @@ BaseState::MapLoadResult
 
 /* static */ Optional<TilesetLoadersWithStartGid>
     load_future_tileset
-    (const DocumentOwningNode & tileset,
+    (const DocumentOwningXmlElement & tileset,
      MapContentLoader & content_loader)
 {
     using namespace cul::either;
@@ -86,7 +86,7 @@ BaseState::MapLoadResult
              TilesetLoadingTask::begin_loading(source, content_loader)};
     } else {
         auto task = TilesetLoadingTask::begin_loading
-            (DocumentOwningNode{tileset}, content_loader);
+            (DocumentOwningXmlElement{tileset}, content_loader);
         return TilesetLoadersWithStartGid{first_gid, std::move(task)};
     }
 }
@@ -111,7 +111,7 @@ BaseState::MapLoadResult
 
 /* static */ std::vector<TilesetLoadersWithStartGid>
     InitialDocumentReadState::load_future_tilesets
-    (const DocumentOwningNode & document_root,
+    (const DocumentOwningXmlElement & document_root,
      MapContentLoader & content_loader)
 {
     std::vector<TilesetLoadersWithStartGid> future_tilesets;
@@ -189,7 +189,7 @@ MapLoadResult InitialDocumentReadState::update_progress
 }
 
 TileSetLoadState::TileSetLoadState
-    (DocumentOwningNode && document_root_,
+    (DocumentOwningXmlElement && document_root_,
      std::vector<Grid<int>> && layers_,
      std::vector<TilesetProviderWithStartGid> && future_tilesets_,
      std::vector<TilesetWithStartGid> && ready_tilesets_):
@@ -204,7 +204,7 @@ MapLoadResult TileSetLoadState::update_progress
     auto finished_tilesets = finish_tilesets
         (std::move(m_future_tilesets), std::move(m_ready_tilesets));
     state_switcher.set_next_state<MapElementCollectorState>
-        (DocumentOwningNode{m_document_root},
+        (DocumentOwningXmlElement{m_document_root},
          TileMapIdToSetMapping{ std::move(finished_tilesets) },
          std::move(m_layers));
     return {};
@@ -213,7 +213,7 @@ MapLoadResult TileSetLoadState::update_progress
 // ----------------------------------------------------------------------------
 
 MapElementCollectorState::MapElementCollectorState
-    (DocumentOwningNode && document_root_,
+    (DocumentOwningXmlElement && document_root_,
      TileMapIdToSetMapping && mapping_,
      std::vector<Grid<int>> && layers_):
     m_document_root(std::move(document_root_)),

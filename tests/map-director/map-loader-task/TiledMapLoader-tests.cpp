@@ -48,7 +48,7 @@ using ProducableGroupCreation = ProducableGroupFiller::ProducableGroupCreation;
 class TestTileset final : public TilesetBase {
 public:
     Continuation & load
-        (const TiXmlElement &, MapContentLoader &) final
+        (const DocumentOwningXmlElement &, MapContentLoader &) final
         { throw ""; }
 
     void add_map_elements
