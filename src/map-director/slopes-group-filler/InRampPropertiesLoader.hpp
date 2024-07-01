@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2023 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,18 +20,17 @@
 
 #pragma once
 
-#include "../Definitions.hpp"
+#include "QuadBasedTilesetTile.hpp"
 
-class TileTexture final {
+class InRampPropertiesLoader final : public RampPropertiesLoaderBase {
 public:
-    TileTexture() {}
+    static void instantiate_for(const WithPropertiesLoader & with_loader) {
+        InRampPropertiesLoader loader;
+        with_loader(loader);
+    }
 
-    TileTexture(const Vector2 & nw, const Vector2 & se);
+    TileCornerElevations elevation_offsets_for
+        (CardinalDirection direction) const final;
 
-    TileTexture(const Vector2I & tileset_loc, const Size2 & tile_size);
-
-    Vector2 texture_position_for(const Vector2 & tile_normalized_location) const;
-
-private:
-    Vector2 m_nw, m_se;
+    Orientation orientation_for(CardinalDirection direction) const final;
 };

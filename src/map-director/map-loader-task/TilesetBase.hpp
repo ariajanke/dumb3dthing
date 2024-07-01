@@ -30,12 +30,12 @@
 
 #include <map>
 
-class TilesetXmlGrid;
 class StackableSubRegionGrid;
 class TilesetMappingTile;
 class TilesetLayerWrapper;
 class MapContentLoader;
 class StackableProducableTileGrid;
+class MapTileset;
 
 class TilesetMapElementCollector {
 public:
@@ -57,7 +57,7 @@ class MapContentLoader : public PlatformAssetsStrategy {
 public:
     using FillerFactory =
         SharedPtr<ProducableGroupFiller>(*)
-        (const TilesetXmlGrid &, PlatformAssetsStrategy &);
+        (const MapTileset &, PlatformAssetsStrategy &);
     using FillerFactoryMap = std::map<std::string, FillerFactory>;
     using TaskContinuation = BackgroundTask::Continuation;
 
@@ -91,7 +91,7 @@ public:
     virtual ~TilesetBase() {}
 
     [[nodiscard]] virtual Continuation & load
-        (const TiXmlElement &, MapContentLoader &) = 0;
+        (const DocumentOwningXmlElement &, MapContentLoader &) = 0;
 
     virtual void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const = 0;

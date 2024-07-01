@@ -44,12 +44,12 @@ static constexpr auto k_ramp_group_type_list = {
 
 } // end of slopes_group_filler_type_names namespace
 
-class TilesetXmlGrid;
+class MapTileset;
 
 class SlopeGroupFiller_ final {
 public:
     static SharedPtr<ProducableGroupFiller> make
-        (const TilesetXmlGrid & xml_grid, PlatformAssetsStrategy &);
+        (const MapTileset & xml_grid, PlatformAssetsStrategy &);
 
 private:
     SlopeGroupFiller_() {}

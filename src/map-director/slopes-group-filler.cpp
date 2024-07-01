@@ -19,12 +19,13 @@
 *****************************************************************************/
 
 #include "slopes-group-filler.hpp"
+
 #include "slopes-group-filler/SlopeGroupFiller.hpp"
 
 /* static */ SharedPtr<ProducableGroupFiller> SlopeGroupFiller_::make
-    (const TilesetXmlGrid & xml_grid, PlatformAssetsStrategy & platform)
+    (const MapTileset & map_tileset, PlatformAssetsStrategy & platform)
 {
     auto rv = make_shared<SlopeGroupFiller>();
-    rv->load(xml_grid, platform);
+    rv->load(map_tileset, platform);
     return rv;
 }

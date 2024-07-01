@@ -50,7 +50,7 @@ MapObjectGroup::MapObjectConstIterator empty_object_container_iterator() {
 /* protected static */
 Tuple<MapObjectGroupBase::GroupContainer, XmlElementContainer>
     MapObjectGroupBase::_initialize_names_and_parents_for_map
-    (const DocumentOwningNode & map_element)
+    (const DocumentOwningXmlElement & map_element)
 {
     GroupContainer groups;
     XmlElementContainer elements;
@@ -167,7 +167,7 @@ Tuple<MapObjectGroupBase::GroupContainer, XmlElementContainer>
 /* static */
     Tuple<MapObjectGroup::GroupContainer, XmlElementContainer>
     MapObjectGroup::initialize_for_map
-    (const DocumentOwningNode & map_element)
+    (const DocumentOwningXmlElement & map_element)
 {
     return MapObjectGroupBase::_set_groups_and_ranks_for
         (MapObjectGroupBase::_initialize_names_and_parents_for_map(map_element));

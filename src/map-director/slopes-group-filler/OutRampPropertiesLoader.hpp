@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2023 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,26 +18,18 @@
 
 *****************************************************************************/
 
-#include "TileTexture.hpp"
+#pragma once
 
-TileTexture::TileTexture
-    (const Vector2 & nw, const Vector2 & se):
-    m_nw(nw),
-    m_se(se) {}
+#include "QuadBasedTilesetTile.hpp"
 
-TileTexture::TileTexture
-    (const Vector2I & tileset_loc, const Size2 & tile_size)
-{
-    using cul::convert_to;
-    Vector2 offset{tileset_loc.x*tile_size.width, tileset_loc.y*tile_size.height};
-    m_nw = offset;
-    m_se = offset + convert_to<Vector2>(tile_size);
-}
+class OutRampPropertiesLoader final : public RampPropertiesLoaderBase {
+public:
+    static void instantiate_for(const WithPropertiesLoader & with_loader) {
+        OutRampPropertiesLoader loader;
+        with_loader(loader);
+    }
 
-Vector2 TileTexture::texture_position_for
-    (const Vector2 & tile_normalized_location) const
-{
-    auto r = tile_normalized_location;
-    return Vector2{r.x*m_se.x + m_nw.x*(1 - r.x),
-                   r.y*m_se.y + m_nw.y*(1 - r.y)};
-}
+    TileCornerElevations elevation_offsets_for(CardinalDirection) const final;
+
+    Orientation orientation_for(CardinalDirection) const final;
+};

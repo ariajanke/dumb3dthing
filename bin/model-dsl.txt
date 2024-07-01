@@ -1,0 +1,15 @@
+CutOutSheet:
+  VertexSheet:
+    units: 8, 8
+    elevation: 0.25
+    content: # whitespace after ident..., astericks are ignored
+      *     a
+      *
+      *  
+      *b  d   e  c
+      *
+      *
+      *
+      *
+      *   h   i
+

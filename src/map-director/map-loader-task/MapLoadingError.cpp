@@ -20,12 +20,11 @@
 
 #include "MapLoadingError.hpp"
 
-#include "../MapObject.hpp"
-
 #include <ariajanke/cul/Either.hpp>
 
-/* static */ Either<MapLoadingError, DocumentOwningNode>
-    MapLoadingError::failed_load_as_error(Optional<DocumentOwningNode> && node)
+/* static */ Either<MapLoadingError, DocumentOwningXmlElement>
+    MapLoadingError::failed_load_as_error
+    (Optional<DocumentOwningXmlElement> && node)
 {
     using namespace map_loading_messages;
     if (!node)

@@ -50,11 +50,11 @@ public:
     using MapObjectContainer = MapObject::MapObjectContainer;
 
     static MapObjectCollection load_from
-        (const DocumentOwningNode & map_element);
+        (const DocumentOwningXmlElement & map_element);
 
     MapObjectCollection(): m_top_level_groups_end(m_groups.end()) {}
 
-    void load(const DocumentOwningNode & map_element);
+    void load(const DocumentOwningXmlElement & map_element);
 
     const MapObject * seek_object_by_id(int id) const
         { return m_id_maps.seek_object_by_id(id); }

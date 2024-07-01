@@ -23,17 +23,23 @@
 #include "Definitions.hpp"
 
 struct Vertex final {
-    Vertex() {}
-    Vertex(Vector pos, Vector2 tx):
+    constexpr Vertex() {}
+
+    constexpr Vertex(const Vector & pos, const Vector2 & tx):
         position(pos), texture_position(tx) {}
-    Vector  position         = Vector (0, 0, 0);
-    Vector2 texture_position = Vector2(0, 0);
+
+    Vector  position         = Vector {0, 0, 0};
+    Vector2 texture_position = Vector2{0, 0};
 };
+
+// ----------------------------------------------------------------------------
 
 struct RenderModelData final {
     std::vector<Vertex  > vertices;
     std::vector<unsigned> elements;
 };
+
+// ----------------------------------------------------------------------------
 
 class RenderModel {
 public:

@@ -30,7 +30,7 @@ public:
     static const FillerFactoryMap & builtin_fillers();
 
     Continuation & load
-        (const TiXmlElement &, MapContentLoader &) final;
+        (const DocumentOwningXmlElement &, MapContentLoader &) final;
 
     void add_map_elements
         (TilesetMapElementCollector &, const TilesetLayerWrapper & mapping_view) const final;

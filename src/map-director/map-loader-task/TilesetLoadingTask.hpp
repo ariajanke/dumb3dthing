@@ -46,7 +46,7 @@ public:
         (const char * filename, MapContentLoader & content_provider);
 
     static TilesetLoadingTask begin_loading
-        (DocumentOwningNode && tileset_xml, MapContentLoader & content_provider);
+        (DocumentOwningXmlElement && tileset_xml, MapContentLoader & content_provider);
 
     Continuation & in_background
         (Callbacks &, ContinuationStrategy &) final;
@@ -61,12 +61,12 @@ private:
 
         UnloadedTileSet
             (SharedPtr<TilesetBase> && tile_set_,
-             DocumentOwningNode && xml_content_):
+             DocumentOwningXmlElement && xml_content_):
             tile_set(std::move(tile_set_)),
             xml_content(std::move(xml_content_)) {}
 
         SharedPtr<TilesetBase> tile_set;
-        DocumentOwningNode xml_content;
+        DocumentOwningXmlElement xml_content;
     };
 
     TilesetLoadingTask
@@ -84,7 +84,7 @@ private:
     static OptionalEither<MapLoadingError, UnloadedTileSet> get_unloaded
         (FutureStringPtr & tile_set_content);
 
-    static OptionalEither<MapLoadingError, DocumentOwningNode>
+    static OptionalEither<MapLoadingError, DocumentOwningXmlElement>
         optionally_load_root(std::string && file_contents);
 
     UnloadedTileSet m_unloaded;

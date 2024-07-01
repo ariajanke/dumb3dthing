@@ -48,6 +48,15 @@ public:
         return e;
     }
 
+    template <typename ... Types>
+    Entity add_entity_from_tuple(Tuple<Types...> && tup) {
+        auto e = add_entity_();
+        e.add<ModelScale, ModelTranslation, Types...>() =
+            std::tuple_cat(make_tuple(model_scale(), model_translation()),
+                           std::move(tup));
+        return e;
+    }
+
     virtual SharedPtr<RenderModel> make_render_model() = 0;
 
 protected:
