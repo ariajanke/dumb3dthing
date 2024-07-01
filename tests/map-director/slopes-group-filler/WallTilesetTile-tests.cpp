@@ -92,10 +92,12 @@ private:
 
 constexpr const auto k_something =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<tile id=\"1\">"
     "<properties>"
         "<property name=\"direction\" value=\"nw\" />"
         "<property name=\"elevation\" value=\"2\" />"
-    "</properties>";
+    "</properties>"
+    "</tile>";
 
 // How do I setup abstract classes for tests?
 // redefining them everytime seems tedious
@@ -156,7 +158,8 @@ describe("WallTilesetTile#load")([] {
     WallTilesetTile wtt{TestGeometryGenerationStrategy::instance_for};
     MapTileset mt;
     MapTilesetTile mtt;
-    mtt.load(**DocumentOwningXmlElement::load_from_contents(k_something));
+    auto optional_contents = DocumentOwningXmlElement::load_from_contents(k_something);
+    mtt.load(**optional_contents);
     TilesetTileTexture ttt;
     auto & assets_strat = SingleResponseAssetsStrategy::instance();
     wtt.load(mtt, ttt, assets_strat);
@@ -169,7 +172,7 @@ describe("WallTilesetTile#load")([] {
     mark_it("loads and filters elevation correctly", [&] {
         return test_that
             (geo_strat.filtered_elevations_at(0) ==
-             TileCornerElevations{2, 2, 2, 2});
+             TileCornerElevations{3, 3, 3, 3});
     }).
     mark_it("makes and loads a render model", [&] {
         return test_that(assets_strat.nth_made_render_model(0)->is_loaded());
