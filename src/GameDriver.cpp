@@ -228,62 +228,62 @@ Tuple<Entity, Entity>
     make_sample_player
     (Platform & platform)
 {
-    static const auto get_vt = [](int i) {
-        constexpr const Real    k_scale = 1. / 3.;
-        constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
-        auto list = { k_offset,
-                      k_offset + k_scale*Vector2(1, 0),
-                      k_offset + k_scale*Vector2(0, 1),
-                      k_offset + k_scale*Vector2(1, 1) };
-        assert(i < int(list.size()));
-        return *(list.begin() + i);
-    };
+    // static const auto get_vt = [](int i) {
+    //     constexpr const Real    k_scale = 1. / 3.;
+    //     constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
+    //     auto list = { k_offset,
+    //                   k_offset + k_scale*Vector2(1, 0),
+    //                   k_offset + k_scale*Vector2(0, 1),
+    //                   k_offset + k_scale*Vector2(1, 1) };
+    //     assert(i < int(list.size()));
+    //     return *(list.begin() + i);
+    // };
 
-    static const auto mk_v = [](Real x, Real y, Real z, int vtidx) {
-        Vertex v;
-        v.position.x = x*0.5;
-        v.position.y = y*0.5;
-        v.position.z = z*0.5;
-        v.texture_position = get_vt(vtidx);
-        return v;
-    };
+    // static const auto mk_v = [](Real x, Real y, Real z, int vtidx) {
+    //     Vertex v;
+    //     v.position.x = x*0.5;
+    //     v.position.y = y*0.5;
+    //     v.position.z = z*0.5;
+    //     v.texture_position = get_vt(vtidx);
+    //     return v;
+    // };
 
-    static constexpr const int k_tl = 0, k_tr = 1, k_bl = 2, k_br = 3;
+    // static constexpr const int k_tl = 0, k_tr = 1, k_bl = 2, k_br = 3;
 
-    std::array verticies = {
-        mk_v( 1, -1,  1, k_tl), // 0: tne
-        mk_v(-1, -1,  1, k_tr), // 1: tnw
-        mk_v(-1,  1,  1, k_bl), // 2: tsw
-        mk_v( 1,  1,  1, k_br), // 3: tse
-        mk_v(-1,  1, -1, k_bl), // 4: bsw
-        mk_v( 1,  1, -1, k_br), // 5: bse
-        mk_v( 1, -1, -1, k_tl), // 6: bne
-        mk_v(-1, -1, -1, k_tr)  // 7: bnw
-    };
+    // std::array verticies = {
+    //     mk_v( 1, -1,  1, k_tl), // 0: tne
+    //     mk_v(-1, -1,  1, k_tr), // 1: tnw
+    //     mk_v(-1,  1,  1, k_bl), // 2: tsw
+    //     mk_v( 1,  1,  1, k_br), // 3: tse
+    //     mk_v(-1,  1, -1, k_bl), // 4: bsw
+    //     mk_v( 1,  1, -1, k_br), // 5: bse
+    //     mk_v( 1, -1, -1, k_tl), // 6: bne
+    //     mk_v(-1, -1, -1, k_tr)  // 7: bnw
+    // };
 
-    std::array<unsigned, 3*2*6> elements = {
-        0, 1, 2, /**/ 0, 2, 3, // top    faces
-        0, 1, 7, /**/ 0, 6, 7, // north  faces
-        2, 3, 4, /**/ 3, 4, 5, // south  faces
-        1, 2, 7, /**/ 2, 7, 4, // west   faces
-        0, 3, 6, /**/ 3, 5, 6, // east   faces
-        4, 6, 7, /**/ 4, 5, 6  // bottom faces
-    };
+    // std::array<unsigned, 3*2*6> elements = {
+    //     0, 1, 2, /**/ 0, 2, 3, // top    faces
+    //     0, 1, 7, /**/ 0, 6, 7, // north  faces
+    //     2, 3, 4, /**/ 3, 4, 5, // south  faces
+    //     1, 2, 7, /**/ 2, 7, 4, // west   faces
+    //     0, 3, 6, /**/ 3, 5, 6, // east   faces
+    //     4, 6, 7, /**/ 4, 5, 6  // bottom faces
+    // };
 
-    auto model = platform.make_render_model();
-    model->load(&verticies.front(), &verticies.front() + verticies.size(),
-                &elements .front(), &elements .front() + elements.size());
+    // auto model = platform.make_render_model();
+    // model->load(&verticies.front(), &verticies.front() + verticies.size(),
+    //             &elements .front(), &elements .front() + elements.size());
 
     auto physics_ent = Entity::make_sceneless_entity();
     auto model_ent   = platform.make_renderable_entity();
 
-    auto tx = platform.make_texture();
-    tx->load_from_file("ground.png");
+    // auto tx = platform.make_texture();
+    // tx->load_from_file("ground.png");
     model_ent.add
         <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
          TranslationFromParent>
         () = make_tuple
-        (tx, model, ModelTranslation{},
+        (Texture::make_ground(platform), RenderModel::make_cube(platform), ModelTranslation{},
          TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();

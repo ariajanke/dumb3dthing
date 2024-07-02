@@ -20,10 +20,24 @@
 
 #include "Texture.hpp"
 #include "Definitions.hpp"
+#include "platform.hpp"
 
 #include <ariajanke/cul/Util.hpp>
 
 #include <string>
+
+/* static */ SharedPtr<Texture> Texture::make_ground
+    (PlatformAssetsStrategy & platform)
+{
+    static WeakPtr<Texture> s_memoized;
+    if (!s_memoized.expired()) {
+        return s_memoized.lock();
+    }
+    auto tx = platform.make_texture();
+    tx->load_from_file("ground.png");
+    s_memoized = tx;
+    return tx;
+}
 
 void Texture::load_from_file(const char * filename) {
     if (load_from_file_no_throw(filename)) return;

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="8">
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="8">
  <properties>
   <property name="scale" value="5,1,5"/>
  </properties>
@@ -67,7 +67,7 @@
     </properties>
     <point/>
    </object>
-   <object id="7" type="baddie-type-a" x="561.927" y="437.527">
+   <object id="7" type="baddie-type-a" x="432.281" y="573.511">
     <properties>
      <property name="enemy-of" type="object" value="1"/>
     </properties>

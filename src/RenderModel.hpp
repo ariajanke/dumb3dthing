@@ -41,8 +41,12 @@ struct RenderModelData final {
 
 // ----------------------------------------------------------------------------
 
+class PlatformAssetsStrategy;
+
 class RenderModel {
 public:
+    static SharedPtr<RenderModel> make_cube(PlatformAssetsStrategy &);
+
     virtual ~RenderModel() {}
 
     void load(const RenderModelData &);

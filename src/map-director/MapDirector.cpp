@@ -21,6 +21,8 @@
 #include "MapDirector.hpp"
 #include "map-loader-task.hpp"
 #include "RegionLoadRequest.hpp"
+#include "../RenderModel.hpp"
+#include "../Texture.hpp"
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
@@ -126,9 +128,37 @@ PlayerMapPreperationTask::PlayerMapPreperationTask
     m_player_physics(std::move(player_physics)),
     m_ppdriver(ppdriver) {}
 
+using AddEntityFunc =
+    void (*)(const MapObject &,
+             const MapObjectFraming &,
+             MapDirectorTask::Callbacks &);
+
+void add_baddie_a
+    (const MapObject & map_obj,
+     const MapObjectFraming & framing,
+     MapDirectorTask::Callbacks & callbacks)
+{
+    auto ent = Entity::make_sceneless_entity();
+    Vector location;
+    (void)framing.
+        get_position_from(map_obj).
+        map([&location] (Vector && r) {
+            location = r;
+            return std::monostate{};
+        });
+
+    auto model = RenderModel::make_cube(callbacks.platform());
+    auto tx = Texture::make_ground(callbacks.platform());
+
+    ent.add<ModelTranslation, SharedPtr<const RenderModel>, SharedPtr<const Texture>>() =
+        make_tuple(ModelTranslation{location}, model, tx);
+}
+
 Continuation & PlayerMapPreperationTask::in_background
     (Callbacks & callbacks, ContinuationStrategy & strategy)
 {
+    cul::HashMap<std::string, AddEntityFunc> a{std::string{}};
+    a.insert("baddie-type-a", add_baddie_a);
     if (!m_finished_loading_map) {
         m_finished_loading_map = true;
         return strategy.continue_().wait_on(m_map_loader);
@@ -139,6 +169,11 @@ Continuation & PlayerMapPreperationTask::in_background
     auto res = m_map_loader->retrieve();
     auto map_director_task = make_shared<MapDirectorTask>
         (m_player_physics, m_ppdriver, std::move(res.map_region));
+    for (auto [id, obj_ptr] : res.map_objects.map_objects()) {
+        auto found = a.find(obj_ptr->get_string_attribute("type"));
+        if (found == a.end()) continue;
+        found->second(*obj_ptr, res.object_framing, callbacks);
+    }
     auto * player_object = res.map_objects.seek_by_name("player-spawn-point");
     auto & location = std::get<PpInAir>(m_player_physics.add<PpState>()).location;
     const auto & object_framing = res.object_framing;

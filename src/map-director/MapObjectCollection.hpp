@@ -42,6 +42,8 @@ private:
 // ----------------------------------------------------------------------------
 
 class MapObjectCollection final {
+    template <typename T>
+    using IntHashMap = cul::HashMap<int, T>;
 public:
     using GroupContainer = MapObject::GroupContainer;
     using GroupIterator = GroupContainer::const_iterator;
@@ -67,10 +69,10 @@ public:
 
     const MapObject * seek_by_name(const char * name) const;
 
-private:
-    template <typename T>
-    using IntHashMap = cul::HashMap<int, T>;
+    View<IntHashMap<const MapObject *>::ConstIterator> map_objects() const
+        { return m_id_maps.map_objects(); }
 
+private:
     class IdsToElementsMap final : public MapObjectRetrieval {
     public:
         IdsToElementsMap() {}
@@ -89,6 +91,9 @@ private:
         View<MapObjectRefConstIterator>
             seek_referrers_by_id(int id) const final
             { return m_referrers.get_referrers(id); }
+
+        View<IntHashMap<const MapObject *>::ConstIterator> map_objects() const
+            { return View{m_id_to_object.begin(), m_id_to_object.end()}; }
 
     private:
         template <typename T>
