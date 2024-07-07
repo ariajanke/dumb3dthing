@@ -55,19 +55,19 @@
    <properties>
     <property name="spawn-trigger" value="player-available"/>
    </properties>
-   <object id="5" type="baddie-type-a" x="530.979" y="398.083">
+   <object id="5" type="baddie-type-a" x="421.013" y="573.505">
     <properties>
      <property name="enemy-of" type="object" value="1"/>
     </properties>
     <point/>
    </object>
-   <object id="6" type="baddie-type-a" x="514.594" y="438.134">
+   <object id="6" type="baddie-type-a" x="442.669" y="572.435">
     <properties>
      <property name="enemy-of" type="object" value="1"/>
     </properties>
     <point/>
    </object>
-   <object id="7" type="baddie-type-a" x="432.281" y="573.511">
+   <object id="7" type="baddie-type-a" x="432.281" y="559.958">
     <properties>
      <property name="enemy-of" type="object" value="1"/>
     </properties>

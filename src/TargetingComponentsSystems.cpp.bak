@@ -1,0 +1,205 @@
+#include "TargetingComponentsSystems.hpp"
+#if 0
+namespace {
+
+using HighLow = TargetingState::HighLow;
+
+} // end of <anonymous> namespace
+
+/* static */ const TargetsRetrieval & TargetsRetrieval::default_instance() {
+    class Impl final : public TargetsRetrieval {
+    public:
+        std::vector<EntityRef> find_targetables
+            (const TargetSeekerCone &,
+             std::vector<EntityRef> && collection) const final
+        {
+            collection.clear();
+            return std::move(collection);
+        }
+    };
+    static Impl s_impl;
+    return s_impl;
+}
+#endif
+// ----------------------------------------------------------------------------
+#if 0
+TargetSeekerCone::TargetSeekerCone
+    (const Vector & tip,
+     const Vector & base,
+     Real length,
+     Real angle_range):
+    m_tip(tip),
+    m_base(base),
+    m_length(length),
+    m_angle_range(angle_range)
+{}
+
+bool TargetSeekerCone::contains(const Vector & pt) const {
+    auto r = m_base - m_tip;
+    auto v = pt     - m_tip;
+    return cul::angle_between(r, v) < m_angle_range;
+}
+
+Real TargetSeekerCone::radius() const {
+    return std::sin(m_angle_range)*m_length;
+}
+
+// ----------------------------------------------------------------------------
+#endif
+#if 0
+TargetSeeker::TargetSeeker():
+    m_distance_range(0.01),
+    m_angle_range(0.01*k_pi)
+{}
+
+TargetSeeker::TargetSeeker(Real distance_range, Real angle_range):
+    m_distance_range(verify_distance_range(distance_range)),
+    m_angle_range(verify_angle_range(angle_range))
+{}
+
+void TargetSeeker::set_facing_direction(const Vector & r)
+    { m_direction = verify_direction(r); }
+
+Real TargetSeeker::distance_range() const { return m_distance_range; }
+
+Real TargetSeeker::angle_range() const { return m_angle_range; }
+
+const Vector & TargetSeeker::direction() const
+    { return m_direction; }
+
+std::vector<EntityRef> TargetSeeker::find_targetables
+    (const TargetsRetrieval & retrieval,
+     const PpState & pp_state,
+     std::vector<EntityRef> && collection) const
+{
+    auto location = point_and_plane::location_of(pp_state);
+    TargetSeekerCone cone
+        {location,
+         location + m_direction*m_distance_range,
+         m_distance_range,
+         m_angle_range};
+    return retrieval.find_targetables(cone, std::move(collection));
+}
+
+/* private static */ Vector TargetSeeker::verify_direction
+    (const Vector & r)
+{
+    if (are_very_close(cul::magnitude(r), 1))
+        { return r; }
+    throw InvalidArgument("direction must be a normal vector");
+}
+
+/* private static */ Real TargetSeeker::verify_distance_range
+    (Real distance_range)
+{
+    if (distance_range > 0 && cul::is_real(distance_range))
+        { return distance_range; }
+    throw InvalidArgument("distance range must be in (0 infinity)");
+}
+
+/* private static */ Real TargetSeeker::verify_angle_range(Real angle_range) {
+    if (angle_range > 0 && angle_range < k_pi/2.)
+        { return angle_range; }
+    throw InvalidArgument("angle range must be in (0 pi/2)");
+}
+#endif
+#if 0
+// ----------------------------------------------------------------------------
+
+/* static */ HighLow TargetingState::interval_of(const TargetSeekerCone & cone) {
+    const auto & base = cone.base();
+    const auto & tip = cone.tip();
+    auto radius = cone.radius();
+    auto dir_on_plane = cul::project_onto_plane(base - tip, k_north);
+    auto dir_on_line  = cul::project_onto(dir_on_plane, k_east);
+    auto ex_a = base + dir_on_line*radius;
+    auto ex_b = base - dir_on_line*radius;
+    // NOTE specific to projecting on east (x coordinate)
+    Real low = k_inf;
+    Real high = -k_inf;
+    for (auto r : { tip, ex_a, ex_b }) {
+        low  = std::min(low , r.x);
+        high = std::max(high, r.x);
+    }
+    HighLow rv;
+    rv.high = high;
+    rv.low = low;
+    if (!cul::is_real(rv.high) || !cul::is_real(rv.low)) {
+        throw RuntimeError("Interval not finite");
+    }
+    return rv;
+}
+
+/* static */ Real TargetingState::position_of(const Vector & r)
+//  on "east-west" axis
+    { return r.x; }
+
+/* static private */ bool TargetingState::tuple_less_than
+    (const Target & lhs, const Target & rhs)
+{ return lhs.position_on_line < rhs.position_on_line; }
+
+void TargetingState::empty_targetables()
+    { m_targets.clear(); }
+
+void verify_real(const Vector & r) {
+    if (!cul::is_real(r)) {
+        throw InvalidArgument{"location must be a real vector"};
+    }
+}
+
+void TargetingState::place_targetable(EntityRef ref, const Vector & location) {
+    verify_real(location);
+    Target target;
+    target.entity_ref = ref;
+    target.location = location;
+    target.position_on_line = position_of(location);
+    m_targets.push_back(target);
+}
+
+void TargetingState::sort_targetables() {
+    std::sort(m_targets.begin(), m_targets.end(), tuple_less_than);
+}
+
+std::vector<EntityRef> TargetingState::find_targetables
+    (const TargetSeekerCone & view_cone,
+     std::vector<EntityRef> && target_collection) const
+{
+    target_collection.clear();
+    auto interval = interval_of(view_cone);
+    auto beg = std::lower_bound
+        (m_targets.begin(),
+         m_targets.end(),
+         interval,
+         [] (const Target & lhs, const HighLow & rhs) {
+            return lhs.position_on_line < rhs.low;
+         });
+    for (auto itr = beg; itr != m_targets.end(); ++itr) {
+        if (itr->position_on_line > interval.high) {
+            break;
+        } else if (view_cone.contains(itr->location)) {
+            target_collection.push_back(itr->entity_ref);
+        }
+    }
+
+    return std::move(target_collection);
+}
+#endif
+#if 0
+// ----------------------------------------------------------------------------
+
+TargetPlacementSystem::TargetPlacementSystem(TargetingState & state):
+    m_state(&state)
+{}
+
+void TargetPlacementSystem::update_on_scene(Scene & scene) const {
+    m_state->empty_targetables();
+    for (auto & ent : scene) {
+        if (!ent.has_all<TargetComponent, PpState>())
+            { continue; }
+        const auto & pp_state = ent.get<PpState>();
+        m_state->place_targetable
+            (ent.as_reference(), point_and_plane::location_of(pp_state));
+    }
+    m_state->sort_targetables();
+}
+#endif

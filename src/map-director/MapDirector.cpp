@@ -21,6 +21,8 @@
 #include "MapDirector.hpp"
 #include "map-loader-task.hpp"
 #include "RegionLoadRequest.hpp"
+// #include "../TargetingComponentsSystems.hpp"
+#include "../targeting-state.hpp"
 #include "../RenderModel.hpp"
 #include "../Texture.hpp"
 
@@ -138,7 +140,7 @@ void add_baddie_a
      const MapObjectFraming & framing,
      MapDirectorTask::Callbacks & callbacks)
 {
-    auto ent = Entity::make_sceneless_entity();
+    auto ent = callbacks.platform().make_renderable_entity();
     Vector location;
     (void)framing.
         get_position_from(map_obj).
@@ -150,8 +152,10 @@ void add_baddie_a
     auto model = RenderModel::make_cube(callbacks.platform());
     auto tx = Texture::make_ground(callbacks.platform());
 
-    ent.add<ModelTranslation, SharedPtr<const RenderModel>, SharedPtr<const Texture>>() =
-        make_tuple(ModelTranslation{location}, model, tx);
+    ent.add<ModelTranslation, SharedPtr<const RenderModel>, SharedPtr<const Texture>, ModelVisibility, TargetComponent>() =
+        make_tuple(ModelTranslation{location}, model, tx, ModelVisibility{}, TargetComponent{});
+    ent.add<PpState>() = PpInAir{location, Vector{}};
+    callbacks.add(ent);
 }
 
 Continuation & PlayerMapPreperationTask::in_background

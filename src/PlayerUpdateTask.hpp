@@ -21,6 +21,22 @@
 #pragma once
 
 #include "Tasks.hpp"
+#include "point-and-plane.hpp"
+
+// mmm "subtasks"
+class PlayerTargetingSubTask final {
+public:
+    using Callbacks = EveryFrameTask::Callbacks;
+
+    static Entity find_nearest_in
+        (const PpState &, const std::vector<EntityRef> & entities);
+
+    void on_every_frame(const Entity & player, Callbacks & callbacks);
+
+private:
+    std::vector<EntityRef> m_target_refs;
+    Entity m_reticle;
+};
 
 /// all things the player needs to do everyframe
 ///
@@ -33,6 +49,8 @@ public:
 
     static void drag_camera(Entity & e);
 
+    static void set_facing_direction(Entity &);
+
     explicit PlayerUpdateTask
         (const EntityRef & physics_ent):
         m_physics_ent(physics_ent) {}
@@ -44,4 +62,5 @@ private:
     // | extremely important that the task is *not* owning
     // v the reason entity refs exists
     EntityRef m_physics_ent;
+    PlayerTargetingSubTask m_targeting_subtask;
 };

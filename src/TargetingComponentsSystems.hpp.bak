@@ -1,0 +1,138 @@
+#pragma once
+
+#include "Definitions.hpp"
+#include "point-and-plane.hpp"
+#if 0
+class TargetComponent final {};
+#endif
+#if 0
+class TargetSeekerCone final {
+public:
+    TargetSeekerCone
+        (const Vector & tip,
+         const Vector & base,
+         Real length,
+         Real angle_range);
+
+    bool contains(const Vector & pt) const;
+
+    const Vector & base() const { return m_base; }
+
+    const Vector & tip() const { return m_tip; }
+
+    Real radius() const;
+
+private:
+    Vector m_tip;
+    Vector m_base;
+    Real m_length;
+    Real m_angle_range;
+};
+
+class TargetsRetrieval {
+public:
+    static bool point_in_cone
+        (const Vector & tip,
+         Real angle_range,
+         Real length,
+         const Vector & pt);
+
+    static const TargetsRetrieval & default_instance();
+
+    virtual ~TargetsRetrieval() {}
+
+    virtual std::vector<EntityRef> find_targetables
+        (const TargetSeekerCone &, std::vector<EntityRef> &&) const = 0;
+};
+#endif
+#if 0
+class TargetSeeker final {
+public:
+    TargetSeeker();
+
+    /// @distance_range in [0, infinity)
+    /// @angle_range in (0, pi/2)
+    TargetSeeker(Real distance_range, Real angle_range);
+
+    void set_facing_direction(const Vector &);
+
+    Real distance_range() const;
+
+    Real angle_range() const;
+
+    const Vector & direction() const;
+
+    // TargetSeekerCone view_cone_from(const PpState &) const;
+
+    std::vector<EntityRef> find_targetables
+        (const TargetsRetrieval &,
+         const PpState &,
+         std::vector<EntityRef> &&) const;
+
+private:
+    static Vector verify_direction(const Vector & r);
+    static Real verify_distance_range(Real distance_range);
+    static Real verify_angle_range(Real angle_range);
+
+    Vector m_direction = k_up;
+    Real m_distance_range;
+    Real m_angle_range;
+};
+#endif
+#if 0
+// two problems to solve
+// - point in a cone
+// - cone hits what regions?
+// - to use sort and sweep, must simplify to one dimension
+
+// 1.) look for each region in some one-diminsional range
+// 2.) test whether the region does in fact intersect the "sight cone"
+// 3.) test if any member is in the "sight cone"
+
+class TargetingState final : public TargetsRetrieval {
+public:
+    struct HighLow final {
+        Real high;
+        Real low;
+    };
+    // how do I project a cone onto a line?
+    // static HighLow interval_of(const TargetSeeker &, const Vector & location);
+
+    // NOTE tightly coupled with TargetingState::position_of
+    static HighLow interval_of(const TargetSeekerCone &);
+
+    static Real position_of(const Vector &);
+
+    TargetingState() {}
+
+    void empty_targetables();
+
+    void place_targetable(EntityRef, const Vector &);
+
+    void sort_targetables();
+
+    std::vector<EntityRef> find_targetables
+        (const TargetSeekerCone &, std::vector<EntityRef> &&) const final;
+
+private:
+    struct Target final {
+        EntityRef entity_ref;
+        Real position_on_line;
+        Vector location;
+    };
+
+    static bool tuple_less_than(const Target &, const Target &);
+
+    std::vector<Target> m_targets;
+};
+
+class TargetPlacementSystem final {
+public:
+    TargetPlacementSystem(TargetingState &);
+
+    void update_on_scene(Scene &) const;
+
+private:
+    TargetingState * m_state;
+};
+#endif
