@@ -21,7 +21,6 @@
 #include "MapDirector.hpp"
 #include "map-loader-task.hpp"
 #include "RegionLoadRequest.hpp"
-// #include "../TargetingComponentsSystems.hpp"
 #include "../targeting-state.hpp"
 #include "../RenderModel.hpp"
 #include "../Texture.hpp"

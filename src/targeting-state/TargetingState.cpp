@@ -80,10 +80,7 @@ Real TargetSeekerCone::radius() const {
 /* static private */ bool TargetingState::tuple_less_than
     (const Target & lhs, const Target & rhs)
 { return lhs.position_on_line < rhs.position_on_line; }
-#if 0
-void TargetingState::empty_targetables()
-    { m_targets.clear(); }
-#endif
+
 void verify_real(const Vector & r) {
     if (!cul::is_real(r)) {
         throw InvalidArgument{"location must be a real vector"};
@@ -98,11 +95,7 @@ void TargetingState::place_targetable(EntityRef ref, const Vector & location) {
     target.position_on_line = position_of(location);
     m_targets.push_back(target);
 }
-#if 0
-void TargetingState::sort_targetables() {
-    std::sort(m_targets.begin(), m_targets.end(), tuple_less_than);
-}
-#endif
+
 std::vector<EntityRef> TargetingState::find_targetables
     (const TargetSeekerCone & view_cone,
      std::vector<EntityRef> && target_collection) const

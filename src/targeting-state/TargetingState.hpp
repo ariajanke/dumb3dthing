@@ -59,13 +59,9 @@ public:
     static Real position_of(const Vector &);
 
     TargetingState() {}
-#   if 0
-    void empty_targetables();
-#   endif
+
     void place_targetable(EntityRef, const Vector &);
-#   if 0
-    void sort_targetables();
-#   endif
+
     std::vector<EntityRef> find_targetables
         (const TargetSeekerCone &, std::vector<EntityRef> &&) const final;
 

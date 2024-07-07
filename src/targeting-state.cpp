@@ -65,9 +65,8 @@ std::vector<EntityRef> TargetSeeker::find_targetables
 
 // ----------------------------------------------------------------------------
 
-/* static */ SharedPtr<TargetingState_> TargetingState_::make() {
-    return std::make_shared<TargetingState>();
-}
+/* static */ SharedPtr<TargetingState_> TargetingState_::make()
+    { return std::make_shared<TargetingState>(); }
 
 namespace {
 
