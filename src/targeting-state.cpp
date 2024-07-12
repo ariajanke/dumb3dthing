@@ -58,7 +58,6 @@ std::vector<EntityRef> TargetSeeker::find_targetables
     TargetSeekerCone cone
         {location,
          location + m_direction*m_distance_range,
-         m_distance_range,
          m_angle_range};
     return retrieval.find_targetables(cone, std::move(collection));
 }

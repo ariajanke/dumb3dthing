@@ -45,7 +45,10 @@ class PlatformAssetsStrategy;
 
 class RenderModel {
 public:
-    static SharedPtr<RenderModel> make_cube(PlatformAssetsStrategy &);
+#   if 0
+    static SharedPtr<const RenderModel> make_sphere(PlatformAssetsStrategy &);
+#   endif
+    static SharedPtr<const RenderModel> make_cube(PlatformAssetsStrategy &);
 
     virtual ~RenderModel() {}
 

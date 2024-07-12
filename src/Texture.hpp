@@ -26,7 +26,7 @@ class PlatformAssetsStrategy;
 
 class Texture {
 public:
-    static SharedPtr<Texture> make_ground(PlatformAssetsStrategy &);
+    static SharedPtr<const Texture> make_ground(PlatformAssetsStrategy &);
 
     virtual ~Texture() {}
 

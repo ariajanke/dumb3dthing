@@ -20,8 +20,15 @@
 
 #include "RenderModel.hpp"
 #include "platform.hpp"
+#if 0
+/* static */ SharedPtr<const RenderModel> RenderModel::make_sphere
+    (PlatformAssetsStrategy & platform)
+{
+    constexpr const int k_turns = 3;
 
-/* static */ SharedPtr<RenderModel> RenderModel::make_cube
+}
+#endif
+/* static */ SharedPtr<const RenderModel> RenderModel::make_cube
     (PlatformAssetsStrategy & platform)
 {
     static WeakPtr<RenderModel> s_memoized_cube;

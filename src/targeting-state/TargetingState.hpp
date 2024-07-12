@@ -26,7 +26,6 @@ public:
     TargetSeekerCone
         (const Vector & tip,
          const Vector & base,
-         Real length,
          Real angle_range);
 
     bool contains(const Vector & pt) const;
@@ -40,8 +39,8 @@ public:
 private:
     Vector m_tip;
     Vector m_base;
-    Real m_length;
     Real m_angle_range;
+    Real m_distance_range;
 };
 
 // ----------------------------------------------------------------------------

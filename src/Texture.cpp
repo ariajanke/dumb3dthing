@@ -26,7 +26,7 @@
 
 #include <string>
 
-/* static */ SharedPtr<Texture> Texture::make_ground
+/* static */ SharedPtr<const Texture> Texture::make_ground
     (PlatformAssetsStrategy & platform)
 {
     static WeakPtr<Texture> s_memoized;

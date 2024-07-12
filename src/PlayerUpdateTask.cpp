@@ -30,6 +30,9 @@
 /* static */ Entity PlayerTargetingSubTask::find_nearest_in
     (const PpState & pp_state, const std::vector<EntityRef> & entities)
 {
+    if (entities.empty()) {
+        return Entity{};
+    }
     auto player_location = point_and_plane::location_of(pp_state);
     Entity selection;
     Real nearest_distance = k_inf;
@@ -60,16 +63,19 @@ void PlayerTargetingSubTask::on_every_frame
         if (!m_reticle) {
             m_reticle = callbacks.platform().make_renderable_entity();
             m_reticle.
-                add<SharedPtr<const RenderModel>, SharedPtr<const Texture>, ModelTranslation>() =
+                add<SharedPtr<const RenderModel>, SharedPtr<const Texture>, ModelTranslation, ModelVisibility>() =
                 make_tuple(RenderModel::make_cube( callbacks.platform() ),
                            Texture::make_ground(callbacks.platform()),
-                           ModelTranslation{});
+                           ModelTranslation{}, ModelVisibility{});
             callbacks.add(m_reticle);
         }
         auto nearest = find_nearest_in(pp_state, m_target_refs);
-        auto & translation = m_reticle.get<ModelTranslation>() =
+        m_reticle.get<ModelVisibility>().value = !nearest.is_null();
+        if (nearest) {
+            auto & translation = m_reticle.get<ModelTranslation>() =
             point_and_plane::location_of(nearest.get<PpState>()) +
             k_up*2;
+        }
     }
 }
 

@@ -29,34 +29,48 @@ using HighLow = TargetingState::HighLow;
 TargetSeekerCone::TargetSeekerCone
     (const Vector & tip,
      const Vector & base,
-     Real length,
      Real angle_range):
     m_tip(tip),
     m_base(base),
-    m_length(length),
-    m_angle_range(angle_range)
+    m_angle_range(angle_range),
+    m_distance_range(magnitude(m_base - m_tip))
 {}
 
 bool TargetSeekerCone::contains(const Vector & pt) const {
     auto r = m_base - m_tip;
     auto v = pt     - m_tip;
-    return cul::angle_between(r, v) < m_angle_range;
+    auto angle = angle_between(r, v);
+    return angle < m_angle_range &&
+           magnitude(project_onto(v, r)) < m_distance_range;
 }
 
 Real TargetSeekerCone::radius() const {
-    return std::sin(m_angle_range)*m_length;
+    return std::tan(m_angle_range)*m_distance_range;
 }
 
 // ----------------------------------------------------------------------------
-
+#if 0
 /* static */ HighLow TargetingState::interval_of(const TargetSeekerCone & cone) {
     const auto & base = cone.base();
     const auto & tip = cone.tip();
     auto radius = cone.radius();
-    auto dir_on_plane = cul::project_onto_plane(base - tip, k_north);
-    auto dir_on_line  = cul::project_onto(dir_on_plane, k_east);
-    auto ex_a = base + dir_on_line*radius;
-    auto ex_b = base - dir_on_line*radius;
+
+    // there's a circle of all points in which the tip may occupy
+    auto base_tip = base - tip;
+    // use this angle, whatever path it takes, that's the circle we use
+    auto theta = angle_between(base_tip, k_east);
+    // if (theta > k_pi / 2.) {
+    //     theta = theta - k_pi / 2.;
+    // }
+    // auto nearest_pt_line_to_base = base_tip - project_onto(base_tip, k_east);
+    // auto idklol = cul::cross(nearest_pt_line_to_base, k_east);
+    // auto theta = angle_between(base_tip, nearest_pt_line_to_base);
+    auto stray_from_base = std::sin(theta)*radius;
+
+    // auto dir_on_plane = cul::project_onto_plane(base - tip, k_north);
+    // auto dir_on_line  = cul::project_onto(dir_on_plane, k_east);
+    auto ex_a = base + k_east*stray_from_base;
+    auto ex_b = base - k_east*stray_from_base;
     // NOTE specific to projecting on east (x coordinate)
     Real low = k_inf;
     Real high = -k_inf;
@@ -67,6 +81,61 @@ Real TargetSeekerCone::radius() const {
     HighLow rv;
     rv.high = high;
     rv.low = low;
+    if (!cul::is_real(rv.high) || !cul::is_real(rv.low)) {
+        throw RuntimeError("Interval not finite");
+    }
+    return rv;
+}
+#endif
+
+/* static */ HighLow TargetingState::interval_of(const TargetSeekerCone & cone) {
+#   if 0
+    const auto & base = cone.base();
+    const auto & tip = cone.tip();
+    auto norm = base - tip;
+    auto num = dot(base, norm);
+    auto denom = dot(norm, k_east);
+    if (are_very_close(0., denom)) {
+        // they're orthogonal, maximum effect
+        auto stray = cone.radius();
+    }
+    auto intersection = k_east*(num / denom);
+    if (are_very_close(base, intersection)) {
+        auto stray = cone.radius()*std::sin(angle_between(tip - base, k_east));
+    }
+    auto stray = cone.radius()*std::cos(angle_between(base - intersection, k_east));
+#   endif
+    Real stray_portion = [&cone] {
+        const auto & base = cone.base();
+        const auto & tip = cone.tip();
+        auto norm = base - tip;
+        auto num = dot(base, norm);
+        auto denom = dot(norm, k_east);
+        if (are_very_close(0., denom)) {
+            // they're orthogonal, maximum effect
+            return 1.;
+        }
+        auto intersection = k_east*(num / denom);
+        if (are_very_close(base, intersection)) {
+            return std::sin(angle_between(tip - base, k_east));
+        }
+        return std::cos(angle_between(base - intersection, k_east));
+    } ();
+
+    const auto & tip = cone.tip();
+    auto stray = stray_portion*cone.radius();
+    auto proj_base = project_onto(cone.base(), k_east);
+    // v extreme points
+    auto ex_a = proj_base + k_east*stray;
+    auto ex_b = proj_base - k_east*stray;
+    HighLow rv;
+    rv.low  =  k_inf;
+    rv.high = -k_inf;
+    for (auto r : { tip, ex_a, ex_b }) {
+        rv.low  = std::min(rv.low , r.x);
+        rv.high = std::max(rv.high, r.x);
+    }
+
     if (!cul::is_real(rv.high) || !cul::is_real(rv.low)) {
         throw RuntimeError("Interval not finite");
     }
