@@ -20,6 +20,7 @@
 
 #include "RenderModel.hpp"
 #include "platform.hpp"
+#include <numeric>
 #if 0
 /* static */ SharedPtr<const RenderModel> RenderModel::make_sphere
     (PlatformAssetsStrategy & platform)
@@ -82,6 +83,24 @@
          &elements .front(), &elements .front() + elements.size());
     s_memoized_cube = rm;
     return rm;
+}
+
+/* static */ SharedPtr<const RenderModel> RenderModel::make_cone
+    (PlatformAssetsStrategy & platform)
+{
+    constexpr const int k_faces = 10;
+    constexpr const Vector tip = k_up*0.5;
+    std::array<unsigned, k_faces + 1> elements;
+    std::array<Vertex, k_faces + 1> verticies;
+    verticies[0] = Vertex{tip, Vector2{}};
+    std::iota(elements.begin(), elements.end(), 0);
+    auto pt_at = [] (Real t)
+        { return -k_up*0.5 + k_east*0.5*std::sin(t) + k_north*0.5*std::cos(t); };
+    for (int i = 0; i != k_faces; ++i) {
+        Real t = Real(i)*k_pi*2.;
+        auto current_pt = pt_at(t);
+        verticies[i + 1] = Vertex{current_pt, Vector2{}};
+    }
 }
 
 void RenderModel::load(const RenderModelData & model_data)

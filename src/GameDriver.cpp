@@ -243,7 +243,7 @@ Tuple<Entity, Entity>
          TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
-    physics_ent.add<TargetSeeker>(10., k_pi/8.);
+    physics_ent.add<TargetSeeker>(10., k_pi / 6.);
 
     return make_tuple(model_ent, physics_ent);
 }

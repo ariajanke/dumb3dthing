@@ -24,6 +24,8 @@ namespace {
 
 using HighLow = TargetingState::HighLow;
 
+Real stray_portion_of(const TargetSeekerCone & cone);
+
 } // end of <anonymous> namespace
 
 TargetSeekerCone::TargetSeekerCone
@@ -49,78 +51,9 @@ Real TargetSeekerCone::radius() const {
 }
 
 // ----------------------------------------------------------------------------
-#if 0
-/* static */ HighLow TargetingState::interval_of(const TargetSeekerCone & cone) {
-    const auto & base = cone.base();
-    const auto & tip = cone.tip();
-    auto radius = cone.radius();
-
-    // there's a circle of all points in which the tip may occupy
-    auto base_tip = base - tip;
-    // use this angle, whatever path it takes, that's the circle we use
-    auto theta = angle_between(base_tip, k_east);
-    // if (theta > k_pi / 2.) {
-    //     theta = theta - k_pi / 2.;
-    // }
-    // auto nearest_pt_line_to_base = base_tip - project_onto(base_tip, k_east);
-    // auto idklol = cul::cross(nearest_pt_line_to_base, k_east);
-    // auto theta = angle_between(base_tip, nearest_pt_line_to_base);
-    auto stray_from_base = std::sin(theta)*radius;
-
-    // auto dir_on_plane = cul::project_onto_plane(base - tip, k_north);
-    // auto dir_on_line  = cul::project_onto(dir_on_plane, k_east);
-    auto ex_a = base + k_east*stray_from_base;
-    auto ex_b = base - k_east*stray_from_base;
-    // NOTE specific to projecting on east (x coordinate)
-    Real low = k_inf;
-    Real high = -k_inf;
-    for (auto r : { tip, ex_a, ex_b }) {
-        low  = std::min(low , r.x);
-        high = std::max(high, r.x);
-    }
-    HighLow rv;
-    rv.high = high;
-    rv.low = low;
-    if (!cul::is_real(rv.high) || !cul::is_real(rv.low)) {
-        throw RuntimeError("Interval not finite");
-    }
-    return rv;
-}
-#endif
 
 /* static */ HighLow TargetingState::interval_of(const TargetSeekerCone & cone) {
-#   if 0
-    const auto & base = cone.base();
-    const auto & tip = cone.tip();
-    auto norm = base - tip;
-    auto num = dot(base, norm);
-    auto denom = dot(norm, k_east);
-    if (are_very_close(0., denom)) {
-        // they're orthogonal, maximum effect
-        auto stray = cone.radius();
-    }
-    auto intersection = k_east*(num / denom);
-    if (are_very_close(base, intersection)) {
-        auto stray = cone.radius()*std::sin(angle_between(tip - base, k_east));
-    }
-    auto stray = cone.radius()*std::cos(angle_between(base - intersection, k_east));
-#   endif
-    Real stray_portion = [&cone] {
-        const auto & base = cone.base();
-        const auto & tip = cone.tip();
-        auto norm = base - tip;
-        auto num = dot(base, norm);
-        auto denom = dot(norm, k_east);
-        if (are_very_close(0., denom)) {
-            // they're orthogonal, maximum effect
-            return 1.;
-        }
-        auto intersection = k_east*(num / denom);
-        if (are_very_close(base, intersection)) {
-            return std::sin(angle_between(tip - base, k_east));
-        }
-        return std::cos(angle_between(base - intersection, k_east));
-    } ();
+    Real stray_portion = stray_portion_of(cone);
 
     const auto & tip = cone.tip();
     auto stray = stray_portion*cone.radius();
@@ -200,3 +133,24 @@ void TargetingState::update_on_scene(Scene & scene) {
     }
     std::sort(m_targets.begin(), m_targets.end(), tuple_less_than);
 }
+
+namespace {
+
+Real stray_portion_of(const TargetSeekerCone & cone) {
+    const auto & base = cone.base();
+    const auto & tip = cone.tip();
+    auto norm = base - tip;
+    auto num = dot(base, norm);
+    auto denom = dot(norm, k_east);
+    if (are_very_close(0., denom)) {
+        // they're orthogonal, maximum effect
+        return 1.;
+    }
+    auto intersection = k_east*(num / denom);
+    if (are_very_close(base, intersection)) {
+        return std::sin(angle_between(tip - base, k_east));
+    }
+    return std::cos(angle_between(base - intersection, k_east));
+}
+
+} // end of <anonymous> namespace

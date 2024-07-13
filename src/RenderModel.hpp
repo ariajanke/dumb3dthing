@@ -50,6 +50,8 @@ public:
 #   endif
     static SharedPtr<const RenderModel> make_cube(PlatformAssetsStrategy &);
 
+    static SharedPtr<const RenderModel> make_cone(PlatformAssetsStrategy &);
+
     virtual ~RenderModel() {}
 
     void load(const RenderModelData &);

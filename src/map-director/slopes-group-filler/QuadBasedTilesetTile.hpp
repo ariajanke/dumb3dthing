@@ -26,33 +26,6 @@
 class TileProperties;
 class RampPropertiesLoaderBase;
 
-template <typename ... Types>
-class TupleBuilder {
-public:
-    TupleBuilder() {}
-
-    TupleBuilder(Tuple<Types...> && tuple):
-        m_impl(std::move(tuple)) {}
-
-    template <typename T>
-    TupleBuilder<T, Types...> add(T && obj) && {
-        return TupleBuilder<T, Types...>
-            {std::tuple_cat(std::make_tuple(obj), std::move(m_impl))};
-    }
-
-    void add_to_entity(Entity & ent) &&
-        { ent.add<Types...>() = std::move(m_impl); }
-
-
-    Tuple<Types...> finish() &&
-        { return m_impl; }
-
-private:
-    Tuple<Types...> m_impl;
-};
-
-// ----------------------------------------------------------------------------
-
 class QuadBasedTilesetTile final : public SlopesTilesetTile {
 public:
     using FlatVertexArray = std::array<Vertex, 4>;
