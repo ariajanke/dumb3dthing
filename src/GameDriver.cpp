@@ -26,6 +26,7 @@
 #include "Systems.hpp"
 #include "Configuration.hpp"
 #include "targeting-state.hpp"
+#include "Components.hpp"
 
 #include "map-director.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
@@ -117,26 +118,59 @@ namespace {
 
 // ------------------------------ <Messy Space> -------------------------------
 
+// seems to like like zero vectors?
+template <typename Vec, typename ... Types>
+std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, RenderModelData>
+    make_bezier_model_geometry
+        (const Tuple<Vec, Types...> & lhs,
+         const Tuple<Vec, Types...> & rhs,
+         int resolution,
+         Vector2 texture_offset,
+         Real texture_scale,
+         RenderModelData && model_data = RenderModelData{})
+{
+    std::vector<Vertex> & verticies = model_data.vertices;
+    std::vector<unsigned> & elements = model_data.elements;
+    unsigned el = elements.size();
+    for (auto [a, b, c] : cul::make_bezier_strip(lhs, rhs, resolution).details_view()) {
+        auto a_pt = a.point();
+        auto b_pt = b.point();
+        auto c_pt = c.point();
+        if (are_very_close(a_pt, b_pt) || are_very_close(c_pt, a_pt) || are_very_close(b_pt, c_pt))
+            { continue; }
+        verticies.emplace_back(a_pt, texture_offset + Vector2{1.f*a.on_right(), a.position()}*texture_scale);
+        verticies.emplace_back(b_pt, texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
+        verticies.emplace_back(c_pt, texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
+
+        elements.emplace_back(el++);
+        elements.emplace_back(el++);
+        elements.emplace_back(el++);
+    }
+    return std::move(model_data);
+}
+#if 0
 template <typename Vec, typename ... Types>
 std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 //  :eyes:
     make_bezier_strip_model
     (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     Platform & platform, SharedPtr<Texture> texture, int resolution,
+     Platform & platform, SharedPtr<const Texture> texture, int resolution,
      Vector2 texture_offset, Real texture_scale)
 {
-    std::vector<TriangleSegment> triangles;
     std::vector<Vertex> verticies;
     std::vector<int> elements;
     int el = 0;
     // uh oh, I need implementation knowledge here :c
     // so I'm trying to map texture positions correctly
     for (auto [a, b, c] : cul::make_bezier_strip(lhs, rhs, resolution).details_view()) {
-        verticies.emplace_back(a.point(), texture_offset + Vector2{1.f*a.on_right(), a.position()}*texture_scale);
-        verticies.emplace_back(b.point(), texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
-        verticies.emplace_back(c.point(), texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
-
-        triangles.emplace_back(TriangleSegment{a.point(), b.point(), c.point()});
+        auto a_pt = a.point();
+        auto b_pt = b.point();
+        auto c_pt = c.point();
+        if (are_very_close(a_pt, b_pt) || are_very_close(c_pt, a_pt) || are_very_close(b_pt, c_pt))
+            { continue; }
+        verticies.emplace_back(a_pt, texture_offset + Vector2{1.f*a.on_right(), a.position()}*texture_scale);
+        verticies.emplace_back(b_pt, texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
+        verticies.emplace_back(c_pt, texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
 
         elements.emplace_back(el++);
         elements.emplace_back(el++);
@@ -153,7 +187,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
         (std::move(mod), texture, VisibilityChain{});
     return ent;
 }
-
+#endif
 template <typename T>
 Entity make_bezier_yring_model();
 #if 0 // keep!
@@ -304,11 +338,67 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
         Vector{  9,  3,  0.5     },
         Vector{  9,  3,  20      });
 
-    auto texture = callbacks.platform().make_texture();
-    texture->load_from_file("ground.png");
-    auto bezent = make_bezier_strip_model(
-        west, east, callbacks.platform(), texture, 64, Vector2{0, 0}, 1. / 3.);
-    callbacks.add(bezent);
+
+
+    if (false) {
+    auto model_data =
+        make_bezier_model_geometry(west, east, 64, Vector2{0, 0}, 1. / 3.);
+    auto texture = Texture::make_ground(callbacks.platform());  // callbacks.platform().make_texture();
+    // texture->load_from_file("ground.png");
+    auto mod = callbacks.platform().make_render_model();
+    mod->load(model_data);
+
+    auto ent = Entity::make_sceneless_entity();
+    TupleBuilder{}.
+        add(std::move(mod)).
+        add(std::move(texture)).
+        add(VisibilityChain{}).
+        add_to_entity(ent);
+    callbacks.add(ent);
+    }
+    {
+    auto t1 = make_tuple
+        (k_up*3,
+         k_up*2.5 + k_east + k_north*0.3,
+         k_up*1 + k_east*0.3 + k_north*0.3,
+         k_east*0.25 + k_north*0.3);
+    auto t2 = make_tuple
+        (k_up*3,
+         k_up*2.5 + k_east - k_north*0.3,
+         k_up*1 + k_east*0.3 - k_north*0.3,
+         k_east*0.25 - k_north*0.3);
+    auto t3 = make_tuple
+        (k_up*3,
+         k_up*2.6 + k_east*0.4,
+         k_up*1.2,
+         -k_east*0.2);
+    auto model_data =
+        make_bezier_model_geometry(t1, t2, 12, Vector2{0, 0}, 1. / 3.);
+    model_data =
+        make_bezier_model_geometry(t2, t3, 12, Vector2{0, 0}, 1. / 3., std::move(model_data));
+    model_data =
+        make_bezier_model_geometry(t3, t1, 12, Vector2{0, 0}, 1. / 3., std::move(model_data));
+
+    auto mod = callbacks.platform().make_render_model();
+    mod->load(model_data);
+    auto ent = Entity::make_sceneless_entity();
+    TupleBuilder{}.
+        add<SharedPtr<const RenderModel>>(std::move(mod)).
+        add(Texture::make_ground(callbacks.platform())).
+        add(ModelTranslation{k_east*80 - k_north*80}).
+        add_to_entity(ent);
+    callbacks.add(ent);
+    }
+    {
+    auto ent = Entity::make_sceneless_entity();
+    TupleBuilder{}.
+        add(RenderModel::make_cone(callbacks.platform())).
+        add(Texture::make_ground(callbacks.platform())).
+        add(ModelTranslation{k_east*80 - k_north*80}).
+        add_to_entity(ent);
+    callbacks.add(ent);
+    }
+
 #   endif
 }
 

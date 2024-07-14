@@ -24,6 +24,7 @@
 #include "targeting-state.hpp"
 #include "RenderModel.hpp"
 #include "Texture.hpp"
+#include "PlayerControl.hpp"
 
 #include "geometric-utilities.hpp"
 

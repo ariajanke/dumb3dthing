@@ -440,7 +440,7 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
             continue;
         }
         if (const auto * translation = ent.ptr<ModelTranslation>()) {
-            model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(translation->value));
+            model = glm::translate(model, convert_to<glm::vec3>(translation->value));
         }
         if (const auto * yrotation = ent.ptr<YRotation>()) {
             model = glm::rotate(model, float(yrotation->value), convert_to<glm::vec3>(k_up));

@@ -22,6 +22,7 @@
 
 #include "Definitions.hpp"
 #include "Components.hpp"
+#include "PlayerControl.hpp"
 #include "point-and-plane.hpp"
 
 // ------------------------------- <Messy Space> ------------------------------
