@@ -48,7 +48,7 @@
 }
 
 /* static */ Entity PlayerTargetingSubTask::create_reticle(Platform & platform) {
-    auto ent = platform.make_renderable_entity();
+    auto ent = Entity::make_sceneless_entity();
     TupleBuilder{}.
         add(RenderModel::make_cone(platform)).
         add(Texture::make_ground(platform)).
@@ -119,7 +119,7 @@ void PlayerTargetingSubTask::on_every_frame
     auto & seeker = player.get<TargetSeeker>();
     auto pos = location_of(player.get<PpState>());
     auto & cam = player.get<DragCamera>();
-    seeker.set_facing_direction(normalize( pos - cam.position ));
+    seeker.set_facing_direction(normalize( project_onto_plane( pos - cam.position, k_up ) ));
 }
 
 void PlayerUpdateTask::on_every_frame(Callbacks & callbacks, Real seconds) {

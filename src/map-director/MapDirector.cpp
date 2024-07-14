@@ -139,7 +139,7 @@ void add_baddie_a
      const MapObjectFraming & framing,
      MapDirectorTask::Callbacks & callbacks)
 {
-    auto ent = callbacks.platform().make_renderable_entity();
+    auto ent = Entity::make_sceneless_entity();
     Vector location;
     (void)framing.
         get_position_from(map_obj).
@@ -157,8 +157,8 @@ void add_baddie_a
         add(std::move(tx)).
         add(ModelVisibility{}).
         add(TargetComponent{}).
+        add<PpState>(PpInAir{location, Vector{}}).
         add_to_entity(ent);
-    ent.add<PpState>() = PpInAir{location, Vector{}};
     callbacks.add(ent);
 }
 

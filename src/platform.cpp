@@ -67,9 +67,6 @@ PlatformAssetsStrategy::~PlatformAssetsStrategy() {}
     class Impl final : public Platform {
         void render_scene(const Scene &) final {}
 
-        Entity make_renderable_entity() const final
-            { return Entity::make_sceneless_entity(); }
-
         SharedPtr<Texture> make_texture() const final
             { return make_shared<NullTexture>(); }
 

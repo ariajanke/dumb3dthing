@@ -23,7 +23,6 @@
 #include "Tasks.hpp"
 #include "point-and-plane.hpp"
 
-// mmm "subtasks"
 class PlayerTargetingSubTask final {
 public:
     using Callbacks = EveryFrameTask::Callbacks;
