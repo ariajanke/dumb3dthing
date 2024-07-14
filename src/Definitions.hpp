@@ -95,6 +95,24 @@ public:
     BadBranchException(int line, const char * file);
 };
 
+template <typename ... Types>
+class TupleBuilder {
+public:
+    TupleBuilder() {}
+
+    TupleBuilder(Tuple<Types...> && tuple);
+
+    template <typename T>
+    TupleBuilder<T, Types...> add(T && obj) &&;
+
+    void add_to_entity(Entity & ent) &&;
+
+    Tuple<Types...> finish() && { return m_impl; }
+
+private:
+    Tuple<Types...> m_impl;
+};
+
 // --------------------------- Everywhere Functions ---------------------------
 
 using cul::normalize;
@@ -137,3 +155,20 @@ constexpr const Vector k_north{0, 0, 1};
 // top-left of tile is closer to 0, 0
 // it is the north-west corner of the tile
 constexpr const Vector k_tile_top_left{-0.5, 0, 0.5};
+
+// ----------------------------------------------------------------------------
+
+template <typename ... Types>
+TupleBuilder<Types...>::TupleBuilder(Tuple<Types...> && tuple):
+    m_impl(std::move(tuple)) {}
+
+template <typename ... Types>
+template <typename T>
+TupleBuilder<T, Types...> TupleBuilder<Types...>::add(T && obj) && {
+    return TupleBuilder<T, Types...>
+        {std::tuple_cat(std::make_tuple(obj), std::move(m_impl))};
+}
+
+template <typename ... Types>
+void TupleBuilder<Types...>::add_to_entity(Entity & ent) &&
+    { ent.add<Types...>() = std::move(m_impl); }

@@ -75,7 +75,6 @@ void LinearStripTriangleCollection::make_strip
      int steps_count)
 {
     using StripSide = StripVertex::StripSide;
-    using Triangle = TriangleSegment;
     if (steps_count < 0) {
         throw InvalidArgument{"steps_count must be a non-negative integer"};
     }

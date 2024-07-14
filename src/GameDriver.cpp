@@ -25,12 +25,11 @@
 #include "Texture.hpp"
 #include "Systems.hpp"
 #include "Configuration.hpp"
+#include "targeting-state.hpp"
 
 #include "map-director.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
-
-#include <iostream>
 
 namespace {
 
@@ -106,9 +105,7 @@ private:
     Scene m_scene;
     PlayerEntities m_player_entities;
     TasksController m_tasks_controller;
-#   if 0
-    FpsCounter m_frame_counter;
-#   endif
+    SharedPtr<TargetingState_> m_targeting_state = TargetingState_::make();
 };
 
 } // end of <anonymous> namespace
@@ -159,7 +156,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 
 template <typename T>
 Entity make_bezier_yring_model();
-
+#if 0 // keep!
 Entity make_sample_bezier_model
     (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
 {
@@ -184,7 +181,7 @@ Entity make_sample_bezier_model
     rv.add<ModelTranslation>() = Vector{ 4, 0, -3 };
     return rv;
 }
-
+#endif
 class CircleLine final {
 public:
     CircleLine(const Tuple<Vector, Vector, Vector> & pts_):
@@ -196,10 +193,7 @@ public:
 private:
     const Tuple<Vector, Vector, Vector> & m_points;
 };
-
-Entity make_loop(Platform & callbacks,
-                 const Tuple<Vector, Vector, Vector> & tup);
-
+#if 0 // keep!
 Entity make_sample_loop
     (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
 {
@@ -222,71 +216,24 @@ Entity make_sample_loop
     rv.add<ModelTranslation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
     return rv;
 }
-
+#endif
 // model entity, physical entity
 Tuple<Entity, Entity>
     make_sample_player
     (Platform & platform)
 {
-    static const auto get_vt = [](int i) {
-        constexpr const Real    k_scale = 1. / 3.;
-        constexpr const Vector2 k_offset = Vector2{0, 2}*k_scale;
-        auto list = { k_offset,
-                      k_offset + k_scale*Vector2(1, 0),
-                      k_offset + k_scale*Vector2(0, 1),
-                      k_offset + k_scale*Vector2(1, 1) };
-        assert(i < int(list.size()));
-        return *(list.begin() + i);
-    };
-
-    static const auto mk_v = [](Real x, Real y, Real z, int vtidx) {
-        Vertex v;
-        v.position.x = x*0.5;
-        v.position.y = y*0.5;
-        v.position.z = z*0.5;
-        v.texture_position = get_vt(vtidx);
-        return v;
-    };
-
-    static constexpr const int k_tl = 0, k_tr = 1, k_bl = 2, k_br = 3;
-
-    std::array verticies = {
-        mk_v( 1, -1,  1, k_tl), // 0: tne
-        mk_v(-1, -1,  1, k_tr), // 1: tnw
-        mk_v(-1,  1,  1, k_bl), // 2: tsw
-        mk_v( 1,  1,  1, k_br), // 3: tse
-        mk_v(-1,  1, -1, k_bl), // 4: bsw
-        mk_v( 1,  1, -1, k_br), // 5: bse
-        mk_v( 1, -1, -1, k_tl), // 6: bne
-        mk_v(-1, -1, -1, k_tr)  // 7: bnw
-    };
-
-    std::array<unsigned, 3*2*6> elements = {
-        0, 1, 2, /**/ 0, 2, 3, // top    faces
-        0, 1, 7, /**/ 0, 6, 7, // north  faces
-        2, 3, 4, /**/ 3, 4, 5, // south  faces
-        1, 2, 7, /**/ 2, 7, 4, // west   faces
-        0, 3, 6, /**/ 3, 5, 6, // east   faces
-        4, 6, 7, /**/ 4, 5, 6  // bottom faces
-    };
-
-    auto model = platform.make_render_model();
-    model->load(&verticies.front(), &verticies.front() + verticies.size(),
-                &elements .front(), &elements .front() + elements.size());
-
     auto physics_ent = Entity::make_sceneless_entity();
     auto model_ent   = platform.make_renderable_entity();
 
-    auto tx = platform.make_texture();
-    tx->load_from_file("ground.png");
     model_ent.add
         <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
          TranslationFromParent>
         () = make_tuple
-        (tx, model, ModelTranslation{},
+        (Texture::make_ground(platform), RenderModel::make_cube(platform), ModelTranslation{},
          TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
 
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
+    physics_ent.add<TargetSeeker>(10., k_pi / 6.);
 
     return make_tuple(model_ent, physics_ent);
 }
@@ -325,6 +272,7 @@ void GameDriverComplete::update(Real seconds, Platform & platform) {
 void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
     auto [renderable, physical] =
         make_sample_player(callbacks.platform());
+    physical.add<SharedPtr<const TargetsRetrieval>>() = m_targeting_state;
     callbacks.add
         (MapDirector_::begin_initial_map_loading
             (physical, k_testmap_filename, callbacks.platform(), *m_ppdriver));
@@ -334,7 +282,7 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
 
     m_player_entities.physical   = physical;
     m_player_entities.renderable = renderable;
-#   if 0
+#   if 1
     // let's... head north... starting 0.5+ ues north
     auto west = make_tuple(
         Vector{  3,  3, -20      },
@@ -360,9 +308,7 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
     texture->load_from_file("ground.png");
     auto bezent = make_bezier_strip_model(
         west, east, callbacks.platform(), texture, 64, Vector2{0, 0}, 1. / 3.);
-    m_ppdriver->add_triangles(bezent.get<std::vector<TriangleLinks>>());
-    bezent.remove<std::vector<TriangleLinks>>();
-    callbacks.add_to_scene(bezent);
+    callbacks.add(bezent);
 #   endif
 }
 
@@ -409,6 +355,7 @@ void GameDriverComplete::update_(Real seconds) {
         auto dist = magnitude(location_of(*ppstate) + vel - trans.value);
         *vis = dist < 12;
     })(m_scene);
+    m_targeting_state->update_on_scene(m_scene);
 
     m_time_controller.frame_update();
 }

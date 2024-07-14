@@ -21,8 +21,66 @@
 #include "PlayerUpdateTask.hpp"
 #include "point-and-plane.hpp"
 #include "Components.hpp"
+#include "targeting-state.hpp"
+#include "RenderModel.hpp"
+#include "Texture.hpp"
 
 #include "geometric-utilities.hpp"
+
+/* static */ Entity PlayerTargetingSubTask::find_nearest_in
+    (const PpState & pp_state, const std::vector<EntityRef> & entities)
+{
+    if (entities.empty()) {
+        return Entity{};
+    }
+    auto player_location = point_and_plane::location_of(pp_state);
+    Entity selection;
+    Real nearest_distance = k_inf;
+    for (auto & ent_ref : entities) {
+        Entity candidate{ent_ref};
+        auto ent_location = point_and_plane::location_of(candidate.get<PpState>());
+        auto distance = magnitude(player_location - ent_location);
+        if (distance < nearest_distance) {
+            selection = candidate;
+        }
+    }
+    return selection;
+}
+
+/* static */ Entity PlayerTargetingSubTask::create_reticle(Platform & platform) {
+    auto ent = platform.make_renderable_entity();
+    TupleBuilder{}.
+        add(RenderModel::make_cone(platform)).
+        add(Texture::make_ground(platform)).
+        add(ModelTranslation{}).
+        add(ModelVisibility{}).
+        add(XRotation{k_pi}).
+        add_to_entity(ent);
+    return ent;
+}
+
+void PlayerTargetingSubTask::on_every_frame
+    (const Entity & player, Callbacks & callbacks)
+{
+    const auto & seeker = player.get<TargetSeeker>();
+    const auto & retrieval = *player.get<SharedPtr<const TargetsRetrieval>>();
+    const auto & pp_state = player.get<PpState>();
+
+    m_target_refs = seeker.
+        find_targetables(retrieval, pp_state, std::move(m_target_refs));
+    if (!m_reticle) {
+        callbacks.add( m_reticle = create_reticle(callbacks.platform()) );
+    }
+    auto nearest = find_nearest_in(pp_state, m_target_refs);
+    m_reticle.get<ModelVisibility>().value = !nearest.is_null();
+    if (nearest) {
+        m_reticle.get<ModelTranslation>() =
+            point_and_plane::location_of(nearest.get<PpState>()) +
+            k_up*2;
+    }
+}
+
+// ----------------------------------------------------------------------------
 
 /* static */ void PlayerUpdateTask::rotate_camera(Entity & e, Real seconds) {
     const auto * pcontrol = e.ptr<PlayerControl>();
@@ -57,7 +115,14 @@
     player.get<Camera>().position = cam.position;
 }
 
-void PlayerUpdateTask::on_every_frame(Callbacks &, Real seconds) {
+/* static */ void PlayerUpdateTask::set_facing_direction(Entity & player) {
+    auto & seeker = player.get<TargetSeeker>();
+    auto pos = location_of(player.get<PpState>());
+    auto & cam = player.get<DragCamera>();
+    seeker.set_facing_direction(normalize( pos - cam.position ));
+}
+
+void PlayerUpdateTask::on_every_frame(Callbacks & callbacks, Real seconds) {
     if (!m_physics_ent)
         { throw RuntimeError{"Player entity deleted before its update task"}; }
     Entity physics_ent{m_physics_ent};
@@ -67,6 +132,8 @@ void PlayerUpdateTask::on_every_frame(Callbacks &, Real seconds) {
     check_fall_below(physics_ent);
     rotate_camera(physics_ent, seconds);
     drag_camera(physics_ent);
+    set_facing_direction(physics_ent);
+    m_targeting_subtask.on_every_frame(physics_ent, callbacks);
 }
 
 /* private static */ void PlayerUpdateTask::check_fall_below(Entity & ent) {
