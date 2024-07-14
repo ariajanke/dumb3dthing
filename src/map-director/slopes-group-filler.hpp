@@ -38,7 +38,7 @@ static constexpr auto k_out_ramp = "out-ramp";
 static constexpr auto k_ramp     = "ramp"    ;
 static constexpr auto k_flat     = "flat"    ;
 
-static constexpr auto k_ramp_group_type_list = {
+[[maybe_unused]] static constexpr auto k_ramp_group_type_list = {
     k_in_wall, k_out_wall, k_wall, k_in_ramp, k_out_ramp, k_ramp, k_flat
 };
 

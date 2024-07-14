@@ -20,20 +20,14 @@
 
 #include "RenderModel.hpp"
 #include "platform.hpp"
-#include <numeric>
-#if 0
-/* static */ SharedPtr<const RenderModel> RenderModel::make_sphere
-    (PlatformAssetsStrategy & platform)
-{
-    constexpr const int k_turns = 3;
 
-}
-#endif
 /* static */ SharedPtr<const RenderModel> RenderModel::make_cube
     (PlatformAssetsStrategy & platform)
 {
     static WeakPtr<RenderModel> s_memoized_cube;
-    if (!s_memoized_cube.expired()) return s_memoized_cube.lock();
+    if (!s_memoized_cube.expired()) {
+        return s_memoized_cube.lock();
+    }
 
     static const auto get_vt = [](int i) {
         constexpr const Real    k_scale = 1. / 3.;
@@ -88,19 +82,38 @@
 /* static */ SharedPtr<const RenderModel> RenderModel::make_cone
     (PlatformAssetsStrategy & platform)
 {
+    static WeakPtr<RenderModel> s_memoized_cone;
+    if (!s_memoized_cone.expired()) {
+        return s_memoized_cone.lock();
+    }
+
     constexpr const int k_faces = 10;
     constexpr const Vector tip = k_up*0.5;
-    std::array<unsigned, k_faces + 1> elements;
     std::array<Vertex, k_faces + 1> verticies;
     verticies[0] = Vertex{tip, Vector2{}};
-    std::iota(elements.begin(), elements.end(), 0);
-    auto pt_at = [] (Real t)
-        { return -k_up*0.5 + k_east*0.5*std::sin(t) + k_north*0.5*std::cos(t); };
+    auto pt_at = [] (Real t) {
+        return -k_up*0.5 + k_east*0.5*std::sin(t) + k_north*0.5*std::cos(t);
+    };
     for (int i = 0; i != k_faces; ++i) {
-        Real t = Real(i)*k_pi*2.;
+        Real t = Real(i) / k_pi*2.;
         auto current_pt = pt_at(t);
         verticies[i + 1] = Vertex{current_pt, Vector2{}};
     }
+
+    std::array<unsigned, (k_faces - 1)*3> elements;
+    for (unsigned i = 1; i != k_faces; ++i) {
+        auto j = (i - 1)*3;
+        assert(j + 2 < elements.size());
+        elements[j    ] = 0;
+        elements[j + 1] = i;
+        elements[j + 2] = i + 1 == k_faces ? 1 : i + 1;
+    }
+    auto rm = platform.make_render_model();
+    rm->load
+        (&verticies.front(), &verticies.front() + verticies.size(),
+         &elements.front(), &elements.front() + elements.size());
+    s_memoized_cone = rm;
+    return rm;
 }
 
 void RenderModel::load(const RenderModelData & model_data)

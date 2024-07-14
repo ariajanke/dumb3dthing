@@ -105,7 +105,7 @@ class ElementsCollection final {
 public:
     void populate(const View<const Vertex *> & vertices) {
         auto count = vertices.end() - vertices.begin();
-        if (count > kt_capacity_in_triangles*3) {
+        if (std::size_t(count) > kt_capacity_in_triangles*3) {
             throw RuntimeError{"capacity exceeded"};
         }
         std::iota(m_elements.begin(), m_elements.begin() + count, 0);

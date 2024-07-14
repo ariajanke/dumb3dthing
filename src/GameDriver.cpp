@@ -25,14 +25,11 @@
 #include "Texture.hpp"
 #include "Systems.hpp"
 #include "Configuration.hpp"
-// #include "TargetingComponentsSystems.hpp"
 #include "targeting-state.hpp"
 
 #include "map-director.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
 #include <ariajanke/cul/TestSuite.hpp>
-
-#include <iostream>
 
 namespace {
 
@@ -108,11 +105,7 @@ private:
     Scene m_scene;
     PlayerEntities m_player_entities;
     TasksController m_tasks_controller;
-    // TargetingState m_targeting_state;
     SharedPtr<TargetingState_> m_targeting_state = TargetingState_::make();
-#   if 0
-    FpsCounter m_frame_counter;
-#   endif
 };
 
 } // end of <anonymous> namespace
@@ -163,7 +156,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
 
 template <typename T>
 Entity make_bezier_yring_model();
-
+#if 0 // keep!
 Entity make_sample_bezier_model
     (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
 {
@@ -188,7 +181,7 @@ Entity make_sample_bezier_model
     rv.add<ModelTranslation>() = Vector{ 4, 0, -3 };
     return rv;
 }
-
+#endif
 class CircleLine final {
 public:
     CircleLine(const Tuple<Vector, Vector, Vector> & pts_):
@@ -200,10 +193,7 @@ public:
 private:
     const Tuple<Vector, Vector, Vector> & m_points;
 };
-
-Entity make_loop(Platform & callbacks,
-                 const Tuple<Vector, Vector, Vector> & tup);
-
+#if 0 // keep!
 Entity make_sample_loop
     (Platform & callbacks, SharedPtr<Texture> texture, int resolution)
 {
@@ -226,7 +216,7 @@ Entity make_sample_loop
     rv.add<ModelTranslation, YRotation>() = make_tuple(Vector{4, 0, 0}, k_pi*0.5);
     return rv;
 }
-
+#endif
 // model entity, physical entity
 Tuple<Entity, Entity>
     make_sample_player
@@ -318,9 +308,6 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
     texture->load_from_file("ground.png");
     auto bezent = make_bezier_strip_model(
         west, east, callbacks.platform(), texture, 64, Vector2{0, 0}, 1. / 3.);
-    // m_ppdriver->add_triangles(bezent.get<std::vector<TriangleLink>>());
-    // bezent.remove<std::vector<TriangleLink>>();
-    // callbacks.add_to_scene(bezent);
     callbacks.add(bezent);
 #   endif
 }
@@ -369,7 +356,6 @@ void GameDriverComplete::update_(Real seconds) {
         *vis = dist < 12;
     })(m_scene);
     m_targeting_state->update_on_scene(m_scene);
-    // TargetPlacementSystem{m_targeting_state}.update_on_scene(m_scene);
 
     m_time_controller.frame_update();
 }

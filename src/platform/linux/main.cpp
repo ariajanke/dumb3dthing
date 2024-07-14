@@ -437,11 +437,13 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
 
     // model matrix... maybe this also should be a component, though that
     // introduces a nasty dependancy
+    // maybe it shouldn't, OpenGL forces this to be a synchronous activity
     ecs::make_singles_system<Entity>([] (glm::mat4 & model, ModelTranslation & trans_) {
         model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(trans_.value));
     }, [] (glm::mat4 & model, YRotation & rot_) {
-        // was called "z" rotation...
         model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_up));
+    }, [] (glm::mat4 & model, XRotation & rot_) {
+        model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_east));
     }, [] (glm::mat4 & model, ModelScale & scale_) {
         model = glm::scale(model, convert_to<glm::vec3>(scale_.value));
     },
@@ -449,8 +451,8 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
     [] (EcsOpt<ModelVisibility> vis, SharedPtr<const Texture> & texture) {
         if (!should_be_visible(vis)) return;
         texture->bind_texture();
-    }
-    , [this] (EcsOpt<ModelVisibility> vis, glm::mat4 & model, SharedPtr<const RenderModel> & mod_) {
+    },
+    [this] (EcsOpt<ModelVisibility> vis, glm::mat4 & model, SharedPtr<const RenderModel> & mod_) {
         if (!should_be_visible(vis)) return;
         m_shader.set_mat4("model", model);
         mod_->render();

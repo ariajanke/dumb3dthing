@@ -27,6 +27,7 @@ namespace twist_loop_filler_names {
 constexpr const auto k_ns_twist_loop = "ns-twist-loop";
 constexpr const auto k_ew_twist_loop = "ew-twist-loop";
 
+[[maybe_unused]]
 constexpr const auto k_name_list = { k_ns_twist_loop, k_ew_twist_loop };
 
 } // end of twist_loop_filler_names namespace

@@ -64,12 +64,12 @@ describe<TargetingState>("TargetingState::interval_of")([] {
                          are_very_close(res.high, 2. / std::sqrt(2.)));
     }).
     mark_it("tip to base runs along all three axises", [] {
-        // I think this is actually correct
         TargetSeekerCone cone
             {Vector{}, (k_up + k_north + k_east)*(1. / std::sqrt(3.)), k_pi / 4.};
         auto res = TargetingState::interval_of(cone);
-        return test_that(are_very_close(res.low , 0.) &&
-                         are_very_close(res.high, 1. / std::sqrt(3.)));
+        // NOTE cone has a *wide* base
+        return test_that(are_very_close(res.low , -0.2391463) &&
+                         are_very_close(res.high,  1.3938469));
     });
 });
 

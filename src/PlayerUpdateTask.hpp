@@ -31,6 +31,8 @@ public:
     static Entity find_nearest_in
         (const PpState &, const std::vector<EntityRef> & entities);
 
+    static Entity create_reticle(Platform &);
+
     void on_every_frame(const Entity & player, Callbacks & callbacks);
 
 private:

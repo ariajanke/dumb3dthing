@@ -182,7 +182,6 @@ SharedPtr<SlopesTilesetTile> make_ramp() {
 
 /* static */ const TilesetTileMakerMap & SlopeGroupFiller::builtin_makers() {
     using namespace slopes_group_filler_type_names;
-    using Rt = SharedPtr<SlopesTilesetTile>;
     static TilesetTileMakerMap map {
         { k_flat    , make_ramp<FlatPropertiesLoader::instantiate_for> },
         { k_ramp    , make_ramp<RampPropertiesLoader::instantiate_for> },

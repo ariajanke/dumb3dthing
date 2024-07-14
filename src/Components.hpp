@@ -112,6 +112,11 @@ struct YRotation final : public ScalarLike<YRotation> {
     using LikeBase::operator=;
 };
 
+struct XRotation final : public ScalarLike<XRotation> {
+    using LikeBase::LikeBase;
+    using LikeBase::operator=;
+};
+
 struct TextureTranslation final : public Vector2Like<TextureTranslation> {
     using LikeBase::LikeBase;
 };

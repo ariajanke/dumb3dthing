@@ -47,6 +47,18 @@
     return selection;
 }
 
+/* static */ Entity PlayerTargetingSubTask::create_reticle(Platform & platform) {
+    auto ent = platform.make_renderable_entity();
+    TupleBuilder{}.
+        add(RenderModel::make_cone(platform)).
+        add(Texture::make_ground(platform)).
+        add(ModelTranslation{}).
+        add(ModelVisibility{}).
+        add(XRotation{k_pi}).
+        add_to_entity(ent);
+    return ent;
+}
+
 void PlayerTargetingSubTask::on_every_frame
     (const Entity & player, Callbacks & callbacks)
 {
@@ -57,21 +69,14 @@ void PlayerTargetingSubTask::on_every_frame
     m_target_refs = seeker.
         find_targetables(retrieval, pp_state, std::move(m_target_refs));
     if (!m_reticle) {
-        m_reticle = callbacks.platform().make_renderable_entity();
-        TupleBuilder{}.
-            add(RenderModel::make_cube(callbacks.platform())).
-            add(Texture::make_ground(callbacks.platform())).
-            add(ModelTranslation{}).
-            add(ModelVisibility{}).
-            add_to_entity(m_reticle);
-        callbacks.add(m_reticle);
+        callbacks.add( m_reticle = create_reticle(callbacks.platform()) );
     }
     auto nearest = find_nearest_in(pp_state, m_target_refs);
     m_reticle.get<ModelVisibility>().value = !nearest.is_null();
     if (nearest) {
-        auto & translation = m_reticle.get<ModelTranslation>() =
-        point_and_plane::location_of(nearest.get<PpState>()) +
-        k_up*2;
+        m_reticle.get<ModelTranslation>() =
+            point_and_plane::location_of(nearest.get<PpState>()) +
+            k_up*2;
     }
 }
 

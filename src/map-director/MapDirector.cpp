@@ -151,8 +151,13 @@ void add_baddie_a
     auto model = RenderModel::make_cube(callbacks.platform());
     auto tx = Texture::make_ground(callbacks.platform());
 
-    ent.add<ModelTranslation, SharedPtr<const RenderModel>, SharedPtr<const Texture>, ModelVisibility, TargetComponent>() =
-        make_tuple(ModelTranslation{location}, model, tx, ModelVisibility{}, TargetComponent{});
+    std::move(TupleBuilder{}).
+        add<ModelTranslation>(ModelTranslation{location}).
+        add(std::move(model)).
+        add(std::move(tx)).
+        add(ModelVisibility{}).
+        add(TargetComponent{}).
+        add_to_entity(ent);
     ent.add<PpState>() = PpInAir{location, Vector{}};
     callbacks.add(ent);
 }
@@ -188,12 +193,12 @@ Continuation & PlayerMapPreperationTask::in_background
                 return std::monostate{};
             });
     }
-    m_player_physics.
-        add<
-            Velocity, SharedPtr<EveryFrameTask>, SharedPtr<MapDirectorTask>,
-            PlayerRecovery
-            >() = make_tuple
-            (Velocity{}, player_update_task, map_director_task, location);
+    TupleBuilder{}.
+        add(Velocity{}).
+        add(SharedPtr<EveryFrameTask>{player_update_task}).
+        add(SharedPtr<BackgroundTask>{map_director_task}).
+        add(PlayerRecovery{location}).
+        add_to_entity(m_player_physics);
 
     callbacks.add(player_update_task);
     callbacks.add(map_director_task);
