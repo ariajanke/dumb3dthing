@@ -27,6 +27,7 @@ if [[ true ]]; then
 			  $(find src/map-director | grep 'cpp$') \
 				$(find src/point-and-plane | grep 'cpp\b') \
 				$(find src/geometric-utilities | grep 'cpp\b') \
+        $(find src/targeting-state | grep 'cpp\b') \
         --shell-file src/platform/wasm/shell.html \
         -Ilib/cul/inc -Ilib/ecs3/inc -Ilib/tinyxml2 \
 				-Ilib/HashMap/include \
