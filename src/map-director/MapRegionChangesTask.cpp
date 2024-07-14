@@ -245,7 +245,7 @@ void EntityAndLinkInsertingAdder::add_collidable_
 { m_triangle_inserter.push(m_tile_framing.transform(triangle_segment)); }
 
 Entity EntityAndLinkInsertingAdder::add_entity_() {
-    auto e = m_callbacks.platform().make_renderable_entity();
+    auto e = Entity::make_sceneless_entity();
     // NOTE: region load job adds the entity to the scene
     m_entities.push_back(e);
     return e;

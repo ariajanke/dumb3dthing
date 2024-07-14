@@ -193,8 +193,6 @@ public:
 
     void render_scene(const Scene &) final;
 
-    Entity make_renderable_entity() const final;
-
     SharedPtr<Texture> make_texture() const final;
 
     SharedPtr<RenderModel> make_render_model() const final;
@@ -369,7 +367,7 @@ int main() {
 namespace {
 
 struct PpStateModelMatrixAdjustment final {
-    void operator () (PpState & state, glm::mat4 & model) const;
+    void operator () (const PpState & state, glm::mat4 & model) const;
 };
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -435,36 +433,37 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
     m_shader.set_float("tex_alpha", 1.f);
     m_shader.set_vec2("tex_offset", glm::vec2{0.f, 0.f});
 
-    // model matrix... maybe this also should be a component, though that
-    // introduces a nasty dependancy
-    // maybe it shouldn't, OpenGL forces this to be a synchronous activity
-    ecs::make_singles_system<Entity>([] (glm::mat4 & model, ModelTranslation & trans_) {
-        model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(trans_.value));
-    }, [] (glm::mat4 & model, YRotation & rot_) {
-        model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_up));
-    }, [] (glm::mat4 & model, XRotation & rot_) {
-        model = glm::rotate(model, float(rot_.value), convert_to<glm::vec3>(k_east));
-    }, [] (glm::mat4 & model, ModelScale & scale_) {
-        model = glm::scale(model, convert_to<glm::vec3>(scale_.value));
-    },
-    PpStateModelMatrixAdjustment{},
-    [] (EcsOpt<ModelVisibility> vis, SharedPtr<const Texture> & texture) {
-        if (!should_be_visible(vis)) return;
-        texture->bind_texture();
-    },
-    [this] (EcsOpt<ModelVisibility> vis, glm::mat4 & model, SharedPtr<const RenderModel> & mod_) {
-        if (!should_be_visible(vis)) return;
-        m_shader.set_mat4("model", model);
-        mod_->render();
+    for (auto & ent : scene) {
+        glm::mat4 model = identity_matrix<glm::mat4>();
+        const auto * visibility = ent.ptr<ModelVisibility>();
+        if (visibility && !visibility->value) {
+            continue;
+        }
+        if (const auto * translation = ent.ptr<ModelTranslation>()) {
+            model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(translation->value));
+        }
+        if (const auto * yrotation = ent.ptr<YRotation>()) {
+            model = glm::rotate(model, float(yrotation->value), convert_to<glm::vec3>(k_up));
+        }
+        if (const auto * xrotation = ent.ptr<XRotation>()) {
+            model = glm::rotate(model, float(xrotation->value), convert_to<glm::vec3>(k_east));
+        }
+        if (const auto * scale = ent.ptr<ModelScale>()) {
+            model = glm::scale(model, convert_to<glm::vec3>(scale->value));
+        }
+        if (const auto * ppstate = ent.ptr<PpState>()) {
+            PpStateModelMatrixAdjustment{}(*ppstate, model);
+        }
+        if (const auto * texture = ent.ptr<SharedPtr<const Texture>>()) {
+            assert(*texture);
+            (**texture).bind_texture();
+        }
+        if (const auto * render_model = ent.ptr<SharedPtr<const RenderModel>>()) {
+            assert(*render_model);
+            m_shader.set_mat4("model", model);
+            (**render_model).render();
+        }
     }
-
-    )(scene);
-}
-
-Entity NativePlatformCallbacks::make_renderable_entity() const {
-    auto e = Entity::make_sceneless_entity();
-    e.add<glm::mat4>() = identity_matrix<glm::mat4>();
-    return e;
 }
 
 SharedPtr<Texture> NativePlatformCallbacks::make_texture() const
@@ -500,7 +499,7 @@ FutureStringPtr NativePlatformCallbacks::promise_file_contents
 // ----------------------------------------------------------------------------
 
 void PpStateModelMatrixAdjustment::operator ()
-    (PpState & state, glm::mat4 & model) const
+    (const PpState & state, glm::mat4 & model) const
 {
     auto * on_surface = std::get_if<PpOnSegment>(&state);
     if (!on_surface) return;

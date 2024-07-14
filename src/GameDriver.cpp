@@ -146,7 +146,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
     auto mod = platform.make_render_model();
     mod->load<int>(verticies, elements);
 
-    auto ent = platform.make_renderable_entity();
+    auto ent = Entity::make_sceneless_entity();
     ent.add
         <SharedPtr<const RenderModel>, SharedPtr<const Texture>, VisibilityChain>
         () = make_tuple
@@ -223,7 +223,7 @@ Tuple<Entity, Entity>
     (Platform & platform)
 {
     auto physics_ent = Entity::make_sceneless_entity();
-    auto model_ent   = platform.make_renderable_entity();
+    auto model_ent   = Entity::make_sceneless_entity();
 
     model_ent.add
         <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,

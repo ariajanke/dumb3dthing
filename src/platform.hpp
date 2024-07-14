@@ -93,17 +93,6 @@ public:
      */
     virtual void render_scene(const Scene &) = 0;
 
-    /** Creates an entity with all platform specific components that will make
-     *  it renderable.
-     *
-     *  ...this is only really appropiate for use by a loader
-     *
-     *  @returns a sceneless entity, with all necessary "hidden" component
-     *           types that makes an entity renderable
-     */
-    // TODO there needs to be a single point to create entities
-    virtual Entity make_renderable_entity() const = 0;
-
     /** There's only one camera per load, use it wisely!
      *
      *  Perhaps save the camera for the player.

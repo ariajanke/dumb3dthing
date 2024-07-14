@@ -105,8 +105,6 @@ public:
 
     void render_scene(const Scene &) final { throw "unhandled"; }
 
-    Entity make_renderable_entity() const final { throw "unhandled"; }
-
     void set_camera_entity(EntityRef) final { throw "unhandled"; }
 };
 

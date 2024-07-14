@@ -74,8 +74,6 @@ public:
 
     void render_scene(const Scene &) final { throw ""; }
 
-    Entity make_renderable_entity() const final { throw ""; }
-
     SharedPtr<Texture> make_texture() const final { throw ""; }
 
     SharedPtr<RenderModel> make_render_model() const final { throw ""; }
