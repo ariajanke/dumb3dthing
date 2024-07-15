@@ -49,6 +49,9 @@ public:
 
     static SharedPtr<const RenderModel> make_cone(PlatformAssetsStrategy &);
 
+    static SharedPtr<const RenderModel> make_vaguely_tree_like_thing
+        (PlatformAssetsStrategy &);
+
     virtual ~RenderModel() {}
 
     void load(const RenderModelData &);

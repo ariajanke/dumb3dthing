@@ -21,6 +21,42 @@
 #include "RenderModel.hpp"
 #include "platform.hpp"
 
+#include <ariajanke/cul/BezierCurves.hpp>
+
+namespace {
+
+template <typename Vec, typename ... Types>
+std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, RenderModelData>
+    make_bezier_model_geometry
+        (const Tuple<Vec, Types...> & lhs,
+         const Tuple<Vec, Types...> & rhs,
+         int resolution,
+         Vector2 texture_offset,
+         Real texture_scale,
+         RenderModelData && model_data = RenderModelData{})
+{
+    std::vector<Vertex> & verticies = model_data.vertices;
+    std::vector<unsigned> & elements = model_data.elements;
+    unsigned el = elements.size();
+    for (auto [a, b, c] : cul::make_bezier_strip(lhs, rhs, resolution).details_view()) {
+        auto a_pt = a.point();
+        auto b_pt = b.point();
+        auto c_pt = c.point();
+        if (are_very_close(a_pt, b_pt) || are_very_close(c_pt, a_pt) || are_very_close(b_pt, c_pt))
+            { continue; }
+        verticies.emplace_back(a_pt, texture_offset + Vector2{1.f*a.on_right(), a.position()}*texture_scale);
+        verticies.emplace_back(b_pt, texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
+        verticies.emplace_back(c_pt, texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
+
+        elements.emplace_back(el++);
+        elements.emplace_back(el++);
+        elements.emplace_back(el++);
+    }
+    return std::move(model_data);
+}
+
+} // end of <anonymous> namespace
+
 /* static */ SharedPtr<const RenderModel> RenderModel::make_cube
     (PlatformAssetsStrategy & platform)
 {
@@ -114,6 +150,37 @@
          &elements.front(), &elements.front() + elements.size());
     s_memoized_cone = rm;
     return rm;
+}
+
+/* static */ SharedPtr<const RenderModel>
+    RenderModel::make_vaguely_tree_like_thing
+    (PlatformAssetsStrategy & platform)
+{
+    auto t1 = make_tuple
+        (k_up*3,
+         k_up*2.5 + k_east + k_north*0.3,
+         k_up*1 + k_east*0.3 + k_north*0.3,
+         k_east*0.25 + k_north*0.3);
+    auto t2 = make_tuple
+        (k_up*3,
+         k_up*2.5 + k_east - k_north*0.3,
+         k_up*1 + k_east*0.3 - k_north*0.3,
+         k_east*0.25 - k_north*0.3);
+    auto t3 = make_tuple
+        (k_up*3,
+         k_up*2.6 + k_east*0.4,
+         k_up*1.2,
+         -k_east*0.2);
+    auto model_data =
+        make_bezier_model_geometry(t1, t2, 12, Vector2{0, 0}, 1. / 3.);
+    model_data =
+        make_bezier_model_geometry(t2, t3, 12, Vector2{0, 0}, 1. / 3., std::move(model_data));
+    model_data =
+        make_bezier_model_geometry(t3, t1, 12, Vector2{0, 0}, 1. / 3., std::move(model_data));
+
+    auto mod = platform.make_render_model();
+    mod->load(model_data);
+    return mod;
 }
 
 void RenderModel::load(const RenderModelData & model_data)

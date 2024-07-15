@@ -117,7 +117,7 @@ private:
 namespace {
 
 // ------------------------------ <Messy Space> -------------------------------
-
+#if 0
 // seems to like like zero vectors?
 template <typename Vec, typename ... Types>
 std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, RenderModelData>
@@ -148,6 +148,7 @@ std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, RenderModelData
     }
     return std::move(model_data);
 }
+#endif
 #if 0
 template <typename Vec, typename ... Types>
 std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
@@ -259,12 +260,12 @@ Tuple<Entity, Entity>
     auto physics_ent = Entity::make_sceneless_entity();
     auto model_ent   = Entity::make_sceneless_entity();
 
-    model_ent.add
-        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
-         TranslationFromParent>
-        () = make_tuple
-        (Texture::make_ground(platform), RenderModel::make_cube(platform), ModelTranslation{},
-         TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
+    TupleBuilder{}.
+        add(Texture::make_ground(platform)).
+        add(RenderModel::make_cube(platform)).
+        add(ModelTranslation{}).
+        add(TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}).
+        add_to_entity(model_ent);
 
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
     physics_ent.add<TargetSeeker>(10., k_pi / 6.);
@@ -317,6 +318,7 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
     m_player_entities.physical   = physical;
     m_player_entities.renderable = renderable;
 #   if 1
+#   if 0
     // let's... head north... starting 0.5+ ues north
     auto west = make_tuple(
         Vector{  3,  3, -20      },
@@ -344,7 +346,7 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
     auto model_data =
         make_bezier_model_geometry(west, east, 64, Vector2{0, 0}, 1. / 3.);
     auto texture = Texture::make_ground(callbacks.platform());  // callbacks.platform().make_texture();
-    // texture->load_from_file("ground.png");
+
     auto mod = callbacks.platform().make_render_model();
     mod->load(model_data);
 
@@ -356,7 +358,9 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
         add_to_entity(ent);
     callbacks.add(ent);
     }
+#   endif
     {
+#   if 0
     auto t1 = make_tuple
         (k_up*3,
          k_up*2.5 + k_east + k_north*0.3,
@@ -381,9 +385,10 @@ void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
 
     auto mod = callbacks.platform().make_render_model();
     mod->load(model_data);
+#   endif
     auto ent = Entity::make_sceneless_entity();
     TupleBuilder{}.
-        add<SharedPtr<const RenderModel>>(std::move(mod)).
+        add(RenderModel::make_vaguely_tree_like_thing(callbacks.platform())).
         add(Texture::make_ground(callbacks.platform())).
         add(ModelTranslation{k_east*80 - k_north*80}).
         add_to_entity(ent);
