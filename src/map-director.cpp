@@ -26,7 +26,7 @@
 /* static */ SharedPtr<BackgroundTask> MapDirector_::begin_initial_map_loading
     (Entity player_physics,
      const char * initial_map,
-     Platform & platform,
+     PlatformAssetsStrategy & platform,
      PpDriver & ppdriver)
 {
     return MapDirector::begin_initial_map_loading

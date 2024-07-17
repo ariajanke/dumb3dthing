@@ -174,6 +174,7 @@ void OpenGlTexture::swap(OpenGlTexture & rhs) {
 
         m_has_texture_id = true;
     }
+
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, m_pixel_data);
     glGenerateMipmap(GL_TEXTURE_2D);

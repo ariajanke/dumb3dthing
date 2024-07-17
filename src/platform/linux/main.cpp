@@ -114,7 +114,7 @@ private:
 
 class BlockingFileContentPromising final {
 public:
-    FutureStringPtr promise_file_contents(const char * filename) {
+    FutureStringPtr promise_file_contents(const char * filename) const {
         class Impl final : public Future<std::string> {
         public:
             Impl(const char * filename):
@@ -140,7 +140,7 @@ public:
 
 class SingleFrameFileContentPromising final {
 public:
-    FutureStringPtr promise_file_contents(const char * filename) {
+    FutureStringPtr promise_file_contents(const char * filename) const {
         m_unprocessed.emplace_back(make_shared<FutureStringImpl>(filename));
         return m_unprocessed.back();
     }
@@ -178,7 +178,9 @@ private:
         Optional<std::string> m_contents;
     };
 
-    std::vector<SharedPtr<FutureStringImpl>> m_unprocessed;
+    // NOTE understood to be a hack, however conveying that load a file
+    // does not *mutate* the platform/has side-effects is important
+    mutable std::vector<SharedPtr<FutureStringImpl>> m_unprocessed;
 };
 
 class NativePlatformCallbacks final : public Platform {
@@ -201,7 +203,7 @@ public:
 
     glm::mat4 get_view() const;
 
-    FutureStringPtr promise_file_contents(const char * filename);
+    FutureStringPtr promise_file_contents(const char * filename) const;
 
     void progress_file_promises() { m_file_promiser.progress_file_promises(); }
 
@@ -493,7 +495,7 @@ glm::mat4 NativePlatformCallbacks::get_view() const {
 }
 
 FutureStringPtr NativePlatformCallbacks::promise_file_contents
-    (const char * filename)
+    (const char * filename) const
 { return m_file_promiser.promise_file_contents(filename); }
 
 // ----------------------------------------------------------------------------

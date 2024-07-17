@@ -20,13 +20,12 @@
 
 #include "GameDriver.hpp"
 #include "Components.hpp"
-#include "RenderModel.hpp"
 #include "TasksController.hpp"
-#include "Texture.hpp"
 #include "Systems.hpp"
 #include "Configuration.hpp"
 #include "targeting-state.hpp"
 #include "Components.hpp"
+#include "AssetsRetrieval.hpp"
 
 #include "map-director.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
@@ -117,78 +116,7 @@ private:
 namespace {
 
 // ------------------------------ <Messy Space> -------------------------------
-#if 0
-// seems to like like zero vectors?
-template <typename Vec, typename ... Types>
-std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, RenderModelData>
-    make_bezier_model_geometry
-        (const Tuple<Vec, Types...> & lhs,
-         const Tuple<Vec, Types...> & rhs,
-         int resolution,
-         Vector2 texture_offset,
-         Real texture_scale,
-         RenderModelData && model_data = RenderModelData{})
-{
-    std::vector<Vertex> & verticies = model_data.vertices;
-    std::vector<unsigned> & elements = model_data.elements;
-    unsigned el = elements.size();
-    for (auto [a, b, c] : cul::make_bezier_strip(lhs, rhs, resolution).details_view()) {
-        auto a_pt = a.point();
-        auto b_pt = b.point();
-        auto c_pt = c.point();
-        if (are_very_close(a_pt, b_pt) || are_very_close(c_pt, a_pt) || are_very_close(b_pt, c_pt))
-            { continue; }
-        verticies.emplace_back(a_pt, texture_offset + Vector2{1.f*a.on_right(), a.position()}*texture_scale);
-        verticies.emplace_back(b_pt, texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
-        verticies.emplace_back(c_pt, texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
 
-        elements.emplace_back(el++);
-        elements.emplace_back(el++);
-        elements.emplace_back(el++);
-    }
-    return std::move(model_data);
-}
-#endif
-#if 0
-template <typename Vec, typename ... Types>
-std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
-//  :eyes:
-    make_bezier_strip_model
-    (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     Platform & platform, SharedPtr<const Texture> texture, int resolution,
-     Vector2 texture_offset, Real texture_scale)
-{
-    std::vector<Vertex> verticies;
-    std::vector<int> elements;
-    int el = 0;
-    // uh oh, I need implementation knowledge here :c
-    // so I'm trying to map texture positions correctly
-    for (auto [a, b, c] : cul::make_bezier_strip(lhs, rhs, resolution).details_view()) {
-        auto a_pt = a.point();
-        auto b_pt = b.point();
-        auto c_pt = c.point();
-        if (are_very_close(a_pt, b_pt) || are_very_close(c_pt, a_pt) || are_very_close(b_pt, c_pt))
-            { continue; }
-        verticies.emplace_back(a_pt, texture_offset + Vector2{1.f*a.on_right(), a.position()}*texture_scale);
-        verticies.emplace_back(b_pt, texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
-        verticies.emplace_back(c_pt, texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
-
-        elements.emplace_back(el++);
-        elements.emplace_back(el++);
-        elements.emplace_back(el++);
-    }
-
-    auto mod = platform.make_render_model();
-    mod->load<int>(verticies, elements);
-
-    auto ent = Entity::make_sceneless_entity();
-    ent.add
-        <SharedPtr<const RenderModel>, SharedPtr<const Texture>, VisibilityChain>
-        () = make_tuple
-        (std::move(mod), texture, VisibilityChain{});
-    return ent;
-}
-#endif
 template <typename T>
 Entity make_bezier_yring_model();
 #if 0 // keep!
@@ -255,14 +183,14 @@ Entity make_sample_loop
 // model entity, physical entity
 Tuple<Entity, Entity>
     make_sample_player
-    (Platform & platform)
+    (AssetsRetrieval & assets_retrieval)
 {
     auto physics_ent = Entity::make_sceneless_entity();
     auto model_ent   = Entity::make_sceneless_entity();
 
     TupleBuilder{}.
-        add(Texture::make_ground(platform)).
-        add(RenderModel::make_cube(platform)).
+        add(assets_retrieval.make_ground_texture()).
+        add(assets_retrieval.make_cube_model()).
         add(ModelTranslation{}).
         add(TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}).
         add_to_entity(model_ent);
@@ -294,6 +222,7 @@ void GameDriverComplete::setup(Platform & platform_) {
     m_tasks_controller.assign_point_and_plane_driver(*m_ppdriver);
     initial_load(m_tasks_controller);
     m_tasks_controller.add_entities_to(m_scene);
+    platform_.set_camera_entity(EntityRef{m_player_entities.physical});
 }
 
 void GameDriverComplete::update(Real seconds, Platform & platform) {
@@ -305,106 +234,17 @@ void GameDriverComplete::update(Real seconds, Platform & platform) {
 }
 
 void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
-    auto [renderable, physical] =
-        make_sample_player(callbacks.platform());
+    auto assets_retrieval = AssetsRetrieval::make_saving_instance(callbacks.platform());
+    auto [renderable, physical] = make_sample_player(*assets_retrieval);
     physical.add<SharedPtr<const TargetsRetrieval>>() = m_targeting_state;
     callbacks.add
         (MapDirector_::begin_initial_map_loading
             (physical, k_testmap_filename, callbacks.platform(), *m_ppdriver));
-    callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.add(physical);
     callbacks.add(renderable);
 
     m_player_entities.physical   = physical;
     m_player_entities.renderable = renderable;
-#   if 1
-#   if 0
-    // let's... head north... starting 0.5+ ues north
-    auto west = make_tuple(
-        Vector{  3,  3, -20      },
-        Vector{  3,  3,  0.5     },
-        Vector{  3,  3,  0.5 - 19},
-        Vector{2.5, -55,  0.5 - 19},
-        Vector{2.5, -55,  0.5 + 19},
-        Vector{  6,  3,  0.5 + 19},
-        Vector{  6,  3,  0.5     },
-        Vector{  6,  3,  20      });
-
-    auto east = make_tuple(
-        Vector{  6,  3, -20      },
-        Vector{  6,  3,  0.5     },
-        Vector{  6,  3,  0.5 - 19},
-        Vector{8.5, -55,  0.5 - 19},
-        Vector{8.5, -55,  0.5 + 19},
-        Vector{  9,  3,  0.5 + 19},
-        Vector{  9,  3,  0.5     },
-        Vector{  9,  3,  20      });
-
-
-
-    if (false) {
-    auto model_data =
-        make_bezier_model_geometry(west, east, 64, Vector2{0, 0}, 1. / 3.);
-    auto texture = Texture::make_ground(callbacks.platform());  // callbacks.platform().make_texture();
-
-    auto mod = callbacks.platform().make_render_model();
-    mod->load(model_data);
-
-    auto ent = Entity::make_sceneless_entity();
-    TupleBuilder{}.
-        add(std::move(mod)).
-        add(std::move(texture)).
-        add(VisibilityChain{}).
-        add_to_entity(ent);
-    callbacks.add(ent);
-    }
-#   endif
-    {
-#   if 0
-    auto t1 = make_tuple
-        (k_up*3,
-         k_up*2.5 + k_east + k_north*0.3,
-         k_up*1 + k_east*0.3 + k_north*0.3,
-         k_east*0.25 + k_north*0.3);
-    auto t2 = make_tuple
-        (k_up*3,
-         k_up*2.5 + k_east - k_north*0.3,
-         k_up*1 + k_east*0.3 - k_north*0.3,
-         k_east*0.25 - k_north*0.3);
-    auto t3 = make_tuple
-        (k_up*3,
-         k_up*2.6 + k_east*0.4,
-         k_up*1.2,
-         -k_east*0.2);
-    auto model_data =
-        make_bezier_model_geometry(t1, t2, 12, Vector2{0, 0}, 1. / 3.);
-    model_data =
-        make_bezier_model_geometry(t2, t3, 12, Vector2{0, 0}, 1. / 3., std::move(model_data));
-    model_data =
-        make_bezier_model_geometry(t3, t1, 12, Vector2{0, 0}, 1. / 3., std::move(model_data));
-
-    auto mod = callbacks.platform().make_render_model();
-    mod->load(model_data);
-#   endif
-    auto ent = Entity::make_sceneless_entity();
-    TupleBuilder{}.
-        add(RenderModel::make_vaguely_tree_like_thing(callbacks.platform())).
-        add(Texture::make_ground(callbacks.platform())).
-        add(ModelTranslation{k_east*80 - k_north*80}).
-        add_to_entity(ent);
-    callbacks.add(ent);
-    }
-    {
-    auto ent = Entity::make_sceneless_entity();
-    TupleBuilder{}.
-        add(RenderModel::make_cone(callbacks.platform())).
-        add(Texture::make_ground(callbacks.platform())).
-        add(ModelTranslation{k_east*80 - k_north*80}).
-        add_to_entity(ent);
-    callbacks.add(ent);
-    }
-
-#   endif
 }
 
 void GameDriverComplete::update_(Real seconds) {

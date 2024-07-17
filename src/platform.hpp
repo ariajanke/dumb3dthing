@@ -72,24 +72,16 @@ public:
      *  @note This design is in place in enable compatibility without
      *        having to use a blocking call with Web Assembly.
      */
-    virtual FutureStringPtr promise_file_contents(const char *) = 0;
+    // TODO should be const, as there are no side-effects outside the file
+    // loading process
+    virtual FutureStringPtr promise_file_contents(const char *) const = 0;
 };
 
-/** Represents the platform on which the application runs. This class is a way
- *  for the driver/loaders/certain systems to obtain platform specific
- *  functionality.
- *
- *  @note run platform dependant code
- */
-class Platform : public PlatformAssetsStrategy {
+class ScenePresentation {
 public:
-    static Platform & null_callbacks();
+    virtual ~ScenePresentation() {}
 
-    /** Renders an entire scene, all entities that you wish to render, will
-     *  need to have been created with the "make_renderable_entity" method.
-     *
-     *  ...this is only appropiate for use by the driver
-     *  ...non const, you are in a sense, modifying the platform
+    /** Renders an entire scene, using graphical components of every entity
      */
     virtual void render_scene(const Scene &) = 0;
 
@@ -99,7 +91,15 @@ public:
      */
     virtual void set_camera_entity(EntityRef) = 0;
 
-    /// I need a UI at some point
-    /// for now, it can be very simple
-    /// just a set of lines for map loading warnings and errors
+    // TODO I need a UI at some point
+    // for now, it can be very simple
+    // just a set of lines for map loading warnings and errors
 };
+
+/** Represents the platform on which the application runs. This class is a way
+ *  for the driver/loaders/certain systems to obtain platform specific
+ *  functionality.
+ *
+ *  @note run platform dependant code
+ */
+class Platform : public PlatformAssetsStrategy, public ScenePresentation {};

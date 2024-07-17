@@ -30,7 +30,7 @@ public:
     static Entity find_nearest_in
         (const PpState &, const std::vector<EntityRef> & entities);
 
-    static Entity create_reticle(Platform &);
+    static Entity create_reticle(PlatformAssetsStrategy &);
 
     void on_every_frame(const Entity & player, Callbacks & callbacks);
 

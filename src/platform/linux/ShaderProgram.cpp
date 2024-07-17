@@ -86,8 +86,10 @@ constexpr const char * k_fragment_shader_source =
 "uniform sampler2D our_texture;\n"
 "\n"
 "void main() {\n"
-"   FragColor.rgb = texture(our_texture, tex_coord).rgb;\n"
-"   FragColor.a = vertex_color.a;\n"
+"   vec4 t = texture(our_texture, tex_coord);\n"
+"   if (t.a < 0.1) discard;\n"
+"   FragColor.rgb = t.rgb;\n"
+"   FragColor.a = vertex_color.a*t.a;\n"
 "}\n\0";
 
 constexpr const char * k_vertex_shader_source =

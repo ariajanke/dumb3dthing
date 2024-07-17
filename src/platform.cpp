@@ -58,7 +58,7 @@ private:
 } // end of <anonymous> namespace
 
 PlatformAssetsStrategy::~PlatformAssetsStrategy() {}
-
+#if 0
 /* static */ Platform & Platform::null_callbacks() {
     static constexpr const auto k_cannot_promise_file_contents =
         "Platform::null_callbacks()::...::promise_file_contents: cannot use "
@@ -81,3 +81,4 @@ PlatformAssetsStrategy::~PlatformAssetsStrategy() {}
     static Impl impl;
     return impl;
 }
+#endif

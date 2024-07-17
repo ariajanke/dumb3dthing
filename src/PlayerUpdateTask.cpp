@@ -22,9 +22,8 @@
 #include "point-and-plane.hpp"
 #include "Components.hpp"
 #include "targeting-state.hpp"
-#include "RenderModel.hpp"
-#include "Texture.hpp"
 #include "PlayerControl.hpp"
+#include "AssetsRetrieval.hpp"
 
 #include "geometric-utilities.hpp"
 
@@ -48,11 +47,14 @@
     return selection;
 }
 
-/* static */ Entity PlayerTargetingSubTask::create_reticle(Platform & platform) {
+/* static */ Entity PlayerTargetingSubTask::create_reticle
+    (PlatformAssetsStrategy & platform)
+{
+    auto assets_retrieval = AssetsRetrieval::make_saving_instance(platform);
     auto ent = Entity::make_sceneless_entity();
     TupleBuilder{}.
-        add(RenderModel::make_cone(platform)).
-        add(Texture::make_ground(platform)).
+        add(assets_retrieval->make_cone_model()).
+        add(assets_retrieval->make_ground_texture()).
         add(ModelTranslation{}).
         add(ModelVisibility{}).
         add(XRotation{k_pi}).

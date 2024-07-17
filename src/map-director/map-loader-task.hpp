@@ -35,7 +35,7 @@ public:
     };
 
     static SharedPtr<MapLoaderTask_> make
-        (const char * initial_map, Platform & platform);
+        (const char * initial_map, PlatformAssetsStrategy & platform);
 
     /// @throws if the task has not finished
     virtual Result retrieve() = 0;

@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,19 +18,28 @@
 
 *****************************************************************************/
 
+#pragma once
+
 #include "RenderModel.hpp"
+#include "Texture.hpp"
 
-void RenderModel::load(const RenderModelData & model_data)
-    { load(model_data.vertices, model_data.elements); }
+class AssetsRetrieval {
+public:
+    static SharedPtr<AssetsRetrieval> make_non_saving_instance
+        (PlatformAssetsStrategy &);
 
-void RenderModel::load
-    (const std::vector<Vertex> & vertices, const std::vector<unsigned> & elements)
-{
-    load(&vertices.front(), &vertices.front() + vertices.size(),
-         &elements.front(), &elements.front() + elements.size());
-}
+    static SharedPtr<AssetsRetrieval> make_saving_instance
+        (PlatformAssetsStrategy &);
 
-void RenderModel::load
-    (const Vertex   * vertex_beg  , const Vertex   * vertex_end,
-     const unsigned * elements_beg, const unsigned * elements_end)
-{ load_(vertex_beg, vertex_end, elements_beg, elements_end); }
+    virtual ~AssetsRetrieval() {}
+
+    virtual SharedPtr<const RenderModel> make_cube_model() = 0;
+
+    virtual SharedPtr<const RenderModel> make_cone_model() = 0;
+
+    virtual SharedPtr<const RenderModel> make_vaguely_tree_like_model() = 0;
+
+    virtual SharedPtr<const RenderModel> make_grass_model() = 0;
+
+    virtual SharedPtr<const Texture> make_ground_texture() = 0;
+};

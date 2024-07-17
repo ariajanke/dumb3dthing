@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="8">
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="10">
  <properties>
   <property name="scale" value="5,1,5"/>
  </properties>
@@ -71,6 +71,12 @@
     <properties>
      <property name="enemy-of" type="object" value="1"/>
     </properties>
+    <point/>
+   </object>
+   <object id="8" type="grass" x="445.872" y="503.011">
+    <point/>
+   </object>
+   <object id="9" type="vaguely-tree" x="453.572" y="505.629">
     <point/>
    </object>
   </objectgroup>
