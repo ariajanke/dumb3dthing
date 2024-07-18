@@ -39,6 +39,8 @@ public:
 
     virtual SharedPtr<const RenderModel> make_vaguely_tree_like_model() = 0;
 
+    virtual SharedPtr<const RenderModel> make_vaguely_palm_leaves() = 0;
+
     virtual SharedPtr<const RenderModel> make_grass_model() = 0;
 
     virtual SharedPtr<const Texture> make_ground_texture() = 0;

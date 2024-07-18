@@ -20,6 +20,7 @@
 
 #include "AssetsRetrieval.hpp"
 #include "platform.hpp"
+#include "geometric-utilities.hpp"
 
 #include <ariajanke/cul/BezierCurves.hpp>
 
@@ -84,6 +85,8 @@ public:
 
     SharedPtr<const RenderModel> make_grass_model() final;
 
+    SharedPtr<const RenderModel> make_vaguely_palm_leaves() final;
+
     SharedPtr<const Texture> make_ground_texture() final;
 
 private:
@@ -103,6 +106,8 @@ public:
     SharedPtr<const RenderModel> make_vaguely_tree_like_model() final;
 
     SharedPtr<const RenderModel> make_grass_model() final;
+
+    SharedPtr<const RenderModel> make_vaguely_palm_leaves() final;
 
     SharedPtr<const Texture> make_ground_texture() final;
 
@@ -124,7 +129,7 @@ private:
         return t;
     }
 
-    std::array<WeakPtr<const RenderModel>, 4> m_saved_models;
+    std::array<WeakPtr<const RenderModel>, 5> m_saved_models;
     std::array<WeakPtr<const Texture>, 1> m_saved_textures;
     NonSavingAssetsRetrieval m_retrieval;
 };
@@ -208,29 +213,64 @@ SharedPtr<const RenderModel> NonSavingAssetsRetrieval::make_cone_model() {
     return rm;
 }
 
+constexpr const Vector k_tree_crown_position = k_up*3;
+
 SharedPtr<const RenderModel> NonSavingAssetsRetrieval::make_vaguely_tree_like_model() {
     auto t1 = make_tuple
-        (k_up*3,
+        (k_tree_crown_position,
          k_up*2.5 + k_east + k_north*0.3,
          k_up*1 + k_east*0.3 + k_north*0.3,
          k_east*0.25 + k_north*0.3);
     auto t2 = make_tuple
-        (k_up*3,
+        (k_tree_crown_position,
          k_up*2.5 + k_east - k_north*0.3,
          k_up*1 + k_east*0.3 - k_north*0.3,
          k_east*0.25 - k_north*0.3);
     auto t3 = make_tuple
-        (k_up*3,
+        (k_tree_crown_position,
          k_up*2.6 + k_east*0.4,
          k_up*1.2,
          -k_east*0.2);
-    constexpr const int res = 20;
+    constexpr const int res = 12;
     auto model_data =
         make_bezier_model_geometry(t1, t2, res, Vector2{0, 0}, 1. / 3.);
     model_data =
         make_bezier_model_geometry(t2, t3, res*3/2, Vector2{0, 0}, 1. / 3., std::move(model_data));
     model_data =
         make_bezier_model_geometry(t3, t1, res, Vector2{0, 0}, 1. / 3., std::move(model_data));
+
+    auto mod = m_platform.make_render_model();
+    mod->load(model_data);
+    return mod;
+}
+
+SharedPtr<const RenderModel> NonSavingAssetsRetrieval::make_vaguely_palm_leaves() {
+    auto t1 = make_tuple
+        (k_tree_crown_position,
+         k_tree_crown_position + k_north*(1. / 2.) + k_up*(3. / 4.),
+         k_tree_crown_position + k_north*(2. / 2.) + k_up*(3. / 4.),
+         k_tree_crown_position + k_north*(3. / 2.));
+    VectorRotater rotate_vector{k_north};
+    auto adjusted_rotate = [&rotate_vector](const Vector & r, Real angle) {
+        return rotate_vector(r - k_tree_crown_position, angle) + k_tree_crown_position;
+    };
+    constexpr const Real t2_rot = k_pi*(1. / 4.);
+    constexpr const Real t3_rot = -t2_rot;
+    constexpr const int resolution = 8;
+    auto t2 = make_tuple
+        (adjusted_rotate(std::get<0>(t1), t2_rot),
+         adjusted_rotate(std::get<1>(t1), t2_rot),
+         adjusted_rotate(std::get<2>(t1), t2_rot) + k_east*(1. / 3.),
+         adjusted_rotate(std::get<3>(t1), t2_rot));
+    auto t3 = make_tuple
+        (adjusted_rotate(std::get<0>(t1), t3_rot),
+         adjusted_rotate(std::get<1>(t1), t3_rot),
+         adjusted_rotate(std::get<2>(t1), t3_rot) - k_east*(1. / 3.),
+         adjusted_rotate(std::get<3>(t1), t3_rot));
+    auto model_data =
+        make_bezier_model_geometry(t1, t2, resolution, Vector2{0, 0}, 1. / 3.);
+    model_data =
+        make_bezier_model_geometry(t1, t3, resolution, Vector2{0, 0}, 1. / 3., std::move(model_data));
 
     auto mod = m_platform.make_render_model();
     mod->load(model_data);
@@ -294,6 +334,12 @@ SharedPtr<const RenderModel> SavingAssetsRetrieval::make_vaguely_tree_like_model
 SharedPtr<const RenderModel> SavingAssetsRetrieval::make_grass_model() {
     return wrap_check_for_saved_model<3>([this] {
         return m_retrieval.make_grass_model();
+    });
+}
+
+SharedPtr<const RenderModel> SavingAssetsRetrieval::make_vaguely_palm_leaves() {
+    return wrap_check_for_saved_model<4>([this] {
+        return m_retrieval.make_vaguely_palm_leaves();
     });
 }
 

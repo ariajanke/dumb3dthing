@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="10">
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" infinite="0" nextlayerid="6" nextobjectid="11">
  <properties>
   <property name="scale" value="5,1,5"/>
  </properties>
@@ -79,6 +79,7 @@
    <object id="9" type="vaguely-tree" x="453.572" y="505.629">
     <point/>
    </object>
+   <object id="10" type="grass" x="448.49" y="512.406" width="34.9613" height="28.1846"/>
   </objectgroup>
  </group>
 </map>

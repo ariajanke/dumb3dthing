@@ -150,6 +150,12 @@ public:
              VectorYFraming{FieldType::property , "elevation", false},
              VectorZFraming{FieldType::attribute, "y"        , true }};
 
+    static constexpr const auto k_rectangle_size_framing =
+        MapObjectVectorFraming
+            {VectorXFraming{FieldType::attribute, "width"    , true },
+             VectorYFraming{FieldType::ignored  , ""         , false},
+             VectorZFraming{FieldType::attribute, "height"   , true }};
+
     static MapObjectFraming load_from(const TiXmlElement & map_element);
 
     MapObjectFraming() {}

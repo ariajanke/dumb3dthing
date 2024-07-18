@@ -32,7 +32,7 @@
 // danger: does not own source element
 class MapElementValuesMap final {
 public:
-    enum class FieldType { attribute, property };
+    enum class FieldType { attribute, property, ignored };
 
     static constexpr const auto k_properties_tag = "properties";
     static constexpr const auto k_property_tag = "property";

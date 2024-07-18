@@ -450,6 +450,7 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
         if (const auto * xrotation = ent.ptr<XRotation>()) {
             model = glm::rotate(model, float(xrotation->value), convert_to<glm::vec3>(k_east));
         }
+
         if (const auto * scale = ent.ptr<ModelScale>()) {
             model = glm::scale(model, convert_to<glm::vec3>(scale->value));
         }
