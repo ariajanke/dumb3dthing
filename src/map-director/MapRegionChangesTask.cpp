@@ -21,6 +21,9 @@
 #include "MapRegionChangesTask.hpp"
 #include "RegionEdgeConnectionsContainer.hpp"
 #include "../TriangleLink.hpp"
+#include "../AssetsRetrieval.hpp"
+
+#include <random>
 
 namespace {
 
@@ -28,6 +31,8 @@ using ViewGridTriangle = MapRegionContainer::ViewGridTriangle;
 
 // has two jobs :/
 // becomes an entity and link grid adder
+// turn this into an "aggregate" class, where each piece of functionality is
+// implemented as a smaller class?
 class EntityAndLinkInsertingAdder final : public ProducableTileCallbacks {
 public:
     EntityAndLinkInsertingAdder
@@ -41,14 +46,25 @@ public:
 
     Entity add_entity_() final;
 
-    void advance_grid_position()
-        { m_tile_framing = m_tile_framing.advance_with(m_triangle_inserter); }
+    void advance_grid_position() {
+        m_tile_framing = m_tile_framing.advance_with(m_triangle_inserter);
+        m_tile_framing.call_seed_on(m_rng);
+    }
+
+    AssetsRetrieval & assets_retrieval() const final {
+        assert(m_assets_retrieval);
+        return *m_assets_retrieval;
+    }
 
     std::vector<Entity> finish_adding_entites();
 
     SharedPtr<ViewGridTriangle> finish_adding_triangles();
 
-    // wants a finish method
+    Real next_random() final {
+        auto res = std::uniform_real_distribution<Real>{0.5, -0.5}(m_rng);
+        if (are_very_close(0.5, res)) return 0.5;
+        return res;
+    }
 
 private:
     ModelScale model_scale() const final
@@ -63,6 +79,8 @@ private:
     ViewGridInserter<TriangleSegment> m_triangle_inserter;
     std::vector<Entity> m_entities;
     TilePositionFraming m_tile_framing;
+    SharedPtr<AssetsRetrieval> m_assets_retrieval;
+    std::mt19937 m_rng;
 };
 
 void link_triangles(ViewGridTriangle &);
@@ -225,7 +243,11 @@ EntityAndLinkInsertingAdder::EntityAndLinkInsertingAdder
      const TilePositionFraming & tile_framing):
     m_callbacks(callbacks),
     m_triangle_inserter(grid_size),
-    m_tile_framing(tile_framing) {}
+    m_tile_framing(tile_framing),
+    m_assets_retrieval(AssetsRetrieval::make_saving_instance(callbacks.platform()))
+{
+    m_tile_framing.call_seed_on(m_rng);
+}
 
 std::vector<Entity> EntityAndLinkInsertingAdder::finish_adding_entites() {
     for (auto & e : m_entities)

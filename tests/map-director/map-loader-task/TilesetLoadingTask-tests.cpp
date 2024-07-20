@@ -21,10 +21,10 @@
 #include "../../../src/map-director/map-loader-task/TilesetLoadingTask.hpp"
 #include "TestMapContentLoader.hpp"
 #include "../../test-helpers.hpp"
+#include "../../platform.hpp"
 
 #include <tinyxml2.h>
 
-#include <set>
 
 namespace {
 
@@ -51,7 +51,7 @@ public:
         return inst;
     }
 
-    FutureStringPtr promise_file_contents(const char * fn) final {
+    FutureStringPtr promise_file_contents(const char * fn) const final {
         if (::strcmp(fn, k_test_tileset))
             { throw "unhandled"; }
         class Impl final : public Future<std::string> {
@@ -90,7 +90,7 @@ public:
     void remove(const SharedPtr<const TriangleLink> &) final {}
 
     Platform & platform() final
-        { return Platform::null_callbacks(); }
+        { return TestPlatform::null_instance(); }
 };
 
 } // end of <anonymous> namespace

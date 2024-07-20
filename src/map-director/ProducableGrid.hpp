@@ -26,6 +26,7 @@
 
 class Platform;
 class UnfinishedProducableTileViewGrid;
+class AssetsRetrieval;
 
 class ProducableTileCallbacks {
 public:
@@ -57,7 +58,14 @@ public:
         return e;
     }
 
-    virtual SharedPtr<RenderModel> make_render_model() = 0;
+    /// RNG is tile location dependant (no producable should need to know
+    /// where exactly it is on the field)
+    /// @returns Real number in range [-0.5 0.5]
+    virtual Real next_random() = 0;
+
+    virtual AssetsRetrieval & assets_retrieval() const = 0;
+
+    [[deprecated]] virtual SharedPtr<RenderModel> make_render_model() = 0;
 
 protected:
     virtual void add_collidable_(const TriangleSegment &) = 0;

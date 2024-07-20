@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 #include "QuadBasedTilesetTile.hpp"
+#include "TileDecorationCreation.hpp"
 
 #include "../MapTileset.hpp"
 
@@ -85,6 +86,8 @@ void QuadBasedTilesetTile::make(ProducableTileCallbacks & callbacks) const {
         {m_vertices[m_elements[3]].position,
          m_vertices[m_elements[4]].position,
          m_vertices[m_elements[5]].position});
+
+    (void)TileDecorationCreation::create_tile_decoration_with(callbacks);
 }
 
 void QuadBasedTilesetTile::make
@@ -158,7 +161,7 @@ template <typename Func>
     if (auto elv = tileset_tile.get_numeric_property<Real>("elevation")) {
         return TileCornerElevations{*elv, *elv, *elv, *elv};
     }
-    return {};
+    return TileCornerElevations{0, 0, 0, 0};
 }
 
 /* static */ Optional<CardinalDirection>

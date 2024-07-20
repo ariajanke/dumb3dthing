@@ -58,7 +58,7 @@ using FutureStringPtr = SharedPtr<Future<std::string>>;
 
 class PlatformAssetsStrategy {
 public:
-    virtual ~PlatformAssetsStrategy();
+    virtual ~PlatformAssetsStrategy() {}
 
     /// @returns created platform dependant texture.
     virtual SharedPtr<Texture> make_texture() const = 0;

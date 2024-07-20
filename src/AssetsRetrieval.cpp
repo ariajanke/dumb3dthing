@@ -232,12 +232,13 @@ SharedPtr<const RenderModel> NonSavingAssetsRetrieval::make_vaguely_tree_like_mo
          k_up*1.2,
          -k_east*0.2);
     constexpr const int res = 12;
+    constexpr const Vector2 tx_offset{2. / 3., 2. / 3.};
     auto model_data =
-        make_bezier_model_geometry(t1, t2, res, Vector2{0, 0}, 1. / 3.);
+        make_bezier_model_geometry(t1, t2, res, tx_offset, 1. / 3.);
     model_data =
-        make_bezier_model_geometry(t2, t3, res*3/2, Vector2{0, 0}, 1. / 3., std::move(model_data));
+        make_bezier_model_geometry(t2, t3, res*3/2, tx_offset, 1. / 3., std::move(model_data));
     model_data =
-        make_bezier_model_geometry(t3, t1, res, Vector2{0, 0}, 1. / 3., std::move(model_data));
+        make_bezier_model_geometry(t3, t1, res, tx_offset, 1. / 3., std::move(model_data));
 
     auto mod = m_platform.make_render_model();
     mod->load(model_data);

@@ -22,7 +22,7 @@
 
 #include "SplitWallGeometry.hpp"
 
-#if 0
+#if 0 // keep!
 class WallGeometryCache final {
 public:
     static WallGeometryCache & instance();

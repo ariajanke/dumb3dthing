@@ -75,7 +75,7 @@ public:
         return inst;
     }
 
-    FutureStringPtr promise_file_contents(const char * fn) final {
+    FutureStringPtr promise_file_contents(const char * fn) const final {
         if (::strcmp(fn, k_test_map))
             { throw "unhandled"; }
         class Impl final : public Future<std::string> {
@@ -99,7 +99,7 @@ public:
     SharedPtr<RenderModel> make_render_model() const final
         { return TestMapContentLoader::instance().make_render_model(); }
 
-    FutureStringPtr promise_file_contents(const char * fn) final {
+    FutureStringPtr promise_file_contents(const char * fn) const final {
         return TestMapContentLoader::instance().promise_file_contents(fn);
     }
 

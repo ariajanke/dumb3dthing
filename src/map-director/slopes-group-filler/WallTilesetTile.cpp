@@ -26,6 +26,7 @@
 #include "../../TriangleSegment.hpp"
 
 #include <numeric>
+#include <iostream>
 
 namespace {
 
@@ -147,17 +148,20 @@ void WallTilesetTile::load
      const TilesetTileTexture & tile_texture,
      PlatformAssetsStrategy & platform)
 {
-    auto elevations = RampPropertiesLoaderBase::read_elevation_of(map_tileset_tile)->
-        add(TileCornerElevations{1, 1, 1, 1});
+    auto elv_res = RampPropertiesLoaderBase::read_elevation_of(map_tileset_tile);
+    assert(elv_res);
+    auto elevations = elv_res->add(TileCornerElevations{1, 1, 1, 1});
     auto direction  = RampPropertiesLoaderBase::read_direction_of(map_tileset_tile);
+    assert(direction);
     m_startegy = &m_strategy_source(*direction);
 
-    if (auto wid = map_tileset_tile.get_numeric_property<int>("wall-texture")) {
+    auto wid = map_tileset_tile.get_numeric_property<int>("wall-texture");
+    if (wid && map_tileset_tile.parent_tileset()) {
         m_wall_texture_location = *map_tileset_tile.
             parent_tileset()-> // LoD
             id_to_tile_location(*wid);
     }
-
+    std::cerr << "For tile id: " << map_tileset_tile.id() << std::endl;
     LimitedLinearStripCollection<4> col;
     col.set_texture(tile_texture);
     choose_on_direction

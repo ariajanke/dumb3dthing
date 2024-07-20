@@ -46,6 +46,17 @@ public:
 
     TriangleSegment transform(const TriangleSegment &) const;
 
+    template <typename T>
+    void call_seed_on(T & obj) {
+        auto data =
+            reinterpret_cast<const unsigned &>(m_on_field_region_position.x) ^
+            reinterpret_cast<const unsigned &>(m_on_field_region_position.y) ^
+            reinterpret_cast<const unsigned &>(m_on_field_tile_position.x) ^
+            reinterpret_cast<const unsigned &>(m_on_field_tile_position.y) ^
+            ~0u;
+        obj.seed(data);
+    }
+
 private:
     Vector translation() const;
 

@@ -31,39 +31,7 @@
 
 class MapObject;
 class MapObjectGroup;
-#if 0
-class DocumentOwningNode final {
-public:
-    static Optional<DocumentOwningNode> load_root(std::string && file_contents);
 
-    DocumentOwningNode() {}
-
-    DocumentOwningNode make_with_same_owner
-        (const TiXmlElement & same_document_element) const;
-
-    const TiXmlElement * operator -> () const { return &element(); }
-
-    const TiXmlElement & operator * () const { return element(); }
-
-    const TiXmlElement & element() const;
-
-    explicit operator bool() const { return m_element; }
-
-private:
-    struct Owner {
-        virtual ~Owner() {}
-    };
-
-    DocumentOwningNode
-        (const SharedPtr<Owner> & owner, const TiXmlElement & element_):
-        m_owner(owner), m_element(&element_) {}
-
-    SharedPtr<Owner> m_owner;
-    const TiXmlElement * m_element = nullptr;
-};
-
-// ----------------------------------------------------------------------------
-#endif
 class MapObjectRetrieval {
 public:
     using MapObjectRefContainer = std::vector<const MapObject *>;

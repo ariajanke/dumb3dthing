@@ -223,6 +223,7 @@ void add_vaguely_tree
             return std::monostate{};
         });
 
+    // TODO DRY me
     auto model = assets_retrieval.make_vaguely_tree_like_model();
     auto tx = assets_retrieval.make_ground_texture();
 

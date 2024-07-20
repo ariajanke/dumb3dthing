@@ -20,7 +20,6 @@
 
 #include "../../../src/map-director/map-loader-task/CompositeTileset.hpp"
 #include "../../../src/TasksController.hpp"
-#include "../../../src/map-director/MapObject.hpp"
 
 #include "../../test-helpers.hpp"
 
@@ -80,7 +79,7 @@ public:
 
     void set_camera_entity(EntityRef) final { throw ""; }
 
-    FutureStringPtr promise_file_contents(const char * fn) final {
+    FutureStringPtr promise_file_contents(const char * fn) const final {
         class Impl final : public Future<std::string> {
             OptionalEither<Lost, std::string> retrieve() final {
                 return std::string{k_test_map_parts_contents};
@@ -130,7 +129,7 @@ public:
 
     SharedPtr<RenderModel> make_render_model() const final { throw ""; }
 
-    FutureStringPtr promise_file_contents(const char * fn) final
+    FutureStringPtr promise_file_contents(const char * fn) const final
         { return TestPlatform::platform().promise_file_contents(fn); }
 
     bool delay_required() const final { throw ""; }

@@ -91,6 +91,7 @@ public:
     void set_orientation(Orientation);
 
 private:
+    using TileDecoration = SlopesAssetsRetrieval::TileDecoration;
     template <typename Func>
     void with_loader(Func && f) const;
 

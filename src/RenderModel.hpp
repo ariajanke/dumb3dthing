@@ -45,16 +45,6 @@ class PlatformAssetsStrategy;
 
 class RenderModel {
 public:
-#   if 0
-    static SharedPtr<const RenderModel> make_cube(PlatformAssetsStrategy &);
-
-    static SharedPtr<const RenderModel> make_cone(PlatformAssetsStrategy &);
-
-    static SharedPtr<const RenderModel> make_vaguely_tree_like_thing
-        (PlatformAssetsStrategy &);
-
-    static SharedPtr<const RenderModel> make_grass_model(PlatformAssetsStrategy &);
-#   endif
     virtual ~RenderModel() {}
 
     void load(const RenderModelData &);

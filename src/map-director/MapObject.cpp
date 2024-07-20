@@ -29,28 +29,7 @@ using ObjectGroupContainer = MapObjectGroup::GroupContainer;
 using MapObjectContainer = MapObjectGroup::MapObjectContainer;
 
 } // end of <anonymous> namespace
-#if 0
-/* static */ Optional<DocumentOwningNode>
-    DocumentOwningNode::load_root(std::string && file_contents)
-{
-    struct OwnerImpl final : public Owner {
-        TiXmlDocument document;
-    };
-    auto owner = make_shared<OwnerImpl>();
-    auto & document = owner->document;
-    if (document.Parse(file_contents.c_str()) != tinyxml2::XML_SUCCESS) {
-        return {};
-    }
-    return DocumentOwningNode{owner, *document.RootElement()};
-}
 
-DocumentOwningNode DocumentOwningNode::make_with_same_owner
-    (const TiXmlElement & same_document_element) const
-{ return DocumentOwningNode{m_owner, same_document_element}; }
-
-const TiXmlElement & DocumentOwningNode::element() const
-    { return *m_element; }
-#endif
 // ----------------------------------------------------------------------------
 
 /* static */ MapObjectFraming MapObjectFraming::load_from
@@ -117,13 +96,7 @@ const MapObject * MapObject::get_object_property(const char * name) const {
         { return nullptr; }
     return m_parent_retrieval->seek_object_by_id(*maybe_id);
 }
-#if 0
-const char * MapObject::get_string_property(const char * name) const
-    { return m_values_map.get_string_property(name); }
 
-const char * MapObject::get_string_attribute(const char * name) const
-    { return m_values_map.get_string_attribute(name); }
-#endif
 int MapObject::id() const {
     return verify_has_id(get_numeric_attribute<int>(k_id_attribute));
 }

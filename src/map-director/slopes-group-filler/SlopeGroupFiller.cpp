@@ -194,11 +194,34 @@ SharedPtr<SlopesTilesetTile> make_ramp() {
     return map;
 }
 
+class SlopesAssetsRetrievalComplete final : public PlatformAssetsStrategy {
+public:
+    SlopesAssetsRetrievalComplete(PlatformAssetsStrategy & platform):
+        m_platform(platform)
+#       if 0
+        m_assets_retrieval(AssetsRetrieval::make_saving_instance(platform))
+#       endif
+    {}
+
+    SharedPtr<Texture> make_texture() const final
+        { return m_platform.make_texture(); }
+
+    SharedPtr<RenderModel> make_render_model() const final
+        { return m_platform.make_render_model(); }
+
+    FutureStringPtr promise_file_contents(const char * filename) const final
+        { return m_platform.promise_file_contents(filename); }
+
+private:
+    PlatformAssetsStrategy & m_platform;
+};
+
 void SlopeGroupFiller::load
     (const MapTileset & map_tileset,
      PlatformAssetsStrategy & platform,
      const TilesetTileMakerMap & tileset_tile_makers)
 {
+    SlopesAssetsRetrievalComplete slope_assets{platform};
     TilesetTileTexture tileset_tile_texture;
     tileset_tile_texture.load_texture(map_tileset, platform);
     m_tileset_tiles = make_shared<TilesetTileGrid>();
@@ -212,7 +235,7 @@ void SlopeGroupFiller::load
             { continue; }
         tileset_tile_texture.set_texture_bounds(r);
         auto & created_tileset_tile = (*m_tileset_tiles)(r) = itr->second();
-        created_tileset_tile->load(*tileset_tile, tileset_tile_texture, platform);
+        created_tileset_tile->load(*tileset_tile, tileset_tile_texture, slope_assets);
     }
 }
 

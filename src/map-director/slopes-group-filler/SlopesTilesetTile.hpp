@@ -126,6 +126,21 @@ private:
 
 // ----------------------------------------------------------------------------
 
+class SlopesAssetsRetrieval : public PlatformAssetsStrategy {
+public:
+    struct TileDecoration {
+        using ComponentSet =
+            TupleBuilder<SharedPtr<const Texture>, SharedPtr<const RenderModel>>;
+        Vector2 spawn_position_on_tile;
+        ComponentSet components;
+    };
+
+    virtual Optional<TileDecoration> tile_decoration
+        (Real probability = 0.3) const = 0;
+};
+
+// ----------------------------------------------------------------------------
+
 class SlopesTilesetTile {
 public:
     virtual void load
