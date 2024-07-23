@@ -95,10 +95,12 @@ void NorthSouthTwistTileGroup::operator ()
     auto mod = callbacks.make_render_model();
     auto & [elements, vertices] = m_elements_vertices(position_in_group);
     mod->load(elements, vertices);
+#   if 0
     auto e = callbacks.
         add_entity<SharedPtr<const RenderModel>, ModelVisibility>
         (std::move(mod), ModelVisibility{});
     e.get<ModelTranslation>() += k_twisty_origin;
+#   endif
 #   endif
 }
 

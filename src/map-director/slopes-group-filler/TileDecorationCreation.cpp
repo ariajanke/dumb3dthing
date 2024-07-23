@@ -26,6 +26,7 @@ namespace {
 
 constexpr const Real k_decoration_chance = 0.2;
 constexpr const Real k_tree_change = 0.1;
+constexpr const std::array k_leaf_rotations = { 0., k_pi*(2. / 3.),  k_pi*(4. / 3.) };
 
 } // end of <anonymous> namespace
 
@@ -38,44 +39,50 @@ TileDecorationCreation::TileDecorationCreation(ProducableTileCallbacks & callbac
     m_assets_retrieval(callbacks.assets_retrieval())
 {}
 
-Entity TileDecorationCreation::created_tile_decoration() const {
+Entity TileDecorationCreation::created_tile_decoration() {
     if (random_roll() >= k_decoration_chance)
         return Entity{};
-    auto ent = m_callbacks.add_entity();
+
     const Vector random_pt_in_tile{ random_position(), 0, random_position() };
-    ent.get<ModelTranslation>() += random_pt_in_tile;
+    auto initial_builder = m_callbacks.add_entity();
     auto rl = random_roll();
     if (rl >= k_tree_change) {
-        TupleBuilder{}.
-            add(m_assets_retrieval.make_grass_model()).
-            add(m_assets_retrieval.make_ground_texture()).
-            add(YRotation{k_pi*2*random_position()}).
-            add_to_entity(ent);
-    } else {
-        // TODO DRY me
-        auto model = m_assets_retrieval.make_vaguely_tree_like_model();
-        auto tx = m_assets_retrieval.make_ground_texture();
-        auto base_rot = k_pi*2*random_position();
+        return make_grass();
+    }
+    return make_tree();
+}
 
-        TupleBuilder{}.
-            add(SharedPtr<const RenderModel>{model}).
-            add(SharedPtr<const Texture>{tx}).
-            add(YRotation{base_rot}).
-            add_to_entity(ent);
+/* private*/ Entity TileDecorationCreation::make_grass() {
+    auto ent = m_callbacks.
+        add_entity().
+        add(m_assets_retrieval.make_grass_model()).
+        add(m_assets_retrieval.make_ground_texture()).
+        add(YRotation{k_pi*2*random_position()}).
+        finish();
+    return adjust_translation(std::move(ent));
+}
 
-        auto leaves = m_assets_retrieval.make_vaguely_palm_leaves();
+/* private*/ Entity TileDecorationCreation::make_tree() {
+    auto model = m_assets_retrieval.make_vaguely_tree_like_model();
+    auto tx = m_assets_retrieval.make_ground_texture();
+    auto base_rot = k_pi*2*random_position();
+    auto leaves = m_assets_retrieval.make_vaguely_palm_leaves();
 
-        for (auto rot : { base_rot, base_rot + k_pi*(2. / 3.), base_rot + k_pi*(4. / 3.) }) {
-            ent = m_callbacks.add_entity();
-            ent.get<ModelTranslation>() += random_pt_in_tile;
-            TupleBuilder{}.
+    for (auto rot : k_leaf_rotations) {
+        auto ent = m_callbacks.add_entity().
                 add(SharedPtr<const RenderModel>{leaves}).
                 add(SharedPtr<const Texture>{tx}).
-                add(YRotation{rot}).
-                add_to_entity(ent);
-        }
+                add(YRotation{rot + base_rot}).
+                finish();
+        adjust_translation(std::move(ent));
     }
-    return ent;
+    auto ent = m_callbacks.
+        add_entity().
+        add(SharedPtr<const RenderModel>{model}).
+        add(SharedPtr<const Texture>{tx}).
+        add(YRotation{base_rot}).
+        finish();
+    return adjust_translation( std::move(ent) );
 }
 
 /* private*/ Real TileDecorationCreation::random_position() const
@@ -83,3 +90,14 @@ Entity TileDecorationCreation::created_tile_decoration() const {
 
 /* private */ Real TileDecorationCreation::random_roll() const
     { return m_callbacks.next_random() + 0.5; }
+
+/* private */ Entity TileDecorationCreation::
+    adjust_translation(Entity && ent)
+{
+    if (!m_random_pt_in_tile.has_value()) {
+        m_random_pt_in_tile = Vector{ random_position(), 0, random_position() };
+        return adjust_translation(std::move(ent));
+    }
+    ent.get<ModelTranslation>() += *m_random_pt_in_tile;
+    return ent;
+}

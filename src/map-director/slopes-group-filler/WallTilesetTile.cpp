@@ -187,11 +187,10 @@ void WallTilesetTile::make
      ProducableTileCallbacks & callbacks) const
 {
     callbacks.
-        add_entity_from_tuple(TupleBuilder{}.
-            add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
-            add(SharedPtr<const RenderModel>{m_top_model}).
-            finish());
-
+        add_entity().
+        add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
+        add(SharedPtr<const RenderModel>{m_top_model}).
+        finish();
     auto computed_elevations = m_elevations.value_or(neighboring_elevations);
     LinearStripCollidablesAdapter col_col{callbacks};
     LimitedLinearStripCollection<4*2> col;
@@ -215,8 +214,8 @@ void WallTilesetTile::make
 
     auto model = make_model(col, callbacks.make_render_model());
     callbacks.
-        add_entity_from_tuple(TupleBuilder{}.
-            add(SharedPtr<const RenderModel>{model}).
-            add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
-            finish());
+        add_entity().
+        add(SharedPtr<const RenderModel>{model}).
+        add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
+        finish();
 }

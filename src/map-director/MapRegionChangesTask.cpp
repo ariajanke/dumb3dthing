@@ -269,6 +269,7 @@ void EntityAndLinkInsertingAdder::add_collidable_
 Entity EntityAndLinkInsertingAdder::add_entity_() {
     auto e = Entity::make_sceneless_entity();
     // NOTE: region load job adds the entity to the scene
+    assert(e);
     m_entities.push_back(e);
     return e;
 }

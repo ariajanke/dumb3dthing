@@ -49,9 +49,9 @@ public:
     template <typename T>
     void call_seed_on(T & obj) {
         auto data =
-            reinterpret_cast<const unsigned &>(m_on_field_region_position.x) ^
-            reinterpret_cast<const unsigned &>(m_on_field_region_position.y) ^
-            reinterpret_cast<const unsigned &>(m_on_field_tile_position.x) ^
+            reinterpret_cast<const unsigned &>(m_on_field_region_position.x) << 10 ^
+            reinterpret_cast<const unsigned &>(m_on_field_region_position.y) << 7 ^
+            reinterpret_cast<const unsigned &>(m_on_field_tile_position.x) << 3 ^
             reinterpret_cast<const unsigned &>(m_on_field_tile_position.y) ^
             ~0u;
         obj.seed(data);

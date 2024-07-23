@@ -28,6 +28,59 @@ class Platform;
 class UnfinishedProducableTileViewGrid;
 class AssetsRetrieval;
 
+template <typename ... Types>
+class EntityTupleBuilder {
+public:
+    EntityTupleBuilder() {}
+
+    explicit EntityTupleBuilder
+        (Entity &&, TupleBuilder<Types...> && = TupleBuilder<Types...>{});
+
+    explicit EntityTupleBuilder(Tuple<Types...> && tuple);
+
+    template <typename T>
+    [[nodiscard]] EntityTupleBuilder<T, Types...> add(T && obj) &&;
+
+    Entity finish() &&;
+
+private:
+    TupleBuilder<Types...> m_builder;
+    Entity m_entity;
+};
+
+template <typename ... Types>
+EntityTupleBuilder<Types...>::EntityTupleBuilder
+    (Entity && entity,
+     TupleBuilder<Types...> && builder):
+    m_builder(std::move(builder)),
+    m_entity(std::move(entity))
+{
+    assert(!entity);
+    assert(m_entity);
+}
+
+template <typename ... Types>
+template <typename T>
+EntityTupleBuilder<T, Types...>
+    EntityTupleBuilder<Types...>::add(T && obj) &&
+{
+    if (!m_entity) {
+        throw RuntimeError
+            {"Cannot reuse EntityTupleBuilder, instantiate a new one instead"};
+    }
+    auto next_builder = std::move(m_builder).template add<T>(std::move(obj));
+    return EntityTupleBuilder<T, Types...>
+        (std::move(m_entity), std::move(next_builder));
+}
+
+template <typename ... Types>
+Entity EntityTupleBuilder<Types...>::finish() && {
+    static_assert(sizeof...(Types) > 1, "must implement fewer than two types finisher");
+    m_entity.add<Types...>() = std::move(m_builder).finish();
+    return m_entity;
+}
+
+
 class ProducableTileCallbacks {
 public:
     virtual ~ProducableTileCallbacks() {}
@@ -39,6 +92,14 @@ public:
                         const Vector & triangle_point_b,
                         const Vector & triangle_point_c);
 
+    EntityTupleBuilder<ModelScale, ModelTranslation> add_entity() {
+        return EntityTupleBuilder<ModelScale, ModelTranslation>
+            {add_entity_(),
+             TupleBuilder{}.
+                add(model_translation()).
+                add(model_scale())};
+    }
+#   if 0
     template <typename ... Types>
     Entity add_entity(Types &&... arguments) {
         auto e = add_entity_();
@@ -57,7 +118,7 @@ public:
                            std::move(tup));
         return e;
     }
-
+#   endif
     /// RNG is tile location dependant (no producable should need to know
     /// where exactly it is on the field)
     /// @returns Real number in range [-0.5 0.5]
@@ -65,7 +126,7 @@ public:
 
     virtual AssetsRetrieval & assets_retrieval() const = 0;
 
-    [[deprecated]] virtual SharedPtr<RenderModel> make_render_model() = 0;
+    virtual SharedPtr<RenderModel> make_render_model() = 0;
 
 protected:
     virtual void add_collidable_(const TriangleSegment &) = 0;

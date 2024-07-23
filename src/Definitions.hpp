@@ -96,7 +96,7 @@ public:
 };
 
 template <typename ... Types>
-class TupleBuilder {
+class TupleBuilder final {
 public:
     TupleBuilder() {}
 

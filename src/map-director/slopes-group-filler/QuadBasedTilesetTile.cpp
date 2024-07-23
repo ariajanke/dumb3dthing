@@ -74,10 +74,10 @@ const TileCornerElevations & QuadBasedTilesetTile::corner_elevations() const
 
 void QuadBasedTilesetTile::make(ProducableTileCallbacks & callbacks) const {
     callbacks.
-        add_entity_from_tuple(TupleBuilder{}.
-            add(SharedPtr<const Texture>{m_texture_ptr}).
-            add(SharedPtr<const RenderModel>{m_render_model}).
-            finish());
+        add_entity().
+        add(SharedPtr<const Texture>{m_texture_ptr}).
+        add(SharedPtr<const RenderModel>{m_render_model}).
+        finish();
     callbacks.add_collidable(TriangleSegment
         {m_vertices[m_elements[0]].position,
          m_vertices[m_elements[1]].position,
