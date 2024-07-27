@@ -70,15 +70,16 @@ bool MapElementValuesMap::CStringEqual::operator ()
 
 // ----------------------------------------------------------------------------
 
-void MapElementValuesMap::load(const TiXmlElement & element) {
+void MapElementValuesMap::load(const DocumentOwningXmlElement & element) {
     int count = 0;
+    m_owner = element;
     for_each_object_kv_pair
-        (element,
+        (*element,
          [&count] (FieldType, const char *, const char *) { ++count; });
     ValuesMap map{Key{}};
     map.reserve(count);
     for_each_object_kv_pair
-        (element,
+        (*element,
          [&map] (FieldType field_type, const char * name, const char * value) {
             map.insert(Key{name, field_type}, value);
          });

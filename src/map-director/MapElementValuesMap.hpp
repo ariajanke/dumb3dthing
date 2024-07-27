@@ -22,6 +22,7 @@
 
 #include "../Definitions.hpp"
 #include "ParseHelpers.hpp"
+#include "DocumentOwningXmlElement.hpp"
 
 #include <ariajanke/cul/HashMap.hpp>
 #include <ariajanke/cul/StringUtil.hpp>
@@ -29,7 +30,10 @@
 
 #include <cstring>
 
-// danger: does not own source element
+class MapElementProperties;
+
+// danger: does not own source element (don't care)
+// NOTE do not use directly (how can I protect myself against this mistake?)
 class MapElementValuesMap final {
 public:
     enum class FieldType { attribute, property, ignored };
@@ -52,7 +56,8 @@ public:
     };
 
     // danger: does not own source element
-    void load(const TiXmlElement &);
+    // does not store the address of the given element
+    void load(const DocumentOwningXmlElement &);
 
     template <typename T>
     EnableOptionalNumeric<T>
@@ -95,6 +100,7 @@ private:
 
     using ValuesMap = cul::HashMap<Key, const char *, KeyHasher, KeyEqual>;
 
+    DocumentOwningXmlElement m_owner;
     ValuesMap m_values = ValuesMap{Key{}};
 };
 
@@ -142,6 +148,17 @@ protected:
 
 private:
     MapElementValuesMap m_values_map;
+};
+
+// ----------------------------------------------------------------------------
+
+class MapElementProperties final : public MapElementValuesAggregable {
+public:
+    void load(const DocumentOwningXmlElement & el) {
+        MapElementValuesMap values_map;
+        values_map.load(el);
+        set_map_element_values_map(std::move(values_map));
+    }
 };
 
 // ----------------------------------------------------------------------------

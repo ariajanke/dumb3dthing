@@ -31,7 +31,6 @@
 namespace {
 
 using FlatVertexArray = QuadBasedTilesetTile::FlatVertexArray;
-
 Optional<CardinalDirection> cardinal_direction_from(const char * nullable_str);
 
 } // end of <anonymous> namespace
@@ -72,7 +71,9 @@ QuadBasedTilesetTile::QuadBasedTilesetTile(RampPropertiesLoaderStrategy strat):
 const TileCornerElevations & QuadBasedTilesetTile::corner_elevations() const
     { return m_corner_elevations; }
 
-void QuadBasedTilesetTile::make(ProducableTileCallbacks & callbacks) const {
+void QuadBasedTilesetTile::make
+    (ProducableTileCallbacks & callbacks) const
+{
     callbacks.
         add_entity().
         add(SharedPtr<const Texture>{m_texture_ptr}).

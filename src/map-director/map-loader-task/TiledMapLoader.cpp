@@ -30,7 +30,8 @@ namespace {
 
 using MapLoadResult = tiled_map_loading::BaseState::MapLoadResult;
 
-Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement &);
+Either<MapLoadingWarningEnum, GlobalIdTileLayer> load_layer_
+    (const DocumentOwningXmlElement &);
 
 } // end of <anonymous> namespace
 
@@ -93,13 +94,14 @@ BaseState::MapLoadResult
 
 // ----------------------------------------------------------------------------
 
-/* static */ std::vector<Grid<int>>
+/* static */ std::vector<GlobalIdTileLayer>
     InitialDocumentReadState::load_layers
-    (const TiXmlElement & document_root, MapContentLoader & content_loader)
+    (const DocumentOwningXmlElement & document_root,
+     MapContentLoader & content_loader)
 {
-    std::vector<Grid<int>> layers;
-    for (auto & layer_el : XmlRange{document_root, "layer"}) {
-        auto ei = load_layer_(layer_el);
+    std::vector<GlobalIdTileLayer> layers;
+    for (auto & layer_el : XmlRange{*document_root, "layer"}) {
+        auto ei = load_layer_(document_root.make_with_same_owner(layer_el));
         if (ei.is_left()) {
             content_loader.add_warning(ei.left());
         } else if (ei.is_right()) {
@@ -156,7 +158,7 @@ BaseState::MapLoadResult
 MapLoadResult InitialDocumentReadState::update_progress
     (StateSwitcher & switcher, MapContentLoader & content_loader)
 {
-    auto layers = load_layers(*m_document_root, content_loader);
+    auto layers = load_layers(m_document_root, content_loader);
     auto load_split = split_tileset_load
         (load_future_tilesets(m_document_root, content_loader),
          content_loader                                       );
@@ -190,7 +192,7 @@ MapLoadResult InitialDocumentReadState::update_progress
 
 TileSetLoadState::TileSetLoadState
     (DocumentOwningXmlElement && document_root_,
-     std::vector<Grid<int>> && layers_,
+     std::vector<GlobalIdTileLayer> && layers_,
      std::vector<TilesetProviderWithStartGid> && future_tilesets_,
      std::vector<TilesetWithStartGid> && ready_tilesets_):
     m_document_root(std::move(document_root_)),
@@ -215,7 +217,7 @@ MapLoadResult TileSetLoadState::update_progress
 MapElementCollectorState::MapElementCollectorState
     (DocumentOwningXmlElement && document_root_,
      TileMapIdToSetMapping && mapping_,
-     std::vector<Grid<int>> && layers_):
+     std::vector<GlobalIdTileLayer> && layers_):
     m_document_root(std::move(document_root_)),
     m_id_mapping_set(std::move(mapping_)),
     m_layers(std::move(layers_)) {}
@@ -224,7 +226,7 @@ class MapRegionBuilder final : public TilesetMapElementCollector {
 public:
     static MapRegionBuilder
         load_from_elements(TileMapIdToSetMapping && id_mapping_set,
-                           std::vector<Grid<int>> && layers);
+                           std::vector<GlobalIdTileLayer> && layers);
 
     MapRegionBuilder() {}
 
@@ -259,13 +261,15 @@ private:
 /* static */ MapRegionBuilder
     MapRegionBuilder::load_from_elements
     (TileMapIdToSetMapping && id_mapping_set,
-     std::vector<Grid<int>> && layers)
+     std::vector<GlobalIdTileLayer> && layers)
 {
     MapRegionBuilder impl;
-    for (const auto & layer : layers) {
-        auto mapping_layer = id_mapping_set.make_mapping_for_layer(layer);
+    for (auto & layer : layers) {
+        auto mapping_layer = id_mapping_set.
+            make_mapping_from_layer(std::move(layer));
         for (auto & tslayer : mapping_layer) {
             auto * tileset = TilesetMappingLayer::tileset_of(tslayer.as_view());
+            // tileset: I want to know the layer's properties
             tileset->add_map_elements(impl, tslayer);
         }
     }
@@ -331,14 +335,18 @@ namespace {
 
 static const auto k_whitespace_trimmer = make_trim_whitespace<const char *>();
 
-Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement & layer_el) {
+Either<MapLoadingWarningEnum, GlobalIdTileLayer> load_layer_
+    (const DocumentOwningXmlElement & layer_el)
+{
     using namespace map_loading_messages;
     using namespace cul::either;
+    MapElementProperties props_map;
     Grid<int> layer;
+    props_map.load(layer_el);
     layer.set_size
-        (layer_el.IntAttribute("width"), layer_el.IntAttribute("height"), 0);
+        (layer_el->IntAttribute("width"), layer_el->IntAttribute("height"), 0);
 
-    auto * data = layer_el.FirstChildElement("data");
+    auto * data = layer_el->FirstChildElement("data");
     if (!data) {
         return k_tile_layer_has_no_data_element;
     } else if (::strcmp(data->Attribute( "encoding" ), "csv")) {
@@ -347,7 +355,7 @@ Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement & layer_
 
     auto data_text = data->GetText();
     if (!data_text)
-        { return layer; }
+        { return GlobalIdTileLayer{std::move(layer), std::move(props_map)}; }
 
     Vector2I r;
     for (auto value_str : split_range(data_text, data_text + ::strlen(data_text),
@@ -357,13 +365,13 @@ Either<MapLoadingWarningEnum, Grid<int>> load_layer_(const TiXmlElement & layer_
         bool entry_is_numeric = cul::string_to_number
             (value_str.begin(), value_str.end(), tile_id);
         if (!entry_is_numeric) {
-            return left(k_invalid_tile_data).with<Grid<int>>();
+            return left(k_invalid_tile_data).with<GlobalIdTileLayer>();
         }
         // should warn if not a number
         layer(r) = tile_id;
         r = layer.next(r);
     }
-    return layer;
+    return GlobalIdTileLayer{std::move(layer), std::move(props_map)};
 }
 
 } // end of <anonymous> namespace

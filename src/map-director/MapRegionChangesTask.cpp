@@ -44,8 +44,6 @@ public:
 
     void add_collidable_(const TriangleSegment &) final;
 
-    Entity add_entity_() final;
-
     void advance_grid_position() {
         m_tile_framing = m_tile_framing.advance_with(m_triangle_inserter);
         m_tile_framing.call_seed_on(m_rng);
@@ -64,6 +62,14 @@ public:
         auto res = std::uniform_real_distribution<Real>{0.5, -0.5}(m_rng);
         if (are_very_close(0.5, res)) return 0.5;
         return res;
+    }
+
+    StartingTupleBuilder add_entity() final {
+        auto e = Entity::make_sceneless_entity();
+        // NOTE: region load job adds the entity to the scene
+        assert(e);
+        m_entities.push_back(e);
+        return add_default_entity(std::move(e));
     }
 
 private:
@@ -265,14 +271,6 @@ SharedPtr<RenderModel> EntityAndLinkInsertingAdder::make_render_model()
 void EntityAndLinkInsertingAdder::add_collidable_
     (const TriangleSegment & triangle_segment)
 { m_triangle_inserter.push(m_tile_framing.transform(triangle_segment)); }
-
-Entity EntityAndLinkInsertingAdder::add_entity_() {
-    auto e = Entity::make_sceneless_entity();
-    // NOTE: region load job adds the entity to the scene
-    assert(e);
-    m_entities.push_back(e);
-    return e;
-}
 
 /* private */ ViewGridTriangle EntityAndLinkInsertingAdder::
     finish_triangle_grid()

@@ -120,7 +120,7 @@ public:
     int id() const { return m_id; }
 
     MapObjectContainer load_child_objects
-        (MapObjectContainer &&, const TiXmlElement &) const;
+        (MapObjectContainer &&, const DocumentOwningXmlElement &) const;
 
     const char * name() const { return m_name; }
 

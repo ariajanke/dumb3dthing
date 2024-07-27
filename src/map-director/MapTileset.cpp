@@ -23,14 +23,14 @@
 #include <tinyxml2.h>
 
 MapTilesetTile::MapTilesetTile
-    (const TiXmlElement & tile_el, const MapTileset & parent)
+    (const DocumentOwningXmlElement & tile_el, const MapTileset & parent)
     { load(tile_el, parent); }
 
 void MapTilesetTile::load
-    (const TiXmlElement & tile_el, const MapTileset & parent)
+    (const DocumentOwningXmlElement & tile_el, const MapTileset & parent)
 { load(tile_el, &parent); }
 
-void MapTilesetTile::load(const TiXmlElement & tile_el)
+void MapTilesetTile::load(const DocumentOwningXmlElement & tile_el)
     { load(tile_el, nullptr); }
 
 const MapTileset * MapTilesetTile::parent_tileset() const {
@@ -46,7 +46,7 @@ int MapTilesetTile::id() const {
 }
 
 /* private */ void MapTilesetTile::load
-    (const TiXmlElement & tile_el, const MapTileset * parent)
+    (const DocumentOwningXmlElement & tile_el, const MapTileset * parent)
 {
     MapElementValuesMap map;
     map.load(tile_el);
@@ -67,7 +67,7 @@ void MapTilesetImage::load(const TiXmlElement & image_el) {
 
 void MapTileset::load(const DocumentOwningXmlElement & tileset_el) {
     MapElementValuesMap map;
-    map.load(*tileset_el);
+    map.load(tileset_el);
     set_map_element_values_map(std::move(map));
 
     auto tilecount = get_numeric_attribute<int>("tilecount");
@@ -80,7 +80,7 @@ void MapTileset::load(const DocumentOwningXmlElement & tileset_el) {
     }
     m_tile_grid.set_size(*columns, *tilecount / *columns, nullptr);
     for (auto & tile_el : XmlRange{*tileset_el, "tile"}) {
-        m_tiles.emplace_back(tile_el, *this);
+        m_tiles.emplace_back(tileset_el.make_with_same_owner(tile_el), *this);
 
     }
     for (const auto & tile : m_tiles) {

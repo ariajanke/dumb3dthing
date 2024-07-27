@@ -69,11 +69,12 @@ Entity TileDecorationCreation::created_tile_decoration() {
     auto leaves = m_assets_retrieval.make_vaguely_palm_leaves();
 
     for (auto rot : k_leaf_rotations) {
-        auto ent = m_callbacks.add_entity().
-                add(SharedPtr<const RenderModel>{leaves}).
-                add(SharedPtr<const Texture>{tx}).
-                add(YRotation{rot + base_rot}).
-                finish();
+        auto ent = m_callbacks.
+            add_entity().
+            add(SharedPtr<const RenderModel>{leaves}).
+            add(SharedPtr<const Texture>{tx}).
+            add(YRotation{rot + base_rot}).
+            finish();
         adjust_translation(std::move(ent));
     }
     auto ent = m_callbacks.

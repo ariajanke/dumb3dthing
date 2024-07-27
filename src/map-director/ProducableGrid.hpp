@@ -29,7 +29,7 @@ class UnfinishedProducableTileViewGrid;
 class AssetsRetrieval;
 
 template <typename ... Types>
-class EntityTupleBuilder {
+class EntityTupleBuilder final {
 public:
     EntityTupleBuilder() {}
 
@@ -40,6 +40,9 @@ public:
 
     template <typename T>
     [[nodiscard]] EntityTupleBuilder<T, Types...> add(T && obj) &&;
+
+    template <typename T>
+    [[nodiscard]] T & get() { return m_builder.template get<T>(); }
 
     Entity finish() &&;
 
@@ -80,9 +83,10 @@ Entity EntityTupleBuilder<Types...>::finish() && {
     return m_entity;
 }
 
-
 class ProducableTileCallbacks {
 public:
+    using StartingTupleBuilder = EntityTupleBuilder<ModelScale, ModelTranslation>;
+
     virtual ~ProducableTileCallbacks() {}
 
     void add_collidable(const TriangleSegment & triangle)
@@ -92,33 +96,8 @@ public:
                         const Vector & triangle_point_b,
                         const Vector & triangle_point_c);
 
-    EntityTupleBuilder<ModelScale, ModelTranslation> add_entity() {
-        return EntityTupleBuilder<ModelScale, ModelTranslation>
-            {add_entity_(),
-             TupleBuilder{}.
-                add(model_translation()).
-                add(model_scale())};
-    }
-#   if 0
-    template <typename ... Types>
-    Entity add_entity(Types &&... arguments) {
-        auto e = add_entity_();
-        e.
-            add<ModelScale, ModelTranslation, Types...>() =
-            make_tuple(model_scale(), model_translation(),
-                       std::forward<Types>(arguments)...  );
-        return e;
-    }
+    virtual StartingTupleBuilder add_entity() = 0;
 
-    template <typename ... Types>
-    Entity add_entity_from_tuple(Tuple<Types...> && tup) {
-        auto e = add_entity_();
-        e.add<ModelScale, ModelTranslation, Types...>() =
-            std::tuple_cat(make_tuple(model_scale(), model_translation()),
-                           std::move(tup));
-        return e;
-    }
-#   endif
     /// RNG is tile location dependant (no producable should need to know
     /// where exactly it is on the field)
     /// @returns Real number in range [-0.5 0.5]
@@ -131,11 +110,20 @@ public:
 protected:
     virtual void add_collidable_(const TriangleSegment &) = 0;
 
+#   if 0
     virtual Entity add_entity_() = 0;
-
+#   endif
     virtual ModelScale model_scale() const = 0;
 
     virtual ModelTranslation model_translation() const = 0;
+
+    StartingTupleBuilder add_default_entity(Entity && ent) const {
+        return StartingTupleBuilder
+            {std::move(ent),
+             TupleBuilder{}.
+                add(model_translation()).
+                add(model_scale())};
+    }
 };
 
 /// Represents how to make a single instance of a tile.
@@ -158,6 +146,9 @@ class ProducableGroupFiller;
 class ProducableGroupOwner {
 public:
     virtual ~ProducableGroupOwner() {}
+
+protected:
+    ProducableGroupOwner() {}
 };
 
 /// A ViewGrid of producable tiles

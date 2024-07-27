@@ -31,11 +31,11 @@ class MapTilesetTile final : public MapElementValuesAggregable {
 public:
     MapTilesetTile() {}
 
-    MapTilesetTile(const TiXmlElement &, const MapTileset & parent);
+    MapTilesetTile(const DocumentOwningXmlElement &, const MapTileset & parent);
 
-    void load(const TiXmlElement &, const MapTileset & parent);
+    void load(const DocumentOwningXmlElement &, const MapTileset & parent);
 
-    void load(const TiXmlElement &);
+    void load(const DocumentOwningXmlElement &);
 
     const MapTileset * parent_tileset() const;
 
@@ -44,7 +44,7 @@ public:
     int id() const;
 
 private:
-    void load(const TiXmlElement &, const MapTileset * parent);
+    void load(const DocumentOwningXmlElement &, const MapTileset * parent);
 
     const MapTileset * m_parent = nullptr;
 };

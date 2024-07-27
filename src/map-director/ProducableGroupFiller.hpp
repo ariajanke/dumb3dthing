@@ -21,6 +21,7 @@
 #pragma once
 
 #include "ProducableGrid.hpp"
+#include "MapElementValuesMap.hpp"
 
 #include "../Definitions.hpp"
 
@@ -39,6 +40,9 @@ public:
         // Note: not an optimization, essential
         virtual void reserve
             (std::size_t number_of_members, const Size2I & grid_size) = 0;
+
+        virtual void set_layer_properties
+            (const SharedPtr<const MapElementProperties> &) = 0;
 
         /// @returns stable, non-null pointer
         virtual ProducableTile & add_member(const TileLocation &) = 0;

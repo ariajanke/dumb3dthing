@@ -30,11 +30,30 @@ using MapObjectContainer = MapObjectGroup::MapObjectContainer;
 
 } // end of <anonymous> namespace
 
+Either<MapObjectVectorFraming::LoadFailed, Vector>
+    MapObjectVectorFraming::operator ()
+    (const MapElementValuesAggregable & as_aggregable) const
+{
+    return m_z_framing(m_y_framing(m_x_framing(Vector{}, as_aggregable), as_aggregable), as_aggregable);
+}
+
 // ----------------------------------------------------------------------------
 
 /* static */ MapObjectFraming MapObjectFraming::load_from
     (const TiXmlElement & map_element)
 { return MapObjectFraming{ScaleComputation::pixel_scale_from_map(map_element)}; }
+
+Either<MapObjectFraming::LoadFailed, Vector>
+    MapObjectFraming::get_position_from
+    (const MapObject & object,
+     const MapObjectVectorFraming & framing) const
+{
+    const auto & as_aggregable =
+        static_cast<const MapElementValuesAggregable &>(object);
+    return framing(as_aggregable).map([this] (Vector && r) {
+        return m_map_pixel_scale.of(r);
+    });
+}
 
 // ----------------------------------------------------------------------------
 
@@ -49,7 +68,8 @@ bool MapObject::NameLessThan::operator ()
 
 /* static */ MapObjectContainer MapObject::load_objects_from
     (View<GroupConstIterator> groups,
-     View<XmlElementConstIterator> elements)
+     View<XmlElementConstIterator> elements,
+     const DocumentOwningXmlElement & owner)
 {
     if (elements.end() - elements.begin() != groups.end() - groups.begin()) {
         throw InvalidArgument{"must be same size (assumed lock stepped)"};
@@ -57,13 +77,14 @@ bool MapObject::NameLessThan::operator ()
     MapObjectContainer objects;
     auto el_itr = elements.begin();
     for (const auto & group : groups) {
-        objects = group.load_child_objects(std::move(objects), *(*el_itr++));
+        objects = group.load_child_objects
+            (std::move(objects), owner.make_with_same_owner(*(*el_itr++)));
     }
     return objects;
 }
 
 /* static */ MapObject MapObject::load_from
-    (const TiXmlElement & object_element,
+    (const DocumentOwningXmlElement & object_element,
      const MapObjectGroup & parent_group)
 {
     MapElementValuesMap values_map;

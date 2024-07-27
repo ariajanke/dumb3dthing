@@ -63,7 +63,8 @@ public:
         m_field_type(field_type), m_name(name), m_required(required) {}
 
     Either<LoadFailed, Vector> operator ()
-        (Either<LoadFailed, Vector> &&, const MapObject & object) const;
+        (Either<LoadFailed, Vector> &&,
+         const MapElementValuesAggregable & object) const;
 
 private:
     FieldType m_field_type;
@@ -89,9 +90,8 @@ public:
         m_y_framing(y_framing),
         m_z_framing(z_framing) {}
 
-    Either<LoadFailed, Vector> operator () (const MapObject & object) const {
-        return m_z_framing(m_y_framing(m_x_framing(Vector{}, object), object), object);
-    }
+    Either<LoadFailed, Vector> operator ()
+        (const MapElementValuesAggregable & object) const;
 
 private:
     MemberFraming<&Vector::x> m_x_framing;
@@ -101,16 +101,26 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class MapObjectFraming final {
-public:
+namespace vector_framing_types {
     template <Real Vector::* kt_member_pointer>
     using VectorMemberFraming = MapObjectVectorMemberFraming<kt_member_pointer>;
-    using LoadFailed = MapObjectFramingLoadFailure;
-    using FieldType = MapElementValuesMap::FieldType;
 
     using VectorXFraming = VectorMemberFraming<&Vector::x>;
     using VectorYFraming = VectorMemberFraming<&Vector::y>;
     using VectorZFraming = VectorMemberFraming<&Vector::z>;
+}
+
+class MapObjectFraming final {
+public:
+    template <Real Vector::* kt_member_pointer>
+    using VectorMemberFraming =
+        vector_framing_types::VectorMemberFraming<kt_member_pointer>;
+    using LoadFailed = MapObjectFramingLoadFailure;
+    using FieldType = MapElementValuesMap::FieldType;
+
+    using VectorXFraming = vector_framing_types::VectorXFraming;
+    using VectorYFraming = vector_framing_types::VectorYFraming;
+    using VectorZFraming = vector_framing_types::VectorZFraming;
 
     static constexpr const auto k_point_object_framing =
         MapObjectVectorFraming
@@ -133,12 +143,7 @@ public:
 
     Either<LoadFailed, Vector> get_position_from
         (const MapObject & object,
-         const MapObjectVectorFraming & framing = k_point_object_framing) const
-    {
-        return framing(object).map([this] (Vector && r) {
-            return m_map_pixel_scale.of(r);
-        });
-    }
+         const MapObjectVectorFraming & framing = k_point_object_framing) const;
 
 private:
     ScaleComputation m_map_pixel_scale;
@@ -176,10 +181,11 @@ public:
     /// @return objects in BFS group order
     static MapObjectContainer load_objects_from
         (View<GroupConstIterator> groups,
-         View<XmlElementConstIterator> elements);
+         View<XmlElementConstIterator> elements,
+         const DocumentOwningXmlElement &);
 
     static MapObject load_from
-        (const TiXmlElement &,
+        (const DocumentOwningXmlElement &,
          const MapObjectGroup & parent_group);
 
     MapObject() {}
@@ -219,7 +225,7 @@ private:
 template <Real Vector::* kt_member_pointer>
 Either<MapObjectFramingLoadFailure, Vector>
     MapObjectVectorMemberFraming<kt_member_pointer>::operator ()
-    (Either<LoadFailed, Vector> && ei, const MapObject & object) const
+    (Either<LoadFailed, Vector> && ei, const MapElementValuesAggregable & object) const
 {
     return ei.chain([&object, this] (Vector && r) -> Either<LoadFailed, Vector> {
         if (auto num = object.get_numeric<Real>(m_field_type, m_name)) {

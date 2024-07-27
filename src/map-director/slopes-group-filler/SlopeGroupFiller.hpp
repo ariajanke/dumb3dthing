@@ -22,27 +22,78 @@
 
 #include "../ProducableGroupFiller.hpp"
 #include "SlopesTilesetTile.hpp"
+#include "../../TriangleSegment.hpp"
 
 #include <map>
 
 class SlopesTilesetTile;
 class MapTileset;
 
+class WrappedCallbacksForSlopeTiles final : public ProducableTileCallbacks {
+public:
+    WrappedCallbacksForSlopeTiles
+        (ProducableTileCallbacks & callbacks,
+         const SharedPtr<const MapElementProperties> & props_ptr):
+        m_wrapped(callbacks),
+        m_layer_properties(props_ptr) {}
+
+    StartingTupleBuilder add_entity() final {
+        auto temp = m_wrapped.add_entity();
+        auto & trans = temp.get<ModelTranslation>();
+        trans.value += offset();
+        return std::move(temp);
+    }
+
+    Real next_random() final { return m_wrapped.next_random(); }
+
+    AssetsRetrieval & assets_retrieval() const final
+        { return m_wrapped.assets_retrieval(); }
+
+    SharedPtr<RenderModel> make_render_model() final
+        { return m_wrapped.make_render_model(); }
+
+private:
+    void add_collidable_(const TriangleSegment & triangle) final {
+        m_wrapped.add_collidable(triangle.move(offset()));
+    }
+
+    ModelScale model_scale() const final
+        { throw RuntimeError{"WrappedCallbacksForSlopeTiles: model_scale must not be called"}; }
+
+    ModelTranslation model_translation() const final
+        { throw RuntimeError{"WrappedCallbacksForSlopeTiles: model_translation must not be called"}; }
+
+    Vector offset();
+
+    Optional<Vector> m_memoized_offset;
+    ProducableTileCallbacks & m_wrapped;
+    SharedPtr<const MapElementProperties> m_layer_properties;
+};
+
+// ----------------------------------------------------------------------------
+
 class ProducableSlopesTile final : public ProducableTile {
 public:
     ProducableSlopesTile() {}
 
-    explicit ProducableSlopesTile
-        (const SharedPtr<const SlopesTilesetTile> & tileset_tile_ptr):
-        m_tileset_tile_ptr(tileset_tile_ptr) {}
+    ProducableSlopesTile
+        (const SharedPtr<const SlopesTilesetTile> & tileset_tile_ptr,
+         const SharedPtr<const MapElementProperties> & layer_properties):
+        m_tileset_tile_ptr(tileset_tile_ptr),
+        m_layer_properties(layer_properties)
+    { assert(m_layer_properties); }
 
     void set_neighboring_elevations(const NeighborCornerElevations & elvs) {
         m_elevations = elvs;
     }
 
     void operator () (ProducableTileCallbacks & callbacks) const final {
-        if (m_tileset_tile_ptr)
-            m_tileset_tile_ptr->make(m_elevations, callbacks);
+        if (m_tileset_tile_ptr) {
+            WrappedCallbacksForSlopeTiles wrapped_callbacks
+                {callbacks, m_layer_properties};
+            m_tileset_tile_ptr->make
+                (m_elevations, wrapped_callbacks);
+        }
     }
 
 private:
@@ -54,6 +105,7 @@ private:
     }
 
     SharedPtr<const SlopesTilesetTile> m_tileset_tile_ptr;
+    SharedPtr<const MapElementProperties> m_layer_properties;
     NeighborCornerElevations m_elevations;
 };
 

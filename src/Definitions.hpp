@@ -103,11 +103,17 @@ public:
     TupleBuilder(Tuple<Types...> && tuple);
 
     template <typename T>
-    TupleBuilder<T, Types...> add(T && obj) &&;
+    [[nodiscard]] TupleBuilder<T, Types...> add(T && obj) &&;
 
     void add_to_entity(Entity & ent) &&;
 
-    Tuple<Types...> finish() && { return m_impl; }
+    template <typename T>
+    [[nodiscard]] T & get() { return std::get<T>(m_impl); }
+
+    template <typename T>
+    [[nodiscard]] const T & get() const { return std::get<T>(m_impl); }
+
+    [[nodiscard]] Tuple<Types...> finish() && { return m_impl; }
 
 private:
     Tuple<Types...> m_impl;

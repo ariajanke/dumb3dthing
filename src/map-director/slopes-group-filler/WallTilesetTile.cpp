@@ -26,7 +26,6 @@
 #include "../../TriangleSegment.hpp"
 
 #include <numeric>
-#include <iostream>
 
 namespace {
 
@@ -161,7 +160,7 @@ void WallTilesetTile::load
             parent_tileset()-> // LoD
             id_to_tile_location(*wid);
     }
-    std::cerr << "For tile id: " << map_tileset_tile.id() << std::endl;
+
     LimitedLinearStripCollection<4> col;
     col.set_texture(tile_texture);
     choose_on_direction

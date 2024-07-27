@@ -29,6 +29,7 @@
 #include "NorthSouthSplit.hpp"
 #include "InWallCornerSplits.hpp"
 #include "OutWallCornerSplits.hpp"
+#include "../MapObject.hpp"
 
 namespace {
 
@@ -97,7 +98,10 @@ public:
         }
     }
 
-    ProducableTile & add_member(const TileLocation & tile_location) {
+    ProducableTile & add_member
+        (const TileLocation & tile_location,
+         const SharedPtr<const MapElementProperties> & layer_properties)
+    {
 #       ifdef MACRO_DEBUG
         assert(m_tileset_tiles);
 #       endif
@@ -113,7 +117,7 @@ public:
                 tileset_tile->corner_elevations();
         }
         return m_tileset_to_map_mapping(tile_location.on_map) =
-            ProducableSlopesTile{tileset_tile};
+            ProducableSlopesTile{tileset_tile, layer_properties};
     }
 
 private:
@@ -132,8 +136,14 @@ public:
         (std::size_t number_of_members, const Size2I & grid_size) final
         { verify_owner_ptr().reserve(number_of_members, grid_size); }
 
-    ProducableTile & add_member(const TileLocation & tile_location) final
-        { return verify_owner_ptr().add_member(tile_location); }
+    void set_layer_properties
+        (const SharedPtr<const MapElementProperties> & properties) final
+        { m_layer_properties = properties; }
+
+    ProducableTile & add_member(const TileLocation & tile_location) final {
+        return verify_owner_ptr().
+            add_member(tile_location, m_layer_properties);
+    }
 
     SharedPtr<ProducableGroupOwner> finish() final {
         (void)verify_owner_ptr();
@@ -149,6 +159,7 @@ private:
     }
 
     SharedPtr<SlopesGroupOwner> m_owner;
+    SharedPtr<const MapElementProperties> m_layer_properties;
 };
 
 using SlopesCreationFunction = SharedPtr<SlopesTilesetTile>(*)();
@@ -178,7 +189,30 @@ SharedPtr<SlopesTilesetTile> make_ramp() {
     return make_shared<QuadBasedTilesetTile>(kt_strat);
 }
 
+using namespace vector_framing_types;
+using FieldType = MapElementValuesMap::FieldType;
+
+constexpr const auto k_layer_framing =
+    MapObjectVectorFraming
+        {VectorXFraming{FieldType::attribute, ""         , false},
+         VectorYFraming{FieldType::property , "elevation", false},
+         VectorZFraming{FieldType::attribute, ""         , false}};
+
+
 } // end of <anonymous> namespace
+
+/* private */ Vector WrappedCallbacksForSlopeTiles::offset() {
+    if (m_memoized_offset)
+        { return *m_memoized_offset; }
+    m_memoized_offset = k_layer_framing(*m_layer_properties).
+        fold<Vector>().
+        map_left([](MapObjectVectorFraming::LoadFailed &&) { return Vector{}; }).
+        map([] (Vector && r) { return std::move(r); }).
+        value();
+    return offset();
+}
+
+// ----------------------------------------------------------------------------
 
 /* static */ const TilesetTileMakerMap & SlopeGroupFiller::builtin_makers() {
     using namespace slopes_group_filler_type_names;
@@ -197,11 +231,7 @@ SharedPtr<SlopesTilesetTile> make_ramp() {
 class SlopesAssetsRetrievalComplete final : public PlatformAssetsStrategy {
 public:
     SlopesAssetsRetrievalComplete(PlatformAssetsStrategy & platform):
-        m_platform(platform)
-#       if 0
-        m_assets_retrieval(AssetsRetrieval::make_saving_instance(platform))
-#       endif
-    {}
+        m_platform(platform) {}
 
     SharedPtr<Texture> make_texture() const final
         { return m_platform.make_texture(); }

@@ -20,8 +20,6 @@
 
 #include "InWallCornerSplits.hpp"
 
-#include <iostream>
-
 namespace {
 
 using Triangle = TriangleSegment;
@@ -51,11 +49,6 @@ NorthWestInCornerSplit::NorthWestInCornerSplit
     m_elevations(elevations),
     m_division_xz(division_xz)
 {
-    std::cerr << "All are " << (are_all_present() ? "" : "not") << " present." << std::endl;
-    std::cerr << "south_east_y: " << south_east_y() << std::endl;
-    std::cerr << "north_west_y: " << north_west_y() << std::endl;
-    std::cerr << "north_east_y: " << north_east_y() << std::endl;
-    std::cerr << "south_west_y: " << south_west_y() << std::endl;
     if (   are_all_present()
         && (south_east_y() < north_west_y() ||
             south_east_y() < north_east_y() ||

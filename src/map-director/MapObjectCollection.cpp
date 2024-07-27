@@ -84,7 +84,8 @@ void MapObjectCollection::load(const DocumentOwningXmlElement & map_element) {
     auto [groups, elements] = MapObjectGroup::initialize_for_map(map_element);
     auto objects = MapObject::load_objects_from
         (View<GroupConstIterator>{groups.begin(), groups.end()},
-         View{elements.cbegin(), elements.cend()});
+         View{elements.cbegin(), elements.cend()},
+         map_element);
     load(std::move(groups), std::move(objects), std::move(elements));
 }
 

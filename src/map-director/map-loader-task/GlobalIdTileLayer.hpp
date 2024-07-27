@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2023 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,10 +20,23 @@
 
 #pragma once
 
-static constexpr const auto k_testmap_filename = "depth-test.tmx";
-static constexpr const bool
-    k_region_axis_container_report_maximum_sort_and_sweep = false;
-constexpr const bool k_promised_files_take_at_least_one_frame = true;
-constexpr const bool k_report_lost_file_string_content = true;
-constexpr const bool k_report_tile_region_loads_and_unloads = false;
-constexpr const bool k_report_physics_driver_dropping_triangles = false;
+#include "../../Definitions.hpp"
+#include "../MapElementValuesMap.hpp"
+
+class GlobalIdTileLayer final {
+public:
+    GlobalIdTileLayer(Grid<int> && gids, MapElementProperties && elprops):
+        m_gids(std::move(gids)),
+        m_layer_elements(std::move(elprops)) {}
+
+    auto size2() const { return m_gids.size2(); }
+
+    int gid_at(const Vector2I &r) const { return m_gids(r); }
+
+    [[nodiscard]] MapElementProperties move_out_layer_properties()
+        { return std::move(m_layer_elements); }
+
+private:
+    Grid<int> m_gids;
+    MapElementProperties m_layer_elements;
+};

@@ -70,7 +70,6 @@ MakeFillerGridRt make_filler_grid
     return s_map;
 }
 
-// four params, ouch!
 Continuation & ProducablesTileset::load
     (const DocumentOwningXmlElement & tileset_el, MapContentLoader & content_loader)
 {
@@ -127,6 +126,7 @@ void ProducablesTileset::add_map_elements
 
         auto creator = CallbackWithCreator::make([&] (ProducableGroupCreation & creation) {
             creation.reserve(locs.size(), mapping_view.grid_size());
+            creation.set_layer_properties(mapping_view.properties());
             for (auto & loc : locs) {
                 producables(loc.on_map) = &creation.add_member(loc);
             }

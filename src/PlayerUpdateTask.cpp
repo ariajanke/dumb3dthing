@@ -144,7 +144,7 @@ void PlayerUpdateTask::on_every_frame(Callbacks & callbacks, Real seconds) {
     if (!ppair) return;
     const auto & recovery_point = ent.get<PlayerRecovery>();
     auto & loc = ppair->location;
-    if (loc.y < -10) {
+    if (loc.y < -100) {
         loc = recovery_point.value;
         ent.get<Velocity>() = Velocity{};
     }

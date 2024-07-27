@@ -3,7 +3,7 @@
  <properties>
   <property name="scale" value="5"/>
  </properties>
- <tileset firstgid="1" source="../../../../../../../../home/aria/dev/mapproject/bin/comps-demo-map-parts.tsx"/>
+ <tileset firstgid="1" source="comps-demo-map-parts.tsx"/>
  <layer id="1" name="Tile Layer 1" width="4" height="4">
   <data encoding="csv">
 1,2,1,4,

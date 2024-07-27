@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.8" tiledversion="1.8.0" orientation="orthogonal" renderorder="right-down" width="10" height="10" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="10" height="10" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
  <tileset firstgid="1" source="test-tileset.tsx"/>
  <layer id="1" name="Tile Layer 1" width="10" height="10">
+  <properties>
+   <property name="elevation" type="float" value="-3"/>
+  </properties>
   <data encoding="csv">
 61,26,26,26,62,17,61,26,62,17,
 18,28,29,30,16,17,18,14,25,62,

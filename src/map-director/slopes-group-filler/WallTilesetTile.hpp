@@ -80,7 +80,7 @@ public:
 
     void make
         (const NeighborCornerElevations & neighboring_elevations,
-         ProducableTileCallbacks & callbacks) const;
+         ProducableTileCallbacks & callbacks) const final;
 
 private:
     using GeometryGenerationStrategy = SplitWallGeometry::GeometryGenerationStrategy;
