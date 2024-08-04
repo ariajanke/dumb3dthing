@@ -38,7 +38,7 @@ public:
     bool delay_required() const final
         { return &task_continuation() == &m_strategy->continue_(); }
 
-    FutureStringPtr promise_file_contents(const char * filename) final;
+    FutureStringPtr promise_file_contents(const char * filename) const final;
 
     void add_warning(MapLoadingWarningEnum) final {}
 

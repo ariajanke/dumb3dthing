@@ -24,7 +24,7 @@
 #include "map-loader-task.hpp"
 
 /* static */ SharedPtr<MapLoaderTask_> MapLoaderTask_::make
-    (const char * initial_map, Platform & platform)
+    (const char * initial_map, PlatformAssetsStrategy & platform)
 {
     using tiled_map_loading::MapLoadStateMachine;
     return make_shared<MapLoaderTask>(initial_map, platform);

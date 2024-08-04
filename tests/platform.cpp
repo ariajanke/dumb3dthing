@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,8 +20,8 @@
 
 #include "platform.hpp"
 
-#include "Texture.hpp"
-#include "RenderModel.hpp"
+#include "../src/Texture.hpp"
+#include "../src/RenderModel.hpp"
 
 namespace {
 
@@ -57,9 +57,7 @@ private:
 
 } // end of <anonymous> namespace
 
-PlatformAssetsStrategy::~PlatformAssetsStrategy() {}
-
-/* static */ Platform & Platform::null_callbacks() {
+/* static */ Platform & TestPlatform::null_instance() {
     static constexpr const auto k_cannot_promise_file_contents =
         "Platform::null_callbacks()::...::promise_file_contents: cannot use "
         "null instance of platform to promise file contents.";
@@ -75,7 +73,7 @@ PlatformAssetsStrategy::~PlatformAssetsStrategy() {}
 
         void set_camera_entity(EntityRef) {}
 
-        FutureStringPtr promise_file_contents(const char *) final
+        FutureStringPtr promise_file_contents(const char *) const final
             { throw RuntimeError{k_cannot_promise_file_contents}; }
     };
     static Impl impl;

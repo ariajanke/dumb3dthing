@@ -26,8 +26,6 @@ class PlatformAssetsStrategy;
 
 class Texture {
 public:
-    static SharedPtr<const Texture> make_ground(PlatformAssetsStrategy &);
-
     virtual ~Texture() {}
 
     virtual bool load_from_file_no_throw(const char *) noexcept = 0;

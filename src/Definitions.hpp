@@ -96,18 +96,26 @@ public:
 };
 
 template <typename ... Types>
-class TupleBuilder {
+class TupleBuilder final {
 public:
     TupleBuilder() {}
 
     TupleBuilder(Tuple<Types...> && tuple);
 
     template <typename T>
-    TupleBuilder<T, Types...> add(T && obj) &&;
+    [[nodiscard]] TupleBuilder<T, Types...> add(T && obj) &&;
 
     void add_to_entity(Entity & ent) &&;
 
-    Tuple<Types...> finish() && { return m_impl; }
+    void set_on_entity(Entity & ent) &&;
+
+    template <typename T>
+    [[nodiscard]] T & get() { return std::get<T>(m_impl); }
+
+    template <typename T>
+    [[nodiscard]] const T & get() const { return std::get<T>(m_impl); }
+
+    [[nodiscard]] Tuple<Types...> finish() && { return m_impl; }
 
 private:
     Tuple<Types...> m_impl;
@@ -172,3 +180,8 @@ TupleBuilder<T, Types...> TupleBuilder<Types...>::add(T && obj) && {
 template <typename ... Types>
 void TupleBuilder<Types...>::add_to_entity(Entity & ent) &&
     { ent.add<Types...>() = std::move(m_impl); }
+
+template <typename ... Types>
+void TupleBuilder<Types...>::set_on_entity(Entity & ent) &&
+    { ent.get<Types...>() = std::move(m_impl); }
+

@@ -22,6 +22,7 @@
 
 #include "TileMapIdToSetMapping.hpp"
 #include "StateMachineDriver.hpp"
+#include "GlobalIdTileLayer.hpp"
 
 #include "../MapObjectCollection.hpp"
 #include "../MapRegion.hpp"
@@ -79,8 +80,8 @@ public:
         std::vector<TilesetWithStartGid> ready_tilesets;
     };
 
-    static std::vector<Grid<int>> load_layers
-        (const TiXmlElement & document_root, MapContentLoader &);
+    static std::vector<GlobalIdTileLayer> load_layers
+        (const DocumentOwningXmlElement & document_root, MapContentLoader &);
 
     static std::vector<TilesetLoadersWithStartGid>
         load_future_tilesets
@@ -115,7 +116,7 @@ public:
 
     TileSetLoadState
         (DocumentOwningXmlElement && document_root_,
-         std::vector<Grid<int>> && layers_,
+         std::vector<GlobalIdTileLayer> && layers_,
          std::vector<TilesetProviderWithStartGid> && future_tilesets_,
          std::vector<TilesetWithStartGid> && ready_tilesets_);
 
@@ -123,7 +124,7 @@ public:
 
 private:
     DocumentOwningXmlElement m_document_root;
-    std::vector<Grid<int>> m_layers;
+    std::vector<GlobalIdTileLayer> m_layers;
     std::vector<TilesetProviderWithStartGid> m_future_tilesets;
     std::vector<TilesetWithStartGid> m_ready_tilesets;
 };
@@ -133,7 +134,7 @@ public:
     MapElementCollectorState
         (DocumentOwningXmlElement &&,
          TileMapIdToSetMapping &&,
-         std::vector<Grid<int>> &&);
+         std::vector<GlobalIdTileLayer> &&);
 
     MapLoadResult update_progress(StateSwitcher &, MapContentLoader &) final;
 
@@ -142,7 +143,7 @@ private:
 
     DocumentOwningXmlElement m_document_root;
     TileMapIdToSetMapping m_id_mapping_set;
-    std::vector<Grid<int>> m_layers;
+    std::vector<GlobalIdTileLayer> m_layers;
 };
 
 class ExpiredState final : public BaseState {

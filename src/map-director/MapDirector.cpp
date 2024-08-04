@@ -22,11 +22,11 @@
 #include "map-loader-task.hpp"
 #include "RegionLoadRequest.hpp"
 #include "../targeting-state.hpp"
-#include "../RenderModel.hpp"
-#include "../Texture.hpp"
+#include "../AssetsRetrieval.hpp"
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
+#include "MapObjectSpawner.hpp"
 
 namespace {
 
@@ -74,7 +74,7 @@ private:
     MapDirector::begin_initial_map_loading
     (Entity player_physics,
      const char * initial_map,
-     Platform & platform,
+     PlatformAssetsStrategy & platform,
      PpDriver & ppdriver)
 {
     return std::make_shared<PlayerMapPreperationTask>
@@ -132,12 +132,14 @@ PlayerMapPreperationTask::PlayerMapPreperationTask
 using AddEntityFunc =
     void (*)(const MapObject &,
              const MapObjectFraming &,
-             MapDirectorTask::Callbacks &);
+             MapDirectorTask::Callbacks &,
+             AssetsRetrieval &);
 
 void add_baddie_a
     (const MapObject & map_obj,
      const MapObjectFraming & framing,
-     MapDirectorTask::Callbacks & callbacks)
+     MapDirectorTask::Callbacks & callbacks,
+     AssetsRetrieval & assets_retrieval)
 {
     auto ent = Entity::make_sceneless_entity();
     Vector location;
@@ -148,8 +150,8 @@ void add_baddie_a
             return std::monostate{};
         });
 
-    auto model = RenderModel::make_cube(callbacks.platform());
-    auto tx = Texture::make_ground(callbacks.platform());
+    auto model = assets_retrieval.make_cube_model();
+    auto tx = assets_retrieval.make_ground_texture();
 
     std::move(TupleBuilder{}).
         add<ModelTranslation>(ModelTranslation{location}).
@@ -162,11 +164,48 @@ void add_baddie_a
     callbacks.add(ent);
 }
 
+void add_grass
+    (const MapObject & map_obj,
+     const MapObjectFraming & framing,
+     MapDirectorTask::Callbacks & callbacks,
+     AssetsRetrieval & assets_retrieval)
+{
+    MapObjectSpawner::spawn_grass
+        (map_obj,
+         MapObjectSpawner::EntityCreator::make([&] {
+            auto e = Entity::make_sceneless_entity();
+            callbacks.add(e);
+            return e;
+         }),
+         assets_retrieval,
+         framing);
+}
+
+void add_vaguely_tree
+    (const MapObject & map_obj,
+     const MapObjectFraming & framing,
+     MapDirectorTask::Callbacks & callbacks,
+     AssetsRetrieval & assets_retrieval)
+{
+    MapObjectSpawner::spawn_tree
+        (map_obj,
+         MapObjectSpawner::EntityCreator::make([&] {
+            auto e = Entity::make_sceneless_entity();
+            callbacks.add(e);
+            return e;
+         }),
+         assets_retrieval,
+         framing);
+}
+
 Continuation & PlayerMapPreperationTask::in_background
     (Callbacks & callbacks, ContinuationStrategy & strategy)
 {
+    auto assets_retrieval = AssetsRetrieval::make_saving_instance(callbacks.platform());
     cul::HashMap<std::string, AddEntityFunc> a{std::string{}};
     a.insert("baddie-type-a", add_baddie_a);
+    a.insert("grass", add_grass);
+    a.insert("vaguely-tree", add_vaguely_tree);
     if (!m_finished_loading_map) {
         m_finished_loading_map = true;
         return strategy.continue_().wait_on(m_map_loader);
@@ -180,18 +219,17 @@ Continuation & PlayerMapPreperationTask::in_background
     for (auto [id, obj_ptr] : res.map_objects.map_objects()) {
         auto found = a.find(obj_ptr->get_string_attribute("type"));
         if (found == a.end()) continue;
-        found->second(*obj_ptr, res.object_framing, callbacks);
+        found->second(*obj_ptr, res.object_framing, callbacks, *assets_retrieval);
     }
     auto * player_object = res.map_objects.seek_by_name("player-spawn-point");
     auto & location = std::get<PpInAir>(m_player_physics.add<PpState>()).location;
     const auto & object_framing = res.object_framing;
     if (player_object) {
-        (void)object_framing.
+        location = object_framing.
             get_position_from(*player_object).
-            map([&location] (Vector && r) {
-                location = r;
-                return std::monostate{};
-            });
+            fold<Vector>().map([] (Vector && r) { return r; }).
+            map_left([] (MapObjectFraming::LoadFailed &&) { return Vector{}; }).
+            value();
     }
     TupleBuilder{}.
         add(Velocity{}).

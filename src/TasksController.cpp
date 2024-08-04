@@ -114,7 +114,7 @@ void EntitiesReceiver::add_entities_to(Scene & scene) {
 
 // ----------------------------------------------------------------------------
 
-Platform & MultiReceiver::platform() {
+PlatformAssetsStrategy & MultiReceiver::platform() {
     if (!m_platform) {
         throw RuntimeError{"MultiReceiver::platform: no platform was assigned"};
     }
@@ -328,14 +328,14 @@ void TasksController::add(const Entity & ent)
 void TasksController::add(const SharedPtr<TriangleLink> & tri)
     { m_multireceiver.add(tri); }
 
-void TasksController::assign_platform(Platform & platform_)
+void TasksController::assign_platform(PlatformAssetsStrategy & platform_)
     { m_multireceiver.assign_platform(platform_); }
 
 void TasksController::assign_point_and_plane_driver
     (point_and_plane::Driver & ppdriver)
     { m_multireceiver.assign_point_and_plane_driver(ppdriver); }
 
-Platform & TasksController::platform()
+PlatformAssetsStrategy & TasksController::platform()
     { return m_multireceiver.platform(); }
 
 void TasksController::remove(const SharedPtr<const TriangleLink> & ptr)

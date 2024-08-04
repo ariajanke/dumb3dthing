@@ -346,9 +346,6 @@ public:
         }
     }
 
-    Entity make_renderable_entity() const final
-        { return Entity::make_sceneless_entity(); }
-
     SharedPtr<Texture> make_texture() const final
         { return make_shared<WebGlTexture>(); }
 
@@ -358,7 +355,7 @@ public:
     void set_camera_entity(EntityRef ref) final
         { m_camera_ent = ref; }
 
-    FutureStringPtr promise_file_contents(const char * filename) final {
+    FutureStringPtr promise_file_contents(const char * filename) const final {
         auto uptr = make_unique<WebFutureString>();
         from_js_promise_file_contents_as_string(uptr.get(), filename);
         return uptr;

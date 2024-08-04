@@ -23,6 +23,8 @@
 #include "../../../src/map-director/map-loader-task/TilesetBase.hpp"
 #include "../../../src/map-director/ProducableGroupFiller.hpp"
 
+#include "../../platform.hpp"
+
 #include <cstring>
 
 class TestProducableTile final : public ProducableTile {
@@ -52,6 +54,10 @@ public:
         m_test_tiles.reserve(number_of_members);
         m_grid_size = grid_size;
     }
+
+    void set_layer_properties
+        (const SharedPtr<const MapElementProperties> &) final
+        {}
 
     ProducableTile & add_member(const TileLocation & loc) {
         assert(m_test_tiles.capacity() > m_test_tiles.size());
@@ -104,10 +110,10 @@ public:
         coninuation_strategy(*this) {}
 
     SharedPtr<Texture> make_texture() const final
-        { return Platform::null_callbacks().make_texture(); }
+        { return TestPlatform::null_instance().make_texture(); }
 
     SharedPtr<RenderModel> make_render_model() const final
-        { return Platform::null_callbacks().make_render_model(); }
+        { return TestPlatform::null_instance().make_render_model(); }
 
     const FillerFactoryMap & map_fillers() const final {
         static FillerFactoryMap map = [] {

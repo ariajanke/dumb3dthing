@@ -231,7 +231,11 @@ using StringSplitterView = View<StringSplitterIterator<CharIter, SplitterFunc, W
 template <typename CharIter, typename SplitterFunc, typename WithAdditionalFunc, typename EndIter = CharIter>
 using StringSplitterViewWithIndex = View<StringSplitterIteratorWithIndex<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>, StringSplitterIteratorEnd>;
 
-template <typename CharIter, typename SplitterFunc, typename WithAdditionalFunc, typename EndIter = CharIter>
+template
+    <typename CharIter,
+     typename SplitterFunc,
+     typename WithAdditionalFunc = void (*)(CharIter &, CharIter &),
+     typename EndIter = CharIter>
 StringSplitterView<CharIter, SplitterFunc, WithAdditionalFunc, EndIter>
     split_range(CharIter beg, EndIter end, SplitterFunc && splitter_,
                 WithAdditionalFunc && with_ = [](CharIter &, CharIter &){})

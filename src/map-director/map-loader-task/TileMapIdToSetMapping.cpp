@@ -98,22 +98,29 @@ TilesetBase & TilesetMappingTile::tileset_of(const MappingView & view) const {
 
 /* static */ std::vector<TilesetLayerWrapper>
     TilesetMappingLayer::make_views_from_sorted
-    (const MappingContainer & container, const Size2I & grid_size)
+    (const MappingContainer & container,
+     const Size2I & grid_size,
+     const LayerPropertiesPtr & properties_ptr)
 {
+    assert(properties_ptr);
+    auto mk_wrapper = [&grid_size, &properties_ptr]
+        (const MappingContainerIterator & begin,
+         const MappingContainerIterator & end  )
+    { return TilesetLayerWrapper{begin, end, grid_size, properties_ptr}; };
     if (container.size() == 0) {
         return std::vector<TilesetLayerWrapper>{};
     } else if (container.size() == 1) {
         return std::vector<TilesetLayerWrapper>
-            { TilesetLayerWrapper{container.begin(), container.end(), grid_size} };
+            { mk_wrapper(container.begin(), container.end()) };
     }
     std::vector<TilesetLayerWrapper> views;
     auto last = container.begin();
     for (auto itr = container.begin() + 1; itr != container.end(); ++itr) {
         if (last->same_tileset(*itr)) continue;
-        views.emplace_back(TilesetLayerWrapper{last, itr, grid_size});
+        views.emplace_back(mk_wrapper(last, itr));
         last = itr;
     }
-    views.emplace_back(TilesetLayerWrapper{last, container.end(), grid_size});
+    views.emplace_back(mk_wrapper(last, container.end()));
     return views;
 }
 
@@ -125,9 +132,50 @@ TilesetBase & TilesetMappingTile::tileset_of(const MappingView & view) const {
 }
 
 TilesetMappingLayer::TilesetMappingLayer
-    (MappingContainer && locations, const Size2I & grid_size):
-    m_locations(sort_container(std::move(locations))),
-    m_mapping_views(make_views_from_sorted(m_locations, grid_size)) {}
+    (MappingContainer && container,
+     std::vector<TilesetLayerWrapper> && mapping_views,
+     LayerPropertiesPtr && layer_properties):
+    m_locations(verify_container(std::move(container))),
+    m_mapping_views(std::move(mapping_views)),
+    m_layer_properties(std::move(layer_properties))
+{}
+
+TilesetMappingLayer TilesetMappingLayer::set_size_with_locations
+    (MappingContainer && locations,
+     const Size2I & grid_size) &&
+{
+    locations = sort_container(std::move(locations));
+    auto mapping_views = make_views_from_sorted
+        (locations, grid_size, m_layer_properties);
+    return TilesetMappingLayer
+        {std::move(locations),
+         std::move(mapping_views),
+         std::move(m_layer_properties)};
+}
+
+TilesetMappingLayer TilesetMappingLayer::set_layer_properties
+    (MapElementProperties && properties) &&
+{
+    auto temp = make_shared<MapElementProperties>(std::move(properties));
+    return TilesetMappingLayer
+        {std::move(m_locations),
+         std::move(m_mapping_views),
+         std::move(temp)};
+}
+
+/* private static */ TilesetMappingLayer::MappingContainer
+    TilesetMappingLayer::verify_container(MappingContainer && container)
+{
+#   ifdef MACRO_DEBUG
+    bool is_sorted = std::is_sorted(container.begin(), container.end(),
+                                    TilesetMappingTile::less_than);
+    if (!is_sorted) {
+        throw InvalidArgument
+            {"TilesetMappingLayer: mapping container must be sorted"};
+    }
+#   endif
+    return std::move(container);
+}
 
 // ----------------------------------------------------------------------------
 
@@ -172,15 +220,17 @@ TileMapIdToSetMapping::TileMapIdToSetMapping
 }
 
 TilesetMappingLayer TileMapIdToSetMapping::
-    make_mapping_for_layer(const Grid<int> & gid_layer)
+    make_mapping_from_layer(GlobalIdTileLayer && gid_layer)
 {
     auto locations = make_locations(gid_layer.size2());
     for (auto & location : locations) {
-        auto [tid, tileset] = map_id_to_set(gid_layer(location.on_map()));
+        auto [tid, tileset] = map_id_to_set(gid_layer.gid_at(location.on_map()));
         location = location.with_tileset(tid, tileset);
     }
-    return TilesetMappingLayer
-        {clean_null_tiles(std::move(locations)), gid_layer.size2()};
+    return TilesetMappingLayer{}.
+        set_layer_properties(gid_layer.move_out_layer_properties()).
+        set_size_with_locations(clean_null_tiles(std::move(locations)),
+                                gid_layer.size2());
 }
 
 /* private */ Tuple<int, TileSetPtr> TileMapIdToSetMapping::map_id_to_set

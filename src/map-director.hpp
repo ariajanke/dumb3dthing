@@ -33,7 +33,7 @@ public:
     static SharedPtr<BackgroundTask> begin_initial_map_loading
         (Entity player_physics,
          const char * initial_map,
-         Platform &,
+         PlatformAssetsStrategy &,
          PpDriver &);
 
     virtual ~MapDirector_() {}

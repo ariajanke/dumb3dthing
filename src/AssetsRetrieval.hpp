@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,20 +20,28 @@
 
 #pragma once
 
-#include "Definitions.hpp"
-#include "platform.hpp"
+#include "RenderModel.hpp"
+#include "Texture.hpp"
 
-class GameDriver {
+class AssetsRetrieval {
 public:
-    static UniquePtr<GameDriver> make_instance();
+    static SharedPtr<AssetsRetrieval> make_non_saving_instance
+        (PlatformAssetsStrategy &);
 
-    virtual ~GameDriver() {}
+    static SharedPtr<AssetsRetrieval> make_saving_instance
+        (PlatformAssetsStrategy &);
 
-    virtual void press_key(KeyControl) = 0;
+    virtual ~AssetsRetrieval() {}
 
-    virtual void release_key(KeyControl) = 0;
+    virtual SharedPtr<const RenderModel> make_cube_model() = 0;
 
-    virtual void setup(Platform &) = 0;
+    virtual SharedPtr<const RenderModel> make_cone_model() = 0;
 
-    virtual void update(Real seconds, Platform &) = 0;
+    virtual SharedPtr<const RenderModel> make_vaguely_tree_like_model() = 0;
+
+    virtual SharedPtr<const RenderModel> make_vaguely_palm_leaves() = 0;
+
+    virtual SharedPtr<const RenderModel> make_grass_model() = 0;
+
+    virtual SharedPtr<const Texture> make_ground_texture() = 0;
 };

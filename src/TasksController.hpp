@@ -115,18 +115,18 @@ public:
 
     MultiReceiver() {}
 
-    explicit MultiReceiver(Platform & platform_):
+    explicit MultiReceiver(PlatformAssetsStrategy & platform_):
         m_platform(&platform_) {}
 
-    Platform & platform() final;
+    PlatformAssetsStrategy & platform() final;
 
-    void assign_platform(Platform & platform_)
+    void assign_platform(PlatformAssetsStrategy & platform_)
         { m_platform = &platform_; }
 
     RunableTasks retrieve_runable_tasks(RunableTasks &&);
 
 private:
-    Platform * m_platform;
+    PlatformAssetsStrategy * m_platform;
 };
 
 // ----------------------------------------------------------------------------
@@ -311,11 +311,11 @@ public:
 
     void add(const SharedPtr<TriangleLink> & tri) final;
 
-    void assign_platform(Platform & platform_);
+    void assign_platform(PlatformAssetsStrategy & platform_);
 
     void assign_point_and_plane_driver(point_and_plane::Driver &);
 
-    Platform & platform();
+    PlatformAssetsStrategy & platform();
 
     void remove(const SharedPtr<const TriangleLink> &) final;
 

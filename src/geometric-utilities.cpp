@@ -42,10 +42,9 @@ VectorRotater::VectorRotater(const Vector & axis_of_rotation):
 
 Vector VectorRotater::operator () (const Vector & v, Real angle) const {
     // and so follows... Rodrigues' formula
-    using std::sin, std::cos;
-    auto cos_t = cos(angle);
+    auto cos_t = std::cos(angle);
     return   v*cos_t
-           + cross(m_axis_of_rotation, v)*sin(angle)
+           + cross(m_axis_of_rotation, v)*std::sin(angle)
            + m_axis_of_rotation*dot(m_axis_of_rotation, v)*(1 - cos_t);
 }
 

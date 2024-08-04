@@ -83,7 +83,7 @@ const FillerFactoryMap & MapContentLoaderComplete::map_fillers() const {
 }
 
 FutureStringPtr MapContentLoaderComplete::promise_file_contents
-    (const char * filename)
+    (const char * filename) const
 { return m_platform->promise_file_contents(filename); }
 
 SharedPtr<Texture> MapContentLoaderComplete::make_texture() const

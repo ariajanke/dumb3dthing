@@ -311,7 +311,7 @@ describe<MapObject>("MapObject")([] {
     auto objectgroup = (**node).FirstChildElement("objectgroup");
     auto object_el = objectgroup->FirstChildElement("object");
     MapObjectGroup group{1};
-    auto object = MapObject::load_from(*object_el, group);
+    auto object = MapObject::load_from(node->make_with_same_owner(*object_el), group);
     assert(node);
     mark_it("parses object id", [&] {
         return test_that(object.id() == 1);
@@ -373,7 +373,8 @@ describe<MapObject>("MapObject::find_first_visible_named_objects")([] {
     const auto & elements = std::get<std::vector<const TiXmlElement *>>(containers);
     auto objects = MapObject::load_objects_from
         (View<GroupConstIterator>{groups.begin(), groups.end()},
-         View{elements.begin(), elements.end()});
+         View{elements.begin(), elements.end()},
+         *node);
     auto global_names = MapObject::find_first_visible_named_objects(objects);
     mark_it("there are exactly two names visible", [&] {
         return test_that(global_names.size() == 2);

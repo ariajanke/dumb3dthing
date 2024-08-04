@@ -22,7 +22,7 @@
 
 #include "Definitions.hpp"
 
-class Platform;
+class PlatformAssetsStrategy;
 class EveryFrameTask;
 class BackgroundTask;
 
@@ -40,7 +40,7 @@ public:
 
     virtual void remove(const SharedPtr<const TriangleLink> &) = 0;
 
-    virtual Platform & platform() = 0;
+    virtual PlatformAssetsStrategy & platform() = 0;
 };
 
 // ----------------------------------------------------------------------------

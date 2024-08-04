@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,20 +20,9 @@
 
 #pragma once
 
-#include "Definitions.hpp"
-#include "platform.hpp"
+#include "../src/platform.hpp"
 
-class GameDriver {
+class TestPlatform final {
 public:
-    static UniquePtr<GameDriver> make_instance();
-
-    virtual ~GameDriver() {}
-
-    virtual void press_key(KeyControl) = 0;
-
-    virtual void release_key(KeyControl) = 0;
-
-    virtual void setup(Platform &) = 0;
-
-    virtual void update(Real seconds, Platform &) = 0;
+    static Platform & null_instance();
 };

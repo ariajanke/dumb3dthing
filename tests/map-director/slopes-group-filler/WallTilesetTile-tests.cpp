@@ -99,6 +99,15 @@ constexpr const auto k_something =
     "</properties>"
     "</tile>";
 
+constexpr const auto k_in_wall_xml =
+    "<tile id=\"78\" type=\"in-wall\">\n"
+    "\t<properties>\n"
+    "\t\t<property name=\"direction\" value=\"se\"/>\n"
+    "\t\t<property name=\"translation\" value=\"0,0,0\"/>\n"
+    "\t\t<property name=\"wall-texture\" value=\"56\"/>\n"
+    "\t</properties>\n"
+    "</tile>";
+
 // How do I setup abstract classes for tests?
 // redefining them everytime seems tedious
 // There's got to be a less painful way to do it.
@@ -118,7 +127,7 @@ constexpr const auto k_something =
 // code. An odd thing to say about a broken, ugly, poorly aging language like
 // C++.
 
-class SingleResponseAssetsStrategy final : public PlatformAssetsStrategy {
+class SingleResponseAssetsStrategy final : public SlopesAssetsRetrieval {
 public:
     static SingleResponseAssetsStrategy & instance() {
         static SingleResponseAssetsStrategy inst;
@@ -138,9 +147,12 @@ public:
         return m_render_models.back();
     }
 
-    FutureStringPtr promise_file_contents(const char *) final {
+    FutureStringPtr promise_file_contents(const char *) const final {
         throw "";
     }
+
+    Optional<TileDecoration> tile_decoration(Real probability) const final
+        { return {}; }
 
 private:
     mutable std::vector<SharedPtr<RenderModel>> m_render_models;
@@ -150,32 +162,45 @@ private:
 
 auto x = [] {
 
+// need to test for tile 78 on test-tileset.tsx
+
 describe("WallTilesetTile#load")([] {
     TestGeometryGenerationStrategy::reset();
     auto & geo_strat =
         TestGeometryGenerationStrategy::instance() =
         TestGeometryGenerationStrategy{};
-    WallTilesetTile wtt{TestGeometryGenerationStrategy::instance_for};
-    MapTileset mt;
-    MapTilesetTile mtt;
-    auto optional_contents = DocumentOwningXmlElement::load_from_contents(k_something);
-    mtt.load(**optional_contents);
-    TilesetTileTexture ttt;
     auto & assets_strat = SingleResponseAssetsStrategy::instance();
-    wtt.load(mtt, ttt, assets_strat);
+    auto tile_xml = k_something;
+    auto subject = [&] {
+        WallTilesetTile wtt{TestGeometryGenerationStrategy::instance_for};
+        MapTileset mt;
+        MapTilesetTile mtt;
+        auto optional_contents = DocumentOwningXmlElement::load_from_contents(tile_xml);
+        mtt.load(*optional_contents);
+        TilesetTileTexture ttt;
+        wtt.load(mtt, ttt, assets_strat);
+    };
     mark_it("chooses a direction based on data", [&] {
+        subject();
         return test_that
             (TestGeometryGenerationStrategy::choosen_direction().
              value_or(CardinalDirection::north) ==
              CardinalDirection::north_west);
     }).
     mark_it("loads and filters elevation correctly", [&] {
+        subject();
         return test_that
             (geo_strat.filtered_elevations_at(0) ==
              TileCornerElevations{3, 3, 3, 3});
     }).
     mark_it("makes and loads a render model", [&] {
+        subject();
         return test_that(assets_strat.nth_made_render_model(0)->is_loaded());
+    }).
+    mark_it("loads in corner okay", [&] {
+        tile_xml = k_in_wall_xml;
+        subject();
+        return test_that(true);
     });
 });
 

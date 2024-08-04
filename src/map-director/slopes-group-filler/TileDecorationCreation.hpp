@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,20 +20,22 @@
 
 #pragma once
 
-#include "Definitions.hpp"
-#include "platform.hpp"
+#include "../ProducableGrid.hpp"
 
-class GameDriver {
+class TileDecorationCreation final {
 public:
-    static UniquePtr<GameDriver> make_instance();
+    static void create_tile_decoration_with(ProducableTileCallbacks &);
 
-    virtual ~GameDriver() {}
+    TileDecorationCreation(ProducableTileCallbacks &);
 
-    virtual void press_key(KeyControl) = 0;
+    void created_tile_decoration();
 
-    virtual void release_key(KeyControl) = 0;
+private:
+    void make_grass();
 
-    virtual void setup(Platform &) = 0;
+    void make_tree();
 
-    virtual void update(Real seconds, Platform &) = 0;
+    Real random_roll() const;
+
+    ProducableTileCallbacks & m_callbacks;
 };

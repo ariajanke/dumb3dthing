@@ -26,9 +26,74 @@
 
 class Platform;
 class UnfinishedProducableTileViewGrid;
+class AssetsRetrieval;
+
+template <typename ... Types>
+class EntityTupleBuilder final {
+public:
+    EntityTupleBuilder() {}
+
+    explicit EntityTupleBuilder
+        (Entity &&, TupleBuilder<Types...> && = TupleBuilder<Types...>{});
+
+    explicit EntityTupleBuilder(Tuple<Types...> && tuple);
+
+    template <typename T>
+    [[nodiscard]] EntityTupleBuilder<T, Types...> add(T && obj) &&;
+
+    template <typename T>
+    [[nodiscard]] T & get() { return m_builder.template get<T>(); }
+
+    Entity finish() &&;
+
+private:
+    TupleBuilder<Types...> m_builder;
+    Entity m_entity;
+};
+
+template <typename ... Types>
+EntityTupleBuilder<Types...>::EntityTupleBuilder
+    (Entity && entity,
+     TupleBuilder<Types...> && builder):
+    m_builder(std::move(builder)),
+    m_entity(std::move(entity))
+{
+    assert(!entity);
+    assert(m_entity);
+}
+
+template <typename ... Types>
+template <typename T>
+EntityTupleBuilder<T, Types...>
+    EntityTupleBuilder<Types...>::add(T && obj) &&
+{
+    if (!m_entity) {
+        throw RuntimeError
+            {"Cannot reuse EntityTupleBuilder, instantiate a new one instead"};
+    }
+    auto next_builder = std::move(m_builder).template add<T>(std::move(obj));
+    return EntityTupleBuilder<T, Types...>
+        (std::move(m_entity), std::move(next_builder));
+}
+
+template <typename ... Types>
+Entity EntityTupleBuilder<Types...>::finish() && {
+    static_assert(sizeof...(Types) > 1, "must implement fewer than two types finisher");
+    m_entity.add<Types...>() = std::move(m_builder).finish();
+    return m_entity;
+}
 
 class ProducableTileCallbacks {
 public:
+    using StartingTupleBuilder = EntityTupleBuilder<ModelScale, ModelTranslation>;
+
+    class EmptyEntityCreator {
+    protected:
+        virtual ~EmptyEntityCreator() {}
+
+        virtual void operator () (Entity) const = 0;
+    };
+
     virtual ~ProducableTileCallbacks() {}
 
     void add_collidable(const TriangleSegment & triangle)
@@ -38,35 +103,34 @@ public:
                         const Vector & triangle_point_b,
                         const Vector & triangle_point_c);
 
-    template <typename ... Types>
-    Entity add_entity(Types &&... arguments) {
-        auto e = add_entity_();
-        e.
-            add<ModelScale, ModelTranslation, Types...>() =
-            make_tuple(model_scale(), model_translation(),
-                       std::forward<Types>(arguments)...  );
-        return e;
-    }
+    StartingTupleBuilder add_entity()
+        { return add_default_entity(make_entity()); }
 
-    template <typename ... Types>
-    Entity add_entity_from_tuple(Tuple<Types...> && tup) {
-        auto e = add_entity_();
-        e.add<ModelScale, ModelTranslation, Types...>() =
-            std::tuple_cat(make_tuple(model_scale(), model_translation()),
-                           std::move(tup));
-        return e;
-    }
+    /// RNG is tile location dependant (no producable should need to know
+    /// where exactly it is on the field)
+    /// @returns Real number in range [-0.5 0.5]
+    virtual Real next_random() = 0;
+
+    virtual AssetsRetrieval & assets_retrieval() const = 0;
 
     virtual SharedPtr<RenderModel> make_render_model() = 0;
-
-protected:
-    virtual void add_collidable_(const TriangleSegment &) = 0;
-
-    virtual Entity add_entity_() = 0;
 
     virtual ModelScale model_scale() const = 0;
 
     virtual ModelTranslation model_translation() const = 0;
+
+    virtual Entity make_entity() = 0;
+
+protected:
+    virtual void add_collidable_(const TriangleSegment &) = 0;
+
+    StartingTupleBuilder add_default_entity(Entity && ent) const {
+        return StartingTupleBuilder
+            {std::move(ent),
+             TupleBuilder{}.
+                add(model_translation()).
+                add(model_scale())};
+    }
 };
 
 /// Represents how to make a single instance of a tile.
@@ -89,6 +153,9 @@ class ProducableGroupFiller;
 class ProducableGroupOwner {
 public:
     virtual ~ProducableGroupOwner() {}
+
+protected:
+    ProducableGroupOwner() {}
 };
 
 /// A ViewGrid of producable tiles

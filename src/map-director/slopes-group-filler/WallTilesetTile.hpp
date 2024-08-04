@@ -22,7 +22,7 @@
 
 #include "SplitWallGeometry.hpp"
 
-#if 0
+#if 0 // keep!
 class WallGeometryCache final {
 public:
     static WallGeometryCache & instance();
@@ -80,7 +80,7 @@ public:
 
     void make
         (const NeighborCornerElevations & neighboring_elevations,
-         ProducableTileCallbacks & callbacks) const;
+         ProducableTileCallbacks & callbacks) const final;
 
 private:
     using GeometryGenerationStrategy = SplitWallGeometry::GeometryGenerationStrategy;

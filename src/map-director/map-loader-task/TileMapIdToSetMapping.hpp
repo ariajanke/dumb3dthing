@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "GlobalIdTileLayer.hpp"
 #include "TilesetLoadingTask.hpp"
 
 class TilesetBase;
@@ -82,6 +83,7 @@ public:
     using MappingContainerIterator = TilesetMappingTile::MappingContainerIterator;
     using MappingView = TilesetMappingTile::MappingView;
     using MappingViewIterator = std::vector<MappingView>::const_iterator;
+    using LayerPropertiesPtr = SharedPtr<const MapElementProperties>;
 
     static std::vector<TileLocation> convert_to_tile_locations
         (const MappingView & tile_mappings);
@@ -89,20 +91,33 @@ public:
     static MappingContainer sort_container(MappingContainer &&);
 
     static std::vector<TilesetLayerWrapper> make_views_from_sorted
-        (const MappingContainer & container, const Size2I & grid_size);
+        (const MappingContainer & container,
+         const Size2I & grid_size,
+         const LayerPropertiesPtr & properties_ptr);
 
     static TilesetBase * tileset_of(const MappingView &);
 
     TilesetMappingLayer
-        (MappingContainer && locations, const Size2I & grid_size);
+        (MappingContainer && = MappingContainer{},
+         std::vector<TilesetLayerWrapper> && = std::vector<TilesetLayerWrapper>{},
+         LayerPropertiesPtr && = nullptr);
+
+    [[nodiscard]] TilesetMappingLayer set_size_with_locations
+        (MappingContainer && locations,
+         const Size2I & grid_size) &&;
+
+    [[nodiscard]] TilesetMappingLayer set_layer_properties(MapElementProperties &&) &&;
 
     auto begin() const { return m_mapping_views.begin(); }
 
     auto end() const { return m_mapping_views.end(); }
 
 private:
+    static MappingContainer verify_container(MappingContainer &&);
+
     MappingContainer m_locations;
     std::vector<TilesetLayerWrapper> m_mapping_views;
+    LayerPropertiesPtr m_layer_properties;
 };
 
 // ----------------------------------------------------------------------------
@@ -111,12 +126,15 @@ class TilesetLayerWrapper final {
 public:
     using MappingContainerIterator = TilesetMappingLayer::MappingContainerIterator;
     using MappingView = TilesetMappingLayer::MappingView;
+    using LayerPropertiesPtr = TilesetMappingLayer::LayerPropertiesPtr;
 
     TilesetLayerWrapper
         (const MappingContainerIterator & begin,
          const MappingContainerIterator & end,
-         const Size2I & grid_size):
-        m_view(begin, end), m_grid_size(grid_size) {}
+         const Size2I & grid_size,
+         const LayerPropertiesPtr & properties_ptr):
+        m_view(begin, end), m_grid_size(grid_size), m_properties(properties_ptr)
+    { assert(properties_ptr); }
 
     MappingContainerIterator begin() const { return m_view.begin(); }
 
@@ -126,9 +144,12 @@ public:
 
     const MappingView & as_view() const { return m_view; }
 
+    const LayerPropertiesPtr & properties() const { return m_properties; }
+
 private:
     MappingView m_view;
     Size2I m_grid_size;
+    LayerPropertiesPtr m_properties;
 };
 
 // ----------------------------------------------------------------------------
@@ -146,7 +167,7 @@ public:
 
     explicit TileMapIdToSetMapping(std::vector<StartGidWithTileset> &&);
 
-    TilesetMappingLayer make_mapping_for_layer(const Grid<int> &);
+    TilesetMappingLayer make_mapping_from_layer(GlobalIdTileLayer &&);
 
 private:
     using ConstTileSetPtr = TilesetMappingTile::ConstTileSetPtr;

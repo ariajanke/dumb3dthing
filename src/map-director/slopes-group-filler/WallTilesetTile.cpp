@@ -147,12 +147,15 @@ void WallTilesetTile::load
      const TilesetTileTexture & tile_texture,
      PlatformAssetsStrategy & platform)
 {
-    auto elevations = RampPropertiesLoaderBase::read_elevation_of(map_tileset_tile)->
-        add(TileCornerElevations{1, 1, 1, 1});
+    auto elv_res = RampPropertiesLoaderBase::read_elevation_of(map_tileset_tile);
+    assert(elv_res);
+    auto elevations = elv_res->add(TileCornerElevations{1, 1, 1, 1});
     auto direction  = RampPropertiesLoaderBase::read_direction_of(map_tileset_tile);
+    assert(direction);
     m_startegy = &m_strategy_source(*direction);
 
-    if (auto wid = map_tileset_tile.get_numeric_property<int>("wall-texture")) {
+    auto wid = map_tileset_tile.get_numeric_property<int>("wall-texture");
+    if (wid && map_tileset_tile.parent_tileset()) {
         m_wall_texture_location = *map_tileset_tile.
             parent_tileset()-> // LoD
             id_to_tile_location(*wid);
@@ -183,11 +186,10 @@ void WallTilesetTile::make
      ProducableTileCallbacks & callbacks) const
 {
     callbacks.
-        add_entity_from_tuple(TupleBuilder{}.
-            add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
-            add(SharedPtr<const RenderModel>{m_top_model}).
-            finish());
-
+        add_entity().
+        add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
+        add(SharedPtr<const RenderModel>{m_top_model}).
+        finish();
     auto computed_elevations = m_elevations.value_or(neighboring_elevations);
     LinearStripCollidablesAdapter col_col{callbacks};
     LimitedLinearStripCollection<4*2> col;
@@ -211,8 +213,8 @@ void WallTilesetTile::make
 
     auto model = make_model(col, callbacks.make_render_model());
     callbacks.
-        add_entity_from_tuple(TupleBuilder{}.
-            add(SharedPtr<const RenderModel>{model}).
-            add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
-            finish());
+        add_entity().
+        add(SharedPtr<const RenderModel>{model}).
+        add(SharedPtr<const Texture>{m_tileset_tile_texture.texture()}).
+        finish();
 }

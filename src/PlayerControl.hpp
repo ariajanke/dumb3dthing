@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,20 +20,31 @@
 
 #pragma once
 
-#include "Definitions.hpp"
 #include "platform.hpp"
 
-class GameDriver {
+class PlayerControl final {
 public:
-    static UniquePtr<GameDriver> make_instance();
+    void press(KeyControl);
 
-    virtual ~GameDriver() {}
+    void release(KeyControl);
 
-    virtual void press_key(KeyControl) = 0;
+    void frame_update();
 
-    virtual void release_key(KeyControl) = 0;
+    /** @returns either a normal or zero vector */
+    Vector2 heading() const;
 
-    virtual void setup(Platform &) = 0;
+    bool is_starting_jump() const;
 
-    virtual void update(Real seconds, Platform &) = 0;
+    bool is_ending_jump() const;
+
+    Real camera_rotation_direction() const;
+
+private:
+    static int to_index(KeyControl ky);
+
+    static Real to_direction(bool neg, bool pos);
+
+    std::array<bool, 6> m_dir = std::array<bool, 6>{};
+    bool m_jump_pressed_before = false;
+    bool m_jump_this_frame = false;
 };

@@ -114,7 +114,7 @@ private:
 
 class BlockingFileContentPromising final {
 public:
-    FutureStringPtr promise_file_contents(const char * filename) {
+    FutureStringPtr promise_file_contents(const char * filename) const {
         class Impl final : public Future<std::string> {
         public:
             Impl(const char * filename):
@@ -140,7 +140,7 @@ public:
 
 class SingleFrameFileContentPromising final {
 public:
-    FutureStringPtr promise_file_contents(const char * filename) {
+    FutureStringPtr promise_file_contents(const char * filename) const {
         m_unprocessed.emplace_back(make_shared<FutureStringImpl>(filename));
         return m_unprocessed.back();
     }
@@ -178,7 +178,9 @@ private:
         Optional<std::string> m_contents;
     };
 
-    std::vector<SharedPtr<FutureStringImpl>> m_unprocessed;
+    // NOTE understood to be a hack, however conveying that load a file
+    // does not *mutate* the platform/has side-effects is important
+    mutable std::vector<SharedPtr<FutureStringImpl>> m_unprocessed;
 };
 
 class NativePlatformCallbacks final : public Platform {
@@ -201,7 +203,7 @@ public:
 
     glm::mat4 get_view() const;
 
-    FutureStringPtr promise_file_contents(const char * filename);
+    FutureStringPtr promise_file_contents(const char * filename) const;
 
     void progress_file_promises() { m_file_promiser.progress_file_promises(); }
 
@@ -440,7 +442,7 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
             continue;
         }
         if (const auto * translation = ent.ptr<ModelTranslation>()) {
-            model = glm::translate(identity_matrix<glm::mat4>(), convert_to<glm::vec3>(translation->value));
+            model = glm::translate(model, convert_to<glm::vec3>(translation->value));
         }
         if (const auto * yrotation = ent.ptr<YRotation>()) {
             model = glm::rotate(model, float(yrotation->value), convert_to<glm::vec3>(k_up));
@@ -448,6 +450,7 @@ void NativePlatformCallbacks::render_scene(const Scene & scene) {
         if (const auto * xrotation = ent.ptr<XRotation>()) {
             model = glm::rotate(model, float(xrotation->value), convert_to<glm::vec3>(k_east));
         }
+
         if (const auto * scale = ent.ptr<ModelScale>()) {
             model = glm::scale(model, convert_to<glm::vec3>(scale->value));
         }
@@ -493,7 +496,7 @@ glm::mat4 NativePlatformCallbacks::get_view() const {
 }
 
 FutureStringPtr NativePlatformCallbacks::promise_file_contents
-    (const char * filename)
+    (const char * filename) const
 { return m_file_promiser.promise_file_contents(filename); }
 
 // ----------------------------------------------------------------------------

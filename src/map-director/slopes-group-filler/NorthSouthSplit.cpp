@@ -164,9 +164,9 @@ NorthSouthSplit::NorthSouthSplit
      Real south_west_y,
      Real south_east_y,
      Real division_z):
-    m_div_nw(-0.5, north_west_y.value_or(k_inf), -division_z),
+    m_div_nw(-0.5, north_west_y.value_or(/*k_inf*/south_west_y), -division_z),
     m_div_sw(-0.5, south_west_y, -division_z),
-    m_div_ne( 0.5, north_east_y.value_or(k_inf), -division_z),
+    m_div_ne( 0.5, north_east_y.value_or(/*k_inf*/south_east_y), -division_z),
     m_div_se( 0.5, south_east_y, -division_z)
 {
     if (division_z < -0.5 || division_z > 0.5) {

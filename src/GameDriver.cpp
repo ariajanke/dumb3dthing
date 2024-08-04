@@ -20,12 +20,12 @@
 
 #include "GameDriver.hpp"
 #include "Components.hpp"
-#include "RenderModel.hpp"
 #include "TasksController.hpp"
-#include "Texture.hpp"
 #include "Systems.hpp"
 #include "Configuration.hpp"
 #include "targeting-state.hpp"
+#include "Components.hpp"
+#include "AssetsRetrieval.hpp"
 
 #include "map-director.hpp"
 #include <ariajanke/cul/BezierCurves.hpp>
@@ -117,43 +117,6 @@ namespace {
 
 // ------------------------------ <Messy Space> -------------------------------
 
-template <typename Vec, typename ... Types>
-std::enable_if_t<cul::detail::k_are_vector_types<Vec, Types...>, Entity>
-//  :eyes:
-    make_bezier_strip_model
-    (const Tuple<Vec, Types...> & lhs, const Tuple<Vec, Types...> & rhs,
-     Platform & platform, SharedPtr<Texture> texture, int resolution,
-     Vector2 texture_offset, Real texture_scale)
-{
-    std::vector<TriangleSegment> triangles;
-    std::vector<Vertex> verticies;
-    std::vector<int> elements;
-    int el = 0;
-    // uh oh, I need implementation knowledge here :c
-    // so I'm trying to map texture positions correctly
-    for (auto [a, b, c] : cul::make_bezier_strip(lhs, rhs, resolution).details_view()) {
-        verticies.emplace_back(a.point(), texture_offset + Vector2{1.f*a.on_right(), a.position()}*texture_scale);
-        verticies.emplace_back(b.point(), texture_offset + Vector2{1.f*b.on_right(), b.position()}*texture_scale);
-        verticies.emplace_back(c.point(), texture_offset + Vector2{1.f*c.on_right(), c.position()}*texture_scale);
-
-        triangles.emplace_back(TriangleSegment{a.point(), b.point(), c.point()});
-
-        elements.emplace_back(el++);
-        elements.emplace_back(el++);
-        elements.emplace_back(el++);
-    }
-
-    auto mod = platform.make_render_model();
-    mod->load<int>(verticies, elements);
-
-    auto ent = Entity::make_sceneless_entity();
-    ent.add
-        <SharedPtr<const RenderModel>, SharedPtr<const Texture>, VisibilityChain>
-        () = make_tuple
-        (std::move(mod), texture, VisibilityChain{});
-    return ent;
-}
-
 template <typename T>
 Entity make_bezier_yring_model();
 #if 0 // keep!
@@ -220,17 +183,17 @@ Entity make_sample_loop
 // model entity, physical entity
 Tuple<Entity, Entity>
     make_sample_player
-    (Platform & platform)
+    (AssetsRetrieval & assets_retrieval)
 {
     auto physics_ent = Entity::make_sceneless_entity();
     auto model_ent   = Entity::make_sceneless_entity();
 
-    model_ent.add
-        <SharedPtr<const Texture>, SharedPtr<const RenderModel>, ModelTranslation,
-         TranslationFromParent>
-        () = make_tuple
-        (Texture::make_ground(platform), RenderModel::make_cube(platform), ModelTranslation{},
-         TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}});
+    TupleBuilder{}.
+        add(assets_retrieval.make_ground_texture()).
+        add(assets_retrieval.make_cube_model()).
+        add(ModelTranslation{}).
+        add(TranslationFromParent{EntityRef{physics_ent}, Vector{0, 0.5, 0}}).
+        add_to_entity(model_ent);
 
     physics_ent.add<JumpVelocity, DragCamera, Camera, PlayerControl>();
     physics_ent.add<TargetSeeker>(10., k_pi / 6.);
@@ -259,6 +222,7 @@ void GameDriverComplete::setup(Platform & platform_) {
     m_tasks_controller.assign_point_and_plane_driver(*m_ppdriver);
     initial_load(m_tasks_controller);
     m_tasks_controller.add_entities_to(m_scene);
+    platform_.set_camera_entity(EntityRef{m_player_entities.physical});
 }
 
 void GameDriverComplete::update(Real seconds, Platform & platform) {
@@ -270,46 +234,17 @@ void GameDriverComplete::update(Real seconds, Platform & platform) {
 }
 
 void GameDriverComplete::initial_load(TaskCallbacks & callbacks) {
-    auto [renderable, physical] =
-        make_sample_player(callbacks.platform());
+    auto assets_retrieval = AssetsRetrieval::make_saving_instance(callbacks.platform());
+    auto [renderable, physical] = make_sample_player(*assets_retrieval);
     physical.add<SharedPtr<const TargetsRetrieval>>() = m_targeting_state;
     callbacks.add
         (MapDirector_::begin_initial_map_loading
             (physical, k_testmap_filename, callbacks.platform(), *m_ppdriver));
-    callbacks.platform().set_camera_entity(EntityRef{physical});
     callbacks.add(physical);
     callbacks.add(renderable);
 
     m_player_entities.physical   = physical;
     m_player_entities.renderable = renderable;
-#   if 1
-    // let's... head north... starting 0.5+ ues north
-    auto west = make_tuple(
-        Vector{  3,  3, -20      },
-        Vector{  3,  3,  0.5     },
-        Vector{  3,  3,  0.5 - 19},
-        Vector{2.5, -55,  0.5 - 19},
-        Vector{2.5, -55,  0.5 + 19},
-        Vector{  6,  3,  0.5 + 19},
-        Vector{  6,  3,  0.5     },
-        Vector{  6,  3,  20      });
-
-    auto east = make_tuple(
-        Vector{  6,  3, -20      },
-        Vector{  6,  3,  0.5     },
-        Vector{  6,  3,  0.5 - 19},
-        Vector{8.5, -55,  0.5 - 19},
-        Vector{8.5, -55,  0.5 + 19},
-        Vector{  9,  3,  0.5 + 19},
-        Vector{  9,  3,  0.5     },
-        Vector{  9,  3,  20      });
-
-    auto texture = callbacks.platform().make_texture();
-    texture->load_from_file("ground.png");
-    auto bezent = make_bezier_strip_model(
-        west, east, callbacks.platform(), texture, 64, Vector2{0, 0}, 1. / 3.);
-    callbacks.add(bezent);
-#   endif
 }
 
 void GameDriverComplete::update_(Real seconds) {

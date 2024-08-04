@@ -1,7 +1,7 @@
 /******************************************************************************
 
     GPLv3 License
-    Copyright (c) 2022 Aria Janke
+    Copyright (c) 2024 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,20 +20,23 @@
 
 #pragma once
 
-#include "Definitions.hpp"
-#include "platform.hpp"
+#include "../../Definitions.hpp"
+#include "../MapElementValuesMap.hpp"
 
-class GameDriver {
+class GlobalIdTileLayer final {
 public:
-    static UniquePtr<GameDriver> make_instance();
+    GlobalIdTileLayer(Grid<int> && gids, MapElementProperties && elprops):
+        m_gids(std::move(gids)),
+        m_layer_elements(std::move(elprops)) {}
 
-    virtual ~GameDriver() {}
+    auto size2() const { return m_gids.size2(); }
 
-    virtual void press_key(KeyControl) = 0;
+    int gid_at(const Vector2I &r) const { return m_gids(r); }
 
-    virtual void release_key(KeyControl) = 0;
+    [[nodiscard]] MapElementProperties move_out_layer_properties()
+        { return std::move(m_layer_elements); }
 
-    virtual void setup(Platform &) = 0;
-
-    virtual void update(Real seconds, Platform &) = 0;
+private:
+    Grid<int> m_gids;
+    MapElementProperties m_layer_elements;
 };

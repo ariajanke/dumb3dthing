@@ -251,10 +251,11 @@ MapObjectGroup::Iterator
 
 MapObjectContainer MapObjectGroup::load_child_objects
     (MapObjectContainer && objects,
-     const TiXmlElement & group_element) const
+     const DocumentOwningXmlElement & group_element) const
 {
-    for (auto & obj_el : XmlRange{group_element, k_object_tag}) {
-        objects.emplace_back(MapObject::load_from(obj_el, *this));
+    for (auto & obj_el : XmlRange{*group_element, k_object_tag}) {
+        auto owning_obj_el = group_element.make_with_same_owner(obj_el);
+        objects.emplace_back(MapObject::load_from(owning_obj_el, *this));
     }
     return std::move(objects);
 }
