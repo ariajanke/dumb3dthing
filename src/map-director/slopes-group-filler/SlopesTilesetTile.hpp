@@ -143,6 +143,16 @@ public:
 
 class SlopesTilesetTile {
 public:
+#   if 0
+    class MakeCallbacks {
+    public:
+        virtual ~MakeCallbacks() {}
+
+        virtual void add_collidable(const TriangleSegment &) const = 0;
+
+        virtual void add_entity(Entity &&) const = 0;
+    };
+#   endif
     virtual void load
         (const MapTilesetTile &,
          const TilesetTileTexture &,

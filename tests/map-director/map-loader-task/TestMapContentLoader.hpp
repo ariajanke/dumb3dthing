@@ -55,6 +55,10 @@ public:
         m_grid_size = grid_size;
     }
 
+    void set_layer_properties
+        (const SharedPtr<const MapElementProperties> &) final
+        {}
+
     ProducableTile & add_member(const TileLocation & loc) {
         assert(m_test_tiles.capacity() > m_test_tiles.size());
         m_test_tiles.emplace_back(loc.on_map, loc.on_tileset);

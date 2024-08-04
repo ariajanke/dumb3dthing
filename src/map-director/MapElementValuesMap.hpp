@@ -21,7 +21,6 @@
 #pragma once
 
 #include "../Definitions.hpp"
-#include "ParseHelpers.hpp"
 #include "DocumentOwningXmlElement.hpp"
 
 #include <ariajanke/cul/HashMap.hpp>
@@ -32,8 +31,59 @@
 
 class MapElementProperties;
 
-// danger: does not own source element (don't care)
-// NOTE do not use directly (how can I protect myself against this mistake?)
+// "object" is already defined by TilEd maps, so another generic term is needed
+class MapItemPropertiesRetrieval {
+public:
+    enum class FieldType { attribute, property, ignored };
+
+    template <typename T>
+    using EnableOptionalNumeric =
+        std::enable_if_t<std::is_arithmetic_v<T>, Optional<T>>;
+
+    template <typename T>
+    EnableOptionalNumeric<T>
+        get_numeric(FieldType type, const char * name) const;
+
+    template <typename T>
+    EnableOptionalNumeric<T>
+        get_numeric_attribute(const char * name) const
+        { return get_numeric<T>(FieldType::attribute, name); }
+
+    template <typename T>
+    EnableOptionalNumeric<T>
+        get_numeric_property(const char * name) const
+        { return get_numeric<T>(FieldType::property, name); }
+
+
+    /// @returns possibly nullptr
+    virtual const char * get_string(FieldType, const char * name) const = 0;
+
+    /// @returns possibly nullptr
+    const char * get_string_attribute(const char * name) const;
+
+    /// @returns possibly nullptr
+    const char * get_string_property(const char * name) const;
+
+    virtual Optional<Vector> get_vector_property(const char * name) const = 0;
+
+protected:
+    virtual Optional<int> get_integer(FieldType, const char * name) const = 0;
+
+    virtual Optional<Real> get_real_number(FieldType, const char * name) const = 0;
+};
+
+template <typename T>
+MapItemPropertiesRetrieval::EnableOptionalNumeric<T>
+    MapItemPropertiesRetrieval::get_numeric
+    (FieldType type, const char * name) const
+{
+    if constexpr (std::is_floating_point_v<T>) {
+        return Optional<T>{get_real_number(type, name)};
+    } else {
+        return Optional<T>{get_integer(type, name)};
+    }
+}
+
 class MapElementValuesMap final {
 public:
     enum class FieldType { attribute, property, ignored };
@@ -55,8 +105,6 @@ public:
         bool operator () (const char *, const char *) const;
     };
 
-    // danger: does not own source element
-    // does not store the address of the given element
     void load(const DocumentOwningXmlElement &);
 
     template <typename T>
@@ -154,6 +202,8 @@ private:
 
 class MapElementProperties final : public MapElementValuesAggregable {
 public:
+    MapElementProperties() {}
+
     void load(const DocumentOwningXmlElement & el) {
         MapElementValuesMap values_map;
         values_map.load(el);

@@ -32,6 +32,42 @@ namespace {
 
 using FlatVertexArray = QuadBasedTilesetTile::FlatVertexArray;
 Optional<CardinalDirection> cardinal_direction_from(const char * nullable_str);
+#if 0
+class ProducableTileProperties final : public MapItemPropertiesRetrieval {
+public:
+    ProducableTileProperties(ProducableTileCallbacks & callbacks):
+        m_callbacks(callbacks),
+        m_y_rotation(callbacks.next_random()) {}
+
+    const char * get_string(FieldType, const char *) const final
+        { return nullptr; }
+
+    Optional<Vector> get_vector_property(const char * name) const final {
+        if (::strcmp(name, "scale")) {
+            return m_callbacks.model_scale().value;
+        } else if (::strcmp(name, "translation")) {
+            return m_callbacks.model_translation().value;
+        }
+        return {};
+    }
+
+private:
+    Optional<int> get_integer(FieldType, const char * name) const final
+        { return {}; }
+
+    Optional<Real> get_real_number
+        (FieldType type, const char * name) const final
+    {
+        if (type == FieldType::property && ::strcmp(name, "y-rotation")) {
+            return m_y_rotation;
+        }
+        return {};
+    }
+
+    const ProducableTileCallbacks & m_callbacks;
+    Real m_y_rotation;
+};
+#endif
 
 } // end of <anonymous> namespace
 
@@ -74,11 +110,11 @@ const TileCornerElevations & QuadBasedTilesetTile::corner_elevations() const
 void QuadBasedTilesetTile::make
     (ProducableTileCallbacks & callbacks) const
 {
-    callbacks.
-        add_entity().
+    callbacks.add_entity().
         add(SharedPtr<const Texture>{m_texture_ptr}).
         add(SharedPtr<const RenderModel>{m_render_model}).
         finish();
+
     callbacks.add_collidable(TriangleSegment
         {m_vertices[m_elements[0]].position,
          m_vertices[m_elements[1]].position,

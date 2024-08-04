@@ -62,7 +62,7 @@ describe("TileMapIdToSetMapping")([] {
     std::vector tsids = { StartGidWithTileset{1, a}, StartGidWithTileset{2, b} };
     TileMapIdToSetMapping mapping{std::move(tsids)};
     Grid<int> g{ { 1, 2 }, { 1, 0 } };
-    auto view = mapping.make_mapping_for_layer(g);
+    auto view = mapping.make_mapping_from_layer(GlobalIdTileLayer{std::move(g), MapElementProperties{}});
     std::vector<Info> infos;
     for (const TilesetLayerWrapper & layer : view) {
         Info info;

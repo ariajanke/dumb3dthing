@@ -87,6 +87,13 @@ class ProducableTileCallbacks {
 public:
     using StartingTupleBuilder = EntityTupleBuilder<ModelScale, ModelTranslation>;
 
+    class EmptyEntityCreator {
+    protected:
+        virtual ~EmptyEntityCreator() {}
+
+        virtual void operator () (Entity) const = 0;
+    };
+
     virtual ~ProducableTileCallbacks() {}
 
     void add_collidable(const TriangleSegment & triangle)
@@ -96,7 +103,8 @@ public:
                         const Vector & triangle_point_b,
                         const Vector & triangle_point_c);
 
-    virtual StartingTupleBuilder add_entity() = 0;
+    StartingTupleBuilder add_entity()
+        { return add_default_entity(make_entity()); }
 
     /// RNG is tile location dependant (no producable should need to know
     /// where exactly it is on the field)
@@ -107,15 +115,14 @@ public:
 
     virtual SharedPtr<RenderModel> make_render_model() = 0;
 
-protected:
-    virtual void add_collidable_(const TriangleSegment &) = 0;
-
-#   if 0
-    virtual Entity add_entity_() = 0;
-#   endif
     virtual ModelScale model_scale() const = 0;
 
     virtual ModelTranslation model_translation() const = 0;
+
+    virtual Entity make_entity() = 0;
+
+protected:
+    virtual void add_collidable_(const TriangleSegment &) = 0;
 
     StartingTupleBuilder add_default_entity(Entity && ent) const {
         return StartingTupleBuilder

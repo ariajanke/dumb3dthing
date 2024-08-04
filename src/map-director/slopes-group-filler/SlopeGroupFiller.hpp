@@ -36,14 +36,14 @@ public:
          const SharedPtr<const MapElementProperties> & props_ptr):
         m_wrapped(callbacks),
         m_layer_properties(props_ptr) {}
-
+#   if 0
     StartingTupleBuilder add_entity() final {
         auto temp = m_wrapped.add_entity();
         auto & trans = temp.get<ModelTranslation>();
         trans.value += offset();
         return std::move(temp);
     }
-
+#   endif
     Real next_random() final { return m_wrapped.next_random(); }
 
     AssetsRetrieval & assets_retrieval() const final
@@ -52,20 +52,24 @@ public:
     SharedPtr<RenderModel> make_render_model() final
         { return m_wrapped.make_render_model(); }
 
+    ModelScale model_scale() const final
+        { return m_wrapped.model_scale(); }
+
+    ModelTranslation model_translation() const final
+        { return ModelTranslation{m_wrapped.model_translation().value + offset()}; }
+
+    Entity make_entity() final
+        { return m_wrapped.make_entity(); }
+
 private:
     void add_collidable_(const TriangleSegment & triangle) final {
         m_wrapped.add_collidable(triangle.move(offset()));
     }
 
-    ModelScale model_scale() const final
-        { throw RuntimeError{"WrappedCallbacksForSlopeTiles: model_scale must not be called"}; }
+    Vector offset() const;
 
-    ModelTranslation model_translation() const final
-        { throw RuntimeError{"WrappedCallbacksForSlopeTiles: model_translation must not be called"}; }
-
-    Vector offset();
-
-    Optional<Vector> m_memoized_offset;
+    // :/
+    mutable Optional<Vector> m_memoized_offset;
     ProducableTileCallbacks & m_wrapped;
     SharedPtr<const MapElementProperties> m_layer_properties;
 };

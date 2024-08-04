@@ -201,7 +201,7 @@ constexpr const auto k_layer_framing =
 
 } // end of <anonymous> namespace
 
-/* private */ Vector WrappedCallbacksForSlopeTiles::offset() {
+/* private */ Vector WrappedCallbacksForSlopeTiles::offset() const {
     if (m_memoized_offset)
         { return *m_memoized_offset; }
     m_memoized_offset = k_layer_framing(*m_layer_properties).

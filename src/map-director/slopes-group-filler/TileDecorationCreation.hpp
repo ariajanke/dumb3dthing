@@ -24,24 +24,18 @@
 
 class TileDecorationCreation final {
 public:
-    static Entity create_tile_decoration_with(ProducableTileCallbacks &);
+    static void create_tile_decoration_with(ProducableTileCallbacks &);
 
     TileDecorationCreation(ProducableTileCallbacks &);
 
-    Entity created_tile_decoration();
+    void created_tile_decoration();
 
 private:
-    Entity make_grass();
+    void make_grass();
 
-    Entity make_tree();
-
-    Real random_position() const;
+    void make_tree();
 
     Real random_roll() const;
 
-    Entity adjust_translation(Entity &&);
-
     ProducableTileCallbacks & m_callbacks;
-    AssetsRetrieval & m_assets_retrieval;
-    Optional<Vector> m_random_pt_in_tile;
 };

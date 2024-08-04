@@ -26,6 +26,7 @@
 
 #include "../PlayerUpdateTask.hpp"
 #include "../point-and-plane.hpp"
+#include "MapObjectSpawner.hpp"
 
 namespace {
 
@@ -218,10 +219,25 @@ void add_vaguely_tree
     Vector location;
     (void)framing.
         get_position_from(map_obj).
+        map([&] (Vector && r) {
+            MapObjectSpawner::spawn_tree
+                (map_obj,
+                 MapObjectSpawner::EntityCreator::make([&] {
+                    auto e = Entity::make_sceneless_entity();
+                    callbacks.add(e);
+                    return e;
+                 }),
+                 assets_retrieval);
+            location = r;
+            return std::monostate{};
+        });
+    (void)framing.
+        get_position_from(map_obj).
         map([&location] (Vector && r) {
             location = r;
             return std::monostate{};
         });
+
 
     // TODO DRY me
     auto model = assets_retrieval.make_vaguely_tree_like_model();

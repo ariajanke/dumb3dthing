@@ -63,13 +63,21 @@ public:
         if (are_very_close(0.5, res)) return 0.5;
         return res;
     }
-
+#   if 0
     StartingTupleBuilder add_entity() final {
         auto e = Entity::make_sceneless_entity();
         // NOTE: region load job adds the entity to the scene
         assert(e);
         m_entities.push_back(e);
         return add_default_entity(std::move(e));
+    }
+#   endif
+    Entity make_entity() final {
+        auto e = Entity::make_sceneless_entity();
+        // NOTE: region load job adds the entity to the scene
+        assert(e);
+        m_entities.push_back(e);
+        return e;
     }
 
 private:

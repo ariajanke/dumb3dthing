@@ -72,8 +72,7 @@ public:
 
     const TileCornerElevations & corner_elevations() const final;
 
-    void make
-        (ProducableTileCallbacks & callbacks) const;
+    void make(ProducableTileCallbacks & callbacks) const;
 
     void make
         (const NeighborCornerElevations &,

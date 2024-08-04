@@ -176,7 +176,7 @@ describe("WallTilesetTile#load")([] {
         MapTileset mt;
         MapTilesetTile mtt;
         auto optional_contents = DocumentOwningXmlElement::load_from_contents(tile_xml);
-        mtt.load(**optional_contents);
+        mtt.load(*optional_contents);
         TilesetTileTexture ttt;
         wtt.load(mtt, ttt, assets_strat);
     };
