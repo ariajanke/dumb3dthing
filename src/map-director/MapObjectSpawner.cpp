@@ -32,10 +32,15 @@ ModelScale mk_scale(const MapItemPropertiesRetrieval & props) {
         value_or(Vector{1, 1, 1})};
 }
 
-ModelTranslation mk_translation(const MapItemPropertiesRetrieval & props) {
-    return ModelTranslation{props.
-        get_vector_property("translation").
-        value_or(Vector{})};
+ModelTranslation mk_translation
+    (const MapItemPropertiesRetrieval & props, const MapObjectFraming & framing)
+{
+    return ModelTranslation{framing.
+        get_position_from(props).
+        fold<Vector>().
+        map([](Vector && r) { return r; }).
+        map_left([](MapObjectFraming::LoadFailed &&) { return Vector{}; }).
+        value()};
 }
 
 Real get_rotation(const MapItemPropertiesRetrieval & props) {
@@ -49,7 +54,8 @@ Real get_rotation(const MapItemPropertiesRetrieval & props) {
 /* static */ void MapObjectSpawner::spawn_tree
     (const MapItemPropertiesRetrieval & props,
      const EntityCreator & create_entity,
-     AssetsRetrieval & assets_retrieval)
+     AssetsRetrieval & assets_retrieval,
+     const MapObjectFraming & framing)
 {
     auto make_ent = [&create_entity] {
         return create_entity();
@@ -63,8 +69,8 @@ Real get_rotation(const MapItemPropertiesRetrieval & props) {
 
     auto trunk = make_ent();
     TupleBuilder{}.
-        add(YRotation{}).
-        add(mk_translation(props)).
+        add(YRotation{base_rot}).
+        add(mk_translation(props, framing)).
         add(mk_scale(props)).
         add(assets_retrieval.make_vaguely_tree_like_model()).
         add(mk_tx()).
@@ -74,7 +80,7 @@ Real get_rotation(const MapItemPropertiesRetrieval & props) {
         TupleBuilder{}.
             add(mk_leaves()).
             add(mk_tx()).
-            add(mk_translation(props)).
+            add(mk_translation(props, framing)).
             add(mk_scale(props)).
             add(YRotation{rot + base_rot}).
             add_to_entity(ent);
@@ -84,14 +90,15 @@ Real get_rotation(const MapItemPropertiesRetrieval & props) {
 /* static */ void MapObjectSpawner::spawn_grass
     (const MapItemPropertiesRetrieval & props,
      const EntityCreator & entity_adder,
-     AssetsRetrieval & assets_retrieval)
+     AssetsRetrieval & assets_retrieval,
+     const MapObjectFraming & framing)
 {
     auto ent = entity_adder();
     TupleBuilder{}.
         add(assets_retrieval.make_grass_model()).
         add(assets_retrieval.make_ground_texture()).
         add(YRotation{get_rotation(props)}).
-        add(mk_translation(props)).
+        add(mk_translation(props, framing)).
         add(mk_scale(props)).
         add_to_entity(ent);
 }

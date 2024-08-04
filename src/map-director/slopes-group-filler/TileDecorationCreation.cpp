@@ -45,9 +45,7 @@ public:
 
     Optional<Vector> get_vector_property(const char * name) const final {
         if (::strcmp(name, "scale") == 0) {
-            return Vector{1, 1, 1}; //return m_callbacks.model_scale().value;
-        } else if (::strcmp(name, "translation") == 0) {
-            return m_callbacks.model_translation().value + m_random_pt_in_tile;
+            return Vector{1, 1, 1};
         }
         return {};
     }
@@ -59,10 +57,28 @@ private:
     Optional<Real> get_real_number
         (FieldType type, const char * name) const final
     {
-        if (type == FieldType::property && ::strcmp(name, "y-rotation") == 0) {
-            return m_y_rotation;
+        switch (type) {
+        case FieldType::property:
+            if (::strcmp(name, "y-rotation") == 0) {
+                return m_y_rotation;
+            } else if (::strcmp(name, "elevation") == 0) {
+                return translation().y;
+            }
+            break;
+        case FieldType::attribute:
+            if (::strcmp(name, "x") == 0) {
+                return translation().x;
+            } else if (::strcmp(name, "y") == 0) {
+                return -translation().z;
+            }
+            break;
+        default: break;
         }
         return {};
+    }
+
+    Vector translation() const {
+        return m_callbacks.model_translation().value + m_random_pt_in_tile;
     }
 
     const ProducableTileCallbacks & m_callbacks;

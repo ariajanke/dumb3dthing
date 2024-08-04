@@ -64,7 +64,7 @@ public:
 
     Either<LoadFailed, Vector> operator ()
         (Either<LoadFailed, Vector> &&,
-         const MapElementValuesAggregable & object) const;
+         const MapItemPropertiesRetrieval & object) const;
 
 private:
     FieldType m_field_type;
@@ -91,7 +91,7 @@ public:
         m_z_framing(z_framing) {}
 
     Either<LoadFailed, Vector> operator ()
-        (const MapElementValuesAggregable & object) const;
+        (const MapItemPropertiesRetrieval & object) const;
 
 private:
     MemberFraming<&Vector::x> m_x_framing;
@@ -142,7 +142,7 @@ public:
         m_map_pixel_scale(scale) {}
 
     Either<LoadFailed, Vector> get_position_from
-        (const MapObject & object,
+        (const MapItemPropertiesRetrieval & object,
          const MapObjectVectorFraming & framing = k_point_object_framing) const;
 
 private:
@@ -225,7 +225,8 @@ private:
 template <Real Vector::* kt_member_pointer>
 Either<MapObjectFramingLoadFailure, Vector>
     MapObjectVectorMemberFraming<kt_member_pointer>::operator ()
-    (Either<LoadFailed, Vector> && ei, const MapElementValuesAggregable & object) const
+    (Either<LoadFailed, Vector> && ei,
+     const MapItemPropertiesRetrieval & object) const
 {
     return ei.chain([&object, this] (Vector && r) -> Either<LoadFailed, Vector> {
         if (auto num = object.get_numeric<Real>(m_field_type, m_name)) {

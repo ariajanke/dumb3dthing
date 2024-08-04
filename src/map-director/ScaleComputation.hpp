@@ -35,7 +35,7 @@ public:
 
     static ScaleComputation pixel_scale_from_map(const TiXmlElement & map_root);
 
-    ScaleComputation() {}
+    ScaleComputation(): m_factor(1, 1, 1) {}
 
     ScaleComputation(Real eastwest_factor,
                      Real updown_factor,

@@ -20,6 +20,7 @@
 
 #include "ProducableGrid.hpp"
 #include "MapElementValuesMap.hpp"
+#include "MapObject.hpp"
 
 class MapObjectSpawner final {
 public:
@@ -47,10 +48,12 @@ public:
     static void spawn_tree
         (const MapItemPropertiesRetrieval &,
          const EntityCreator &,
-         AssetsRetrieval &);
+         AssetsRetrieval &,
+         const MapObjectFraming & = MapObjectFraming{});
 
     static void spawn_grass
         (const MapItemPropertiesRetrieval &,
          const EntityCreator &,
-         AssetsRetrieval &);
+         AssetsRetrieval &,
+         const MapObjectFraming & = MapObjectFraming{});
 };

@@ -170,43 +170,15 @@ void add_grass
      MapDirectorTask::Callbacks & callbacks,
      AssetsRetrieval & assets_retrieval)
 {
-
-    Vector location;
-    Optional<Vector> to_boundry_br;
-    (void)framing.
-        get_position_from(map_obj, MapObjectFraming::k_rectangle_size_framing).
-        map([&to_boundry_br] (Vector && r) {
-            to_boundry_br = r;
-            return std::monostate{};
-        });
-    (void)framing.
-        get_position_from(map_obj).
-        map([&location] (Vector && r) {
-            location = r;
-            return std::monostate{};
-        });
-
-    auto model = assets_retrieval.make_grass_model();
-    auto tx = assets_retrieval.make_ground_texture();
-
-    if (to_boundry_br) {
-        auto grass_per_sq_u = map_obj.get_numeric_property<Real>("per-sq-u");
-        auto area = magnitude( to_boundry_br->x * to_boundry_br->z );
-        int count_to_spawn = std::round(std::max(grass_per_sq_u.value_or(0.5)*area, 1.));
-        for (int i = 0; i != count_to_spawn; ++i) {
-            ;
-        }
-        // scale??
-    } else {
-        auto ent = Entity::make_sceneless_entity();
-        TupleBuilder{}.
-            add(ModelTranslation{location}).
-            add(std::move(model)).
-            add(std::move(tx)).
-            add_to_entity(ent);
-        callbacks.add(ent);
-    }
-
+    MapObjectSpawner::spawn_grass
+        (map_obj,
+         MapObjectSpawner::EntityCreator::make([&] {
+            auto e = Entity::make_sceneless_entity();
+            callbacks.add(e);
+            return e;
+         }),
+         assets_retrieval,
+         framing);
 }
 
 void add_vaguely_tree
@@ -215,53 +187,15 @@ void add_vaguely_tree
      MapDirectorTask::Callbacks & callbacks,
      AssetsRetrieval & assets_retrieval)
 {
-    auto ent = Entity::make_sceneless_entity();
-    Vector location;
-    (void)framing.
-        get_position_from(map_obj).
-        map([&] (Vector && r) {
-            MapObjectSpawner::spawn_tree
-                (map_obj,
-                 MapObjectSpawner::EntityCreator::make([&] {
-                    auto e = Entity::make_sceneless_entity();
-                    callbacks.add(e);
-                    return e;
-                 }),
-                 assets_retrieval);
-            location = r;
-            return std::monostate{};
-        });
-    (void)framing.
-        get_position_from(map_obj).
-        map([&location] (Vector && r) {
-            location = r;
-            return std::monostate{};
-        });
-
-
-    // TODO DRY me
-    auto model = assets_retrieval.make_vaguely_tree_like_model();
-    auto tx = assets_retrieval.make_ground_texture();
-
-    TupleBuilder{}.
-        add(ModelTranslation{location}).
-        add(SharedPtr<const RenderModel>{model}).
-        add(SharedPtr<const Texture>{tx}).
-        add_to_entity(ent);
-    callbacks.add(ent);
-
-    auto leaves = assets_retrieval.make_vaguely_palm_leaves();
-
-    for (auto rot : { 0., k_pi*(2. / 3.), k_pi*(4. / 3.) }) {
-        ent = Entity::make_sceneless_entity();
-        TupleBuilder{}.
-            add(ModelTranslation{location}).
-            add(SharedPtr<const RenderModel>{leaves}).
-            add(SharedPtr<const Texture>{tx}).
-            add(YRotation{rot}).
-            add_to_entity(ent);
-        callbacks.add(ent);
-    }
+    MapObjectSpawner::spawn_tree
+        (map_obj,
+         MapObjectSpawner::EntityCreator::make([&] {
+            auto e = Entity::make_sceneless_entity();
+            callbacks.add(e);
+            return e;
+         }),
+         assets_retrieval,
+         framing);
 }
 
 Continuation & PlayerMapPreperationTask::in_background
@@ -291,12 +225,11 @@ Continuation & PlayerMapPreperationTask::in_background
     auto & location = std::get<PpInAir>(m_player_physics.add<PpState>()).location;
     const auto & object_framing = res.object_framing;
     if (player_object) {
-        (void)object_framing.
+        location = object_framing.
             get_position_from(*player_object).
-            map([&location] (Vector && r) {
-                location = r;
-                return std::monostate{};
-            });
+            fold<Vector>().map([] (Vector && r) { return r; }).
+            map_left([] (MapObjectFraming::LoadFailed &&) { return Vector{}; }).
+            value();
     }
     TupleBuilder{}.
         add(Velocity{}).

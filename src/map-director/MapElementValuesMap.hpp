@@ -54,7 +54,6 @@ public:
         get_numeric_property(const char * name) const
         { return get_numeric<T>(FieldType::property, name); }
 
-
     /// @returns possibly nullptr
     virtual const char * get_string(FieldType, const char * name) const = 0;
 
@@ -86,7 +85,8 @@ MapItemPropertiesRetrieval::EnableOptionalNumeric<T>
 
 class MapElementValuesMap final {
 public:
-    enum class FieldType { attribute, property, ignored };
+    // enum class FieldType { attribute, property, ignored };
+    using FieldType = MapItemPropertiesRetrieval::FieldType;
 
     static constexpr const auto k_properties_tag = "properties";
     static constexpr const auto k_property_tag = "property";
@@ -154,7 +154,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class MapElementValuesAggregable {
+class MapElementValuesAggregable : public MapItemPropertiesRetrieval {
 public:
     using FieldType = MapElementValuesMap::FieldType;
 
@@ -176,7 +176,7 @@ public:
         get_numeric_property(const char * name) const
         { return get_numeric<T>(FieldType::property, name); }
 
-    const char * get_string(FieldType field_type, const char * name) const
+    const char * get_string(FieldType field_type, const char * name) const final
         { return m_values_map.get_string(field_type, name); }
 
     const char * get_string_attribute(const char * name) const
@@ -184,6 +184,28 @@ public:
 
     const char * get_string_property(const char * name) const
         { return m_values_map.get_string_property(name); }
+
+    Optional<Vector> get_vector_property(const char * name) const final {
+        auto str = get_string(FieldType::property, name);
+        if (!str) { return {}; }
+        auto end = str + ::strlen(str);
+        Vector out;
+        std::array buf { &out.x, &out.y, &out.z };
+        auto itr = buf.begin();
+        for (auto subrng : split_range(str, end, is_comma)) {
+            if (itr == buf.end())
+                { return {}; }
+            if (!cul::string_to_number(subrng.begin(), subrng.end(), **itr))
+                { return {}; }
+            ++itr;
+        }
+        if (buf.begin() + 1 == itr) {
+            out.z = out.y = out.x;
+        } else if (buf.begin() + 2 == itr) {
+            return {};
+        }
+        return out;
+    }
 
 protected:
     MapElementValuesAggregable() {}
@@ -195,6 +217,14 @@ protected:
         { m_values_map = std::move(values_map); }
 
 private:
+    Optional<int> get_integer(FieldType type, const char * name) const final {
+        return m_values_map.get_numeric<int>(type, name);
+    }
+
+    Optional<Real> get_real_number(FieldType type, const char * name) const final {
+        return m_values_map.get_numeric<Real>(type, name);
+    }
+
     MapElementValuesMap m_values_map;
 };
 

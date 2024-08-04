@@ -32,7 +32,7 @@ using MapObjectContainer = MapObjectGroup::MapObjectContainer;
 
 Either<MapObjectVectorFraming::LoadFailed, Vector>
     MapObjectVectorFraming::operator ()
-    (const MapElementValuesAggregable & as_aggregable) const
+    (const MapItemPropertiesRetrieval & as_aggregable) const
 {
     return m_z_framing(m_y_framing(m_x_framing(Vector{}, as_aggregable), as_aggregable), as_aggregable);
 }
@@ -45,12 +45,10 @@ Either<MapObjectVectorFraming::LoadFailed, Vector>
 
 Either<MapObjectFraming::LoadFailed, Vector>
     MapObjectFraming::get_position_from
-    (const MapObject & object,
+    (const MapItemPropertiesRetrieval & object,
      const MapObjectVectorFraming & framing) const
 {
-    const auto & as_aggregable =
-        static_cast<const MapElementValuesAggregable &>(object);
-    return framing(as_aggregable).map([this] (Vector && r) {
+    return framing(object).map([this] (Vector && r) {
         return m_map_pixel_scale.of(r);
     });
 }
